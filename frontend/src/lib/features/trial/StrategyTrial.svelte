@@ -203,7 +203,7 @@
           <div class="controls-caption"><span class="eyebrow">Introduce some friction</span><p>1 bp = 0.01%. Costs apply per fill.</p></div>
           <div class="cost-field"><label for="trial-commission">Commission <span>bps</span></label><input id="trial-commission" type="number" min="0" max="50" step="any" required bind:value={commission} aria-describedby="trial-cost-help" /></div>
           <div class="cost-field"><label for="trial-slippage">Slippage <span>bps</span></label><input id="trial-slippage" type="number" min="0" max="50" step="any" required bind:value={slippage} aria-describedby="trial-cost-help" /></div>
-          <button class="examine-button" type="submit" disabled={!costsValid || running}><span>{running ? 'Examining…' : 'Cross-examine'}</span><span aria-hidden="true">{running ? '…' : '→'}</span></button>
+          <button class="examine-button ot-workbench-primary" type="submit" disabled={!costsValid || running}><span>{running ? 'Examining…' : 'Cross-examine'}</span><span aria-hidden="true">{running ? '…' : '→'}</span></button>
           <p id="trial-cost-help" class="cost-help">0–50 bps each. Changes run only when you cross-examine.{#if !costsValid} <strong>Enter a finite value within this range for both costs.</strong>{/if}</p>
         </form>
       {/if}
@@ -281,7 +281,6 @@
   .trial-shell.embedded { min-height: 100%; }
   .scope { max-width: 65ch; color: var(--trial-muted); font-size: 0.8rem; line-height: 1.7; margin: 0; }
   .trial-shell :global(*) { box-sizing: border-box; }
-  .trial-shell :global(button), .trial-shell :global(input) { font: inherit; }
   .trial-shell :global(button) { cursor: pointer; }
   .trial-shell :global(button:disabled) { cursor: not-allowed; opacity: 0.55; }
   .trial-shell :global(a:focus-visible), .trial-shell :global(button:focus-visible), .trial-shell :global(input:focus-visible), .trial-shell :global(summary:focus-visible) { outline: 2px solid var(--warm); outline-offset: 5px; }
@@ -326,7 +325,7 @@
   .cost-field label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--trial-muted); margin-bottom: 0.4rem; }
   .cost-field label span { font: 0.65rem var(--font-mono); color: var(--trial-muted); }
   input { width: 100%; background: oklch(var(--background)); border: 1px solid oklch(var(--input)); border-radius: 2px; padding: 0.7rem; color: var(--paper); min-height: 44px; font-variant-numeric: tabular-nums; }
-  .examine-button { display: flex; align-items: center; justify-content: space-between; background: oklch(var(--primary)); color: oklch(var(--primary-foreground)); border: 1px solid oklch(var(--primary)); border-radius: 2px; min-height: 46px; padding: 0.75rem 1rem; align-self: end; font-weight: 700 !important; }
+  .examine-button { display: flex; align-items: center; justify-content: space-between; height: auto; min-height: 46px; padding: 0.75rem 1rem; align-self: end; }
   .examine-button:hover:not(:disabled) { background: color-mix(in oklab, oklch(var(--primary)) 85%, oklch(var(--foreground))); }
   .cost-help { grid-column: 1/-1; font-size: 0.7rem; margin: 0; color: var(--trial-muted); }
   .cost-help strong { color: oklch(var(--destructive)); font-weight: normal; }
