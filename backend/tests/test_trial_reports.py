@@ -33,6 +33,16 @@ from backend.trial.scenario import (
 from backend.trial.strategies import CADENCE_GRID, LOOKBACK_GRID
 
 
+def test_catalog_labels_explain_strategies_and_preserve_shared_ids() -> None:
+    assert {
+        strategy.id: strategy.name for strategy in reports.catalog().strategies
+    } == {
+        "backtest-billionaire": "Momentum · training-selected lookback",
+        "overcaffeinated-trader": "Frequent trading · two-bar holding period",
+        "boring-benchmark": "Buy and hold",
+    }
+
+
 @pytest.mark.parametrize("holding_bars", CADENCE_GRID)
 def test_frequent_trader_holds_the_advertised_number_of_bars(
     holding_bars: int,

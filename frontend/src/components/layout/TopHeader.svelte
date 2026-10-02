@@ -86,7 +86,7 @@
 
   <Dialog.Trigger>
     {#snippet child({ props })}
-      <button {...props} class="ot-workbench-ghost" title="Explore costs, holdout results and benchmarks with three educational strategies">Strategy on Trial</button>
+      <button {...props} class="ot-workbench-ghost" title="Compare costs, holdout results and benchmarks on built-in example strategies">Robustness</button>
     {/snippet}
   </Dialog.Trigger>
 

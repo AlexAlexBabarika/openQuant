@@ -1,8 +1,13 @@
-# Strategy on Trial backend
+# Robustness examples backend
 
-This is a deterministic educational exhibit. It accepts only three curated
+This is a deterministic educational robustness demo. It accepts only three curated
 strategy IDs and two costs in `[0, 50]` basis points. It does not evaluate user
 code, load market history, call providers, or write to a database.
+
+The workbench labels the examples by their behavior: training-selected momentum,
+two-bar frequent trading, and buy-and-hold. Existing strategy IDs and `/trial`
+URLs remain compatible with earlier configuration links. Report-policy version
+3 uses plain analytical strategy labels and finding titles; calculations are unchanged.
 
 ## Constructed scenario
 

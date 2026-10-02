@@ -146,7 +146,7 @@ export function generateTrialReportHtml(report: TrialReport): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>${escapeHtml(report.strategy.name)} — Strategy on Trial snapshot</title>
+<title>${escapeHtml(report.strategy.name)} — OpenQuant robustness snapshot</title>
 <style>
   *{box-sizing:border-box}body{margin:0;background:#f4f1e9;color:#17212c;font:16px/1.6 system-ui,sans-serif}
   main{max-width:1060px;margin:2rem auto;padding:2rem;background:white;border:1px solid #d5d9dd;border-radius:12px}
@@ -159,7 +159,7 @@ export function generateTrialReportHtml(report: TrialReport): string {
   @media(max-width:650px){main{padding:1rem;margin:0;border-radius:0}dl{display:block}th,td{padding:.4rem;font-size:.85rem}}
   @media print{body{background:white;font-size:10pt}main{max-width:none;margin:0;padding:0;border:0}.table-wrap{overflow:visible}figure,article,tr{break-inside:avoid}h2,h3{break-after:avoid}.notice{border:1px solid #a33b09}}
 </style></head><body><main>
-<header><p class="eyebrow">OpenQuant · Strategy on Trial</p><h1>${escapeHtml(report.strategy.name)}</h1><p>The receipts, minus the victory lap.</p>
+<header><p class="eyebrow">OpenQuant · Robustness checks</p><h1>${escapeHtml(report.strategy.name)}</h1><p>Execution costs, benchmark comparison and out-of-sample results.</p>
 <p>${escapeHtml(report.strategy.description)}</p><p><strong>Lesson:</strong> ${escapeHtml(report.strategy.lesson)}</p></header>
 <aside class="notice"><strong>Synthetic educational OHLCV scenario — not real market history.</strong>
 <p>This developer-designed synthetic scenario is educational, not independent evidence of market alpha. Measured results are not certification or a promise of future performance.</p>

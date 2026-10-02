@@ -51,26 +51,26 @@ from backend.trial.strategies import (
 )
 
 STARTING_CASH = 10_000.0
-REPORT_VERSION = "2"
+REPORT_VERSION = "3"
 CACHE_SIZE = 32
 _REPORT_LOCK = Lock()
 STRATEGIES = (
     TrialStrategy(
         id="backtest-billionaire",
-        name="Backtest Billionaire",
+        name="Momentum · training-selected lookback",
         description="A momentum lookback picked for its best training return.",
-        lesson="A parameter that wins an audition may struggle in a new regime.",
+        lesson="Compare a training-selected momentum parameter with its holdout performance.",
     ),
     TrialStrategy(
         id="overcaffeinated-trader",
-        name="Overcaffeinated Trader",
-        description="Buy, hold two bars, sell, repeat. The broker stays busy.",
+        name="Frequent trading · two-bar holding period",
+        description="Buy, hold two bars, sell, then repeat with the same fixed cadence.",
         lesson="Frequent trading gives small execution costs many chances to add up.",
     ),
     TrialStrategy(
         id="boring-benchmark",
-        name="Boring Benchmark",
-        description="Buy once on the next open and hold. No parameter audition.",
+        name="Buy and hold",
+        description="Buy once on the next open and hold. No parameter selection.",
         lesson="A simple reference belongs beside every more elaborate strategy.",
     ),
 )
@@ -223,13 +223,13 @@ def build_report(config: TrialConfig) -> TrialReport:
         Finding(
             id="constructed-evidence",
             severity="info",
-            title="A teaching exhibit, not a market alibi",
+            title="Synthetic data limitation",
             detail="These developer-designed synthetic OHLCV regimes are educational, not real market history or independent evidence of market alpha.",
         ),
         Finding(
             id="execution-costs",
             severity="warning" if realistic.total_cost > 0 else "info",
-            title="The broker kept the receipts"
+            title="Execution cost impact"
             if realistic.total_cost > 0
             else "Frictionless is an assumption",
             detail=(
@@ -241,7 +241,7 @@ def build_report(config: TrialConfig) -> TrialReport:
         Finding(
             id="holdout-comparison",
             severity="warning" if gap < 0 else "info",
-            title="The chronological cross-examination",
+            title="Holdout versus buy-and-hold",
             detail=(
                 f"On the same separately funded holdout, strategy return was {test_strategy.total_return:.2%} "
                 f"versus buy-and-hold {test_benchmark.total_return:.2%}, a {gap * 100:+.2f} percentage-point difference. "
@@ -259,7 +259,7 @@ def build_report(config: TrialConfig) -> TrialReport:
                 severity="warning"
                 if test_strategy.total_return < training_summary.total_return
                 else "info",
-                title="The audition is not the verdict",
+                title="Training selection and holdout performance",
                 detail=(
                     f"Training alone selected lookback {parameter} with {training_summary.total_return:.2%} return. "
                     f"Untouched holdout returned {test_strategy.total_return:.2%}. "
@@ -274,7 +274,7 @@ def build_report(config: TrialConfig) -> TrialReport:
             Finding(
                 id="parameter-sensitivity",
                 severity="warning" if low < 0 < high else "info",
-                title="Small knobs, measured consequences",
+                title="Holdout parameter sensitivity",
                 detail=f"The fixed holdout parameter grid produced returns from {low:.2%} to {high:.2%} at chosen costs. These observations do not select a new parameter.",
             )
         )

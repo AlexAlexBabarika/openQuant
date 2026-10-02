@@ -28,8 +28,7 @@
 <figure>
   <figcaption>
     <div>
-      <span class="eyebrow">Exhibit A / Full period</span>
-      <h3>Same strategy. More questions.</h3>
+      <h3>Full-period equity</h3>
     </div>
     <span class="currency-label">Account equity · USD</span>
   </figcaption>
@@ -69,14 +68,13 @@
       <li><span class="swatch {line.key}" aria-hidden="true"></span><span>{line.name}</span><strong>{finalEquity(line.data)}</strong></li>
     {/each}
   </ul>
-  <p class="chart-note"><span class="shade-key" aria-hidden="true"></span>Shaded dates: holdout from {formatDate(report.dataset.split_date)}. This chart follows full-period accounts; the separately funded holdout results below are not stitched into it.</p>
+  <p class="chart-note"><span class="shade-key" aria-hidden="true"></span>Shaded dates: holdout from {formatDate(report.dataset.split_date)}. This chart follows full-period accounts, including training. The Holdout tab compares separately funded test accounts.</p>
 </figure>
 
 <style>
   figure { margin: 0; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid oklch(var(--border)); background: oklch(var(--card)); border-radius: 4px; }
   figcaption { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; }
-  .eyebrow { color: oklch(var(--muted-foreground)); font: 0.65rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; }
-  h3 { margin: 0.5rem 0 0; color: oklch(var(--foreground)); font: normal clamp(1.2rem, 2.5vw, 1.6rem) 'Lato', system-ui, sans-serif; }
+  h3 { margin: 0; color: oklch(var(--foreground)); font: 600 12px var(--font-mono); }
   .currency-label { color: oklch(var(--muted-foreground)); font-size: 0.75rem; }
   svg { display: block; width: 100%; height: auto; margin: 1rem 0 0; overflow: visible; }
   .grid { stroke: oklch(var(--border)); stroke-width: 1; }

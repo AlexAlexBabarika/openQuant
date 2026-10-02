@@ -2,31 +2,7 @@
 
 OpenQuant is a self-hosted research workspace for charting market data, exploring indicators and analytics, and running reproducible backtests and portfolio simulations. **The research workspace opens by default.**
 
-Open **Strategy on Trial** from the workspace header for a guided robustness demo in an app-styled panel, without leaving or resetting your research workspace. Choose a built-in strategy, add execution costs, compare buy-and-hold and inspect an untouched chronological holdout. The numbers come from the existing next-bar-fill engine; findings are measured evidence, not a profitability score. This curated demo does not evaluate your workspace data or your own strategy code. Direct and shared `/?trial=1` links open the panel; legacy `/?workspace=1` links still open research.
-
-## Try the standalone curated demo
-
-The three cases — Backtest Billionaire, Overcaffeinated Trader and Boring Benchmark — use deterministic, locally generated **synthetic educational OHLCV scenarios, not real market history**. These developer-designed scenarios teach backtest questions; they are not independent evidence of market alpha, investment advice, certification or promises of future performance. There is no live trading, submitted strategy code, billing or provider-key requirement.
-
-With Python 3.12+ and Node.js 20+ installed, run these commands from the repository root (verified on Linux with Python 3.12 and Node 24):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
-npm --prefix frontend ci
-python gen_dashboard_fixture.py
-npm --prefix frontend run build
-uvicorn backend.trial_app:app --host 127.0.0.1 --port 8000
-```
-
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000); stop with `Ctrl+C`. Dependencies are downloaded during installation. After that the demo needs no PostgreSQL, Docker, account, data-provider keys or provider network access. The fixture generation step supplies the existing workspace dashboard's ignored build fixture; it does not supply or alter trial evidence.
-
-This standalone server exposes only the curated `/trial/catalog` and `/trial/run` API, health and local frontend files. Workspace links explain that research is unavailable here, including direct `/?workspace=1` requests. Use the full app below for research. In normal mode, `/trial` is also registered in the existing backend and proxied by the Vite development server.
-
-Each run starts with 10,000 currency units. The baseline is frictionless; the realistic strategy and benchmark use your chosen costs. Holdout accounts are separately funded on the same test segment and their curves are never stitched to training. Momentum selects its parameter on training only; the frequent trader uses a fixed cadence. Fixed neighboring parameters are measured on holdout without retuning. Returns and nonpositive drawdowns are fractions in the API, and percentages in the interface.
-
-Copy a configuration link to rerun the current scenario and engine versions; it is **not a permanent hosted report**. Download a self-contained HTML snapshot for the measured metrics, equity curves, findings, assumptions and limitations. Repeated runs use a bounded process-local cache and one computation slot; a busy server responds with a retryable 503.
+Open **Robustness** from the workspace header for example robustness checks in the workbench, without leaving or resetting your research workspace. The tool has a configuration sidebar and Performance, Holdout, Sensitivity and Assumptions tabs. Choose a built-in strategy, add execution costs, compare buy-and-hold and inspect an untouched chronological holdout. The numbers come from the existing next-bar-fill engine; findings are measured evidence, not a profitability score. This curated demo does not evaluate your workspace data or your own strategy code. Direct and shared `/?trial=1` links open the panel; legacy `/?workspace=1` links still open research.
 
 ## Start in seconds
 
@@ -93,6 +69,39 @@ Use OpenQuant to:
    ```
 
 No `.env` file, provider key, or PostgreSQL administration is needed for the default experience. OpenQuant generates unique application secrets on first boot and keeps them across restarts.
+
+### After updating the source
+
+Restarting an existing container does not rebuild its frontend. From the updated
+checkout, run `docker compose up -d --build`, then refresh the browser to use the
+new source. This preserves the existing named data volumes. To review an unmerged
+PR, build its checked-out branch rather than a `main` checkout or an older image.
+
+## Optional: standalone robustness examples (not the full app)
+
+The three examples — training-selected momentum, frequent trading with a two-bar holding period, and buy-and-hold — use deterministic, locally generated **synthetic educational OHLCV scenarios, not real market history**. These developer-designed scenarios teach backtest questions; they are not independent evidence of market alpha, investment advice, certification or promises of future performance. There is no live trading, submitted strategy code, billing or provider-key requirement.
+
+With Python 3.12+ and Node.js 20+ installed, run these commands from the repository root (verified on Linux with Python 3.12 and Node 24):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+npm --prefix frontend ci
+python gen_dashboard_fixture.py
+npm --prefix frontend run build
+uvicorn backend.trial_app:app --host 127.0.0.1 --port 8000
+```
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000); stop with `Ctrl+C`. Dependencies are downloaded during installation. After that the demo needs no PostgreSQL, Docker, account, data-provider keys or provider network access. The fixture generation step supplies the existing workspace dashboard's ignored build fixture; it does not supply or alter trial evidence.
+
+**This command starts an examples-only server, not OpenQuant’s research workspace.** Changing the URL to `/?workspace=1` cannot enable research here. Use the normal launcher or full-app Docker setup above for research.
+
+This standalone server exposes only the curated `/trial/catalog` and `/trial/run` API, health and local frontend files. Workspace links explain that research is unavailable here, including direct `/?workspace=1` requests. In normal mode, `/trial` is also registered in the existing backend and proxied by the Vite development server.
+
+Each run starts with 10,000 currency units. The baseline is frictionless; the realistic strategy and benchmark use your chosen costs. Holdout accounts are separately funded on the same test segment and their curves are never stitched to training. Momentum selects its parameter on training only; the frequent trader uses a fixed cadence. Fixed neighboring parameters are measured on holdout without retuning. Returns and nonpositive drawdowns are fractions in the API, and percentages in the interface.
+
+Copy a configuration link to rerun the current scenario and engine versions; it is **not a permanent hosted report**. Download a self-contained HTML snapshot for the measured metrics, equity curves, findings, assumptions and limitations. Repeated runs use a bounded process-local cache and one computation slot; a busy server responds with a retryable 503.
 
 ## What you need
 

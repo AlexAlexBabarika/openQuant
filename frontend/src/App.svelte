@@ -923,8 +923,8 @@
   />
 </div>
   <Dialog.Content class="flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none flex-col gap-0 overflow-hidden rounded-md p-0 sm:max-w-6xl">
-    <Dialog.Title class="sr-only">Strategy on Trial</Dialog.Title>
-    <Dialog.Description class="sr-only">A guided educational demo of execution costs, holdout tests and benchmarks. Your research workspace stays open behind this panel.</Dialog.Description>
+    <Dialog.Title class="sr-only">Robustness checks</Dialog.Title>
+    <Dialog.Description class="sr-only">Compare execution costs, holdout results and benchmarks using built-in strategies and synthetic data. Your research workspace stays open behind this panel.</Dialog.Description>
     <div class="min-h-0 flex-1 overflow-y-auto">
       <StrategyTrial embedded onreturnworkspace={() => setTrialOpen(false)} />
     </div>

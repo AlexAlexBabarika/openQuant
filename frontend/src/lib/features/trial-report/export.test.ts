@@ -103,6 +103,9 @@ describe('standalone trial HTML snapshot', () => {
       expect(html).toContain(text);
     }
     expect(html).toContain('not real market history');
+    expect(html).toContain('OpenQuant · Robustness checks');
+    expect(html).not.toContain('Strategy on Trial');
+    expect(html).not.toContain('The receipts, minus the victory lap');
     expect(html).toContain('not independent evidence of market alpha');
     expect(html).toContain('not an immutable hosted report');
     expect(html).toContain('current scenario and engine version');

@@ -12,7 +12,7 @@ FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 
 def create_app(frontend_dist: Path = FRONTEND_DIST) -> FastAPI:
-    demo = FastAPI(title="OpenQuant — Strategy on Trial", version="1.0.0")
+    demo = FastAPI(title="OpenQuant — Robustness examples", version="1.0.0")
     demo.include_router(router)
 
     @demo.get("/health")
