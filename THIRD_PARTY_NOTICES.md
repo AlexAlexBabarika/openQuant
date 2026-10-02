@@ -178,6 +178,9 @@ Development-only tools from `backend/requirements-dev.txt` (`ruff`, `mypy`,
 `pytest`, `httpx`, `sqlacodegen`) are not shipped in the image. They are MIT or
 BSD-3-Clause licensed.
 
+`pytest-asyncio` 1.1.0 is an Apache-2.0 development-only test plugin and is not
+shipped in the image.
+
 ## 5. Frontend dependencies
 
 Direct dependencies from `frontend/package.json`. Several packages listed as dev
