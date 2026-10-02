@@ -13,7 +13,7 @@
     <tbody>
       <tr><th scope="row">Total return</th>{#each runs as run}<td>{formatPercent(run.summary.total_return, true)}</td>{/each}</tr>
       <tr><th scope="row">Max drawdown</th>{#each runs as run}<td>{formatPercent(run.summary.max_drawdown)}</td>{/each}</tr>
-      <tr><th scope="row">Trades</th>{#each runs as run}<td>{run.summary.trade_count.toLocaleString('en-US')}</td>{/each}</tr>
+      <tr><th scope="row">Completed round trips</th>{#each runs as run}<td>{run.summary.trade_count.toLocaleString('en-US')}</td>{/each}</tr>
       <tr><th scope="row">Total costs</th>{#each runs as run}<td>{formatMoney(run.summary.total_cost)}</td>{/each}</tr>
     </tbody>
   </table>

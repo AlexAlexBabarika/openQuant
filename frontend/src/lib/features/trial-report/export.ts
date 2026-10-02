@@ -55,7 +55,7 @@ function metricRow(label: string, run: RunSummary): string {
 }
 
 function metrics(rows: [string, RunSummary][]): string {
-  return `<div class="table-wrap"><table><thead><tr><th scope="col">Run</th><th scope="col">Total return</th><th scope="col">Max drawdown</th><th scope="col">Trades</th><th scope="col">Total cost (currency units)</th></tr></thead><tbody>${rows.map(([label, run]) => metricRow(label, run)).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th scope="col">Run</th><th scope="col">Total return</th><th scope="col">Max drawdown</th><th scope="col">Completed round trips</th><th scope="col">Total cost (currency units)</th></tr></thead><tbody>${rows.map(([label, run]) => metricRow(label, run)).join('')}</tbody></table></div>`;
 }
 
 function list(items: string[]): string {
@@ -176,7 +176,7 @@ export function generateTrialReportHtml(report: TrialReport): string {
 <dt>Period</dt><dd>${escapeHtml(report.dataset.start)} → ${escapeHtml(report.dataset.end)}</dd>
 <dt>Chronological split</dt><dd>${escapeHtml(report.dataset.split_date)}</dd>
 <dt>Training / holdout bars</dt><dd>${number(report.dataset.training_bars)} / ${number(report.dataset.holdout_bars)}</dd>
-<dt>Selected parameter</dt><dd>${report.selected_parameter ? `${escapeHtml(report.selected_parameter.name)} = ${exactNumber(report.selected_parameter.value)} (selected using training only)` : 'None; no parameter selected.'}</dd>
+<dt>Strategy parameter</dt><dd>${report.selected_parameter ? `${escapeHtml(report.selected_parameter.name)} = ${exactNumber(report.selected_parameter.value)} (${report.strategy.id === 'overcaffeinated-trader' ? 'fixed, not optimized' : 'selected using training only'})` : 'None; no parameter selected.'}</dd>
 </dl></section>
 <section><h2>Full-period results</h2><p>All three runs use the same full scenario. Baseline is frictionless; strategy and buy-and-hold use the chosen commission and slippage.</p>
 ${metrics(fullRuns)}${equityChart('Full-period measured equity', fullRuns)}</section>

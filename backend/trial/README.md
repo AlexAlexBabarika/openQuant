@@ -53,9 +53,9 @@ does not target or adjust strategy metrics; all reported numbers come from
 
 ## API and resource bounds
 
-Import `router` from `backend.routes.trial_routes` and register it with the host
-FastAPI application. Registration is intentionally owned by the integration
-agent. The router's prefix is `/trial`.
+The router is registered in both `backend.app` (the full research app) and
+`backend.trial_app` (the standalone curated demo). The router's prefix is `/trial`.
+See the root README for verified standalone demo build and start commands.
 
 - `GET /trial/catalog` returns the version-one catalog.
 - `POST /trial/run` accepts `strategy_id`, `commission_bps` (default 1), and

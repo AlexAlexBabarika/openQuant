@@ -83,6 +83,8 @@
     <ChartCandlestick class="h-4 w-4 text-primary" />
   </div>
 
+  <a class="ot-workbench-ghost" href="/">Strategy on Trial</a>
+
   <span class="ot-hairline-v"></span>
 
   <!-- Timeframe zone — period × interval grouped together -->

@@ -218,7 +218,7 @@
         <div class="headline-metrics">
           <article><span>Full-period return · with costs</span><strong>{formatPercent(report.realistic.total_return, true)}</strong><small>Frictionless: {formatPercent(report.baseline.total_return, true)}</small></article>
           <article><span>Maximum drawdown · with costs</span><strong>{formatPercent(report.realistic.max_drawdown)}</strong><small>Largest measured peak-to-trough decline</small></article>
-          <article><span>Costs paid · full period</span><strong>{formatMoney(report.realistic.total_cost)}</strong><small>{report.realistic.trade_count.toLocaleString('en-US')} trades recorded by the engine</small></article>
+          <article><span>Costs paid · full period</span><strong>{formatMoney(report.realistic.total_cost)}</strong><small>{report.realistic.trade_count.toLocaleString('en-US')} completed round trips recorded by the engine</small></article>
         </div>
         <EquityEvidence {report} />
         <div class="full-metrics"><RunMetrics caption="Full-period results · same synthetic dataset · $10,000 starting cash per account" runs={[
@@ -239,7 +239,7 @@
           <section class="evidence-panel" aria-labelledby="sensitivity-heading">
             <p class="eyebrow">Exhibit C / A gentle nudge</p><h3 id="sensitivity-heading">Does the parameter matter?</h3>
             {#if report.selected_parameter}
-              <p>Selected on training only: <strong class="inline-number">{report.selected_parameter.name} = {report.selected_parameter.value}</strong>. Fixed neighboring values below are measured on holdout at the chosen costs.</p>
+              <p>{report.strategy.id === 'overcaffeinated-trader' ? 'Fixed, not optimized:' : 'Selected on training only:'} <strong class="inline-number">{report.selected_parameter.name} = {report.selected_parameter.value}</strong>. Fixed neighboring values below are measured on holdout at the chosen costs.</p>
             {:else}
               <p>This case has no selected tuning parameter.</p>
             {/if}
