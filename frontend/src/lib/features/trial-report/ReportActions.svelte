@@ -59,10 +59,10 @@
 
 <section aria-label="Share or save this trial report">
   <div class="actions">
-    <button type="button" onclick={copyLink} disabled={copying} aria-describedby={`${id}-notice`}>
+    <button class="ot-workbench-ghost" type="button" onclick={copyLink} disabled={copying} aria-describedby={`${id}-notice`}>
       {copying ? 'Copying…' : 'Copy demo configuration link'}
     </button>
-    <button type="button" onclick={downloadHtml}>Download HTML snapshot</button>
+    <button class="ot-workbench-ghost" type="button" onclick={downloadHtml}>Download HTML snapshot</button>
   </div>
   <p id={`${id}-notice`} class="notice">{TRIAL_SHARE_NOTICE}</p>
   <p role="status" aria-live="polite" aria-atomic="true">{status}</p>
@@ -80,10 +80,10 @@
 
 <style>
   .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  button { border: 1px solid currentColor; border-radius: 0.5rem; padding: 0.6rem 1rem; cursor: pointer; font: inherit; }
+  button { height: auto; min-height: 44px; padding: 0.6rem 1rem; }
   button:disabled { opacity: 0.6; cursor: wait; }
   button:focus-visible, input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-  .notice { font-size: 0.875rem; max-width: 75ch; }
+  .notice { font-size: 0.8rem; max-width: 75ch; color: oklch(var(--muted-foreground)); margin: 0.75rem 0; }
   label { display: block; margin-bottom: 0.4rem; }
   input { width: 100%; padding: 0.65rem; border: 1px solid currentColor; border-radius: 0.3rem; font: inherit; background: transparent; color: inherit; }
 </style>

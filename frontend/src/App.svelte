@@ -118,6 +118,9 @@
   import LeftToolbar from './components/toolbar/LeftToolbar.svelte';
   import ToolSettingsModal from './components/toolbar/ToolSettingsModal.svelte';
   import DrawablesPersistence from '$lib/features/drawables/DrawablesPersistence.svelte';
+  import * as Dialog from '$lib/components/ui/dialog';
+  import StrategyTrial from '$lib/features/trial/StrategyTrial.svelte';
+  import { selectEntry, trialSearch } from './entry';
   import type { CrosshairModeName } from '$lib/features/chart/crosshair';
   import {
     CURSOR,
@@ -127,6 +130,26 @@
   } from '$lib/features/drawables';
 
   const drawableToolbarCommands = toolbarCommandsFromStore(drawables);
+
+  let trialOpen = $state(selectEntry(window.location.search, false) === 'trial');
+
+  function setTrialOpen(open: boolean): void {
+    trialOpen = open;
+    const url = new URL(window.location.href);
+    const search = trialSearch(url.search, open);
+    if (url.search !== search) {
+      url.search = search;
+      window.history.pushState(null, '', url);
+    }
+  }
+
+  onMount(() => {
+    const syncTrial = () => {
+      trialOpen = selectEntry(window.location.search, false) === 'trial';
+    };
+    window.addEventListener('popstate', syncTrial);
+    return () => window.removeEventListener('popstate', syncTrial);
+  });
 
   const chart = new ChartController({
     onSymbolFetched: (sym, src, count) => maybeMarkYFinance(sym, src, count),
@@ -729,6 +752,7 @@
   });
 </script>
 
+<Dialog.Root open={trialOpen} onOpenChange={setTrialOpen}>
 <div class="flex flex-col h-screen bg-background">
   <DrawablesPersistence />
   <TopHeader
@@ -898,3 +922,11 @@
       )}
   />
 </div>
+  <Dialog.Content class="flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none flex-col gap-0 overflow-hidden rounded-md p-0 sm:max-w-6xl">
+    <Dialog.Title class="sr-only">Strategy on Trial</Dialog.Title>
+    <Dialog.Description class="sr-only">A guided educational demo of execution costs, holdout tests and benchmarks. Your research workspace stays open behind this panel.</Dialog.Description>
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      <StrategyTrial embedded onreturnworkspace={() => setTrialOpen(false)} />
+    </div>
+  </Dialog.Content>
+</Dialog.Root>

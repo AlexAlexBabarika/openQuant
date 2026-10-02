@@ -15,6 +15,7 @@
   import PeriodPicker from './PeriodPicker.svelte';
   import LoaderCircle from '@lucide/svelte/icons/loader-circle';
   import ChartCandlestick from '@lucide/svelte/icons/chart-candlestick';
+  import * as Dialog from '$lib/components/ui/dialog';
   let {
     symbol = $bindable('AAPL'),
     period = $bindable(DEFAULT_MARKET_PERIOD),
@@ -83,7 +84,11 @@
     <ChartCandlestick class="h-4 w-4 text-primary" />
   </div>
 
-  <a class="ot-workbench-ghost" href="/">Strategy on Trial</a>
+  <Dialog.Trigger>
+    {#snippet child({ props })}
+      <button {...props} class="ot-workbench-ghost" title="Explore costs, holdout results and benchmarks with three educational strategies">Strategy on Trial</button>
+    {/snippet}
+  </Dialog.Trigger>
 
   <span class="ot-hairline-v"></span>
 

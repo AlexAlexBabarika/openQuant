@@ -1,8 +1,8 @@
 # OpenQuant
 
-OpenQuant puts **Strategy on Trial**: an honest, slightly cheeky backtest cross-examination. Choose a curated strategy, add execution costs, compare buy-and-hold and inspect an untouched chronological holdout. The numbers come from the existing next-bar-fill backtest engine; findings are measured evidence, not a profitability score.
+OpenQuant is a self-hosted research workspace for charting market data, exploring indicators and analytics, and running reproducible backtests and portfolio simulations. **The research workspace opens by default.**
 
-The original self-hosted research workspace for charting market data, exploring indicators and analytics, and running reproducible backtests and portfolio simulations remains available at **`/?workspace=1`** in the full app. Its header links back to Strategy on Trial. The default trial page does not mount the workspace or start its account and market-data requests.
+Open **Strategy on Trial** from the workspace header for a guided robustness demo in an app-styled panel, without leaving or resetting your research workspace. Choose a built-in strategy, add execution costs, compare buy-and-hold and inspect an untouched chronological holdout. The numbers come from the existing next-bar-fill engine; findings are measured evidence, not a profitability score. This curated demo does not evaluate your workspace data or your own strategy code. Direct and shared `/?trial=1` links open the panel; legacy `/?workspace=1` links still open research.
 
 ## Try the standalone curated demo
 

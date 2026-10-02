@@ -73,32 +73,32 @@
 </figure>
 
 <style>
-  figure { margin: 0; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid #343934; background: #131917; border-radius: 4px; }
+  figure { margin: 0; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid oklch(var(--border)); background: oklch(var(--card)); border-radius: 4px; }
   figcaption { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; }
-  .eyebrow { color: #d1aa83; font: 0.65rem 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; }
-  h3 { margin: 0.5rem 0 0; color: #f0eee7; font: normal clamp(1.2rem, 2.5vw, 1.6rem) Georgia, serif; }
-  .currency-label { color: #a4aaa3; font-size: 0.75rem; }
+  .eyebrow { color: oklch(var(--muted-foreground)); font: 0.65rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; }
+  h3 { margin: 0.5rem 0 0; color: oklch(var(--foreground)); font: normal clamp(1.2rem, 2.5vw, 1.6rem) 'Lato', system-ui, sans-serif; }
+  .currency-label { color: oklch(var(--muted-foreground)); font-size: 0.75rem; }
   svg { display: block; width: 100%; height: auto; margin: 1rem 0 0; overflow: visible; }
-  .grid { stroke: #313931; stroke-width: 1; }
-  .axis { fill: #b2b8af; font: 11px 'Space Mono', monospace; }
-  .holdout-shade { fill: #d2ac78; fill-opacity: 0.06; }
-  .split-line { stroke: #9d8263; stroke-dasharray: 3 5; }
-  path.baseline { stroke: #bdc8b8; stroke-dasharray: 5 5; }
-  path.realistic { stroke: #efad78; }
-  path.benchmark { stroke: #83b4d5; stroke-dasharray: 12 4 2 4; }
-  circle.baseline { fill: #bdc8b8; }
-  circle.realistic { fill: #efad78; }
-  circle.benchmark { fill: #83b4d5; }
+  .grid { stroke: oklch(var(--border)); stroke-width: 1; }
+  .axis { fill: oklch(var(--muted-foreground)); font: 11px var(--font-mono); }
+  .holdout-shade { fill: oklch(var(--primary)); fill-opacity: 0.06; }
+  .split-line { stroke: oklch(var(--primary)); stroke-dasharray: 3 5; }
+  path.baseline { stroke: oklch(var(--muted-foreground)); stroke-dasharray: 5 5; }
+  path.realistic { stroke: oklch(var(--primary)); }
+  path.benchmark { stroke: oklch(var(--chart-1)); stroke-dasharray: 12 4 2 4; }
+  circle.baseline { fill: oklch(var(--muted-foreground)); }
+  circle.realistic { fill: oklch(var(--primary)); }
+  circle.benchmark { fill: oklch(var(--chart-1)); }
   .legend { display: flex; flex-wrap: wrap; gap: 0.75rem 1.6rem; padding: 0; margin: 0.75rem 0 1rem; list-style: none; }
-  .legend li { display: flex; gap: 0.6rem; align-items: center; color: #c2c7be; font-size: 0.75rem; }
-  strong { color: #f0eee7; font: 0.75rem 'Space Mono', monospace; }
+  .legend li { display: flex; gap: 0.6rem; align-items: center; color: oklch(var(--muted-foreground)); font-size: 0.75rem; }
+  strong { color: oklch(var(--foreground)); font: 0.75rem var(--font-mono); }
   .swatch { width: 1.3rem; height: 0; border-top: 2px solid; flex-shrink: 0; }
-  .swatch.baseline { border-color: #bdc8b8; border-top-style: dashed; }
-  .swatch.realistic { border-color: #efad78; }
-  .swatch.benchmark { border-color: #83b4d5; border-top-style: dotted; }
-  .chart-note { display: flex; align-items: baseline; gap: 0.5rem; margin: 0; color: #a4aaa3; font-size: 0.75rem; line-height: 1.65; }
-  .shade-key { width: 0.6rem; height: 0.6rem; background: #594934; border: 1px solid #9d8263; flex-shrink: 0; }
-  .empty { min-height: 10rem; display: grid; place-items: center; color: #b2b8af; }
+  .swatch.baseline { border-color: oklch(var(--muted-foreground)); border-top-style: dashed; }
+  .swatch.realistic { border-color: oklch(var(--primary)); }
+  .swatch.benchmark { border-color: oklch(var(--chart-1)); border-top-style: dotted; }
+  .chart-note { display: flex; align-items: baseline; gap: 0.5rem; margin: 0; color: oklch(var(--muted-foreground)); font-size: 0.75rem; line-height: 1.65; }
+  .shade-key { width: 0.6rem; height: 0.6rem; background: color-mix(in oklab, oklch(var(--primary)) 12%, oklch(var(--background))); border: 1px solid oklch(var(--primary)); flex-shrink: 0; }
+  .empty { min-height: 10rem; display: grid; place-items: center; color: oklch(var(--muted-foreground)); }
   @media (max-width: 600px) {
     figcaption { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .legend { flex-direction: column; }

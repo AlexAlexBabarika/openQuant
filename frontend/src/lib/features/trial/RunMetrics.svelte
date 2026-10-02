@@ -20,15 +20,15 @@
 </div>
 
 <style>
-  .table-scroll { overflow-x: auto; border: 1px solid #343934; border-radius: 4px; }
-  .table-scroll:focus-visible { outline: 2px solid #efad78; outline-offset: 4px; }
-  table { width: 100%; border-collapse: collapse; text-align: right; color: #eeeae1; font-size: 0.8rem; }
-  caption { padding: 1rem; text-align: left; color: #c2c7be; background: #181e1a; font-size: 0.75rem; }
-  th, td { padding: 1rem; border-top: 1px solid #303630; white-space: nowrap; }
-  th { font-weight: normal; color: #bcc3b8; }
+  .table-scroll { overflow-x: auto; border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  .table-scroll:focus-visible { outline: 2px solid oklch(var(--primary)); outline-offset: 4px; }
+  table { width: 100%; border-collapse: collapse; text-align: right; color: oklch(var(--foreground)); font-size: 0.8rem; }
+  caption { padding: 1rem; text-align: left; color: oklch(var(--muted-foreground)); background: oklch(var(--muted)); font-size: 0.75rem; }
+  th, td { padding: 1rem; border-top: 1px solid oklch(var(--border)); white-space: nowrap; }
+  th { font-weight: normal; color: oklch(var(--muted-foreground)); }
   th:first-child { text-align: left; }
   thead th { font-size: 0.7rem; }
-  td { font-family: 'Space Mono', monospace; font-variant-numeric: tabular-nums; }
-  tbody tr:nth-child(odd) { background: #171c18; }
+  td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  tbody tr:nth-child(odd) { background: oklch(var(--muted) / 0.5); }
   @media (max-width: 600px) { th, td { padding: 0.8rem; } }
 </style>
