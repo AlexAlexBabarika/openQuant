@@ -51,7 +51,7 @@ from backend.trial.strategies import (
 )
 
 STARTING_CASH = 10_000.0
-REPORT_VERSION = "1"
+REPORT_VERSION = "2"
 CACHE_SIZE = 32
 _REPORT_LOCK = Lock()
 STRATEGIES = (

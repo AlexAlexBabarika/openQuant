@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_launcher_select_port_skips_published_docker_port(tmp_path: Path) -> None:
     docker = tmp_path / "docker"
     docker.write_text(
-        "#!/bin/sh\n" "printf '%s\\n' '0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp'\n",
+        "#!/bin/sh\nprintf '%s\\n' '0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp'\n",
         encoding="utf-8",
     )
     docker.chmod(0o755)

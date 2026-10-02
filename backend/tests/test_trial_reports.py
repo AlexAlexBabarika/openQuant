@@ -30,7 +30,22 @@ from backend.trial.scenario import (
     TRAINING_BARS,
     scenario_frame,
 )
-from backend.trial.strategies import LOOKBACK_GRID
+from backend.trial.strategies import CADENCE_GRID, LOOKBACK_GRID
+
+
+@pytest.mark.parametrize("holding_bars", CADENCE_GRID)
+def test_frequent_trader_holds_the_advertised_number_of_bars(
+    holding_bars: int,
+) -> None:
+    result = evaluate(
+        scenario_frame(),
+        "overcaffeinated-trader",
+        Costs.frictionless(),
+        holding_bars,
+    )
+    assert result.trades
+    assert all(trade.bars_held == holding_bars for trade in result.trades)
+    assert all(fill.fill_index == fill.submitted_index + 1 for fill in result.fills)
 
 
 def test_scenario_is_deterministic_valid_ohlcv_with_bounded_gaps() -> None:

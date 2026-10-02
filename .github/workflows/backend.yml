@@ -25,7 +25,8 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-      - run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip install -r backend/requirements-dev.txt
       - run: ruff format --check backend/
 
   lint:
@@ -36,7 +37,8 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-      - run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip install -r backend/requirements-dev.txt
       - run: ruff check backend/
 
   typecheck:
@@ -47,7 +49,8 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-      - run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip install -r backend/requirements-dev.txt
       - run: mypy backend/
 
   test:
@@ -58,7 +61,8 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-      - run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - run: pip install -r backend/requirements.txt
+      - run: pip install -r backend/requirements-dev.txt
       - run: pytest backend/tests
 
   migrations:

@@ -68,7 +68,8 @@ coverage/
 todo/
 
 # Backtest Fixtures
-frontend/src/lib/features/backtest/fixtures
+frontend/src/lib/features/backtest/fixtures/*
+!frontend/src/lib/features/backtest/fixtures/sample-run.json
 
 # Datastore local store
 backend/datastore/_data/

@@ -24,7 +24,8 @@ cd openQuant
 
 python3 -m venv .venv
 source .venv/bin/activate                      # Windows: .venv\Scripts\activate
-pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+pip install -r backend/requirements.txt
+pip install -r backend/requirements-dev.txt
 
 npm --prefix frontend ci
 ```

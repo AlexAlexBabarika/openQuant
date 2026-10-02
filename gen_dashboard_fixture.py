@@ -1,6 +1,6 @@
 """Generate the results-dashboard sample fixture.
 
-Runs the backtesting engine over ~10 years of deterministic synthetic daily
+Runs the backtesting engine over ~3 years of deterministic synthetic daily
 data with a simple SMA-crossover strategy (so the blob contains real round-trip
 trades, drawdowns, and a multi-year equity curve), serializes it through the
 canonical ``result_to_dict``, and writes it to the frontend as a committed
@@ -27,7 +27,7 @@ from backend.backtesting.serialize import result_to_dict
 from backend.backtesting.strategy import Strategy
 
 _OUT = Path("frontend/src/lib/features/backtest/fixtures/sample-run.json")
-_YEARS = 10
+_YEARS = 3
 _SEED = 7
 
 
@@ -70,7 +70,7 @@ def _weekdays(n: int) -> list[datetime]:
 
 
 def synthetic_frame() -> pl.DataFrame:
-    """Deterministic ~10y daily OHLCV: a gently trending geometric random walk
+    """Deterministic ~3y daily OHLCV: a gently trending geometric random walk
     with enough swings to trigger crossovers in both directions. Weekdays only,
     so the series reads like real trading days."""
     n = 252 * _YEARS

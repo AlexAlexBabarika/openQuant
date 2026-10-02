@@ -44,7 +44,7 @@ class FrequentTrader(Strategy):
         if ctx.position.quantity == 0:
             enter_long(ctx)
             self.entry_index = ctx.bars.index + 1
-        elif ctx.bars.index - self.entry_index >= self.holding_bars:
+        elif ctx.bars.index + 1 - self.entry_index >= self.holding_bars:
             ctx.sell(ctx.position.quantity)
 
 
