@@ -122,6 +122,31 @@ def test_run_records_data_version():
     assert body["meta"].get("data_version")
 
 
+def test_snapshot_identity_tracks_symbols_and_date_slice():
+    a = _run({"symbols": ["AAPL"]})
+    b = _run({"symbols": ["MSFT"]})
+    sliced = _run({"symbols": ["AAPL"], "start": "2020-09-01"})
+    assert len({a["run_id"], b["run_id"], sliced["run_id"]}) == 3
+
+
+def test_snapshot_preserves_execution_data_version(monkeypatch):
+    versions = iter(["loaded-version", "later-version"])
+    monkeypatch.setattr(
+        portfolio_routes.HistoricalStore, "head_version", lambda _self: next(versions)
+    )
+    captured = []
+    original_persist = portfolio_routes._persist_portfolio
+
+    def capture_persist(blob, **kwargs):
+        captured.append(kwargs["data_version"])
+        return original_persist(blob, **kwargs)
+
+    monkeypatch.setattr(portfolio_routes, "_persist_portfolio", capture_persist)
+    body = _run()
+    assert captured == ["loaded-version"]
+    assert body["meta"]["data_version"] == "loaded-version"
+
+
 def test_index_universe_run():
     body = _run(
         {"symbols": None, "index": "SP500", "start": "2020-08-15", "end": "2020-09-15"}

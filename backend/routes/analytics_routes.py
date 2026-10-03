@@ -48,7 +48,7 @@ router = APIRouter(prefix="/data/analytics", tags=["analytics"])
 def _find_candles(symbol: str) -> list:
     """Look up cached candles for any provider (matches indicator_routes)."""
     sym = symbol.strip()
-    for key in cache.list_cached_keys():
+    for key in reversed(cache.list_cached_keys()):
         if key.endswith(f":{sym}"):
             provider = key.split(":", 1)[0]
             candles = cache.get_cached(provider, sym)
@@ -60,7 +60,7 @@ def _find_candles(symbol: str) -> list:
 def _find_meta(symbol: str) -> tuple[str, str | None, str | None] | None:
     """Return ``(provider, period, interval)`` for the cached entry, if any."""
     sym = symbol.strip()
-    for key in cache.list_cached_keys():
+    for key in reversed(cache.list_cached_keys()):
         if not key.endswith(f":{sym}"):
             continue
         provider = key.split(":", 1)[0]
@@ -101,7 +101,9 @@ def _bad_request(exc: ValueError) -> HTTPException:
 @router.get("/sharpe", response_model=ScalarMetricResponse)
 async def get_sharpe(
     symbol: str = Query(..., min_length=1),
-    rf: float = Query(0.0, description="Per-period risk-free rate"),
+    rf: float = Query(
+        0.0, allow_inf_nan=False, description="Per-period risk-free rate"
+    ),
 ) -> ScalarMetricResponse:
     candles = _require_candles(symbol)
     try:
@@ -114,7 +116,9 @@ async def get_sharpe(
 @router.get("/sortino", response_model=ScalarMetricResponse)
 async def get_sortino(
     symbol: str = Query(..., min_length=1),
-    rf: float = Query(0.0, description="Per-period risk-free rate"),
+    rf: float = Query(
+        0.0, allow_inf_nan=False, description="Per-period risk-free rate"
+    ),
 ) -> ScalarMetricResponse:
     candles = _require_candles(symbol)
     try:
