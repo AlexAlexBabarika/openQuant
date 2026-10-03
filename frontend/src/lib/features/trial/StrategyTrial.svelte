@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { apiFetch, readErrorMessage } from '$lib/core/api';
   import type { TrialCatalog, TrialConfig, TrialReport, TrialStrategy } from '$lib/features/trial-report/types';
   import { readTrialShareConfig } from '$lib/features/trial-report/sharing';
@@ -10,11 +10,14 @@
   import ChartCandlestick from '@lucide/svelte/icons/chart-candlestick';
   import Activity from '@lucide/svelte/icons/activity';
   import { Tabs } from 'bits-ui';
+  import { isWorkspaceReport, parseParameterOverrides, runWorkspaceChecks, workspaceFingerprint, type EvidenceReport, type WorkspaceContext, type WorkspaceSettings } from './workspace';
 
-  let { workspaceHref = '/', embedded = false, onreturnworkspace }: {
+  let { workspaceHref = '/', embedded = false, workspace, onopenstrategy, onreturnworkspace }: {
     workspaceHref?: string;
     embedded?: boolean;
     onreturnworkspace?: () => void;
+    workspace?: WorkspaceContext;
+    onopenstrategy?: () => void;
   } = $props();
 
   const knownCases = ['backtest-billionaire', 'overcaffeinated-trader', 'boring-benchmark'];
@@ -27,8 +30,14 @@
   let catalogError = $state('');
   let running = $state(false);
   let runError = $state('');
-  let report = $state.raw<TrialReport | null>(null);
-  let statusMessage = $state('Loading example strategies…');
+  let report = $state.raw<EvidenceReport | null>(null);
+  let mode = $state<'workspace' | 'examples'>(untrack(() => workspace ? 'workspace' : 'examples'));
+  let startingCash = $state<number | undefined>(100_000);
+  let holdoutPercent = $state<number | undefined>(30);
+  let parameterOverrides = $state('{}');
+  let sensitivityParameter = $state('');
+  let completedFingerprint = $state('');
+  let statusMessage = $state(untrack(() => workspace ? 'Ready to check the current Strategy editor draft.' : 'Loading example strategies…'));
   let catalogController: AbortController | null = null;
   let runController: AbortController | null = null;
   let runSequence = 0;
@@ -36,12 +45,31 @@
   let disposed = false;
 
   let costsValid = $derived(validCost(commission) && validCost(slippage));
-  let inputsChanged = $derived(report !== null && (
-    report.config.strategy_id !== selectedId ||
+  let workspaceSettings = $derived.by((): WorkspaceSettings | null => {
+    if (!validCost(commission) || !validCost(slippage) || !Number.isFinite(startingCash) || !startingCash || startingCash <= 0 || startingCash > 1e12 ||
+      !Number.isFinite(holdoutPercent) || holdoutPercent === undefined || holdoutPercent < 10 || holdoutPercent > 50) return null;
+    try {
+      return { commission_bps: commission, slippage_bps: slippage, starting_cash: startingCash, holdout_fraction: holdoutPercent / 100,
+        params: parseParameterOverrides(parameterOverrides), sensitivity_parameter: sensitivityParameter.trim() || null };
+    } catch { return null; }
+  });
+  let inputsChanged = $derived(report !== null && (isWorkspaceReport(report) ?
+    mode !== 'workspace' || !workspace || !workspaceSettings || completedFingerprint !== workspaceFingerprint(workspace, workspaceSettings) :
+    mode !== 'examples' || report.config.strategy_id !== selectedId ||
     report.config.commission_bps !== commission ||
     report.config.slippage_bps !== slippage
   ));
   let selectedStrategy = $derived(strategies.find(strategy => strategy.id === selectedId));
+  let canRun = $derived(mode === 'workspace' ? !!workspaceSettings && !!workspace?.code.trim() && !!workspace?.symbol.trim() : costsValid && !!selectedStrategy);
+
+  function chooseMode(next: 'workspace' | 'examples'): void {
+    if (next === mode) return;
+    cancelRun();
+    mode = next;
+    report = null;
+    runError = '';
+    statusMessage = 'Source selected. Run checks to measure this setup.';
+  }
 
   function cancelRun(): void {
     runSequence += 1;
@@ -74,7 +102,7 @@
       }
       strategies = catalog.strategies.filter(strategy => knownCases.includes(strategy.id));
       if (!strategies.length) {
-        statusMessage = 'No example strategies are available.';
+        if (mode === 'examples') statusMessage = 'No example strategies are available.';
         return;
       }
       const shared = initialSharedConfig;
@@ -85,17 +113,21 @@
       } else {
         selectedId = strategies[0].id;
       }
-      await runTrial();
+      if (mode === 'examples') await runTrial();
     } catch (error) {
       if (controller.signal.aborted || disposed) return;
       catalogError = error instanceof Error ? error.message : 'The strategy catalog could not be loaded.';
-      statusMessage = 'Example strategies could not be loaded.';
+      if (mode === 'examples') statusMessage = 'Example strategies could not be loaded.';
     } finally {
       if (catalogController === controller && !disposed) catalogLoading = false;
     }
   }
 
   async function runTrial(): Promise<void> {
+    if (mode === 'workspace') {
+      await runWorkspace();
+      return;
+    }
     if (!validCost(commission) || !validCost(slippage) || !selectedStrategy) {
       runError = 'Choose a strategy and enter finite costs between 0 and 50 bps.';
       return;
@@ -141,8 +173,45 @@
     }
   }
 
+  async function runWorkspace(): Promise<void> {
+    if (!workspace || !workspaceSettings || !canRun) {
+      runError = 'Choose a market symbol, enter a strategy and valid costs, cash, holdout percentage and JSON parameter overrides.';
+      return;
+    }
+    cancelRun();
+    const sequence = runSequence;
+    const context = { ...workspace };
+    const settings = { ...workspaceSettings };
+    const fingerprint = workspaceFingerprint(context, settings);
+    const controller = new AbortController();
+    runController = controller;
+    running = true;
+    runError = '';
+    statusMessage = `Running ${context.name} on ${context.symbol} · ${context.provider}…`;
+    try {
+      const result = await runWorkspaceChecks(context, settings, controller.signal);
+      if (controller.signal.aborted || disposed || sequence !== runSequence) return;
+      if (result.schema_version !== 1 || result.source !== 'workspace' || result.dataset.synthetic !== false) {
+        throw new Error('The workspace report uses an unsupported format.');
+      }
+      report = result;
+      completedFingerprint = fingerprint;
+      statusMessage = `Results ready for ${result.strategy.name} · ${result.dataset.label}.`;
+    } catch (error) {
+      if (controller.signal.aborted || disposed || sequence !== runSequence) return;
+      runError = error instanceof Error ? error.message : 'Workspace checks could not be completed.';
+      statusMessage = 'The checks did not finish. You can retry.';
+    } finally {
+      if (sequence === runSequence && !disposed) {
+        running = false;
+        runController = null;
+      }
+    }
+  }
+
   onMount(() => {
     initialSharedConfig = readTrialShareConfig(window.location.search);
+    if (initialSharedConfig) mode = 'examples';
     void loadCatalog();
     return () => {
       disposed = true;
@@ -161,7 +230,7 @@
       {/if}
       <Activity class="h-4 w-4 text-primary" />
       <h1>Robustness checks</h1>
-      <span class="badge">EXAMPLE DATA</span>
+      <span class="badge">{mode === 'workspace' ? 'WORKSPACE STRATEGY' : 'EXAMPLE DATA'}</span>
     </div>
     {#if embedded}
       <button class="ot-workbench-ghost" onclick={onreturnworkspace}>Back to workspace</button>
@@ -175,6 +244,28 @@
       <h2>Configuration</h2>
       <p class="muted">Compare execution costs, buy-and-hold, an out-of-sample period and neighboring parameter values.</p>
       <form onsubmit={event => { event.preventDefault(); void runTrial(); }}>
+        {#if workspace}
+          <label for="robustness-source">Strategy source</label>
+          <select id="robustness-source" value={mode} onchange={event => chooseMode(event.currentTarget.value as 'workspace' | 'examples')}>
+            <option value="workspace">Current workspace strategy</option>
+            <option value="examples">Built-in examples</option>
+          </select>
+        {/if}
+        {#if mode === 'workspace' && workspace}
+          <h3>{workspace.name}</h3>
+          <p class="muted">{workspace.symbol || 'Select a chart symbol'} · {workspace.provider} · {workspace.period} / {workspace.interval}. Uses the current editor source, including unsaved changes.</p>
+          <button class="ot-workbench-ghost" type="button" onclick={onopenstrategy}>Edit strategy</button>
+          <label for="robustness-cash">Starting cash (currency units)</label>
+          <input id="robustness-cash" type="number" min="0.01" max="1000000000000" step="any" required bind:value={startingCash} />
+          <label for="robustness-holdout">Chronological holdout (%)</label>
+          <input id="robustness-holdout" type="number" min="10" max="50" step="any" required bind:value={holdoutPercent} />
+          <label for="robustness-params">Parameter overrides (JSON)</label>
+          <textarea id="robustness-params" rows="3" bind:value={parameterOverrides} spellcheck="false" aria-describedby="robustness-param-help"></textarea>
+          <p id="robustness-param-help" class="muted">For example: {`{"fast": 10, "slow": 30}`}. Empty object uses each declared parameter's first grid value. Overrides must match the declared grid; no automatic tuning.</p>
+          <label for="robustness-parameter">Sensitivity parameter (optional)</label>
+          <input id="robustness-parameter" type="text" maxlength="100" bind:value={sensitivityParameter} placeholder="First declared parameter by default" />
+          {#if !workspaceSettings}<p class="error">Enter valid cash, a 10–50% holdout and a JSON object of numeric or string parameter values.</p>{/if}
+        {:else}
         <label for="trial-strategy">Example strategy</label>
         <select id="trial-strategy" value={selectedId} disabled={catalogLoading || !strategies.length}
           onchange={event => chooseCase(event.currentTarget.value as TrialConfig['strategy_id'])}
@@ -190,6 +281,7 @@
           <p role="status">No supported examples are available.</p>
           <button class="ot-workbench-ghost" type="button" onclick={() => loadCatalog()}>Reload catalog</button>
         {/if}
+        {/if}
 
         <fieldset>
           <legend>Execution costs</legend>
@@ -201,16 +293,23 @@
             bind:value={slippage} aria-describedby="trial-cost-help" />
           <p id="trial-cost-help" class="muted">0–50 bps per fill. 1 bp = 0.01%.{#if !costsValid} <strong class="error">Enter finite costs within this range.</strong>{/if}</p>
         </fieldset>
-        <button class="run-button ot-workbench-primary" type="submit" disabled={!costsValid || running || !selectedStrategy}>
+        <button class="run-button ot-workbench-primary" type="submit" disabled={!canRun || running}>
           {running ? 'Running…' : 'Run checks'}
         </button>
-        {#if running}<button class="ot-workbench-ghost" type="button" onclick={() => { cancelRun(); statusMessage = 'Run cancelled. Run checks when ready.'; }}>Cancel run</button>{/if}
+        {#if running}<button class="ot-workbench-ghost" type="button" onclick={() => { cancelRun(); statusMessage = 'Stopped waiting for this result. A workspace suite may continue up to its 30-second server limit.'; }}>Stop waiting</button>{/if}
       </form>
 
       <div class="scope">
+        {#if mode === 'workspace'}
+          <h2>Research scope</h2>
+          <p>Sign in to run single-symbol strategy checks on the selected provider's OHLCV snapshot. All runs reuse the same fetched/cached bars, not a live chart stream.</p>
+          <p>Each segment needs at least 20 bars; the suite allows at most 10,000 bars and 30 seconds. Holdout starts flat with fresh strategy state and no history carried from the earlier segment.</p>
+          <p>A chronological split cannot prove these dates were unseen during your research. No automatic parameter selection or public code sharing.</p>
+        {:else}
         <h2>Example scope</h2>
         <p>Built-in strategies on synthetic educational data, using OpenQuant's backtest engine and $10,000 starting cash.</p>
         <p>These checks do not use your chart data or custom strategy. Use Strategy and Backtesting in the workspace for your own research.</p>
+        {/if}
         <p>No live orders or investment advice.</p>
       </div>
     </aside>
@@ -220,7 +319,7 @@
       {#if runError}
         <div class="notice error" role="alert">
           <p>{runError}{#if report} The last completed report remains below.{/if}</p>
-          <button class="ot-workbench-ghost" disabled={!costsValid || running} onclick={() => runTrial()}>Retry run</button>
+          <button class="ot-workbench-ghost" disabled={!canRun || running} onclick={() => runTrial()}>Retry run</button>
         </div>
       {/if}
       {#if report}
@@ -230,13 +329,13 @@
         {/if}
         <div class="result-heading">
           <div><h2>{report.strategy.name}</h2><p class="muted">{report.strategy.lesson}</p></div>
-          <span class="badge">SYNTHETIC</span>
+          <span class="badge">{isWorkspaceReport(report) ? 'PROVIDER SNAPSHOT' : 'SYNTHETIC'}</span>
         </div>
 
         <div class="metric-strip">
           <div><span>Return · with costs</span><strong>{formatPercent(report.realistic.total_return, true)}</strong><small>Zero-cost: {formatPercent(report.baseline.total_return, true)}</small></div>
           <div><span>Max drawdown</span><strong>{formatPercent(report.realistic.max_drawdown)}</strong><small>Full period · with costs</small></div>
-          <div><span>Execution costs</span><strong>{formatMoney(report.realistic.total_cost)}</strong><small>{report.realistic.trade_count.toLocaleString('en-US')} completed round trips</small></div>
+          <div><span>Execution costs · currency units</span><strong>{formatMoney(report.realistic.total_cost, isWorkspaceReport(report))}</strong><small>{report.realistic.trade_count.toLocaleString('en-US')} completed round trips</small></div>
           <div><span>Holdout vs benchmark</span><strong>{formatPercent(report.holdout.strategy.total_return - report.holdout.benchmark.total_return, true).replace('%', ' pp')}</strong><small>Return difference · percentage points</small></div>
         </div>
 
@@ -253,7 +352,7 @@
           </Tabs.List>
           <Tabs.Content class="result-content" value="performance">
             <EquityEvidence {report} />
-            <RunMetrics caption="Full period · $10,000 starting cash per account" runs={[
+            <RunMetrics currencyUnits={isWorkspaceReport(report)} caption={`Full period · ${isWorkspaceReport(report) ? formatMoney(report.config.starting_cash, true) : '$10,000'} starting cash per account`} runs={[
               { label: 'Zero-cost strategy', summary: report.baseline },
               { label: 'Strategy + costs', summary: report.realistic },
               { label: 'Buy & hold + costs', summary: report.benchmark },
@@ -266,9 +365,10 @@
             </section>
           </Tabs.Content>
           <Tabs.Content class="result-content" value="holdout">
-            <h3>Out-of-sample comparison</h3>
-            <p class="muted">Training ends before {formatDate(report.dataset.split_date)}. Both holdout accounts start separately with $10,000 on the same test segment, at the chosen costs. Their curves are not stitched into the full-period results.</p>
-            <RunMetrics caption="Separately funded holdout · same dates and costs" runs={[
+            <h3>{isWorkspaceReport(report) ? 'Chronological holdout comparison' : 'Out-of-sample comparison'}</h3>
+            <p class="muted">The earlier segment ends before {formatDate(report.dataset.split_date)}. Both holdout accounts start separately with {isWorkspaceReport(report) ? formatMoney(report.config.starting_cash, true) : '$10,000'} on the same test segment, at the chosen costs. Their curves are not stitched into the full-period results.</p>
+            {#if isWorkspaceReport(report)}<p class="muted">No tuning is performed on the earlier segment. These dates may already have been seen during your research; this split is not proof of untouched out-of-sample data.</p>{/if}
+            <RunMetrics currencyUnits={isWorkspaceReport(report)} caption="Separately funded holdout · same dates and costs" runs={[
               { label: 'Strategy + costs', summary: report.holdout.strategy },
               { label: 'Buy & hold + costs', summary: report.holdout.benchmark },
             ]} />
@@ -276,9 +376,9 @@
           <Tabs.Content class="result-content" value="sensitivity">
             <h3>Parameter sensitivity</h3>
             {#if report.selected_parameter}
-              <p class="muted">{report.strategy.id === 'overcaffeinated-trader' ? 'Fixed, not optimized:' : 'Selected on training only:'}
+              <p class="muted">{isWorkspaceReport(report) || report.strategy.id === 'overcaffeinated-trader' ? 'Fixed, not optimized:' : 'Selected on training only:'}
                 <strong>{report.selected_parameter.name} = {report.selected_parameter.value}</strong>. Neighboring values below are measured on holdout at the chosen costs; these results do not select a new parameter.</p>
-            {:else}<p class="muted">Buy-and-hold has no tuning parameter. No parameter sweep applies.</p>{/if}
+            {:else}<p class="muted">This strategy has no declared tuning parameter. No parameter sweep applies.</p>{/if}
             {#if report.sensitivity.length}
               <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to horizontal scrolling.) -->
               <div class="table-scroll" tabindex="0" role="region" aria-label="Holdout parameter sensitivity">
@@ -290,11 +390,17 @@
           </Tabs.Content>
           <Tabs.Content class="result-content" value="assumptions">
             <h3>Data and reproducibility</h3>
-            <p class="muted">Developer-designed synthetic scenarios are not real market history or independent evidence of market alpha.</p>
+            <p class="muted">{isWorkspaceReport(report) ? 'Selected provider OHLCV, sorted and snapshotted for this suite. A content hash identifies these bars, not their quality or permanent availability.' : 'Developer-designed synthetic scenarios are not real market history or independent evidence of market alpha.'}</p>
             <dl>
-              <div><dt>Scenario</dt><dd>{report.dataset.label} · v{report.dataset.version}</dd></div>
+              <div><dt>Dataset</dt><dd>{report.dataset.label}</dd></div>
+              <div><dt>Dataset version / SHA-256</dt><dd>{report.dataset.version}</dd></div>
+              {#if isWorkspaceReport(report)}
+                <div><dt>Source SHA-256</dt><dd>{report.code_hash}</dd></div>
+                <div><dt>Engine / seed</dt><dd>{report.engine_version} / {report.config.seed}</dd></div>
+                <div><dt>Resolved parameters</dt><dd>{JSON.stringify(report.config.params)}</dd></div>
+              {/if}
               <div><dt>Dates (UTC)</dt><dd>{formatDate(report.dataset.start)} — {formatDate(report.dataset.end)}</dd></div>
-              <div><dt>Split</dt><dd>{report.dataset.training_bars.toLocaleString('en-US')} training / {report.dataset.holdout_bars.toLocaleString('en-US')} holdout bars</dd></div>
+              <div><dt>Split</dt><dd>{report.dataset.training_bars.toLocaleString('en-US')} {isWorkspaceReport(report) ? 'earlier' : 'training'} / {report.dataset.holdout_bars.toLocaleString('en-US')} holdout bars</dd></div>
               <div><dt>Costs per fill</dt><dd>{report.config.commission_bps} bps commission / {report.config.slippage_bps} bps slippage</dd></div>
               <div><dt>Report ID</dt><dd>{report.report_id}</dd></div>
             </dl>
@@ -307,7 +413,7 @@
         <div class="empty-state">
           <Activity class="h-6 w-6 text-muted-foreground" />
           <h2>{running ? 'Running robustness checks' : 'No results yet'}</h2>
-          <p>{running ? 'Calculating costs, benchmark, holdout and sensitivity.' : 'Select an example strategy and run checks to compare its results.'}</p>
+          <p>{running ? 'Calculating costs, benchmark, holdout and sensitivity.' : mode === 'workspace' ? 'Review the current strategy and market context, then run checks.' : 'Select an example strategy and run checks to compare its results.'}</p>
         </div>
       {/if}
     </main>
@@ -333,13 +439,14 @@
   .configuration { padding: 18px; border-right: 1px solid oklch(var(--border)); background: oklch(var(--popover)); }
   form { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
   label, legend { font-size: 11px; font-weight: 600; }
-  input, select { width: 100%; min-height: 36px; border: 1px solid oklch(var(--border)); border-radius: 3px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
+  input, select, textarea { width: 100%; min-height: 36px; border: 1px solid oklch(var(--border)); border-radius: 3px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
+  textarea { resize: vertical; }
   fieldset { display: flex; flex-direction: column; gap: 8px; padding: 14px 0 0; margin: 0 0 8px; border: 0; border-top: 1px solid oklch(var(--border)); }
   legend { padding: 0 6px 0 0; }
   .run-button { justify-content: center; }
   .trial-shell :global(.ot-workbench-ghost), .trial-shell :global(.ot-workbench-primary) { min-height: 36px; }
   .trial-shell :global(button:disabled), select:disabled { opacity: .55; cursor: not-allowed; }
-  input:focus-visible, select:focus-visible, .trial-shell :global(button:focus-visible), .trial-shell :global(a:focus-visible) { outline: 2px solid oklch(var(--primary)); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, .trial-shell :global(button:focus-visible), .trial-shell :global(a:focus-visible) { outline: 2px solid oklch(var(--primary)); outline-offset: 2px; }
   .scope { margin-top: 22px; padding-top: 16px; border-top: 1px solid oklch(var(--border)); font-size: 11px; }
   .scope h2 { color: oklch(var(--foreground)); }
   .results { min-width: 0; padding: 18px; }

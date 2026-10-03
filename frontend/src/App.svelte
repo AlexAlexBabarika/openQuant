@@ -895,6 +895,7 @@
     {strategy}
     onOpenRuns={() => (runsOpen = true)}
     {portfolioRunId}
+    onRobustness={() => { strategyOpen = false; setTrialOpen(true); }}
   />
   <AppDialogs
     {groupDialogInitial}
@@ -925,9 +926,12 @@
 </div>
   <Dialog.Content class="flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none flex-col gap-0 overflow-hidden rounded-md p-0 sm:max-w-6xl">
     <Dialog.Title class="sr-only">Robustness checks</Dialog.Title>
-    <Dialog.Description class="sr-only">Compare execution costs, holdout results and benchmarks using built-in strategies and synthetic data. Your research workspace stays open behind this panel.</Dialog.Description>
+    <Dialog.Description class="sr-only">Compare execution costs, chronological holdout, parameter sensitivity and benchmarks for your workspace strategy and selected market data, or explore built-in synthetic examples. Your research workspace stays open behind this panel.</Dialog.Description>
     <div class="min-h-0 flex-1 overflow-hidden">
-      <StrategyTrial embedded onreturnworkspace={() => setTrialOpen(false)} />
+      <StrategyTrial embedded
+        workspace={{ code: strategy.draftCode, name: strategy.draftName, symbol: chart.loadedSymbol || chart.symbol, provider: chart.source, period: chart.period, interval: chart.interval }}
+        onopenstrategy={() => { setTrialOpen(false); strategyOpen = true; }}
+        onreturnworkspace={() => setTrialOpen(false)} />
     </div>
   </Dialog.Content>
 </Dialog.Root>

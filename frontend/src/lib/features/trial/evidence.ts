@@ -16,8 +16,15 @@ const money = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-export function formatMoney(value: number): string {
-  return Number.isFinite(value) ? money.format(value) : '—';
+export function formatMoney(value: number, currencyUnits = false): string {
+  return Number.isFinite(value)
+    ? currencyUnits
+      ? value.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : money.format(value)
+    : '—';
 }
 
 export function formatPercent(value: number, signed = false): string {
@@ -99,8 +106,11 @@ export function equityPath(
     .join(' ');
 }
 
-export function finalEquity(points: readonly EquityPoint[]): string {
+export function finalEquity(
+  points: readonly EquityPoint[],
+  currencyUnits = false,
+): string {
   return points.length
-    ? formatMoney(points[points.length - 1].value)
+    ? formatMoney(points[points.length - 1].value, currencyUnits)
     : 'No equity data';
 }

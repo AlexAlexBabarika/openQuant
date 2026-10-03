@@ -2,7 +2,7 @@
   import type { RunSummary } from '$lib/features/trial-report/types';
   import { formatMoney, formatPercent } from './evidence';
 
-  let { runs, caption }: { runs: { label: string; summary: RunSummary }[]; caption: string } = $props();
+  let { runs, caption, currencyUnits = false }: { runs: { label: string; summary: RunSummary }[]; caption: string; currencyUnits?: boolean } = $props();
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to horizontal scrolling.) -->
@@ -14,7 +14,7 @@
       <tr><th scope="row">Total return</th>{#each runs as run}<td>{formatPercent(run.summary.total_return, true)}</td>{/each}</tr>
       <tr><th scope="row">Max drawdown</th>{#each runs as run}<td>{formatPercent(run.summary.max_drawdown)}</td>{/each}</tr>
       <tr><th scope="row">Completed round trips</th>{#each runs as run}<td>{run.summary.trade_count.toLocaleString('en-US')}</td>{/each}</tr>
-      <tr><th scope="row">Total costs</th>{#each runs as run}<td>{formatMoney(run.summary.total_cost)}</td>{/each}</tr>
+      <tr><th scope="row">Total costs{currencyUnits ? ' · currency units' : ''}</th>{#each runs as run}<td>{formatMoney(run.summary.total_cost, currencyUnits)}</td>{/each}</tr>
     </tbody>
   </table>
 </div>

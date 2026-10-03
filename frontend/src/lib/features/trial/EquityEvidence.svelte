@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { TrialReport } from '$lib/features/trial-report/types';
+  import { isWorkspaceReport, type EvidenceReport } from './workspace';
   import { chartBounds, chartX, chartY, equityPath, finalEquity, formatDate, formatMoney } from './evidence';
 
-  let { report }: { report: TrialReport } = $props();
+  let { report }: { report: EvidenceReport } = $props();
   let chartElement: HTMLDivElement;
   let width = $state(960);
   let lines = $derived([
@@ -30,12 +30,12 @@
     <div>
       <h3>Full-period equity</h3>
     </div>
-    <span class="currency-label">Account equity · USD</span>
+    <span class="currency-label">Account equity · currency units</span>
   </figcaption>
 
   <div class="chart-area" bind:this={chartElement}>
   {#if bounds}
-    <svg viewBox="0 0 {width} 350" role="img" aria-label="Full-period dollar equity: frictionless strategy, strategy with costs, and buy and hold. Holdout dates are shaded. Ending values and all run metrics follow the chart.">
+    <svg viewBox="0 0 {width} 350" role="img" aria-label="Full-period equity: frictionless strategy, strategy with costs, and buy and hold. Holdout dates are shaded. Ending values and all run metrics follow the chart.">
       {#if splitX !== null}
         <rect class="holdout-shade" x={splitX} y="42" width={width - 30 - splitX} height="250" />
         <line class="split-line" x1={splitX} x2={splitX} y1="42" y2="292" />
@@ -44,7 +44,7 @@
         {@const value = bounds.min + ((bounds.max - bounds.min) * tick) / 4}
         {@const y = chartY(value, bounds)}
         <line class="grid" x1="78" x2={width - 30} y1={y} y2={y} />
-        <text class="axis" x="66" {y} text-anchor="end" dominant-baseline="middle">{formatMoney(value)}</text>
+        <text class="axis" x="66" {y} text-anchor="end" dominant-baseline="middle">{formatMoney(value, isWorkspaceReport(report))}</text>
       {/each}
       {#each dateTicks as tick}
         {@const t = bounds.start + (bounds.end - bounds.start) * tick}
@@ -65,10 +65,10 @@
 
   <ul class="legend" aria-label="Equity series and final account values">
     {#each lines as line (line.key)}
-      <li><span class="swatch {line.key}" aria-hidden="true"></span><span>{line.name}</span><strong>{finalEquity(line.data)}</strong></li>
+      <li><span class="swatch {line.key}" aria-hidden="true"></span><span>{line.name}</span><strong>{finalEquity(line.data, isWorkspaceReport(report))}</strong></li>
     {/each}
   </ul>
-  <p class="chart-note"><span class="shade-key" aria-hidden="true"></span>Shaded dates: holdout from {formatDate(report.dataset.split_date)}. This chart follows full-period accounts, including training. The Holdout tab compares separately funded test accounts.</p>
+  <p class="chart-note"><span class="shade-key" aria-hidden="true"></span>Shaded dates: holdout from {formatDate(report.dataset.split_date)}. This chart follows full-period accounts, including the earlier segment. The Holdout tab compares separately funded test accounts.</p>
 </figure>
 
 <style>

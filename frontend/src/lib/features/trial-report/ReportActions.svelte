@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { TrialReport } from './types';
+  import { isWorkspaceReport, type EvidenceReport } from '../trial/workspace';
   import { createTrialShareUrl, TRIAL_SHARE_NOTICE } from './sharing';
   import { generateTrialReportHtml, trialReportFilename } from './export';
 
-  let { report }: { report: TrialReport } = $props();
+  let { report }: { report: EvidenceReport } = $props();
   const id = $props.id();
   let status = $state('');
   let fallbackUrl = $state('');
   let copying = $state(false);
 
   export async function copyLink(): Promise<void> {
-    if (copying) return;
+    if (copying || isWorkspaceReport(report)) return;
     copying = true;
     fallbackUrl = '';
     status = '';
@@ -57,14 +57,14 @@
   }
 </script>
 
-<section aria-label="Share or save this trial report">
+<section aria-label="Share or save this robustness report">
   <div class="actions">
-    <button class="ot-workbench-ghost" type="button" onclick={copyLink} disabled={copying} aria-describedby={`${id}-notice`}>
+    {#if !isWorkspaceReport(report)}<button class="ot-workbench-ghost" type="button" onclick={copyLink} disabled={copying} aria-describedby={`${id}-notice`}>
       {copying ? 'Copying…' : 'Copy demo configuration link'}
-    </button>
+    </button>{/if}
     <button class="ot-workbench-ghost" type="button" onclick={downloadHtml}>Download HTML snapshot</button>
   </div>
-  <p id={`${id}-notice`} class="notice">{TRIAL_SHARE_NOTICE}</p>
+  <p id={`${id}-notice`} class="notice">{isWorkspaceReport(report) ? 'Local snapshot only: results and configuration, not strategy source. No public code or market-data rerun link is created. Review the exported results before sharing.' : TRIAL_SHARE_NOTICE}</p>
   <p role="status" aria-live="polite" aria-atomic="true">{status}</p>
   {#if fallbackUrl}
     <label for={`${id}-link`}>Demo configuration link — select to copy</label>

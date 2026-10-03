@@ -1,5 +1,6 @@
 import { TRIAL_SHARE_NOTICE } from './sharing';
-import type { RunSummary, TrialReport } from './types';
+import type { RunSummary } from './types';
+import { isWorkspaceReport, type EvidenceReport } from '../trial/workspace';
 
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, char => {
@@ -33,7 +34,8 @@ function number(value: number): string {
     : 'Unavailable';
 }
 
-function exactNumber(value: number): string {
+function exactNumber(value: number | string): string {
+  if (typeof value === 'string') return escapeHtml(value);
   return Number.isFinite(value) ? escapeHtml(String(value)) : 'Unavailable';
 }
 
@@ -127,13 +129,15 @@ function equityChart(title: string, runs: [string, RunSummary][]): string {
     </svg><figcaption>${runs.map(([label], index) => `<span class="legend"><i style="background:${curveColors[index]}"></i>${escapeHtml(label)}</span>`).join('')}</figcaption></figure>${invalid ? '<p>Invalid numeric observations were omitted; gaps are not connected.</p>' : ''}`;
 }
 
-export function trialReportFilename(report: TrialReport): string {
+export function trialReportFilename(report: EvidenceReport): string {
   const safe = (value: string): string =>
     value.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80) || 'report';
-  return `openquant-trial-${safe(report.strategy.id)}-${safe(report.report_id)}.html`;
+  return `openquant-${isWorkspaceReport(report) ? 'robustness' : 'trial'}-${safe(report.strategy.id)}-${safe(report.report_id)}.html`;
 }
 
-export function generateTrialReportHtml(report: TrialReport): string {
+export function generateTrialReportHtml(report: EvidenceReport): string {
+  const workspace = isWorkspaceReport(report);
+  const cash = workspace ? exactNumber(report.config.starting_cash) : '10,000';
   const fullRuns: [string, RunSummary][] = [
     ['Baseline · frictionless', report.baseline],
     ['Strategy · chosen costs', report.realistic],
@@ -159,28 +163,29 @@ export function generateTrialReportHtml(report: TrialReport): string {
   @media(max-width:650px){main{padding:1rem;margin:0;border-radius:0}dl{display:block}th,td{padding:.4rem;font-size:.85rem}}
   @media print{body{background:white;font-size:10pt}main{max-width:none;margin:0;padding:0;border:0}.table-wrap{overflow:visible}figure,article,tr{break-inside:avoid}h2,h3{break-after:avoid}.notice{border:1px solid #a33b09}}
 </style></head><body><main>
-<header><p class="eyebrow">OpenQuant · Robustness checks</p><h1>${escapeHtml(report.strategy.name)}</h1><p>Execution costs, benchmark comparison and out-of-sample results.</p>
+<header><p class="eyebrow">OpenQuant · Robustness checks</p><h1>${escapeHtml(report.strategy.name)}</h1><p>Execution costs, benchmark comparison and ${workspace ? 'chronological holdout' : 'out-of-sample'} results.</p>
 <p>${escapeHtml(report.strategy.description)}</p><p><strong>Lesson:</strong> ${escapeHtml(report.strategy.lesson)}</p></header>
-<aside class="notice"><strong>Synthetic educational OHLCV scenario — not real market history.</strong>
-<p>This developer-designed synthetic scenario is educational, not independent evidence of market alpha. Measured results are not certification or a promise of future performance.</p>
-<p>This HTML is snapshot evidence of the supplied report. ${escapeHtml(TRIAL_SHARE_NOTICE)}</p></aside>
+<aside class="notice"><strong>${workspace ? 'Workspace strategy on a provider OHLCV snapshot.' : 'Synthetic educational OHLCV scenario — not real market history.'}</strong>
+<p>${workspace ? 'A chronological split does not prove these dates were unseen during your research.' : 'This developer-designed synthetic scenario is educational, not independent evidence of market alpha.'} Measured results are not certification or a promise of future performance.</p>
+<p>This HTML is snapshot evidence of the supplied report. ${workspace ? 'It contains results and configuration, not strategy source or a public rerun link. Review its contents before sharing.' : escapeHtml(TRIAL_SHARE_NOTICE)}</p></aside>
 <section><h2>Configuration and provenance</h2><dl>
 <dt>Report ID</dt><dd><code>${escapeHtml(report.report_id)}</code></dd>
 <dt>Report schema</dt><dd>${number(report.schema_version)}</dd>
 <dt>Strategy ID</dt><dd><code>${escapeHtml(report.config.strategy_id)}</code></dd>
 <dt>Commission</dt><dd>${exactNumber(report.config.commission_bps)} bps</dd>
 <dt>Slippage</dt><dd>${exactNumber(report.config.slippage_bps)} bps</dd>
-<dt>Starting cash</dt><dd>10,000 currency units per independently funded run</dd>
-<dt>Scenario</dt><dd>${escapeHtml(report.dataset.label)}</dd>
+<dt>Starting cash</dt><dd>${cash} currency units per independently funded run</dd>
+${workspace ? `<dt>Source SHA-256</dt><dd>${escapeHtml(report.code_hash)}</dd><dt>Engine version</dt><dd>${escapeHtml(report.engine_version)}</dd><dt>Resolved parameters</dt><dd>${escapeHtml(JSON.stringify(report.config.params))}</dd><dt>Seed</dt><dd>${exactNumber(report.config.seed)}</dd>` : ''}
+<dt>${workspace ? 'Dataset' : 'Scenario'}</dt><dd>${escapeHtml(report.dataset.label)}</dd>
 <dt>Dataset ID / version</dt><dd>${escapeHtml(report.dataset.id)} / ${escapeHtml(report.dataset.version)}</dd>
 <dt>Period</dt><dd>${escapeHtml(report.dataset.start)} → ${escapeHtml(report.dataset.end)}</dd>
 <dt>Chronological split</dt><dd>${escapeHtml(report.dataset.split_date)}</dd>
-<dt>Training / holdout bars</dt><dd>${number(report.dataset.training_bars)} / ${number(report.dataset.holdout_bars)}</dd>
-<dt>Strategy parameter</dt><dd>${report.selected_parameter ? `${escapeHtml(report.selected_parameter.name)} = ${exactNumber(report.selected_parameter.value)} (${report.strategy.id === 'overcaffeinated-trader' ? 'fixed, not optimized' : 'selected using training only'})` : 'None; no parameter selected.'}</dd>
+<dt>${workspace ? 'Earlier segment' : 'Training'} / holdout bars</dt><dd>${number(report.dataset.training_bars)} / ${number(report.dataset.holdout_bars)}</dd>
+<dt>Strategy parameter</dt><dd>${report.selected_parameter ? `${escapeHtml(report.selected_parameter.name)} = ${exactNumber(report.selected_parameter.value)} (${workspace || report.strategy.id === 'overcaffeinated-trader' ? 'fixed, not optimized' : 'selected using training only'})` : 'None; no parameter selected.'}</dd>
 </dl></section>
-<section><h2>Full-period results</h2><p>All three runs use the same full scenario. Baseline is frictionless; strategy and buy-and-hold use the chosen commission and slippage.</p>
+<section><h2>Full-period results</h2><p>All three runs use the same full dataset. Baseline is frictionless; strategy and buy-and-hold use the chosen commission and slippage.</p>
 ${metrics(fullRuns)}${equityChart('Full-period measured equity', fullRuns)}</section>
-<section><h2>Untouched chronological holdout</h2><p>Strategy and benchmark use exactly the same holdout segment and chosen costs. Each starts with separate funding of 10,000 currency units. These curves are not stitched to the full-period curves.</p>
+<section><h2>${workspace ? 'Chronological holdout' : 'Untouched chronological holdout'}</h2><p>Strategy and benchmark use exactly the same holdout segment and chosen costs. Each starts with separate funding of ${cash} currency units. These curves are not stitched to the full-period curves.</p>
 ${metrics(holdoutRuns)}${equityChart('Separately funded holdout measured equity', holdoutRuns)}</section>
 <section><h2>Parameter sensitivity on holdout</h2><p>Fixed neighboring parameters at the chosen costs. This is a holdout comparison, not a second parameter-selection step.</p>
 ${report.sensitivity.length ? `<div class="table-wrap"><table><thead><tr><th scope="col">Parameter value</th><th scope="col">Total return</th><th scope="col">Max drawdown</th></tr></thead><tbody>${report.sensitivity.map(row => `<tr><th scope="row">${exactNumber(row.parameter_value)}</th><td>${percent(row.total_return)}</td><td>${percent(row.max_drawdown)}</td></tr>`).join('')}</tbody></table></div>` : '<p>No parameter sensitivity reported.</p>'}</section>

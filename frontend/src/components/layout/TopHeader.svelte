@@ -86,7 +86,7 @@
 
   <Dialog.Trigger>
     {#snippet child({ props })}
-      <button {...props} class="ot-workbench-ghost" title="Compare costs, holdout results and benchmarks on built-in example strategies">Robustness</button>
+      <button {...props} class="ot-workbench-ghost" title="Check your workspace strategy and selected market data, or explore built-in examples">Robustness</button>
     {/snippet}
   </Dialog.Trigger>
 

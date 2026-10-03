@@ -64,6 +64,7 @@ def test_static_assets_are_local_and_html_cannot_bypass_mode(demo: TestClient) -
         "/data/ohlcv",
         "/scripts/run",
         "/backtests/run",
+        "/backtests/robustness",
         "/sweeps",
         "/strategies",
         "/portfolio",
