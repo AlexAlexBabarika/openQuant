@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   bundledDrawablesFingerprint,
   candleBatchSignature,
+  fnv1a32Hex,
 } from './candleFingerprint';
 import type { OHLCVCandle } from '$lib/core/types';
 
@@ -17,6 +18,21 @@ const base = (overrides: Partial<OHLCVCandle> = {}): OHLCVCandle => ({
 });
 
 describe('candleBatchSignature', () => {
+  it('preserves the full-series digest without joined-history allocation', () => {
+    const candles = [
+      base(),
+      base({ close: 2, timestamp: '2024-01-01T00:01:00Z' }),
+    ];
+    const legacy = candles
+      .map(
+        c =>
+          `${c.timestamp}\x1f${c.open}\x1f${c.high}\x1f${c.low}\x1f${c.close}\x1f${c.volume}`,
+      )
+      .join('\x1e');
+    expect(candleBatchSignature(candles)).toBe(
+      `${candles.length}:${fnv1a32Hex(legacy)}`,
+    );
+  });
   it('is stable for same data with different array identity', () => {
     const a = [base()];
     const b = [base()];

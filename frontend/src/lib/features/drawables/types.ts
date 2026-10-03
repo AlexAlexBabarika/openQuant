@@ -111,10 +111,17 @@ export interface DrawableTool<
   popupActions?: PopupAction[];
 }
 
+export interface DrawableComputeState {
+  status: 'pending' | 'success' | 'error';
+  workKey: string;
+  error?: string;
+}
+
 /** Minimal props for placement preview (no selection or mutation callbacks). */
 export interface PreviewRendererProps<Geo, Params, Style, Data> {
   drawable: Drawable<Geo, Params, Style>;
   data: Data | undefined;
+  computeState?: DrawableComputeState;
   coordMap: CoordMap;
   /** Chart hit-test for drawable handle drags (optional). */
   toChartPoint?: (e: PointerEvent) => ChartPoint | null;

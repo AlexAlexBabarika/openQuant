@@ -17,13 +17,14 @@ export async function fetchVolumeProfile(
   const qs = new URLSearchParams({
     provider: params.provider,
     symbol: params.symbol,
-    startTs: String(params.startTs),
+    // Integer candle timestamps >= anchor: ceil preserves the selected window.
+    startTs: String(Math.ceil(params.startTs)),
     rowSize: String(params.rowSize),
     vaPercent: String(params.vaPercent),
     interval: params.interval,
   });
   if (params.endTs !== undefined) {
-    qs.set('endTs', String(params.endTs));
+    qs.set('endTs', String(Math.floor(params.endTs)));
   }
   const res = await fetch(`/data/volume-profile?${qs}`, { signal });
   if (!res.ok) {

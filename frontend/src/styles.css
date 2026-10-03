@@ -90,14 +90,15 @@
     --popover: 1 0 0;
     --popover-foreground: 0.141 0.005 285.823;
     --primary: 0.648 0.2 131.684;
-    --primary-foreground: 0.986 0.031 120.757;
+    --primary-foreground: 0.141 0.005 285.823;
     --secondary: 0.967 0.001 286.375;
     --secondary-foreground: 0.21 0.006 285.885;
     --muted: 0.967 0.001 286.375;
     --muted-foreground: 0.552 0.016 285.938;
     --accent: 0.967 0.001 286.375;
     --accent-foreground: 0.21 0.006 285.885;
-    --destructive: 0.577 0.245 27.325;
+    --destructive: 0.51 0.21 27.325;
+    --destructive-foreground: 0.985 0 0;
     --border: 0.92 0.004 286.32;
     --input: 0.92 0.004 286.32;
     --ring: 0.841 0.238 128.85;
@@ -109,7 +110,7 @@
     --sidebar: 0.985 0 0;
     --sidebar-foreground: 0.141 0.005 285.823;
     --sidebar-primary: 0.648 0.2 131.684;
-    --sidebar-primary-foreground: 0.986 0.031 120.757;
+    --sidebar-primary-foreground: 0.141 0.005 285.823;
     --sidebar-accent: 0.967 0.001 286.375;
     --sidebar-accent-foreground: 0.21 0.006 285.885;
     --sidebar-border: 0.92 0.004 286.32;
@@ -118,7 +119,7 @@
     --up-color: 0.648 0.2 131.684;
     /* Matches --primary */
     --down-color: 0.577 0.245 27.325;
-    /* Matches --destructive */
+    /* Chart loss color is independent of action contrast. */
     --area-top-color: 0.648 0.2 131.684 / 50%;
     --area-bottom-color: 0.648 0.2 131.684 / 5%;
   }
@@ -131,14 +132,15 @@
     --popover: 0.21 0.006 285.885;
     --popover-foreground: 0.985 0 0;
     --primary: 0.648 0.2 131.684;
-    --primary-foreground: 0.986 0.031 120.757;
+    --primary-foreground: 0.141 0.005 285.823;
     --secondary: 0.274 0.006 286.033;
     --secondary-foreground: 0.985 0 0;
     --muted: 0.274 0.006 286.033;
     --muted-foreground: 0.705 0.015 286.067;
     --accent: 0.274 0.006 286.033;
     --accent-foreground: 0.985 0 0;
-    --destructive: 0.577 0.245 27.325;
+    --destructive: 0.51 0.21 27.325;
+    --destructive-foreground: 0.985 0 0;
     --border: 1 0 0 / 10%;
     --input: 1 0 0 / 15%;
     --ring: 0.405 0.101 131.063;
@@ -150,7 +152,7 @@
     --sidebar: 0.21 0.006 285.885;
     --sidebar-foreground: 0.985 0 0;
     --sidebar-primary: 0.768 0.233 130.85;
-    --sidebar-primary-foreground: 0.986 0.031 120.757;
+    --sidebar-primary-foreground: 0.141 0.005 285.823;
     --sidebar-accent: 0.274 0.006 286.033;
     --sidebar-accent-foreground: 0.985 0 0;
     --sidebar-border: 1 0 0 / 10%;
@@ -159,7 +161,7 @@
     --up-color: 0.648 0.2 131.684;
     /* Matches --primary */
     --down-color: 0.577 0.245 27.325;
-    /* Matches --destructive */
+    /* Chart loss color is independent of action contrast. */
     --area-top-color: 0.326 0.1261 291.57 / 50%;
     --area-bottom-color: 0.326 0.1261 291.57 / 5%;
   }
@@ -247,14 +249,6 @@
   .ot-workbench-primary:disabled {
     opacity: 0.45;
     cursor: not-allowed;
-  }
-  .ot-workbench-primary.stop {
-    background: #ef4444;
-    border-color: #ef4444;
-    color: #fff;
-  }
-  .ot-workbench-primary.stop:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, #ef4444 60%, transparent);
   }
 
   /* Ghost variant of the workbench button. Same metrics, transparent fill.
@@ -361,26 +355,46 @@
    Light theme — strip the dark-mix grey washes from these utilities
    and use the indicators-panel light treatment (pure #000 borders).
    ---------------------------------------------------------------- */
-:global(html:not(.dark)) .ot-ctx-pill {
+html:not(.dark) .ot-ctx-pill {
   background: #ffffff;
   border-color: #000;
   color: #000;
 }
-:global(html:not(.dark)) .ot-ctx-pill .ot-ctx-label,
-:global(html:not(.dark)) .ot-ctx-pill .ot-ctx-value {
+html:not(.dark) .ot-ctx-pill .ot-ctx-label,
+html:not(.dark) .ot-ctx-pill .ot-ctx-value {
   color: #000;
 }
-:global(html:not(.dark)) .ot-workbench-ghost {
+html:not(.dark) .ot-workbench-ghost {
   border-color: #000;
   color: #000;
 }
-:global(html:not(.dark)) .ot-workbench-ghost:hover:not(:disabled) {
+html:not(.dark) .ot-workbench-ghost:hover:not(:disabled) {
   background: #000;
   color: #fff;
 }
-:global(html:not(.dark)) .ot-hairline-v {
+html:not(.dark) .ot-hairline-v {
   background: #000;
   opacity: 0.15;
+}
+
+/* Outrank the scoped panel STOP rule without changing panel ownership. */
+html .ot-workbench-primary.stop,
+html .btn.primary.stop[class] {
+  background: oklch(var(--destructive));
+  border-color: oklch(var(--destructive));
+  color: oklch(var(--destructive-foreground));
+}
+html .ot-workbench-primary.stop:hover:not(:disabled),
+html .btn.primary.stop[class]:hover:not(:disabled) {
+  box-shadow: 0 6px 18px -6px
+    color-mix(in oklab, oklch(var(--destructive)) 60%, transparent);
+}
+
+.ot-workbench-primary:focus-visible,
+.ot-workbench-ghost:focus-visible,
+.ot-ctx-pill:focus-visible {
+  outline: 2px solid oklch(var(--foreground));
+  outline-offset: 2px;
 }
 
 * {

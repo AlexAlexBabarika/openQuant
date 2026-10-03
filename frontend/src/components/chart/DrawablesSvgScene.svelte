@@ -7,6 +7,7 @@
     type Drawable,
     type PlacementMachine,
     type ScreenPoint,
+    type DrawableComputeState,
   } from '$lib/features/drawables';
   import type { BundledDrawable } from '$lib/features/drawables/bundledDrawable';
 
@@ -14,6 +15,8 @@
     coordMap,
     items,
     computedData,
+    computedStates,
+    creating = false,
     selectedId,
     placement,
     toChartPoint,
@@ -24,6 +27,8 @@
     coordMap: CoordMap;
     items: readonly BundledDrawable[];
     computedData: Map<string, unknown>;
+    computedStates: Map<string, DrawableComputeState>;
+    creating?: boolean;
     selectedId: string | null;
     placement: {
       type: string;
@@ -35,19 +40,26 @@
     onSelectDrawable: (id: string) => void;
     onAnchorPoint: (id: string, pt: ScreenPoint | null) => void;
   } = $props();
+
+  let sceneItems = $derived.by(() => {
+    const selected = items.find(d => d.id === selectedId);
+    return selected ? [...items.filter(d => d !== selected), selected] : items;
+  });
 </script>
 
 <svg
+  class:creating
   class="absolute inset-0 w-full h-full z-10 pointer-events-none"
   style="overflow: visible;"
 >
-  {#each items as d (d.id)}
+  {#each sceneItems as d (d.id)}
     {@const tool = getTool(d.type)}
     {#if tool}
       {@const RendererCmp = tool.Renderer}
       <RendererCmp
         drawable={d}
         data={computedData.get(d.id)}
+        computeState={computedStates.get(d.id)}
         selected={selectedId === d.id}
         {coordMap}
         {toChartPoint}
@@ -73,3 +85,9 @@
     {/if}
   {/if}
 </svg>
+
+<style>
+  .creating :global(*) {
+    pointer-events: none !important;
+  }
+</style>

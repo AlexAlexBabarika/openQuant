@@ -9,8 +9,15 @@ export interface VolumeProfileResponse {
   priceMin: number;
   priceMax: number;
   bins: VolumeProfileBin[];
-  poc: number;
-  vah: number;
-  val: number;
-  source: 'candle-distribution' | 'fine-grained';
+  poc: number | null;
+  vah: number | null;
+  val: number | null;
+  source: 'candle-distribution';
+  provider: string;
+  symbol: string;
+  interval: string | null;
+  startTs: number;
+  endTs: number | null;
+  firstCandleTs: number;
+  latestCandleTs: number;
 }

@@ -37,15 +37,32 @@ class ProfileResponse(BaseModel):
     price_min: float = Field(..., alias="priceMin")
     price_max: float = Field(..., alias="priceMax")
     bins: list[ProfileBinDTO]
-    poc: float
-    vah: float
-    val: float
+    poc: float | None
+    vah: float | None
+    val: float | None
     source: Literal["candle-distribution"]
+    provider: str
+    symbol: str
+    interval: str | None
+    start_ts: int = Field(..., alias="startTs")
+    end_ts: int | None = Field(..., alias="endTs")
+    first_candle_ts: int = Field(..., alias="firstCandleTs")
+    latest_candle_ts: int = Field(..., alias="latestCandleTs")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
-def _to_dto(r: ProfileResult) -> ProfileResponse:
+def _to_dto(
+    r: ProfileResult,
+    *,
+    provider: str,
+    symbol: str,
+    interval: str | None,
+    start_ts: int,
+    end_ts: int | None,
+    first_candle_ts: int,
+    latest_candle_ts: int,
+) -> ProfileResponse:
     return ProfileResponse(
         rowSize=r.row_size,
         priceMin=r.price_min,
@@ -58,6 +75,13 @@ def _to_dto(r: ProfileResult) -> ProfileResponse:
         vah=r.vah,
         val=r.val,
         source="candle-distribution",
+        provider=provider,
+        symbol=symbol,
+        interval=interval,
+        startTs=start_ts,
+        endTs=end_ts,
+        firstCandleTs=first_candle_ts,
+        latestCandleTs=latest_candle_ts,
     )
 
 
@@ -75,19 +99,34 @@ def get_volume_profile(
     va_pct: float = Query(0.7, alias="vaPercent", gt=0, le=1),
     interval: str = Query(..., description="Chart interval, e.g. '1d'"),
 ) -> ProfileResponse:
-    key = cache.make_profile_key(
-        provider, symbol, start_ts, end_ts, row_size, va_pct, interval
-    )
-    cached = cache.get_cached_profile(key)
-    if cached is not None:
-        return _to_dto(cached)
-
+    provider = provider.strip().lower()
+    symbol = symbol.strip()
+    interval = interval.strip().lower()
     candles = cache.get_cached(provider, symbol)
     if candles is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No cached candles for {provider}:{symbol}. Load market data first.",
         )
+
+    meta = cache.get_cached_meta(provider, symbol)
+    source_interval = meta[1] if meta else None
+    if source_interval is not None:
+        source_interval = source_interval.strip().lower()
+    if source_interval != interval and not (
+        provider == "csv" and source_interval is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cached source interval {source_interval!r} does not match requested interval {interval!r}. Reload market data first.",
+        )
+
+    key = cache.make_profile_key(
+        provider, symbol, start_ts, end_ts, row_size, va_pct, interval
+    )
+    cached = cache.get_cached_profile(key)
+    if cached is not None:
+        return cached
 
     def _ts(c) -> int:
         return int(c.timestamp.timestamp())
@@ -104,5 +143,15 @@ def get_volume_profile(
         )
 
     result = bin_from_candle_distribution(window, row_size=row_size, va_pct=va_pct)
-    cache.set_cached_profile(key, result)
-    return _to_dto(result)
+    response = _to_dto(
+        result,
+        provider=provider,
+        symbol=symbol,
+        interval=source_interval,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        first_candle_ts=min(_ts(c) for c in window),
+        latest_candle_ts=max(_ts(c) for c in window),
+    )
+    cache.set_cached_profile(key, response)
+    return response

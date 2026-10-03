@@ -11,6 +11,7 @@
   let {
     drawable,
     data,
+    computeState,
     selected,
     coordMap,
     onRequestSelect,
@@ -24,6 +25,9 @@
   });
 
   const MAX_WIDTH_PX = 320;
+  let currentData = $derived(
+    computeState && computeState.status !== 'success' ? undefined : data,
+  );
 
   let boxWidth = $derived.by(() => {
     if (anchorX == null) return 0;
@@ -43,20 +47,50 @@
   let plotHeight = $derived(coordMap.plotHeight);
 
   let maxBinVol = $derived.by(() => {
-    if (!data?.bins.length) return 0;
+    if (!currentData?.bins.length) return 0;
     let m = 0;
-    for (const b of data.bins) {
+    for (const b of currentData.bins) {
       const v = b.upVol + b.downVol;
       if (v > m) m = v;
     }
     return m;
   });
 
+  let statusLabel = $derived(
+    computeState?.status === 'error'
+      ? 'AVP unavailable'
+      : !currentData
+        ? 'Computing AVP…'
+        : maxBinVol <= 0
+          ? 'No volume · AVP'
+          : 'AVP · OHLCV estimate',
+  );
+
+  let profileDetails = $derived.by(() => {
+    const method =
+      'OHLCV estimate: volume spread uniformly over candle low–high, weighted by row overlap. ' +
+      'Up/down uses close ≥ open / close < open, not order-flow delta. ' +
+      'POC is the lowest tied row’s lower edge; VAH/VAL bracket included rows.';
+    if (!currentData) return `${method} ${statusLabel}.`;
+    const d = currentData;
+    return [
+      method,
+      `Source: ${d.provider}:${d.symbol}, ${d.interval ?? 'interval unknown'}.`,
+      `Anchor (inclusive): ${new Date(d.startTs * 1000).toISOString()}.`,
+      `First included candle: ${new Date(d.firstCandleTs * 1000).toISOString()}.`,
+      `Latest included candle: ${new Date(d.latestCandleTs * 1000).toISOString()}.`,
+      d.endTs == null
+        ? 'Window extends to latest cached candle; not a tick/live order-flow profile.'
+        : `End (inclusive): ${new Date(d.endTs * 1000).toISOString()}.`,
+      maxBinVol <= 0 ? 'No positive volume; POC/VA levels are unsupported.' : '',
+    ].join(' ');
+  });
+
   /** Precomputed rows so bin geometry is measurable (`drawables:avp-bin-layout`) and matches the prior `{#each}` math. */
   let binLayoutRows = $derived.by(() => {
     coordMap.version;
     if (
-      !data?.bins.length ||
+      !currentData?.bins.length ||
       !drawable.style.showProfile ||
       maxBinVol <= 0
     ) {
@@ -69,7 +103,7 @@
         fullW: number;
       }>;
     }
-    const d = data;
+    const d = currentData;
     const rowSize = d.rowSize;
     return measureDrawablesSync('drawables:avp-bin-layout', () => {
       const rows: Array<{
@@ -101,7 +135,8 @@
       onAnchorPoint(null);
       return;
     }
-    const anchorY = coordMap.priceToY(data?.poc ?? 0) ?? 0;
+    const poc = maxBinVol > 0 ? currentData?.poc : null;
+    const anchorY = poc != null ? (coordMap.priceToY(poc) ?? 0) : 0;
     onAnchorPoint({ x: anchorX, y: anchorY } satisfies ScreenPoint);
   });
 
@@ -125,7 +160,7 @@
       opacity="0.8"
     />
 
-    {#if drawable.style.showProfile && data && maxBinVol > 0}
+    {#if drawable.style.showProfile && currentData && maxBinVol > 0}
       {#each binLayoutRows as row (row.bin.price)}
         {#if placement === 'right'}
           <rect
@@ -165,10 +200,10 @@
       {/each}
     {/if}
 
-    {#if data}
-      {@const pocY = coordMap.priceToY(data.poc)}
-      {@const vahY = coordMap.priceToY(data.vah)}
-      {@const valY = coordMap.priceToY(data.val)}
+    {#if currentData && maxBinVol > 0}
+      {@const pocY = currentData.poc != null ? coordMap.priceToY(currentData.poc) : null}
+      {@const vahY = currentData.vah != null ? coordMap.priceToY(currentData.vah) : null}
+      {@const valY = currentData.val != null ? coordMap.priceToY(currentData.val) : null}
       {#if drawable.style.showPOC && pocY != null}
         <line
           x1={boxLeft}
@@ -201,6 +236,43 @@
           stroke-dasharray="4 3"
         />
       {/if}
+    {/if}
+
+    <text
+      x={placement === 'right' ? coordMap.plotWidth - 4 : 4}
+      y={plotHeight - 22}
+      text-anchor={placement === 'right' ? 'end' : 'start'}
+      fill="oklch(var(--foreground))"
+      font-size="11"
+      font-family="Lato, sans-serif"
+      pointer-events="auto"
+      role="button"
+      tabindex="-1"
+      data-drawable-id={drawable.id}
+      onpointerdown={onHitPointerDown}
+      style:cursor="pointer"
+    >
+      <title>{profileDetails}</title>
+      {statusLabel}
+    </text>
+    {#if currentData}
+      <text
+        x={placement === 'right' ? coordMap.plotWidth - 4 : 4}
+        y={plotHeight - 8}
+        text-anchor={placement === 'right' ? 'end' : 'start'}
+        fill="oklch(var(--muted-foreground))"
+        font-size="10"
+        font-family="Space Mono, monospace"
+        pointer-events="auto"
+        role="button"
+        tabindex="-1"
+        data-drawable-id={drawable.id}
+        onpointerdown={onHitPointerDown}
+        style:cursor="pointer"
+      >
+        <title>{profileDetails}</title>
+        {currentData.provider} · {currentData.interval ?? 'interval unknown'}
+      </text>
     {/if}
 
     <DrawableSvgHitRect

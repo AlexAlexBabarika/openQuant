@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { placementGesture } from '$lib/features/drawables/placement/gesture';
+  import { chartKeyAction } from '$lib/features/drawables/placement/keyboard';
   import type { OHLCVCandle } from '$lib/core/types';
   import {
     drawables,
@@ -13,6 +16,7 @@
     type Drawable,
     type PopupAction,
     type ScreenPoint,
+    type DrawableComputeState,
     resolvePopupActions,
   } from '$lib/features/drawables';
   import ChartDrawablesCompute from './ChartDrawablesCompute.svelte';
@@ -27,6 +31,7 @@
     candles = [] as OHLCVCandle[],
     provider = 'yfinance',
     interval = '1d',
+    seriesIdentity = '',
     toChartPoint,
     containerEl = null as HTMLDivElement | null,
     onPlacementActiveChange,
@@ -39,6 +44,7 @@
     candles: OHLCVCandle[];
     provider: string;
     interval: string;
+    seriesIdentity?: string;
     toChartPoint: (e: PointerEvent) => ChartPoint | null;
     containerEl: HTMLDivElement | null;
     /** Lets the chart disable pan/zoom while the user is placing a drawable. */
@@ -91,14 +97,42 @@
   let placement = $state<{
     type: string;
     machine: PlacementMachine<unknown>;
+    gesture: ReturnType<typeof placementGesture>;
+    symbol: string;
     preview: Drawable | null;
   } | null>(null);
+
+  let viewIdentity = $derived(JSON.stringify([symbol, provider, interval, seriesIdentity]));
+  let gestureIdentity = $derived(JSON.stringify([viewIdentity, activeTool]));
+  let lastViewIdentity: string | undefined;
+  let lastGestureIdentity: string | undefined;
+  function cancelPlacement() {
+    const previous = placement;
+    placement = null;
+    previous?.gesture.cancel();
+  }
+  $effect(() => {
+    const view = viewIdentity;
+    const gesture = gestureIdentity;
+    if (view !== lastViewIdentity) {
+      drawables.select(null);
+      anchorPointsMap.clear();
+      anchorTick += 1;
+      lastViewIdentity = view;
+    }
+    if (gesture !== lastGestureIdentity) {
+      cancelPlacement();
+      lastGestureIdentity = gesture;
+    }
+  });
+  onDestroy(cancelPlacement);
 
   $effect(() => {
     onPlacementActiveChange?.(placement !== null);
   });
 
   let computedData = $state<Map<string, unknown>>(new Map());
+  let computedStates = $state<Map<string, DrawableComputeState>>(new Map());
 
   const anchorPointsMap = new Map<string, ScreenPoint>();
   let anchorTick = $state(0);
@@ -117,21 +151,21 @@
 
   let popupAnchor = $derived.by(() => {
     anchorTick;
-    const sel = drawables.selected;
+    const sel = visibleSelection();
     if (!sel) return null;
     const pt = anchorPointsMap.get(sel.id);
     return pt ?? null;
   });
 
   let popupActions = $derived.by(() => {
-    const sel = drawables.selected;
+    const sel = visibleSelection();
     if (!sel) return [] as PopupAction[];
     const tool = getTool(sel.type);
     return tool ? resolvePopupActions(tool) : [];
   });
 
   function onPopupAction(id: PopupAction['id'], action: PopupAction): void {
-    const sel = drawables.selected;
+    const sel = visibleSelection();
     if (!sel) return;
     if (id === 'delete') {
       drawables.remove(sel.id);
@@ -153,7 +187,7 @@
     const previewDrawable: Drawable = {
       id: '__preview__',
       type: placement.type,
-      symbol,
+      symbol: placement.symbol,
       geometry: prev.geometry,
       params: tool.defaults.params,
       style: tool.defaults.style,
@@ -163,6 +197,7 @@
   }
 
   export function handlePointerDown(e: PointerEvent) {
+    if (e.button !== 0) return;
     if (activeTool === CURSOR) {
       const target = e.target as Element | null;
       const hitId = target
@@ -188,11 +223,15 @@
         barStepSeconds,
       });
       const toolType = tool.type;
-      machine.onComplete((geometry: unknown) => {
+      const startSymbol = symbol;
+      const captureEl = containerEl;
+      const pointerId = e.pointerId;
+      captureEl?.setPointerCapture?.(pointerId);
+      const gesture = placementGesture(machine, gestureIdentity, pointerId, () => gestureIdentity, (geometry: unknown) => {
         drawables.add({
           id: crypto.randomUUID(),
           type: toolType,
-          symbol,
+          symbol: startSymbol,
           geometry,
           params: deepCloneDrawableSnapshot(tool.defaults.params),
           style: deepCloneDrawableSnapshot(tool.defaults.style),
@@ -200,11 +239,12 @@
         } as BundledDrawable);
         placement = null;
         setActiveTool(CURSOR);
+      }, () => {
+        if (captureEl?.hasPointerCapture?.(pointerId)) captureEl.releasePointerCapture(pointerId);
       });
-      placement = { type: toolType, machine, preview: null };
+      placement = { type: toolType, machine, gesture, symbol: startSymbol, preview: null };
     }
-    placement.machine.onPointerDown(pt);
-    containerEl?.setPointerCapture?.(e.pointerId);
+    placement.gesture.down(e.pointerId, pt);
     e.preventDefault();
     refreshPlacementPreview();
   }
@@ -213,45 +253,49 @@
     if (!placement) return;
     const pt = toChartPoint(e);
     if (!pt) return;
-    placement.machine.onPointerMove(pt);
+    placement.gesture.move(e.pointerId, pt);
     refreshPlacementPreview();
   }
 
   export function handlePointerUp(e: PointerEvent) {
     if (!placement) return;
-    const pt = toChartPoint(e);
-    if (pt) placement.machine.onPointerUp(pt);
-    if (containerEl?.hasPointerCapture?.(e.pointerId)) {
-      containerEl.releasePointerCapture(e.pointerId);
+    const current = placement;
+    current.gesture.end(e, e.type === 'pointerup' ? toChartPoint(e) : null);
+    if (current.gesture.closed) {
+      placement = null;
+      if (activeTool === current.type) setActiveTool(CURSOR);
     }
     refreshPlacementPreview();
   }
 
   export function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      if (placement) {
-        placement.machine.cancel();
-        placement = null;
+    const selection = visibleSelection();
+    switch (chartKeyAction(e, placement !== null, selection !== null)) {
+      case 'cancel':
+        cancelPlacement();
         setActiveTool(CURSOR);
-        return;
-      }
-      if (drawables.selected) {
+        break;
+      case 'deselect':
         drawables.select(null);
-      }
-      return;
+        break;
+      case 'delete':
+        drawables.remove(selection!.id);
+        e.preventDefault();
+        break;
     }
-    if (
-      (e.key === 'Delete' || e.key === 'Backspace') &&
-      drawables.selected
-    ) {
-      drawables.remove(drawables.selected.id);
-    }
+  }
+
+  function visibleSelection() {
+    anchorTick;
+    if (viewIdentity !== lastViewIdentity) return null;
+    return drawables.selectedForSymbol(symbol, anchorPointsMap.keys());
   }
 </script>
 
 {#if coordMap}
   <ChartDrawablesCompute
     bind:computedData
+    bind:computedStates
     {symbol}
     {candles}
     {provider}
@@ -259,10 +303,13 @@
     items={itemsForSymbol}
   />
 
+  {#key gestureIdentity}
   <DrawablesSvgScene
     {coordMap}
     items={itemsForSymbol}
     {computedData}
+    {computedStates}
+    creating={activeTool !== CURSOR}
     selectedId={drawables.selected?.id ?? null}
     {placement}
     {toChartPoint}
@@ -270,6 +317,7 @@
     onSelectDrawable={id => drawables.select(id)}
     onAnchorPoint={(id, pt) => setAnchorPoint(id, pt)}
   />
+  {/key}
 
   {#if popupAnchor && popupActions.length > 0}
     <DrawablePopup

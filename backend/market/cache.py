@@ -5,7 +5,7 @@ Keys are ``provider:symbol`` so different providers never overwrite the same
 symbol. Each entry is stamped with the ``(period, interval)`` it was fetched
 under; strict callers (e.g. the user-script runner) can pass these to
 ``get_cached`` and receive ``None`` on mismatch, forcing a fresh fetch.
-Loose callers (legacy indicator and volume-profile routes) omit the filters
+Loose callers (legacy indicator routes) omit the filters
 and read whatever is cached.
 """
 
@@ -65,6 +65,7 @@ def set_cached(
     key = make_cache_key(provider, symbol)
     _data_cache.pop(key, None)
     _data_cache[key] = (period, interval, candles)
+    _invalidate_profiles(provider, symbol)
 
 
 def get_cached_meta(provider: str, symbol: str) -> tuple[str | None, str | None] | None:
@@ -77,8 +78,7 @@ def set_cached_csv(symbol: str, candles: list[OHLCVCandle]) -> None:
     """Cache CSV upload under provider ``csv``."""
     key = make_cache_key("csv", symbol)
     _csv_keys.add(key)
-    _data_cache.pop(key, None)
-    _data_cache[key] = (None, None, candles)
+    set_cached("csv", symbol, candles)
 
 
 def is_csv_cached(symbol: str) -> bool:
@@ -93,10 +93,17 @@ def list_cached_keys() -> list[str]:
 # ---------------------------------------------------------------------------
 # Volume-profile cache
 # Keyed by (provider, symbol, start_ts, end_ts, row_size, va_pct, interval).
-# Values are arbitrary result objects (ProfileResult from volume_profile.py).
+# Values are derived responses from volume_profile_routes.py.
 # ---------------------------------------------------------------------------
 
 _profile_cache: dict[tuple, Any] = {}
+
+
+def _invalidate_profiles(provider: str, symbol: str) -> None:
+    source = (provider.strip().lower(), symbol.strip())
+    for key in list(_profile_cache):
+        if key[:2] == source:
+            del _profile_cache[key]
 
 
 def make_profile_key(

@@ -15,6 +15,18 @@ function fakeCtx(
 }
 
 describe('positionBandPlacement', () => {
+  it.each(['long', 'short'] as const)(
+    'uses a quarter-bar span on the final candle (%s)',
+    side => {
+      const m = positionBandPlacement(fakeCtx(1000, 400), side);
+      let final: unknown;
+      m.onComplete(g => {
+        final = g;
+      });
+      m.onPointerUp({ time: 1000, price: 50 });
+      expect(final).toMatchObject({ startTime: 900, endTime: 1000 });
+    },
+  );
   it('completes on first pointerUp with band anchored to last candle', () => {
     const m = positionBandPlacement(fakeCtx(1000), 'long');
     let final: unknown = null;

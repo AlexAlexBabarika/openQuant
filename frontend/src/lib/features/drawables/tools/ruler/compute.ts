@@ -16,6 +16,60 @@ export interface RulerStats {
   isUp: boolean;
 }
 
+interface CandleIndex {
+  times: number[];
+  volumes: number[];
+}
+
+const indexCache = new WeakMap<
+  readonly OHLCVCandle[],
+  { signature: string; index: CandleIndex }
+>();
+let sharedIndex:
+  | { candles: readonly OHLCVCandle[]; signature: string }
+  | undefined;
+
+function buildIndex(candles: readonly OHLCVCandle[]): CandleIndex {
+  const rows = candles
+    .map(c => ({ time: Date.parse(c.timestamp) / 1000, volume: c.volume }))
+    .filter(row => Number.isFinite(row.time))
+    .sort((a, b) => a.time - b.time);
+  return {
+    times: rows.map(row => row.time),
+    volumes: rows.map(row => row.volume),
+  };
+}
+
+/** Share one timestamp index across the synchronous drawable compute pass. */
+export function withRulerCandleIndex<T>(
+  candles: readonly OHLCVCandle[],
+  signature: string,
+  compute: () => T,
+): T {
+  const previous = sharedIndex;
+  sharedIndex = { candles, signature };
+  try {
+    return compute();
+  } finally {
+    sharedIndex = previous;
+  }
+}
+
+function bound(
+  times: readonly number[],
+  time: number,
+  inclusive: boolean,
+): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (times[mid] < time || (inclusive && times[mid] === time)) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 function formatSpan(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   const days = Math.floor(s / 86400);
@@ -39,11 +93,23 @@ export function computeStats(
 
   let barCount = 0;
   let volumeSum = 0;
-  for (const c of candles) {
-    const t = Date.parse(c.timestamp) / 1000;
-    if (t >= tMin && t <= tMax) {
-      barCount += 1;
-      volumeSum += c.volume;
+  if (sharedIndex?.candles === candles) {
+    const signature = sharedIndex.signature;
+    const cached = indexCache.get(candles);
+    const index =
+      cached?.signature === signature ? cached.index : buildIndex(candles);
+    indexCache.set(candles, { signature, index });
+    const from = bound(index.times, tMin, false);
+    const to = bound(index.times, tMax, true);
+    barCount = to - from;
+    for (let i = from; i < to; i++) volumeSum += index.volumes[i];
+  } else {
+    for (const c of candles) {
+      const t = Date.parse(c.timestamp) / 1000;
+      if (t >= tMin && t <= tMax) {
+        barCount++;
+        volumeSum += c.volume;
+      }
     }
   }
 

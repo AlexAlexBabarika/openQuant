@@ -56,6 +56,7 @@
     type DrawableSurface,
   } from '$lib/features/drawables';
   import ChartViewport from './ChartViewport.svelte';
+  import { coordinateInvalidator } from '$lib/features/drawables/coordMap';
   import ChartScriptOverlay from './ChartScriptOverlay.svelte';
   import ChartScriptMarkers from './ChartScriptMarkers.svelte';
   import type { RunningScript } from '$lib/features/indicators/indicatorState.svelte';
@@ -112,8 +113,8 @@
 
   let containerEl = $state<HTMLDivElement | null>(null);
   let chart: IChartApi | null = null;
-  let candleSeries: ISeriesApi<'Candlestick'> | null = null;
-  let lineSeries: ISeriesApi<'Line'> | null = null;
+  let candleSeries = $state.raw<ISeriesApi<'Candlestick'> | null>(null);
+  let lineSeries = $state.raw<ISeriesApi<'Line'> | null>(null);
   let areaSeries: ISeriesApi<'Area'> | null = null;
   let volumeSeries: ISeriesApi<'Histogram'> | null = null;
   let smaSeries: ISeriesApi<'Line'> | null = null;
@@ -183,6 +184,7 @@
   let coordVersion = $state(0);
 
   let coordMap = $state<CoordMap | null>(null);
+  let priceInvalidator: ReturnType<typeof coordinateInvalidator> | null = null;
 
   let drawablePlacing = $state(false);
 
@@ -345,6 +347,7 @@
       volumeSeries.update(toVolume(c));
     }
     updateLegend(undefined);
+    priceInvalidator?.settle();
   }
 
   function setSeriesData(data: OHLCVCandle[]): void {
@@ -365,6 +368,7 @@
       volumeSeries.setData(data.map(toVolume));
     }
     updateLegend(undefined);
+    priceInvalidator?.settle();
   }
 
   function handleResize(): void {
@@ -374,6 +378,7 @@
         height: containerEl.clientHeight,
       });
       coordVersion += 1;
+      priceInvalidator?.settle();
     }
   }
 
@@ -451,6 +456,25 @@
 
   onMount(() => {
     initChart();
+    priceInvalidator = coordinateInvalidator(() => { coordVersion += 1; });
+    const element = containerEl;
+    const startScale = (e: PointerEvent) => {
+      if (!chart || !element) return;
+      const rect = element.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const left = chart.priceScale('left').width();
+      if (y >= 0 && y <= chart.paneSize().height && (x < left || x >= left + chart.paneSize().width)) {
+        priceInvalidator?.start();
+      }
+    };
+    const stopScale = () => priceInvalidator?.stop();
+    const resetScale = () => priceInvalidator?.settle();
+    element?.addEventListener('pointerdown', startScale, true);
+    element?.addEventListener('dblclick', resetScale, true);
+    window.addEventListener('pointerup', stopScale);
+    window.addEventListener('pointercancel', stopScale);
+    window.addEventListener('blur', stopScale);
     api = { appendCandle };
     window.addEventListener('resize', handleResize);
 
@@ -469,6 +493,16 @@
       lastTo = to;
       coordVersion += 1;
     });
+    coordVersion += 1;
+    return () => {
+      element?.removeEventListener('pointerdown', startScale, true);
+      element?.removeEventListener('dblclick', resetScale, true);
+      window.removeEventListener('pointerup', stopScale);
+      window.removeEventListener('pointercancel', stopScale);
+      window.removeEventListener('blur', stopScale);
+      priceInvalidator?.destroy();
+      priceInvalidator = null;
+    };
   });
 
   onDestroy(() => {
@@ -499,6 +533,7 @@
       applyArea(area);
       applyVolume(volume);
       setSeriesData(data);
+      coordVersion += 1;
       if (data !== prevCandles) {
         chart.timeScale().fitContent();
         chart.applyOptions({
@@ -681,6 +716,8 @@
         ? PriceScaleMode.Percentage
         : PriceScaleMode.Normal;
       chart.priceScale('right').applyOptions({ mode });
+      coordVersion += 1;
+      priceInvalidator?.settle();
     });
   });
 
@@ -705,6 +742,7 @@
   {candles}
   {provider}
   {interval}
+  seriesIdentity={chartType}
   {toChartPoint}
   onPlacementActiveChange={onDrawablePlacementActiveChange}
   {onChartPointerDown}

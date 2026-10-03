@@ -199,8 +199,9 @@
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
     args: () => [smaConfig.period],
-    fetch: (sym, [period]) =>
-      fetchSMA(sym, period as number).then(r => r.points),
+    account: () => $authState.user?.id ?? null,
+    fetch: (sym, [period], signal) =>
+      fetchSMA(sym, period as number, signal).then(r => r.points),
     onError: indicatorErrorHandler,
     label: 'SMA',
   });
@@ -210,8 +211,9 @@
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
     args: () => [emaConfig.period],
-    fetch: (sym, [period]) =>
-      fetchEMA(sym, period as number).then(r => r.points),
+    account: () => $authState.user?.id ?? null,
+    fetch: (sym, [period], signal) =>
+      fetchEMA(sym, period as number, signal).then(r => r.points),
     onError: indicatorErrorHandler,
     label: 'EMA',
   });
@@ -221,8 +223,9 @@
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
     args: () => [bbandsConfig.period, bbandsConfig.stdDev],
-    fetch: (sym, [period, stdDev]) =>
-      fetchBBands(sym, period as number, stdDev as number).then(r => r.points),
+    account: () => $authState.user?.id ?? null,
+    fetch: (sym, [period, stdDev], signal) =>
+      fetchBBands(sym, period as number, stdDev as number, signal).then(r => r.points),
     onError: indicatorErrorHandler,
     label: 'Bollinger Bands',
   });

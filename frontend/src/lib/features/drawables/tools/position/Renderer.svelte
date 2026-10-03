@@ -15,6 +15,7 @@
   let {
     drawable,
     data,
+    computeState,
     selected,
     coordMap,
     onGeometryChange,
@@ -63,7 +64,7 @@
     };
   });
 
-  let metrics = $derived(data ?? null);
+  let metrics = $derived(computeState && computeState.status !== 'success' ? null : data ?? null);
 
   /** Fallback when API hasn't replied yet (data is null on first render). */
   function riskRewardFromGeometry(g: PositionGeo, long: boolean): number | null {
@@ -76,15 +77,22 @@
   }
 
   let displayRiskReward = $derived.by(() => {
+    const current = riskRewardFromGeometry(drawable.geometry, isLong);
+    if (current === null || (computeState && computeState.status !== 'success')) return null;
     const rr = metrics?.riskRewardRatio;
-    if (rr != null && Number.isFinite(rr)) return rr;
-    return riskRewardFromGeometry(drawable.geometry, isLong);
+    if (rr != null && Number.isFinite(rr) && rr > 0) return rr;
+    return current;
   });
+
+  let validDirection = $derived(riskRewardFromGeometry(drawable.geometry, isLong) !== null);
+  let validTarget = $derived(isLong ? drawable.geometry.targetPrice > drawable.geometry.entryPrice : drawable.geometry.targetPrice < drawable.geometry.entryPrice);
+  let validStop = $derived(isLong ? drawable.geometry.stopPrice < drawable.geometry.entryPrice : drawable.geometry.stopPrice > drawable.geometry.entryPrice);
+  let statusLabel = $derived(!validDirection ? 'Invalid levels' : computeState?.status === 'pending' ? 'Calculating…' : computeState?.status === 'error' ? 'Calculation failed' : null);
 
   let dragKind = $state<null | 'target' | 'stop' | 't0' | 't1'>(null);
 
   $effect(() => {
-    if (!layout) {
+    if (!layout || layout.xRight < 0 || layout.xLeft > coordMap.plotWidth || Math.max(layout.yRiskBot, layout.yRewBot) < 0 || Math.min(layout.yRiskTop, layout.yRewTop) > coordMap.plotHeight) {
       onAnchorPoint(null);
       return;
     }
@@ -99,6 +107,12 @@
   function fmt(n: number | null | undefined, d = 2): string {
     if (n == null || !Number.isFinite(n)) return '—';
     return n.toFixed(d);
+  }
+
+  function fmtPrice(n: number): string {
+    if (!Number.isFinite(n)) return '—';
+    if (n === 0 || (Math.abs(n) >= 0.01 && Math.abs(n) < 1e6)) return n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 6, minimumFractionDigits: 2 });
+    return n.toPrecision(4).replace(/(\.\d*?[1-9])0+(?=e|$)|\.0+(?=e|$)/, '$1');
   }
 
   function pctFromEntry(price: number, entry: number): number {
@@ -227,7 +241,7 @@
         y={L.yRewTop}
         width={L.width}
         height={Math.max(1, L.yRewBot - L.yRewTop)}
-        fill={drawable.style.targetColor}
+        fill={validTarget ? drawable.style.targetColor : drawable.style.stopColor}
         fill-opacity="0.18"
         pointer-events="none"
       />
@@ -238,7 +252,7 @@
       x2={L.xRight}
       y1={L.yE}
       y2={L.yE}
-      stroke={drawable.style.targetColor}
+      stroke={validDirection ? drawable.style.targetColor : drawable.style.stopColor}
       stroke-width={strokeW}
       stroke-dasharray="4 3"
       pointer-events="none"
@@ -257,12 +271,12 @@
       x2={L.xRight}
       y1={L.yT}
       y2={L.yT}
-      stroke={drawable.style.targetColor}
+      stroke={validTarget ? drawable.style.targetColor : drawable.style.stopColor}
       stroke-width={1}
       pointer-events="none"
     />
 
-    {#if drawable.style.showMetrics && metrics}
+    {#if drawable.style.showMetrics}
       <foreignObject
         x={L.xLeft + L.width / 2 - 70}
         y={targetLabelY}
@@ -272,9 +286,9 @@
       >
         <div
           class="rounded px-2 py-1 text-[10px] font-mono text-white shadow-lg text-center"
-          style:background-color={drawable.style.targetColor}
+          style:background-color={validTarget ? drawable.style.targetColor : drawable.style.stopColor}
         >
-          Target: {fmt(targetDist)} ({fmt(targetPct, 3)}%)
+          {validTarget ? 'Target' : 'Invalid target'}: {fmtPrice(targetDist)} price ({fmt(targetPct, 3)}%)
         </div>
       </foreignObject>
 
@@ -289,7 +303,7 @@
           class="rounded px-2 py-1 text-[10px] font-mono text-white shadow-lg text-center"
           style:background-color={drawable.style.stopColor}
         >
-          Stop: {fmt(stopDist)} ({fmt(stopPct, 3)}%)
+          {validStop ? 'Stop' : 'Invalid stop'}: {fmtPrice(stopDist)} price ({fmt(stopPct, 3)}%)
         </div>
       </foreignObject>
 
@@ -302,9 +316,9 @@
       >
         <div
           class="rounded px-2 py-1 text-[10px] font-mono text-white shadow-lg text-center"
-          style:background-color={drawable.style.targetColor}
+          style:background-color={statusLabel ? drawable.style.stopColor : drawable.style.targetColor}
         >
-          Risk/reward: {fmt(displayRiskReward, 2)}
+          {#if statusLabel}{statusLabel}{:else}Risk/reward: {fmt(displayRiskReward, 2)}{/if}
         </div>
       </foreignObject>
     {/if}
@@ -333,6 +347,7 @@
         onpointermove={handleMove}
         onpointerup={handleUp}
         onpointercancel={handleUp}
+        onlostpointercapture={handleUp}
       />
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <rect
@@ -353,6 +368,7 @@
         onpointermove={handleMove}
         onpointerup={handleUp}
         onpointercancel={handleUp}
+        onlostpointercapture={handleUp}
       />
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <rect
@@ -373,6 +389,7 @@
         onpointermove={handleMove}
         onpointerup={handleUp}
         onpointercancel={handleUp}
+        onlostpointercapture={handleUp}
       />
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <rect
@@ -393,6 +410,7 @@
         onpointermove={handleMove}
         onpointerup={handleUp}
         onpointercancel={handleUp}
+        onlostpointercapture={handleUp}
       />
     {/if}
   </g>

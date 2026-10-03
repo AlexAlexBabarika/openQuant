@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
+  import { Dialog } from 'bits-ui';
+  import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Plus from '@lucide/svelte/icons/plus';
   import Play from '@lucide/svelte/icons/play';
   import Square from '@lucide/svelte/icons/square';
@@ -40,32 +42,14 @@
     if (open) void ind.refresh();
   });
 
-  // Lock body scroll while open.
-  $effect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  });
+
+  const modal = createModalLifecycle();
+  onDestroy(() => modal.close());
 
   function close() {
     open = false;
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (!open) return;
-    if (e.key === 'Escape' && !dragging) {
-      e.preventDefault();
-      close();
-    }
-  }
-
-  onMount(() => {
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
   function startDrag(e: PointerEvent) {
     if (!panelEl) return;
@@ -141,15 +125,20 @@
   }
 </script>
 
-{#if open}
-  <button
-    type="button"
-    class="backdrop"
-    aria-label="Close indicators panel"
-    onclick={close}
-  ></button>
-
-  <div
+<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+  <Dialog.Portal disabled={typeof window === 'undefined'}>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="backdrop"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content
+      onOpenAutoFocus={() => modal.open(panelEl)}
+      onCloseAutoFocus={() => modal.close()}
+      onEscapeKeydown={e => { if (dragging) e.preventDefault(); }}
+    >
+    {#snippet child({ props })}
+  <div {...props}
     bind:this={panelEl}
     class="panel"
     role="dialog"
@@ -231,53 +220,36 @@
           {/if}
 
           {#each ind.scripts as s (s.id)}
-            <button
-              type="button"
+            <div
               class="rail-item"
               class:active={ind.activeId === s.id}
-              onclick={() => ind.openScript(s.id)}
             >
-              <span
+              <button
+                type="button"
                 class="ri-status"
                 class:running={ind.isRunningOk(s.id)}
-                role="button"
-                tabindex="-1"
-                aria-label={ind.runners[s.id] ? 'stop script' : 'start script'}
+                aria-label={`${ind.runners[s.id] ? 'Stop' : 'Start'} script ${s.name}`}
                 title={ind.runners[s.id] ? 'stop script' : 'start script'}
-                onclick={(e: MouseEvent) => {
-                  e.stopPropagation();
-                  void toggleScriptRun(s.id);
-                }}
-                onkeydown={(e: KeyboardEvent) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    void toggleScriptRun(s.id);
-                  }
-                }}
-              ></span>
-              <span class="ri-name">{s.name}</span>
-              <span class="ri-time">{fmtRelative(s.updated_at)}</span>
-              <span
+                onclick={() => void toggleScriptRun(s.id)}
+              ></button>
+              <button
+                type="button"
+                class="ri-select"
+                aria-pressed={ind.activeId === s.id}
+                onclick={() => ind.openScript(s.id)}
+              >
+                <span class="ri-name">{s.name}</span>
+                <span class="ri-time">{fmtRelative(s.updated_at)}</span>
+              </button>
+              <button
+                type="button"
                 class="ri-del"
-                role="button"
-                tabindex="-1"
-                aria-label="Delete script"
-                onclick={(e: MouseEvent) => {
-                  e.stopPropagation();
-                  void confirmDelete(s.id, s.name);
-                }}
-                onkeydown={(e: KeyboardEvent) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    void confirmDelete(s.id, s.name);
-                  }
-                }}
+                aria-label="Delete script {s.name}"
+                onclick={() => void confirmDelete(s.id, s.name)}
               >
                 <Trash2 class="h-3 w-3" />
-              </span>
-            </button>
+              </button>
+            </div>
           {/each}
         </div>
 
@@ -401,13 +373,16 @@
       {/if}
     </div>
   </div>
-{/if}
+    {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: calc(60 + var(--bits-dialog-depth, 0) * 2);
     background: oklch(var(--background) / 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -423,7 +398,7 @@
     right: 0;
     bottom: 0;
     height: 88vh;
-    z-index: 61;
+    z-index: calc(61 + var(--bits-dialog-depth, 0) * 2);
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
@@ -641,7 +616,7 @@
   .rail-item {
     position: relative;
     display: grid;
-    grid-template-columns: 14px 1fr auto auto;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
     align-items: baseline;
     gap: 8px;
     width: 100%;
@@ -676,6 +651,8 @@
     pointer-events: none;
   }
   .ri-status {
+    border: 0;
+    padding: 0;
     width: 8px;
     height: 8px;
     border-radius: 999px;
@@ -889,8 +866,43 @@
   }
 
   @media (max-width: 760px) {
-    .body { grid-template-columns: 1fr; }
-    .rail { display: none; }
+    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
+    .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
+    .rail { border-bottom: 1px solid oklch(var(--border)); }
+    .rail-head { padding: 8px 12px; }
+    .rail-foot { display: none; }
+  }
+
+  @media (max-width: 900px) {
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .topbar .close { margin-left: auto; }
+    .ctx, .ctx-pair { flex-wrap: wrap; }
+    .work-head { flex-wrap: wrap; padding: 8px 12px; }
+    .actions { flex-wrap: wrap; }
+  }
+
+  .work { min-width: 0; }
+  .ri-select {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ri-del { border: 0; padding: 0; background: transparent; opacity: 1; }
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid oklch(var(--foreground));
+    outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
   /* ---------------------------------------------------------------- */

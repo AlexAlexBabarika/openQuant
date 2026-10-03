@@ -1,6 +1,14 @@
 <script lang="ts">
   import { heatmapMatrix } from '$lib/features/sweep/derive';
   import type { TrialRow } from '$lib/features/sweep/types';
+  import {
+    heatmapCellLabel,
+    heatmapColor,
+    heatmapLegend,
+    heatmapMetric,
+    heatmapScale,
+    heatmapValue,
+  } from '$lib/features/sweep/heatmap';
 
   let {
     trials,
@@ -17,15 +25,9 @@
   } = $props();
 
   const m = $derived(heatmapMatrix(trials, xParam, yParam, metric));
-
-  // metric -> color: low = cool, high = warm. Uses the app's primary hue ramp.
-  function color(v: number | null): string {
-    if (v == null) return 'transparent';
-    const span = m.max - m.min || 1;
-    const t = (v - m.min) / span; // 0..1
-    const hue = 250 - 250 * t; // blue -> red
-    return `oklch(0.6 0.15 ${hue})`;
-  }
+  const scale = $derived(heatmapScale(m.cells));
+  const legend = $derived(heatmapLegend(scale));
+  const measure = $derived(heatmapMetric(metric));
 
   function trialAt(xi: number, yi: number): TrialRow | undefined {
     const x = m.xValues[xi];
@@ -36,42 +38,69 @@
   }
 </script>
 
-<div class="wrap">
-  <div class="grid" style={`grid-template-columns: 28px repeat(${m.xValues.length}, minmax(14px, 32px));`}>
+<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to horizontal scrolling) -->
+<div class="wrap" role="region" aria-label={`${measure.label} by ${xParam} and ${yParam}`} tabindex="0">
+  <div class="measure">{measure.label} · {measure.unit}</div>
+  <div class="coordinates">Columns: {xParam} · Rows: {yParam}</div>
+  {#if m.xValues.length && m.yValues.length}
+  <div class="grid" style={`grid-template-columns: max-content repeat(${m.xValues.length}, minmax(56px, max-content));`}>
     <div></div>
     {#each m.xValues as xv (xv)}<div class="axis x">{xv}</div>{/each}
     {#each m.yValues as yv, yi (yv)}
       <div class="axis y">{yv}</div>
       {#each m.xValues as _xv, xi (xi)}
         {@const v = m.cells[yi][xi]}
+        {@const trial = trialAt(xi, yi)}
+        {@const label = heatmapCellLabel(metric, v, xParam, m.xValues[xi], yParam, m.yValues[yi])}
         <button
           type="button"
           class="cell"
-          style={`background:${color(v)}`}
-          title={`${yParam}=${m.yValues[yi]} ${xParam}=${m.xValues[xi]} → ${v ?? '—'}`}
+          class:missing={v == null || !Number.isFinite(v)}
+          style={`background:${heatmapColor(v, scale)}`}
+          title={label}
+          disabled={!trial || !ontrial}
           onclick={() => {
-            const t = trialAt(xi, yi);
-            if (t && ontrial) ontrial(t.trial_id);
+            if (trial && ontrial) ontrial(trial.trial_id);
           }}
-          aria-label={`${yParam}=${m.yValues[yi]} ${xParam}=${m.xValues[xi]}`}
-        ></button>
+          aria-label={label}
+        >{heatmapValue(v)}</button>
       {/each}
     {/each}
   </div>
-  <div class="legend">
-    <span>{m.min.toFixed(2)}</span>
-    <div class="ramp"></div>
-    <span>{m.max.toFixed(2)}</span>
-  </div>
+  {/if}
+  {#if scale.state === 'missing'}
+    <div class="note">No finite results for {measure.label}.</div>
+  {:else}
+    <div class="legend" aria-label={`${measure.label} scale in ${measure.unit}`}>
+      {#each legend as stop (stop.position)}
+        <div class="legend-stop">
+          <span class="swatch" style={`background:${stop.color}`} aria-hidden="true"></span>
+          <span>{heatmapValue(stop.value)}</span>
+        </div>
+      {/each}
+    </div>
+    <div class="note">
+      {#if scale.state === 'constant'}All finite results equal {heatmapValue(scale.min)} {measure.unit}.
+      {:else}Low → high numeric value; color is not profitability.{/if}
+    </div>
+  {/if}
+  <div class="note">— = no result. Values are unrounded.</div>
 </div>
 
 <style>
-  /* width: fit-content keeps the legend ramp aligned to the grid, not the panel. */
-  .wrap { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; width: fit-content; max-width: 100%; overflow-x: auto; }
+  .wrap { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; width: fit-content; max-width: 100%; overflow-x: auto; font-size: 11px; }
   .grid { display: grid; gap: 2px; }
-  .axis { font-size: 10px; color: oklch(var(--muted-foreground)); display: flex; align-items: center; justify-content: center; }
-  .cell { aspect-ratio: 1; border: 0; border-radius: 2px; cursor: pointer; }
+  .measure { font-weight: 700; }
+  .axis, .cell, .legend { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .axis { font-size: 10px; color: oklch(var(--muted-foreground)); display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+  .cell { min-height: 28px; padding: 4px 6px; border: 1px solid transparent; border-radius: 2px; color: oklch(0.141 0.005 285.823); font-size: 10px; white-space: nowrap; cursor: pointer; }
+  .cell:disabled { cursor: default; }
+  .cell.missing { border: 1px dashed oklch(var(--muted-foreground)); color: oklch(var(--foreground)); }
   .cell:hover { outline: 1px solid oklch(var(--foreground)); }
-  .legend { display: flex; align-items: center; gap: 8px; font-size: 10px; color: oklch(var(--muted-foreground)); }
-  .ramp { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, oklch(0.6 0.15 250), oklch(0.6 0.15 0)); }
+  .wrap:focus-visible, .cell:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
+  .legend { display: flex; gap: 8px; font-size: 10px; }
+  .legend-stop { display: flex; flex: 1; flex-direction: column; gap: 2px; }
+  .swatch { height: 8px; border-radius: 2px; }
+  .coordinates, .note { color: oklch(var(--muted-foreground)); }
+  @media (forced-colors: active) { .cell { border-color: ButtonText; color: ButtonText; } }
 </style>
