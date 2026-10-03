@@ -6,17 +6,51 @@ import { API_BASE } from './config';
  * The refresh token lives in an HttpOnly cookie managed by the backend.
  */
 let _accessToken: string | null = null;
+let sessionGeneration = 0;
+let accessTokenRefresher: (() => Promise<string | null>) | null = null;
+let refreshFlight: { generation: number; promise: Promise<boolean> } | null =
+  null;
+
+export function getSessionGeneration(): number {
+  return sessionGeneration;
+}
+
+export function setAccessTokenRefresher(
+  refresher: () => Promise<string | null>,
+): void {
+  accessTokenRefresher = refresher;
+}
+
+export function refreshAccessToken(): Promise<boolean> {
+  const generation = sessionGeneration;
+  if (refreshFlight?.generation === generation) return refreshFlight.promise;
+  const promise = (async () => {
+    const token = await accessTokenRefresher?.();
+    if (!token || generation !== sessionGeneration) return false;
+    _accessToken = token;
+    return true;
+  })();
+  const flight = { generation, promise };
+  refreshFlight = flight;
+  void promise
+    .finally(() => {
+      if (refreshFlight === flight) refreshFlight = null;
+    })
+    .catch(() => {});
+  return promise;
+}
 
 export function getAccessToken(): string | null {
   return _accessToken;
 }
 
 export function setAccessToken(token: string | null): void {
+  sessionGeneration++;
   _accessToken = token;
 }
 
 export function clearAccessToken(): void {
-  _accessToken = null;
+  setAccessToken(null);
 }
 
 function resolveUrl(path: string): string {
@@ -35,6 +69,12 @@ export async function apiFetch(
   withAuth = false,
 ): Promise<Response> {
   const url = resolveUrl(path);
+  const origin =
+    typeof window === 'undefined' ? 'http://localhost' : window.location.href;
+  const base = new URL(API_BASE || '/', origin);
+  const trustedUrl = new URL(url, base).origin === base.origin;
+  const generation = sessionGeneration;
+  const token = withAuth && trustedUrl ? getAccessToken() : null;
   const headers = new Headers(init.headers ?? {});
   headers.set('Accept', 'application/json');
 
@@ -47,13 +87,25 @@ export async function apiFetch(
     headers.set('Content-Type', 'application/json');
   }
 
-  if (withAuth) {
-    const token = getAccessToken();
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-  }
+  if (token) headers.set('Authorization', `Bearer ${token}`);
 
+  const response = await fetch(url, { ...init, headers });
+  if (
+    !token ||
+    response.status !== 401 ||
+    !/^Bearer(?:\s|$)/i.test(response.headers.get('WWW-Authenticate') ?? '') ||
+    /\/auth\/(?:login|signup|refresh|logout)(?:[?#]|$)/.test(url) ||
+    generation !== sessionGeneration ||
+    init.signal?.aborted ||
+    (typeof ReadableStream !== 'undefined' &&
+      init.body instanceof ReadableStream)
+  )
+    return response;
+
+  if (_accessToken === token && !(await refreshAccessToken())) return response;
+  if (generation !== sessionGeneration || !_accessToken || init.signal?.aborted)
+    return response;
+  headers.set('Authorization', `Bearer ${_accessToken}`);
   return fetch(url, { ...init, headers });
 }
 
