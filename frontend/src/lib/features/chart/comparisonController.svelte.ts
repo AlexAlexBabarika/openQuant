@@ -19,6 +19,7 @@ import {
   updateComparison,
   type ComparisonRecord,
   type ComparisonSeriesType,
+  type UpdateComparisonInput,
 } from './comparisonsApi';
 
 export const MAX_COMPARISONS = 4;
@@ -110,6 +111,8 @@ export class ComparisonController {
   #fetchGeneration = 0;
   #fetchesById = new Map<string, number>();
   #editsByKey = new Map<string, symbol>();
+  #editQueues = new Map<string, Promise<unknown>>();
+  #persisted = new Map<string, ComparisonRecord>();
 
   constructor(opts: ComparisonControllerOptions) {
     this.#onError = opts.onError;
@@ -160,6 +163,7 @@ export class ComparisonController {
     try {
       const records = await listComparisons(target);
       if (!isCurrent()) return;
+      this.#persisted = new Map(records.map(r => [r.id, r]));
       const next = records.map(recordToComparison);
       this.comparisons = next;
       await Promise.all(next.map(c => this.#fetchAndStream(c)));
@@ -234,6 +238,7 @@ export class ComparisonController {
       });
       if (!isCurrent()) return;
       const comp = recordToComparison(record);
+      this.#persisted.set(record.id, record);
       this.comparisons = [...this.comparisons, comp];
       await this.#fetchAndStream(comp);
     } catch (e) {
@@ -274,10 +279,12 @@ export class ComparisonController {
     const isCurrent = this.#beginEdit(id, 'color');
     this.#patchLocal(id, { color });
     try {
-      await updateComparison(id, { color });
+      await this.#saveEdit(id, { color });
     } catch (e) {
       if (!isCurrent()) return;
-      this.#patchLocal(id, { color: prev.color });
+      this.#patchLocal(id, {
+        color: this.#persisted.get(id)?.color ?? prev.color,
+      });
       this.#onError?.(
         e instanceof Error ? e.message : 'Failed to update colour',
       );
@@ -293,10 +300,12 @@ export class ComparisonController {
     const isCurrent = this.#beginEdit(id, 'seriesType');
     this.#patchLocal(id, { seriesType });
     try {
-      await updateComparison(id, { series_type: seriesType });
+      await this.#saveEdit(id, { series_type: seriesType });
     } catch (e) {
       if (!isCurrent()) return;
-      this.#patchLocal(id, { seriesType: prev.seriesType });
+      this.#patchLocal(id, {
+        seriesType: this.#persisted.get(id)?.series_type ?? prev.seriesType,
+      });
       this.#onError?.(
         e instanceof Error ? e.message : 'Failed to update series type',
       );
@@ -304,6 +313,29 @@ export class ComparisonController {
   };
 
   // --- internals ---
+
+  async #saveEdit(id: string, patch: UpdateComparisonInput): Promise<void> {
+    const generation = this.#loadGeneration;
+    const userId = this.#userId();
+    const isCurrent = () =>
+      generation === this.#loadGeneration &&
+      this.#userId() === userId &&
+      this.comparisons.some(c => c.id === id);
+    const previous = this.#editQueues.get(id) ?? Promise.resolve();
+    const pending = previous
+      .catch(() => {})
+      .then(async () => {
+        if (!isCurrent()) return;
+        const saved = await updateComparison(id, patch);
+        if (isCurrent()) this.#persisted.set(id, saved);
+      });
+    this.#editQueues.set(id, pending);
+    try {
+      await pending;
+    } finally {
+      if (this.#editQueues.get(id) === pending) this.#editQueues.delete(id);
+    }
+  }
 
   #beginEdit(id: string, field: 'color' | 'seriesType'): () => boolean {
     const key = `${id}:${field}`;
@@ -333,6 +365,8 @@ export class ComparisonController {
 
   #clearAll() {
     this.#editsByKey.clear();
+    this.#editQueues.clear();
+    this.#persisted.clear();
     this.#fetchesById.clear();
     for (const unsub of this.#unsubsById.values()) unsub();
     this.#unsubsById.clear();

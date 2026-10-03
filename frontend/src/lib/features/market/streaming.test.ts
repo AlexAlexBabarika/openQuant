@@ -38,6 +38,26 @@ function setup() {
 afterEach(() => vi.clearAllMocks());
 
 describe('market stream reconciliation', () => {
+  it('reports a rejected live subscription as an error instead of staying connected', () => {
+    const subscribeCandles = vi.fn(() => vi.fn());
+    vi.mocked(getStreamClient).mockReturnValue({
+      subscribeCandles,
+    } as unknown as ReturnType<typeof getStreamClient>);
+    const onStatus = vi.fn();
+    subscribeMarketStream({ ...sub, onCandle: vi.fn(), onStatus });
+    const handlers = subscribeCandles.mock.calls[0] as unknown as [
+      unknown,
+      CandleHandlers,
+    ];
+    handlers[1].onError?.({
+      type: 'error',
+      code: 'unsupported',
+      message: 'Unsupported',
+      ...sub,
+    });
+    expect(onStatus).toHaveBeenCalledExactlyOnceWith('error');
+  });
+
   it('does not append older live candles or fire close hooks for stale bars', () => {
     const { handlers, onCandle, onCandleClose } = setup();
     const latest = candle('2026-01-01T00:02:00Z');

@@ -287,14 +287,84 @@ describe('comparison streaming lifecycles', () => {
         field === 'color'
           ? controller.setColor(record.id, '#111111')
           : controller.setSeriesType(record.id, 'candlestick');
-      if (field === 'color') await controller.setColor(record.id, '#222222');
-      else await controller.setSeriesType(record.id, 'line');
+      await vi.waitFor(() => expect(updateComparison).toHaveBeenCalledTimes(1));
+      const newer =
+        field === 'color'
+          ? controller.setColor(record.id, '#222222')
+          : controller.setSeriesType(record.id, 'line');
       old.reject(new Error('Old failure'));
-      await pending;
+      await Promise.all([pending, newer]);
       expect(controller.comparisons[0][field]).toBe(
         field === 'color' ? '#222222' : 'line',
       );
       expect(onError).not.toHaveBeenCalled();
     },
   );
+
+  it('persists rapid edits in order even when the older request is slow', async () => {
+    const { controller } = setup();
+    await controller.load('BTCUSDT');
+    const old = deferred<ComparisonRecord>();
+    vi.mocked(updateComparison)
+      .mockReturnValueOnce(old.promise)
+      .mockResolvedValueOnce({ ...record, color: '#222222' });
+    const first = controller.setColor(record.id, '#111111');
+    await vi.waitFor(() => expect(updateComparison).toHaveBeenCalledTimes(1));
+    const second = controller.setColor(record.id, '#222222');
+    await Promise.resolve();
+    expect(updateComparison).toHaveBeenCalledTimes(1);
+    old.resolve({ ...record, color: '#111111' });
+    await Promise.all([first, second]);
+    expect(vi.mocked(updateComparison).mock.calls).toEqual([
+      [record.id, { color: '#111111' }],
+      [record.id, { color: '#222222' }],
+    ]);
+    expect(controller.comparisons[0].color).toBe('#222222');
+  });
+
+  it('rolls back failed rapid edits to the persisted value, not an unsaved optimistic edit', async () => {
+    const { controller } = setup();
+    await controller.load('BTCUSDT');
+    const old = deferred<ComparisonRecord>();
+    vi.mocked(updateComparison)
+      .mockReturnValueOnce(old.promise)
+      .mockRejectedValueOnce(new Error('Latest failure'));
+    const first = controller.setColor(record.id, '#111111');
+    await vi.waitFor(() => expect(updateComparison).toHaveBeenCalledTimes(1));
+    const second = controller.setColor(record.id, '#222222');
+    old.reject(new Error('Old failure'));
+    await Promise.all([first, second]);
+    expect(controller.comparisons[0].color).toBe(record.color);
+  });
+
+  it('rolls back a latest failure to the earlier successfully persisted edit', async () => {
+    const { controller } = setup();
+    await controller.load('BTCUSDT');
+    const old = deferred<ComparisonRecord>();
+    vi.mocked(updateComparison)
+      .mockReturnValueOnce(old.promise)
+      .mockRejectedValueOnce(new Error('Latest failure'));
+    const first = controller.setColor(record.id, '#111111');
+    await vi.waitFor(() => expect(updateComparison).toHaveBeenCalledTimes(1));
+    const second = controller.setColor(record.id, '#222222');
+    old.resolve({ ...record, color: '#111111' });
+    await Promise.all([first, second]);
+    expect(controller.comparisons[0].color).toBe('#111111');
+  });
+
+  it('does not send queued edits after the account changes', async () => {
+    const { controller, state } = setup();
+    await controller.load('BTCUSDT');
+    const old = deferred<ComparisonRecord>();
+    vi.mocked(updateComparison).mockReturnValueOnce(old.promise);
+    const first = controller.setColor(record.id, '#111111');
+    await vi.waitFor(() => expect(updateComparison).toHaveBeenCalledTimes(1));
+    const second = controller.setColor(record.id, '#222222');
+    state.userId = 'user-2';
+    await controller.load('BTCUSDT');
+    old.resolve({ ...record, color: '#111111' });
+    await Promise.all([first, second]);
+    expect(updateComparison).toHaveBeenCalledTimes(1);
+    expect(controller.comparisons[0].color).toBe(record.color);
+  });
 });

@@ -39,6 +39,9 @@ export interface ErrorMsg {
   type: 'error';
   code: string;
   message: string;
+  provider?: MarketDataProviderValue | null;
+  symbol?: string | null;
+  interval?: string | null;
 }
 
 export interface QuoteMsg {
@@ -64,6 +67,7 @@ export interface QuoteSubscription {
 
 export interface QuoteHandlers {
   onQuote?: (msg: QuoteMsg) => void;
+  onError?: (msg: ErrorMsg) => void;
 }
 
 export interface CandleHandlers {
@@ -71,6 +75,7 @@ export interface CandleHandlers {
   onCandle?: (msg: CandleMsg) => void;
   onStatus?: (msg: StatusMsg) => void;
   onConnectionChange?: (state: StreamConnectionState) => void;
+  onError?: (msg: ErrorMsg) => void;
 }
 
 function candleKey(s: CandleSubscription): string {
@@ -356,6 +361,25 @@ export class StreamClient {
   }
 
   #dispatch(msg: ServerMsg): void {
+    if (msg.type === 'error') {
+      if (msg.provider && msg.symbol) {
+        const sub = { provider: msg.provider, symbol: msg.symbol };
+        const entry =
+          msg.interval != null
+            ? this.#candleSubs.get(
+                candleKey({ ...sub, interval: msg.interval }),
+              )
+            : this.#quoteSubs.get(quoteKey(sub));
+        for (const handler of entry?.handlers ?? []) handler.onError?.(msg);
+      } else {
+        for (const entry of [
+          ...this.#candleSubs.values(),
+          ...this.#quoteSubs.values(),
+        ])
+          for (const handler of entry.handlers) handler.onError?.(msg);
+      }
+      return;
+    }
     if (
       msg.type === 'snapshot' ||
       msg.type === 'candle' ||

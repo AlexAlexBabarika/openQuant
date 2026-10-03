@@ -82,6 +82,7 @@ export function subscribeMarketStream(
       onConnectionChange: state => {
         onStatus?.(mapState(state));
       },
+      onError: () => onStatus?.('error'),
       onStatus: msg => {
         if (msg.state === 'closed') onStatus?.('disconnected');
         else if (msg.state === 'reconnecting') onStatus?.('connecting');

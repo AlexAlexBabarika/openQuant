@@ -59,6 +59,33 @@ afterEach(() => {
 });
 
 describe('StreamClient subscription lifecycle', () => {
+  it('routes a rejected subscription only to its own candle or quote handlers', () => {
+    const client = new StreamClient();
+    const onError = vi.fn();
+    const otherError = vi.fn();
+    const quoteError = vi.fn();
+    client.subscribeCandles(sub, { onError });
+    client.subscribeCandles(
+      { ...sub, interval: '1h' },
+      { onError: otherError },
+    );
+    client.subscribeQuote(quote, { onError: quoteError });
+    const ws = FakeSocket.sockets[0];
+    ws.open();
+    const error = {
+      type: 'error',
+      code: 'subscribe_failed',
+      message: 'Subscription failed',
+    };
+    ws.message({ ...error, ...sub });
+    expect(onError).toHaveBeenCalledExactlyOnceWith({ ...error, ...sub });
+    expect(otherError).not.toHaveBeenCalled();
+    expect(quoteError).not.toHaveBeenCalled();
+    ws.message({ ...error, ...quote, interval: null });
+    expect(quoteError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
   it('sends each active subscription once on initial open', () => {
     const client = new StreamClient();
     client.subscribeCandles(sub, {}, { since: candle.timestamp });
