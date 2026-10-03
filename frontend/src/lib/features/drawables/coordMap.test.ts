@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IChartApi, ISeriesApi } from 'lightweight-charts';
+import type { IChartApi, ISeriesApi, Logical } from 'lightweight-charts';
 import type { OHLCVCandle } from '$lib/core/types';
 import {
   buildCoordMap,
@@ -33,7 +33,8 @@ function chart(
         times.includes(t) ? indices[times.indexOf(t)] : null,
       timeToCoordinate: (t: number) =>
         times.includes(t) ? offset + indices[times.indexOf(t)] * spacing : null,
-      logicalToCoordinate: (l: number) => offset + l * spacing,
+      logicalToCoordinate: (l: number) =>
+        Number.isInteger(l) ? offset + l * spacing : 0,
       coordinateToLogical: (x: number) => (x - offset) / spacing,
       coordinateToTime: (x: number) =>
         times[Math.round((x - offset) / spacing)] ?? null,
@@ -46,6 +47,18 @@ const series = {
 } as ISeriesApi<'Line'>;
 
 describe('logical annotation coordinates', () => {
+  it('keeps a quarter-bar final-candle position near its anchor with LWC integer-only coordinates', () => {
+    const times = Array.from({ length: 500 }, (_, i) => 1704067200 + i * 86400);
+    const c = chart(times);
+    expect(c.timeScale().logicalToCoordinate(498.75 as Logical)).toBe(0);
+    const map = buildCoordMap(c, series, 1, candles(times));
+    const endTime = times[times.length - 1];
+    const end = map.timeToX(endTime)!;
+    const start = map.timeToX(endTime - 21600)!;
+    expect(end).toBe(100 + 499 * 40);
+    expect(start).toBeCloseTo(end - 10);
+    expect(map.xToTime(start)).toBeCloseTo(endTime - 21600);
+  });
   it.each([8, 40, 100])(
     'round-trips fractional times inside and outside unequal history gaps at spacing %s',
     spacing => {
