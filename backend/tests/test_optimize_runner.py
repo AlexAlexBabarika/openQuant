@@ -98,3 +98,34 @@ def test_failing_trial_is_isolated_not_fatal() -> None:
     assert failed.metrics == {}
     assert res.best_trial_id is not None
     assert res.best_trial_id != failed.trial_id
+
+
+def test_worker_does_not_share_strategy_state_between_trials() -> None:
+    code = (
+        "params = {'qty': Int(1, 3)}\n"
+        "seen = []\n"
+        "def on_bar(ctx):\n"
+        "    if ctx.bars.index == 0:\n"
+        "        seen.append(ctx.params['qty'])\n"
+        "        ctx.buy(len(seen))\n"
+    )
+    result = run_sweep(code=code, frame=_frame(), config=_config(), max_workers=1)
+    assert len({trial.equity_hash for trial in result.trials}) == 1
+    isolated = run_sweep(code=code, frame=_frame(), config=_config(), max_workers=3)
+    assert [t.equity_hash for t in result.trials] == [
+        t.equity_hash for t in isolated.trials
+    ]
+
+
+def test_unvaried_parameters_use_the_declared_defaults() -> None:
+    code = (
+        "params = {'qty': Int(1, 3), 'bonus': Int(2, 4)}\n"
+        "def on_bar(ctx):\n"
+        "    if ctx.bars.index == 0:\n"
+        "        ctx.buy(ctx.params['qty'] + ctx.params['bonus'])\n"
+    )
+    result = run_sweep(code=code, frame=_frame(), config=_config(), max_workers=1)
+    assert [t.params for t in result.trials] == [
+        {"qty": qty, "bonus": 2} for qty in (1, 2, 3)
+    ]
+    assert all(t.metrics for t in result.trials)

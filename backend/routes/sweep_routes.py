@@ -10,13 +10,14 @@ loaded with the same cache+provider path as ``/scripts/execute``.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+from typing import Literal
 
 import polars as pl
 import requests
-from fastapi import APIRouter, HTTPException, status
-from backend.core.database import DatabaseError
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from backend.backtesting.engine import run_backtest
@@ -30,9 +31,13 @@ from backend.backtesting.sandbox import (
     parse_strategy_schema,
 )
 from backend.backtesting.serialize import result_to_dict
+from backend.backtesting.types import Metrics
+from backend.core.auth_deps import optional_current_user
+from backend.core.database import DatabaseError
 from backend.market import cache
 from backend.market.ohlcv_limits import cap_candles
 from backend.market.shared_config import validate_interval, validate_period
+from backend.models.auth_models import AuthUserInfo
 from backend.models.market_data_models import MarketDataProviderEnum
 from backend.routes.market_routes import _fetch_candles_blocking
 from backend.routes.script_routes import _candles_to_df
@@ -54,20 +59,27 @@ class SchemaRequest(BaseModel):
 
 class _DataRequest(BaseModel):
     code: str = Field(..., min_length=1, max_length=200_000)
-    symbol: str = Field(..., min_length=1)
+    symbol: str = Field(..., min_length=1, pattern=r"\S")
     provider: MarketDataProviderEnum
     period: str = "1y"
     interval: str = "1d"
-    starting_cash: float = 100_000.0
+    starting_cash: float = Field(100_000.0, gt=0, allow_inf_nan=False)
 
 
 class SweepRequest(_DataRequest):
-    search: str = "grid"
+    search: Literal["grid", "random"] = "grid"
     metric: str = "sharpe"
     vary: list[str]
     fixed: dict = Field(default_factory=dict)
     n_random: int = Field(200, gt=0, le=10_000)
     seed: int = 0
+
+    @field_validator("metric")
+    @classmethod
+    def validate_metric(cls, value: str) -> str:
+        if value not in Metrics.__annotations__:
+            raise ValueError(f"unknown objective metric {value!r}")
+        return value
 
 
 class WalkForwardRequest(SweepRequest):
@@ -77,14 +89,25 @@ class WalkForwardRequest(SweepRequest):
     anchored: bool = False
 
 
-async def _load_frame(body: _DataRequest) -> tuple[pl.DataFrame, str]:
+async def _load_frame(
+    body: _DataRequest, user: AuthUserInfo | None = None
+) -> tuple[pl.DataFrame, str]:
     """Fetch (or cache-hit) candles and return (frame, data_version)."""
     sym = body.symbol.strip()
+    if not sym:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "symbol is required")
     try:
         validate_period(body.period)
         validate_interval(body.interval)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    if body.provider is MarketDataProviderEnum.twelvedata and user is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Twelve Data requires authentication. Send Authorization: Bearer <token>.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     candles = cache.get_cached(
         body.provider.value, sym, period=body.period, interval=body.interval
@@ -97,11 +120,16 @@ async def _load_frame(body: _DataRequest) -> tuple[pl.DataFrame, str]:
                 sym,
                 body.period,
                 body.interval,
-                None,
+                user,
             )
         except ValueError as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-        except (requests.HTTPError, DatabaseError, RuntimeError) as e:
+        except DatabaseError as e:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                "Database error while loading provider configuration.",
+            ) from e
+        except (requests.RequestException, RuntimeError) as e:
             raise HTTPException(
                 status.HTTP_502_BAD_GATEWAY, "Market data provider request failed"
             ) from e
@@ -117,9 +145,8 @@ async def _load_frame(body: _DataRequest) -> tuple[pl.DataFrame, str]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No data for '{sym}'")
 
     frame = _candles_to_df(candles)
-    data_version = (
-        f"{body.provider.value}:{sym}:{body.period}:{body.interval}:{frame.height}"
-    )
+    digest = hashlib.sha256(frame.write_json().encode()).hexdigest()
+    data_version = f"{body.provider.value}:{sym}:{body.period}:{body.interval}:{digest}"
     return frame, data_version
 
 
@@ -137,14 +164,16 @@ def schema(body: SchemaRequest) -> dict:
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
-async def start_sweep(body: SweepRequest) -> dict:
+async def start_sweep(
+    body: SweepRequest, user: AuthUserInfo | None = Depends(optional_current_user)
+) -> dict:
     try:
         validate(body.code)
     except ScriptValidationError as e:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, f"strategy rejected: {e}"
         ) from e
-    frame, data_version = await _load_frame(body)
+    frame, data_version = await _load_frame(body, user)
     config = SweepConfig(
         search=body.search,
         metric=body.metric,
@@ -193,12 +222,13 @@ def cancel_sweep(sweep_id: str) -> dict:
 async def trial_result(
     sweep_id: str,
     trial_id: int,
-    symbol: str,
-    provider: MarketDataProviderEnum,
-    code: str,
+    symbol: str = Query(..., min_length=1, pattern=r"\S"),
+    provider: MarketDataProviderEnum = Query(...),
+    code: str = Query(..., min_length=1, max_length=200_000),
     period: str = "1y",
     interval: str = "1d",
-    starting_cash: float = 100_000.0,
+    starting_cash: float = Query(100_000.0, gt=0, allow_inf_nan=False),
+    user: AuthUserInfo | None = Depends(optional_current_user),
 ) -> dict:
     """Re-run a single trial's params and return its full BacktestResult blob.
 
@@ -221,7 +251,7 @@ async def trial_result(
         interval=interval,
         starting_cash=starting_cash,
     )
-    frame, _ = await _load_frame(body)
+    frame, _ = await _load_frame(body, user)
     g = _strategy_globals()
     exec(compile(code, "<strategy>", "exec"), g)
     result = await run_in_threadpool(
@@ -236,14 +266,16 @@ async def trial_result(
 
 
 @router.post("/walk-forward")
-async def walk_forward(body: WalkForwardRequest) -> dict:
+async def walk_forward(
+    body: WalkForwardRequest, user: AuthUserInfo | None = Depends(optional_current_user)
+) -> dict:
     try:
         validate(body.code)
     except ScriptValidationError as e:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, f"strategy rejected: {e}"
         ) from e
-    frame, data_version = await _load_frame(body)
+    frame, data_version = await _load_frame(body, user)
     config = SweepConfig(
         search=body.search,
         metric=body.metric,

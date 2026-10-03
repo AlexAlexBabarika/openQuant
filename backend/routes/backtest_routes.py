@@ -13,7 +13,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -21,6 +21,8 @@ from backend.backtesting.run_config import RunInputs
 from backend.backtesting.run_snapshot import assemble_snapshot
 from backend.backtesting.run_store import RunStore
 from backend.backtesting.sandbox import parse_strategy_schema, run_strategy
+from backend.core.auth_deps import optional_current_user
+from backend.models.auth_models import AuthUserInfo
 from backend.models.market_data_models import MarketDataProviderEnum
 from backend.routes.sweep_routes import _load_frame
 from backend.scripts.ast_guard import ScriptValidationError
@@ -35,17 +37,19 @@ _RUN_TIMEOUT_S = 30.0
 
 class BacktestRunRequest(BaseModel):
     code: str = Field(..., min_length=1, max_length=200_000)
-    symbol: str = Field(..., min_length=1)
+    symbol: str = Field(..., min_length=1, pattern=r"\S")
     provider: MarketDataProviderEnum
     period: str = "1y"
     interval: str = "1d"
-    starting_cash: float = 100_000.0
+    starting_cash: float = Field(100_000.0, gt=0, allow_inf_nan=False)
     seed: int = 0
     params: dict = Field(default_factory=dict)
 
 
 @router.post("/run")
-async def run(body: BacktestRunRequest) -> dict:
+async def run(
+    body: BacktestRunRequest, user: AuthUserInfo | None = Depends(optional_current_user)
+) -> dict:
     try:
         schema = parse_strategy_schema(body.code)
     except ScriptValidationError as e:
@@ -55,7 +59,7 @@ async def run(body: BacktestRunRequest) -> dict:
     defaults = {name: p.values()[0] for name, p in schema.items()}
     params = {**defaults, **body.params}
 
-    frame, data_version = await _load_frame(body)
+    frame, data_version = await _load_frame(body, user)
     result = await run_in_threadpool(
         run_strategy,
         body.code,

@@ -77,7 +77,6 @@ def run_walk_forward(
     if not wins:
         raise ValueError("data range too short for the requested IS/OOS windows")
 
-    on_bar = _on_bar_from_code(code)
     results: list[WindowResult] = []
     oos_equity = []  # concatenated EquityPoint list across OOS segments
 
@@ -85,12 +84,12 @@ def run_walk_forward(
         is_frame = frame.slice(w.is_start, w.is_end - w.is_start)
         sweep = run_sweep(code=code, frame=is_frame, config=config)
         best = next(t for t in sweep.trials if t.trial_id == sweep.best_trial_id)
-        best_params = {**config.fixed, **{k: best.params[k] for k in config.vary}}
+        best_params = best.params
 
         oos_frame = frame.slice(w.oos_start, w.oos_end - w.oos_start)
         oos_run = run_backtest(
             frame=oos_frame,
-            strategy=_FunctionStrategy(on_bar),
+            strategy=_FunctionStrategy(_on_bar_from_code(code)),
             starting_cash=config.starting_cash,
             seed=config.seed,
             params=best_params,

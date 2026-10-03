@@ -11,7 +11,7 @@ from backend.trial_app import app as examples_app
 
 @pytest.fixture
 def client(monkeypatch):
-    async def load(body):
+    async def load(body, user=None):
         assert body.symbol == "TEST"
         assert body.provider.value == "yfinance"
         return market_frame(), "stub"
