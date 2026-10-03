@@ -8,6 +8,10 @@
 </script>
 
 <script lang="ts">
+  import { Dialog } from 'bits-ui';
+  import { onDestroy, tick, untrack } from 'svelte';
+  import { createModalLifecycle } from '$lib/core/modalLifecycle';
+  import X from '@lucide/svelte/icons/x';
   import { runSpring } from '$lib/features/chart/spring';
   import ChartCandlestick from '@lucide/svelte/icons/chart-candlestick';
   import ChevronUp from '@lucide/svelte/icons/chevron-up';
@@ -29,7 +33,11 @@
   // 0 = closed, 1 = open. May briefly overshoot for the bounce.
   let progress = $state(0);
   let panelEl = $state<HTMLDivElement | null>(null);
+  let dialogEl = $state<HTMLDivElement | null>(null);
+  const modal = createModalLifecycle();
+  onDestroy(() => { modal.close(); cancelSpring?.(); });
   let cancelSpring: (() => void) | null = null;
+  let animatedOpen = false;
 
   let dragging = false;
   let dragStartProgress = 0;
@@ -43,6 +51,7 @@
   }
 
   function animateTo(target: number, velocity = 0) {
+    animatedOpen = target === 1;
     cancelSpring?.();
     cancelSpring = runSpring({
       from: progress,
@@ -95,13 +104,11 @@
     animateTo(0);
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape' && open) close();
-  }
-
   $effect(() => {
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const nextOpen = open;
+    untrack(() => {
+      if (!dragging && animatedOpen !== nextOpen) animateTo(nextOpen ? 1 : 0);
+    });
   });
 
   const cards: { title: string; colors: string[] }[] = [
@@ -151,7 +158,9 @@
     maxAbsDelta = 0;
     samples = [];
     pushSample(e.timeStamp, e.clientY);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const target = e.currentTarget as HTMLElement;
+    target.focus();
+    target.setPointerCapture(e.pointerId);
     e.preventDefault();
     beginDrag();
   }
@@ -184,26 +193,36 @@
   }
 </script>
 
-<div
+<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+  <Dialog.Portal disabled={typeof window === 'undefined'}>
+    <Dialog.Overlay forceMount>
+      {#snippet child({ props })}
+        <div {...props}
+          class="fixed inset-0 z-50 bg-black"
+          style:opacity={backdropOpacity * 0.5}
+          style:backdrop-filter="blur({backdropOpacity * 12}px)"
+          style:-webkit-backdrop-filter="blur({backdropOpacity * 12}px)"
+          style:pointer-events={interactive ? 'auto' : 'none'}
+        ></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content forceMount
+      onOpenAutoFocus={e => {
+        modal.open(dialogEl);
+        e.preventDefault();
+        panelEl?.querySelector<HTMLButtonElement>('button')?.focus();
+      }}
+      onCloseAutoFocus={() => modal.close()}
+    >
+    {#snippet child({ props })}
+<div {...props}
+  bind:this={dialogEl}
   class="fixed inset-0 z-50 pointer-events-none"
   style:--progress={progress}
-  aria-hidden={!interactive}
+  role={open ? 'dialog' : undefined}
+  aria-modal={open ? 'true' : undefined}
+  aria-label={open ? 'Toolbox' : undefined}
 >
-  <div
-    class="absolute inset-0 bg-black"
-    style:opacity={backdropOpacity * 0.5}
-    style:backdrop-filter="blur({backdropOpacity * 12}px)"
-    style:-webkit-backdrop-filter="blur({backdropOpacity * 12}px)"
-    style:pointer-events={interactive ? 'auto' : 'none'}
-    onclick={close}
-    onkeydown={e => {
-      if (e.key === 'Enter' || e.key === ' ') close();
-    }}
-    role="button"
-    tabindex="-1"
-    aria-label="Close toolbox"
-  ></div>
-
   <div
     class="pull-handle pointer-events-auto absolute left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing select-none touch-none"
     style="bottom: calc(80vh * var(--progress))"
@@ -245,12 +264,12 @@
   </div>
 
   <div
+    inert={!open}
+    aria-hidden={!open}
     bind:this={panelEl}
     class="absolute left-0 right-0 bottom-0 h-[80vh] bg-popover text-popover-foreground rounded-t-2xl shadow-2xl border-t border-border overflow-hidden"
     style:transform="translateY({translatePct}%)"
     style:pointer-events={interactive ? 'auto' : 'none'}
-    role="dialog"
-    aria-modal="true"
     aria-label="Toolbox"
   >
     <div class="h-full overflow-y-auto p-6">
@@ -262,6 +281,7 @@
           <ChartCandlestick class="h-5 w-5 text-primary" />
         </div>
         <h2 class="ml-auto text-lg font-semibold font-mono">Toolbox</h2>
+        <button type="button" class="rounded p-1 hover:bg-accent" onclick={close} aria-label="Close toolbox"><X class="h-4 w-4" /></button>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-5 gap-4">
         {#each cards as card, i (card.title)}
@@ -272,9 +292,10 @@
             autoRotate={3 + i * 2}
             showBends={theme !== 'light'}
             onclick={onTileSelect
-              ? () => {
-                  onTileSelect(card.title);
+              ? async () => {
                   close();
+                  await tick();
+                  onTileSelect(card.title);
                 }
               : undefined}
           />
@@ -283,13 +304,24 @@
     </div>
   </div>
 </div>
+    {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
+  .pull-handle:focus-visible, button:focus-visible {
+    outline: 2px solid oklch(var(--foreground));
+    outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    .pull-handle:focus-visible, button:focus-visible { outline-color: Highlight; }
+  }
   .pull-handle {
-    color: color-mix(in oklab, var(--foreground) 55%, transparent);
+    color: color-mix(in oklab, oklch(var(--foreground)) 55%, transparent);
     transition: color 160ms ease;
   }
   .pull-handle:hover {
-    color: var(--foreground);
+    color: oklch(var(--foreground));
   }
 </style>

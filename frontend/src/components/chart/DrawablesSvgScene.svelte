@@ -7,6 +7,7 @@
     type Drawable,
     type PlacementMachine,
     type ScreenPoint,
+    type DrawableComputeState,
   } from '$lib/features/drawables';
   import type { BundledDrawable } from '$lib/features/drawables/bundledDrawable';
 
@@ -14,6 +15,8 @@
     coordMap,
     items,
     computedData,
+    computedStates,
+    creating = false,
     selectedId,
     placement,
     toChartPoint,
@@ -24,6 +27,8 @@
     coordMap: CoordMap;
     items: readonly BundledDrawable[];
     computedData: Map<string, unknown>;
+    computedStates: Map<string, DrawableComputeState>;
+    creating?: boolean;
     selectedId: string | null;
     placement: {
       type: string;
@@ -38,6 +43,7 @@
 </script>
 
 <svg
+  class:creating
   class="absolute inset-0 w-full h-full z-10 pointer-events-none"
   style="overflow: visible;"
 >
@@ -48,6 +54,7 @@
       <RendererCmp
         drawable={d}
         data={computedData.get(d.id)}
+        computeState={computedStates.get(d.id)}
         selected={selectedId === d.id}
         {coordMap}
         {toChartPoint}
@@ -73,3 +80,9 @@
     {/if}
   {/if}
 </svg>
+
+<style>
+  .creating :global(*) {
+    pointer-events: none !important;
+  }
+</style>

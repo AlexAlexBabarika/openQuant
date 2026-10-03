@@ -38,7 +38,7 @@
     {@const Icon = ICONS[action.id]}
     <button
       type="button"
-      class="flex items-center justify-center w-7 h-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors outline-none"
+      class="flex items-center justify-center w-7 h-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
       aria-label={action.label}
       title={action.label}
       onclick={(e) => { e.stopPropagation(); onAction(action.id, action); }}

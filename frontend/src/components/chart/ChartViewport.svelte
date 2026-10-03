@@ -22,6 +22,7 @@
     candles = [] as OHLCVCandle[],
     provider = 'yfinance',
     interval = '1d',
+    seriesIdentity = '',
     toChartPoint,
     onPlacementActiveChange,
     onChartPointerDown,
@@ -47,6 +48,7 @@
     candles: OHLCVCandle[];
     provider: string;
     interval: string;
+    seriesIdentity?: string;
     toChartPoint: (e: PointerEvent) => ChartPoint | null;
     onPlacementActiveChange?: (active: boolean) => void;
     onChartPointerDown: (e: PointerEvent) => void;
@@ -80,6 +82,7 @@
   onpointermove={onChartPointerMove}
   onpointerup={onChartPointerUp}
   onpointercancel={onChartPointerUp}
+  onlostpointercapture={onChartPointerUp}
   onkeydown={onChartKeyDown}
 >
   <ChartLegend
@@ -108,6 +111,7 @@
     {candles}
     {provider}
     {interval}
+    {seriesIdentity}
     {toChartPoint}
     containerEl={containerEl}
     {onPlacementActiveChange}

@@ -1,3 +1,22 @@
+<script lang="ts" module>
+  export function sliderValueForKey(
+    event: Pick<KeyboardEvent, 'key' | 'preventDefault'>,
+    value: number,
+    max: number,
+  ): number | null {
+    let next: number;
+    switch (event.key) {
+      case 'ArrowRight': case 'ArrowUp': next = value + 1; break;
+      case 'ArrowLeft': case 'ArrowDown': next = value - 1; break;
+      case 'Home': next = 0; break;
+      case 'End': next = max; break;
+      default: return null;
+    }
+    event.preventDefault();
+    return Math.max(0, Math.min(max, next));
+  }
+</script>
+
 <script lang="ts">
   import { cssColourToHsva, hsvaToHex, hsvaToRgba, type HSVA } from '$lib/features/chart/colourUtils';
 
@@ -69,6 +88,15 @@
     return { a: x / rect.width };
   });
 
+  function onStripKey(event: KeyboardEvent, kind: 'h' | 'a') {
+    const max = kind === 'h' ? 360 : 100;
+    const value = kind === 'h' ? hsva.h : hsva.a * 100;
+    const next = sliderValueForKey(event, Math.round(value), max);
+    if (next === null) return;
+    hsva = { ...hsva, [kind]: kind === 'h' ? next : next / 100 };
+    emitColour();
+  }
+
   function handleHexInput(e: Event) {
     const val = (e.target as HTMLInputElement).value;
     hexInput = val;
@@ -117,6 +145,8 @@
   aria-valuenow={Math.round(hsva.h)}
   aria-valuemin={0}
   aria-valuemax={360}
+  aria-valuetext={`${Math.round(hsva.h)} degrees`}
+  onkeydown={e => onStripKey(e, 'h')}
   onpointerdown={hue.down}
   onpointermove={hue.move}
   onpointerup={hue.up}
@@ -136,6 +166,8 @@
   aria-valuenow={Math.round(hsva.a * 100)}
   aria-valuemin={0}
   aria-valuemax={100}
+  aria-valuetext={`${Math.round(hsva.a * 100)} percent`}
+  onkeydown={e => onStripKey(e, 'a')}
   onpointerdown={alpha.down}
   onpointermove={alpha.move}
   onpointerup={alpha.up}
@@ -153,6 +185,16 @@
     style="left: {alphaThumbLeft}%;"
   ></div>
 </div>
+
+<style>
+  [role='slider']:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid oklch(var(--foreground));
+    outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    [role='slider']:focus-visible, button:focus-visible, input:focus-visible { outline-color: Highlight; }
+  }
+</style>
 
 <div class="flex gap-1.5 mt-3">
   {#each PRESETS as preset}

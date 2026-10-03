@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
+  import { Dialog } from 'bits-ui';
+  import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Search from '@lucide/svelte/icons/search';
   import X from '@lucide/svelte/icons/x';
   import MetricCard from './MetricCard.svelte';
@@ -33,7 +35,7 @@
 
   let query = $state('');
   let searchInput = $state<HTMLInputElement | null>(null);
-  let prevFocus: HTMLElement | null = null;
+
 
   const filtered = $derived.by<MetricDef[]>(() => {
     const q = query.trim().toLowerCase();
@@ -67,44 +69,16 @@
     void analytics.refresh(symbol);
   });
 
-  // Lock body scroll while open.
-  $effect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  });
 
-  // Focus the search input on open; restore focus to the previously-active
-  // element on close.
-  $effect(() => {
-    if (!open) return;
-    prevFocus = document.activeElement as HTMLElement | null;
-    queueMicrotask(() => searchInput?.focus());
-    return () => {
-      prevFocus?.focus?.();
-      prevFocus = null;
-    };
-  });
+
+  const modal = createModalLifecycle();
+  onDestroy(() => modal.close());
+  let panelEl = $state<HTMLDivElement | null>(null);
 
   function close() {
     open = false;
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (!open) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      close();
-    }
-  }
-
-  onMount(() => {
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
   function toggle(id: MetricId) {
     analytics.toggle(id);
@@ -127,15 +101,20 @@
   }
 </script>
 
-{#if open}
-  <button
-    type="button"
-    class="backdrop"
-    aria-label="Close analytics panel"
-    onclick={close}
-  ></button>
-
-  <div
+<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+  <Dialog.Portal disabled={typeof window === 'undefined'}>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="backdrop"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content
+      onOpenAutoFocus={e => { modal.open(panelEl); e.preventDefault(); searchInput?.focus(); }}
+      onCloseAutoFocus={() => modal.close()}
+    >
+    {#snippet child({ props })}
+  <div {...props}
+    bind:this={panelEl}
     class="panel"
     role="dialog"
     aria-modal="true"
@@ -223,7 +202,7 @@
           </p>
         {:else if enabledMetrics.length === 0}
           <p class="empty-pane">
-            click a metric on the left to enable it.
+            select a metric in the available metrics list to enable it.
           </p>
         {:else}
           <div class="grid">
@@ -262,13 +241,16 @@
       </main>
     </div>
   </div>
-{/if}
+    {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: calc(60 + var(--bits-dialog-depth, 0) * 2);
     background: oklch(var(--background) / 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -284,7 +266,7 @@
     right: 0;
     bottom: 0;
     height: 88vh;
-    z-index: 61;
+    z-index: calc(61 + var(--bits-dialog-depth, 0) * 2);
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
@@ -597,11 +579,26 @@
 
   @media (max-width: 760px) {
     .body {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(110px, 35%) minmax(0, 1fr);
     }
     .rail {
-      display: none;
+      border-bottom: 1px solid oklch(var(--border));
     }
+    .rail-foot { display: none; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .topbar .close { margin-left: auto; }
+  }
+  .work { min-width: 0; }
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid oklch(var(--foreground));
+    outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
   :global(html:not(.dark)) .panel {

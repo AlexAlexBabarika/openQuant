@@ -9,6 +9,11 @@
 </script>
 
 <div class="flex flex-col">
+  <p class="text-muted-foreground mb-2 text-xs">
+    OHLCV estimate from the anchor to the latest cached candle. Volume is spread
+    over each candle’s low–high span by row overlap. Up/down follows candle
+    direction, not order-flow delta or trade/tick volume at price.
+  </p>
   <NumberField label="Row size" bind:value={params.rowSize} min={0.01} step={0.01} />
   <NumberField
     label="Value area %"
@@ -25,8 +30,8 @@
     step={1}
   />
   <CheckboxField label="Show profile" bind:checked={style.showProfile} />
-  <ColorField label="Up colour" bind:value={style.upColor} />
-  <ColorField label="Down colour" bind:value={style.downColor} />
+  <ColorField label="Up candle colour" bind:value={style.upColor} />
+  <ColorField label="Down candle colour" bind:value={style.downColor} />
   <CheckboxField label="Show POC" bind:checked={style.showPOC} />
   <ColorField label="POC colour" bind:value={style.pocColor} />
   <CheckboxField label="Show VAH" bind:checked={style.showVAH} />

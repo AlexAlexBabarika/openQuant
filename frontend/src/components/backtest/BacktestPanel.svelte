@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
+  import { Dialog } from 'bits-ui';
+  import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import X from '@lucide/svelte/icons/x';
   import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
   import MetricsStrip from './MetricsStrip.svelte';
@@ -58,45 +60,34 @@
     if (open) void backtest.load();
   });
 
-  // Lock body scroll while open.
-  $effect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  });
+
+  const modal = createModalLifecycle();
+  onDestroy(() => modal.close());
+  let panelEl = $state<HTMLDivElement | null>(null);
 
   function close() {
     rerunState.reset();
     open = false;
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (open && e.key === 'Escape') {
-      e.preventDefault();
-      close();
-    }
-  }
-
-  onMount(() => {
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
   const meta = $derived(backtest.result?.meta ?? null);
 </script>
 
-{#if open}
-  <button
-    type="button"
-    class="backdrop"
-    aria-label="Close backtest dashboard"
-    onclick={close}
-  ></button>
-
-  <div
+<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+  <Dialog.Portal disabled={typeof window === 'undefined'}>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="backdrop"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content
+      onOpenAutoFocus={() => modal.open(panelEl)}
+      onCloseAutoFocus={() => modal.close()}
+    >
+    {#snippet child({ props })}
+  <div {...props}
+    bind:this={panelEl}
     class="panel"
     role="dialog"
     aria-modal="true"
@@ -149,13 +140,20 @@
       {/if}
     </div>
   </div>
-{/if}
+    {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
+  button:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
+  @media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } }
+  @media (max-width: 900px) { .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; } .topbar .close { margin-left: auto; } }
+
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: calc(60 + var(--bits-dialog-depth, 0) * 2);
     background: oklch(var(--background) / 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -170,7 +168,7 @@
     right: 0;
     bottom: 0;
     height: 92vh;
-    z-index: 61;
+    z-index: calc(61 + var(--bits-dialog-depth, 0) * 2);
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));

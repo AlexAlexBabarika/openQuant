@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import * as Dialog from '$lib/components/ui/dialog';
   import {
     getTool,
@@ -23,6 +25,9 @@
   let stagedParams = $state<unknown>(null);
   let stagedStyle = $state<unknown>(null);
   let lastOpenedType: string | null = null;
+  let panelEl = $state<HTMLDivElement | null>(null);
+  const modal = createModalLifecycle();
+  onDestroy(() => modal.close());
 
   $effect(() => {
     if (open && tool && lastOpenedType !== tool.type) {
@@ -72,7 +77,13 @@
     open = v;
   }}
 >
-  <Dialog.Content class="sm:max-w-md" showCloseButton={false}>
+  <Dialog.Content
+    bind:ref={panelEl}
+    class="sm:max-w-md"
+    showCloseButton={false}
+    onOpenAutoFocus={() => modal.open(panelEl)}
+    onCloseAutoFocus={() => modal.close()}
+  >
     {#if tool && stagedParams !== null && stagedStyle !== null}
       {@const SettingsCmp = tool.Settings}
       <Dialog.Header>
@@ -80,6 +91,9 @@
           >{tool.label} settings</Dialog.Title
         >
       </Dialog.Header>
+      <Dialog.Description>
+        Applies to all stored Elements of this type and the defaults for future Elements.
+      </Dialog.Description>
       <div class="mt-2">
         <SettingsCmp params={stagedParams} style={stagedStyle} />
       </div>

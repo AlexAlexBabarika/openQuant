@@ -16,6 +16,7 @@
   let {
     drawable,
     data,
+    computeState,
     selected,
     coordMap,
     onRequestSelect,
@@ -42,7 +43,7 @@
     };
   });
 
-  let stats = $derived(data ?? null);
+  let stats = $derived(computeState && computeState.status !== 'success' ? null : data ?? null);
 
   /** Same hue as the box fill; stronger than `fill-opacity` on the rect (see below). */
   const accentOpacity = 0.88;
@@ -52,7 +53,7 @@
   );
 
   $effect(() => {
-    if (!box) {
+    if (!box || box.left + box.width < 0 || box.left > coordMap.plotWidth || box.top + box.height < 0 || box.top > coordMap.plotHeight) {
       onAnchorPoint(null);
       return;
     }

@@ -21,6 +21,12 @@ export function createDrawablesStore() {
     forSymbol(symbol: string) {
       return items.filter(d => d.symbol === symbol);
     },
+    selectedForSymbol(symbol: string, visibleIds: Iterable<string>) {
+      const selected = selectedId === null ? null : byId.get(selectedId);
+      return selected?.symbol === symbol && new Set(visibleIds).has(selected.id)
+        ? selected
+        : null;
+    },
     add(d: BundledDrawable) {
       measureDrawablesSync('drawables:store:add', () => {
         items = [...items, d];

@@ -84,13 +84,13 @@
 
   $effect(() => {
     const scripts = runningScripts;
+    const priceSeries = priceSeriesFn();
+    const data = build(scripts);
     untrack(() => {
-      const priceSeries = priceSeriesFn();
       if (!priceSeries) {
         detach();
         return;
       }
-      const data = build(scripts);
       if (data.length === 0) {
         detach();
         return;

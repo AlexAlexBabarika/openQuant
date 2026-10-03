@@ -94,16 +94,16 @@
   <table>
     <thead>
       <tr>
-        <th class="num" onclick={() => setSort('idx')}>#{indicator('idx')}</th>
-        <th onclick={() => setSort('entry_time')}>Entry{indicator('entry_time')}</th>
+        <th class="num" aria-sort={sortKey === 'idx' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('idx')}>#{indicator('idx')}</button></th>
+        <th aria-sort={sortKey === 'entry_time' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('entry_time')}>Entry{indicator('entry_time')}</button></th>
         <th>Exit</th>
-        <th onclick={() => setSort('side')}>Side{indicator('side')}</th>
-        <th class="num" onclick={() => setSort('quantity')}>Size{indicator('quantity')}</th>
+        <th aria-sort={sortKey === 'side' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('side')}>Side{indicator('side')}</button></th>
+        <th class="num" aria-sort={sortKey === 'quantity' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('quantity')}>Size{indicator('quantity')}</button></th>
         <th class="num">Entry px</th>
         <th class="num">Exit px</th>
-        <th class="num" onclick={() => setSort('pnl')}>P&amp;L{indicator('pnl')}</th>
-        <th class="num" onclick={() => setSort('pnl_pct')}>P&amp;L %{indicator('pnl_pct')}</th>
-        <th class="num" onclick={() => setSort('bars_held')}>Bars{indicator('bars_held')}</th>
+        <th class="num" aria-sort={sortKey === 'pnl' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('pnl')}>P&amp;L{indicator('pnl')}</button></th>
+        <th class="num" aria-sort={sortKey === 'pnl_pct' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('pnl_pct')}>P&amp;L %{indicator('pnl_pct')}</button></th>
+        <th class="num" aria-sort={sortKey === 'bars_held' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}><button type="button" onclick={() => setSort('bars_held')}>Bars{indicator('bars_held')}</button></th>
       </tr>
     </thead>
     <tbody>
@@ -156,9 +156,25 @@
     background: color-mix(in oklab, oklch(var(--popover)) 100%, black 6%);
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    cursor: pointer;
     user-select: none;
     white-space: nowrap;
+  }
+  th button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+  }
+  th button:focus-visible {
+    outline: 2px solid oklch(var(--foreground));
+    outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    th button:focus-visible { outline-color: Highlight; }
   }
   td {
     padding: 6px 12px;
