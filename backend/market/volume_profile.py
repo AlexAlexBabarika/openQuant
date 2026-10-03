@@ -2,7 +2,7 @@
 Volume Profile math — candle-distribution algorithm (path A).
 
 Given a list of OHLCV candles, build a price-axis histogram:
-- each candle's volume is spread uniformly across [low, high]
+- each candle's volume is spread uniformly across [low, high)
 - each price bin has volume_size = row_size
 - up/down volume split per candle direction (close >= open)
 
@@ -38,9 +38,9 @@ class ProfileResult:
     price_min: float
     price_max: float
     bins: list[ProfileBin]
-    poc: float
-    vah: float
-    val: float
+    poc: float | None
+    vah: float | None
+    val: float | None
 
 
 def bin_from_candle_distribution(
@@ -52,7 +52,7 @@ def bin_from_candle_distribution(
 
     - `row_size` > 0 (price units).
     - `va_pct` in (0, 1]. 0.7 = 70% value area.
-    - Empty `candles` -> zero-bin result at price 0.
+    - Empty `candles` -> zero-bin result at price 0, with no supported levels.
 
     Returns bin lower-edges starting at `floor(min_low / row_size) * row_size`.
     """
@@ -66,9 +66,9 @@ def bin_from_candle_distribution(
             price_min=0.0,
             price_max=0.0,
             bins=[],
-            poc=0.0,
-            vah=0.0,
-            val=0.0,
+            poc=None,
+            vah=None,
+            val=None,
         )
 
     lows = low_array(candles)
@@ -80,6 +80,13 @@ def bin_from_candle_distribution(
     price_min = float(np.floor(lows.min() / row_size) * row_size)
     price_max = float(np.ceil(highs.max() / row_size) * row_size)
     n_bins = max(1, int(round((price_max - price_min) / row_size)))
+    flat_prices = lows[(highs == lows) & (vols > 0)]
+    if flat_prices.size:
+        n_bins = max(
+            n_bins, int(np.floor((flat_prices.max() - price_min) / row_size)) + 1
+        )
+    price_max = price_min + n_bins * row_size
+    edges = price_min + np.arange(n_bins + 1) * row_size
 
     up_vol = np.zeros(n_bins, dtype=np.float64)
     down_vol = np.zeros(n_bins, dtype=np.float64)
@@ -101,21 +108,37 @@ def bin_from_candle_distribution(
                 down_vol[idx] += vol
             continue
         first = int((lo - price_min) / row_size)
-        last = int((hi - price_min) / row_size)
+        last = int(np.ceil((hi - price_min) / row_size)) - 1
         first = max(0, min(n_bins - 1, first))
         last = max(0, min(n_bins - 1, last))
-        count = last - first + 1
-        share = vol / count
+        overlap = np.maximum(
+            0,
+            np.minimum(hi, edges[first + 1 : last + 2])
+            - np.maximum(lo, edges[first : last + 1]),
+        )
+        share = vol * (overlap / span)
         if closes[i] >= opens[i]:
             up_vol[first : last + 1] += share
         else:
             down_vol[first : last + 1] += share
 
     total = up_vol + down_vol
+    bins = [
+        ProfileBin(
+            price=price_min + i * row_size,
+            up_vol=float(up_vol[i]),
+            down_vol=float(down_vol[i]),
+        )
+        for i in range(n_bins)
+    ]
+    grand_total = float(total.sum())
+    if grand_total <= 0:
+        return ProfileResult(row_size, price_min, price_max, bins, None, None, None)
+
+    # argmax chooses the lowest row on a tie; POC identifies its lower edge.
     poc_idx = int(np.argmax(total))
     poc_price = price_min + poc_idx * row_size
 
-    grand_total = float(total.sum())
     target = grand_total * va_pct
 
     # Expand outward from POC, greedily grabbing the heavier neighbour.
@@ -135,16 +158,7 @@ def bin_from_candle_distribution(
             captured += float(total[lo_idx])
 
     val_price = price_min + lo_idx * row_size
-    vah_price = price_min + hi_idx * row_size
-
-    bins = [
-        ProfileBin(
-            price=price_min + i * row_size,
-            up_vol=float(up_vol[i]),
-            down_vol=float(down_vol[i]),
-        )
-        for i in range(n_bins)
-    ]
+    vah_price = price_min + (hi_idx + 1) * row_size
 
     return ProfileResult(
         row_size=row_size,
