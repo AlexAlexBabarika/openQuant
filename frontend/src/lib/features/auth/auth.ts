@@ -1,11 +1,14 @@
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import {
   apiFetch,
   apiJson,
   clearAccessToken,
   getAccessToken,
+  getSessionGeneration,
   readErrorMessage,
+  refreshAccessToken,
   setAccessToken,
+  setAccessTokenRefresher,
 } from '$lib/core/api';
 
 export type AuthUser = {
@@ -33,6 +36,69 @@ export const authState = writable<AuthState>({
   user: null,
   loading: false,
   error: null,
+});
+
+let authRevision = 0;
+let cookieRequests: Promise<unknown> = Promise.resolve();
+let sessionFlight: {
+  revision: number;
+  generation: number;
+  promise: Promise<AuthSessionPayload | null>;
+} | null = null;
+
+// Cookie rotation and logout must settle in order, even if the UI changes first.
+function queueCookieRequest<T>(request: () => Promise<T>): Promise<T> {
+  const result = cookieRequests.then(request);
+  cookieRequests = result.catch(() => {});
+  return result;
+}
+
+function requestSession(): Promise<AuthSessionPayload | null> {
+  const revision = authRevision;
+  const generation = getSessionGeneration();
+  if (
+    sessionFlight?.revision === revision &&
+    sessionFlight.generation === generation
+  )
+    return sessionFlight.promise;
+  const isCurrent = () =>
+    revision === authRevision && generation === getSessionGeneration();
+  const promise = queueCookieRequest(async () => {
+    if (!isCurrent()) return null;
+    try {
+      const response = await apiFetch('/auth/refresh', { method: 'POST' });
+      if (!isCurrent()) return null;
+      if (response.status === 401) {
+        clearAuthState();
+        return null;
+      }
+      if (!response.ok) return null;
+      const payload = (await response.json()) as AuthSessionPayload;
+      return isCurrent() ? payload : null;
+    } catch {
+      return null;
+    }
+  });
+  const flight = { revision, generation, promise };
+  sessionFlight = flight;
+  void promise.finally(() => {
+    if (sessionFlight === flight) sessionFlight = null;
+  });
+  return promise;
+}
+
+setAccessTokenRefresher(async () => {
+  const user = get(authState).user;
+  const revision = authRevision;
+  const generation = getSessionGeneration();
+  const payload = await requestSession();
+  if (revision !== authRevision || generation !== getSessionGeneration())
+    return null;
+  if (payload && user && payload.user.id !== user.id) {
+    clearAuthState();
+    return null;
+  }
+  return payload?.access_token ?? null;
 });
 
 function setLoading(loading: boolean): void {
@@ -65,19 +131,25 @@ export async function login(
   email: string,
   password: string,
 ): Promise<AuthUser> {
+  const revision = ++authRevision;
   setLoading(true);
   setError(null);
   try {
-    const payload = await apiJson<AuthSessionPayload>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
+    const payload = await queueCookieRequest(() =>
+      apiJson<AuthSessionPayload>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    );
+    if (revision !== authRevision) throw new Error('Session changed');
     setAuthenticated(payload);
     return payload.user;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Login failed';
-    setError(message);
-    setLoading(false);
+    if (revision === authRevision) {
+      setError(message);
+      setLoading(false);
+    }
     throw new Error(message);
   }
 }
@@ -90,16 +162,21 @@ export async function signup(
   pendingConfirmation: boolean;
   message?: string;
 }> {
+  const revision = ++authRevision;
   setLoading(true);
   setError(null);
   try {
-    const response = await apiFetch('/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
+    const response = await queueCookieRequest(() =>
+      apiFetch('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    );
+    if (revision !== authRevision) throw new Error('Session changed');
 
     if (response.status === 202) {
       const payload = (await response.json()) as SignupPendingPayload;
+      if (revision !== authRevision) throw new Error('Session changed');
       authState.update(prev => ({ ...prev, loading: false }));
       return {
         user: null,
@@ -113,23 +190,29 @@ export async function signup(
     }
 
     const payload = (await response.json()) as AuthSessionPayload;
+    if (revision !== authRevision) throw new Error('Session changed');
     setAuthenticated(payload);
     return { user: payload.user, pendingConfirmation: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Signup failed';
-    setError(message);
-    setLoading(false);
+    if (revision === authRevision) {
+      setError(message);
+      setLoading(false);
+    }
     throw new Error(message);
   }
 }
 
 export async function logout(): Promise<void> {
   const token = getAccessToken();
-  try {
-    await apiFetch('/auth/logout', { method: 'POST' }, Boolean(token));
-  } finally {
-    clearAuthState();
-  }
+  ++authRevision;
+  clearAuthState();
+  await queueCookieRequest(() =>
+    apiFetch('/auth/logout', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+  );
 }
 
 /**
@@ -138,22 +221,22 @@ export async function logout(): Promise<void> {
  * by the browser (same-origin), so no JS token handling is needed.
  */
 export async function fetchSession(): Promise<AuthUser | null> {
+  const currentUser = get(authState).user;
+  if (currentUser) {
+    await refreshAccessToken();
+    return get(authState).user;
+  }
+  const revision = authRevision;
+  const generation = getSessionGeneration();
   setLoading(true);
   setError(null);
-  try {
-    const response = await apiFetch('/auth/refresh', { method: 'POST' });
-    if (response.status === 401) {
-      clearAuthState();
-      return null;
-    }
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response));
-    }
-    const payload = (await response.json()) as AuthSessionPayload;
+  const payload = await requestSession();
+  if (revision !== authRevision || generation !== getSessionGeneration())
+    return null;
+  if (payload) {
     setAuthenticated(payload);
     return payload.user;
-  } catch (error) {
-    clearAuthState();
-    return null;
   }
+  setLoading(false);
+  return null;
 }
