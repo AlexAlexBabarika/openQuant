@@ -159,7 +159,7 @@
 </button>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="sm:max-w-lg">
+  <Dialog.Content class="sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>Chart Options</Dialog.Title>
     </Dialog.Header>
@@ -196,7 +196,7 @@
         </fieldset>
 
         <!-- Row 1: Chart Type + Overlay -->
-        <div class="flex items-end justify-between gap-4">
+        <div class="flex flex-wrap items-end justify-between gap-4">
           <fieldset>
             <legend class="text-sm font-medium text-card-foreground mb-2"
               >Chart Type</legend
@@ -311,7 +311,7 @@
               <div class="text-xs font-medium text-muted-foreground mb-1.5">
                 Simple Moving Average
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {smaConfig.enabled
@@ -451,7 +451,7 @@
               <div class="text-xs font-medium text-muted-foreground mb-1.5">
                 Exponential Moving Average
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {emaConfig.enabled
