@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
+  import { Dialog } from 'bits-ui';
+  import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Plus from '@lucide/svelte/icons/plus';
   import Play from '@lucide/svelte/icons/play';
   import Save from '@lucide/svelte/icons/save';
@@ -71,32 +73,15 @@
     if (open) void strat.load();
   });
 
-  // Lock body scroll while open.
-  $effect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  });
+
+  const modal = createModalLifecycle();
+  onDestroy(() => modal.close());
+  let panelEl = $state<HTMLDivElement | null>(null);
 
   function close() {
     open = false;
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (!open || backtestOpen) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      close();
-    }
-  }
-
-  onMount(() => {
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
   async function runNow() {
     if (strat.isRunning || !symbol) return;
@@ -134,15 +119,21 @@
   }
 </script>
 
-{#if open}
-  <button
-    type="button"
-    class="backdrop"
-    aria-label="Close strategy panel"
-    onclick={close}
-  ></button>
-
-  <div
+<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+  <Dialog.Portal disabled={typeof window === 'undefined'}>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="backdrop"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content
+      onOpenAutoFocus={() => modal.open(panelEl)}
+      onCloseAutoFocus={() => modal.close()}
+      onEscapeKeydown={e => { if (backtestOpen) e.preventDefault(); }}
+    >
+    {#snippet child({ props })}
+  <div {...props}
+    bind:this={panelEl}
     class="panel"
     role="dialog"
     aria-modal="true"
@@ -247,34 +238,28 @@
             {/if}
 
             {#each strat.scripts as s (s.id)}
-              <button
-                type="button"
+              <div
                 class="rail-item"
                 class:active={strat.activeId === s.id}
-                onclick={() => strat.select(s.id)}
               >
-                <span class="ri-name">{s.name}</span>
-                <span class="ri-time">{fmtRelative(s.updated_at)}</span>
-                <span
+                <button
+                  type="button"
+                  class="ri-select"
+                  aria-pressed={strat.activeId === s.id}
+                  onclick={() => strat.select(s.id)}
+                >
+                  <span class="ri-name">{s.name}</span>
+                  <span class="ri-time">{fmtRelative(s.updated_at)}</span>
+                </button>
+                <button
+                  type="button"
                   class="ri-del"
-                  role="button"
-                  tabindex="-1"
-                  aria-label="Delete strategy"
-                  onclick={(e: MouseEvent) => {
-                    e.stopPropagation();
-                    void confirmDelete(s.id, s.name);
-                  }}
-                  onkeydown={(e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      void confirmDelete(s.id, s.name);
-                    }
-                  }}
+                  aria-label="Delete strategy {s.name}"
+                  onclick={() => void confirmDelete(s.id, s.name)}
                 >
                   <Trash2 class="h-3 w-3" />
-                </span>
-              </button>
+                </button>
+              </div>
             {/each}
           </div>
 
@@ -358,15 +343,18 @@
       {/if}
     </div>
   </div>
+    {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
 
   <BacktestPanel bind:open={backtestOpen} backtest={strat.backtest ?? undefined} />
-{/if}
+</Dialog.Root>
 
 <style>
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: calc(60 + var(--bits-dialog-depth, 0) * 2);
     background: oklch(var(--background) / 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -382,7 +370,7 @@
     right: 0;
     bottom: 0;
     height: 88vh;
-    z-index: 61;
+    z-index: calc(61 + var(--bits-dialog-depth, 0) * 2);
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
@@ -595,7 +583,7 @@
   .rail-item {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
     gap: 8px;
     width: 100%;
@@ -779,8 +767,43 @@
   }
 
   @media (max-width: 760px) {
-    .body { grid-template-columns: 1fr; }
-    .rail { display: none; }
+    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
+    .body.sweep-mode, .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
+    .rail { border-bottom: 1px solid oklch(var(--border)); }
+    .rail-head { padding: 8px 12px; }
+    .rail-foot { display: none; }
+  }
+
+  @media (max-width: 900px) {
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .topbar .close { margin-left: auto; }
+    .ctx { flex-wrap: wrap; }
+    .work-head { flex-wrap: wrap; padding: 8px 12px; }
+    .actions { flex-wrap: wrap; }
+  }
+
+  .work { min-width: 0; }
+  .ri-select {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ri-del { border: 0; padding: 0; background: transparent; opacity: 1; }
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid oklch(var(--foreground));
+    outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
   /* ---------------------------------------------------------------- */

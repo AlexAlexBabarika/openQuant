@@ -13,7 +13,7 @@
 
 <Popover.Root>
   <Popover.Trigger
-    class="flex items-center gap-2 group outline-none"
+    class="flex items-center gap-2 group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
     aria-label="Pick colour for {label}"
   >
     <span
@@ -25,7 +25,7 @@
   <Popover.Portal>
     <Popover.Content
       sideOffset={8}
-      class="z-[80] w-64 rounded-lg border border-border bg-card p-4 shadow-xl outline-none"
+      class="z-[80] w-64 rounded-lg border border-border bg-card p-4 shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
     >
       <ColourPicker bind:colour />
     </Popover.Content>
