@@ -152,7 +152,7 @@
   });
 </script>
 
-<div class="trial-shell" class:standalone={!embedded}>
+<div class="trial-shell" class:standalone={!embedded} class:embedded>
   <header class="topbar">
     <div class="brand">
       {#if !embedded}
@@ -241,7 +241,11 @@
         </div>
 
         <Tabs.Root value="performance">
-          <Tabs.List class="result-tabs" aria-label="Robustness report sections">
+          <Tabs.List class="result-tabs" aria-label="Robustness report sections" onfocusin={(event) => {
+            if (event.target instanceof HTMLElement && event.target.getAttribute('role') === 'tab') {
+              event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
+          }}>
             <Tabs.Trigger class="result-tab" value="performance">Performance</Tabs.Trigger>
             <Tabs.Trigger class="result-tab" value="holdout">Holdout</Tabs.Trigger>
             <Tabs.Trigger class="result-tab" value="sensitivity">Sensitivity</Tabs.Trigger>
@@ -313,7 +317,9 @@
 <style>
   .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 12px/1.6 var(--font-mono); }
   .standalone { min-height: 100dvh; }
-  .topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 48px 12px 18px; border-bottom: 1px solid oklch(var(--border)); }
+  .embedded { height: 100%; min-height: 0; }
+  .embedded .workbench { min-height: 0; overflow-y: auto; }
+  .topbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 48px 12px 18px; border-bottom: 1px solid oklch(var(--border)); }
   .brand, .wordmark { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .wordmark { font-weight: 600; }
   .divider, .muted, .scope, .live-status, small, dt { color: oklch(var(--muted-foreground)); }
