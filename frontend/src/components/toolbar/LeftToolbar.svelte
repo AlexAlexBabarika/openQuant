@@ -39,7 +39,8 @@
   let crosshairOpen = $state(false);
   let positionPopoverOpen = $state(false);
   let positionTrigger = $state<HTMLButtonElement | null>(null);
-  const toolTriggers: Record<string, HTMLButtonElement> = {};
+  const toolTriggers: Record<string, HTMLButtonElement | null> =
+    Object.fromEntries(tools.map(tool => [tool.type, null]));
   /** Last position subtype for settings when cursor tool is active. */
   let positionSettingsType = $state<string>(POSITION_TOOLBAR_MODES[0].type);
   /** Popover open state per tool type — keys must exist for bind:open. */
