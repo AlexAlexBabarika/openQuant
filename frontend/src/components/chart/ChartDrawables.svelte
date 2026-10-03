@@ -226,6 +226,7 @@
       const startSymbol = symbol;
       const captureEl = containerEl;
       const pointerId = e.pointerId;
+      captureEl?.focus({ preventScroll: true });
       captureEl?.setPointerCapture?.(pointerId);
       const gesture = placementGesture(machine, gestureIdentity, pointerId, () => gestureIdentity, (geometry: unknown) => {
         drawables.add({
