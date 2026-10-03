@@ -1,4 +1,4 @@
-import { onDestroy } from 'svelte';
+import { onDestroy, untrack } from 'svelte';
 import { apiFetch, readErrorMessage } from '$lib/core/api';
 import { WSClient, type ConnectionStatus } from '$lib/core/ws';
 import type { OHLCVCandle } from '$lib/core/types';
@@ -11,12 +11,22 @@ import {
 } from '$lib/features/market/marketDataProviders';
 import {
   subscribeMarketStream,
+  mergeCandleSnapshot,
   type StreamStatus,
 } from '$lib/features/market/streaming';
 
 export type ChartApiLike = { appendCandle: (c: OHLCVCandle) => void };
 
+interface ChartContext {
+  userId: string | null;
+  symbol: string;
+  source: MarketDataProviderValue;
+  period: string;
+  interval: string;
+}
+
 export interface ChartControllerOptions {
+  userId?: () => string | null;
   initialSymbol?: string;
   initialSource?: MarketDataProviderValue;
   onSymbolFetched?: (
@@ -47,11 +57,24 @@ export class ChartController {
   #liveUnsubscribe: (() => void) | null = null;
   #refreshIntervalId: ReturnType<typeof setInterval> | null = null;
   #onSymbolFetched?: ChartControllerOptions['onSymbolFetched'];
+  #loadGeneration = 0;
+  #streamGeneration = 0;
+  #streamEnabled = true;
+  #loadedContext: ChartContext | null = null;
+  #userId: () => string | null;
+  #sessionUser: string | null;
 
   constructor(opts: ChartControllerOptions = {}) {
+    this.#userId = opts.userId ?? (() => null);
+    this.#sessionUser = this.#userId();
     if (opts.initialSymbol !== undefined) this.symbol = opts.initialSymbol;
     if (opts.initialSource !== undefined) this.source = opts.initialSource;
     this.#onSymbolFetched = opts.onSymbolFetched;
+
+    $effect(() => {
+      this.#userId();
+      untrack(() => this.syncSession());
+    });
 
     $effect(() => {
       if (this.#refreshIntervalId) {
@@ -76,16 +99,43 @@ export class ChartController {
     });
 
     onDestroy(() => {
+      this.#loadGeneration += 1;
       if (this.#refreshIntervalId) clearInterval(this.#refreshIntervalId);
-      if (this.#wsClient) this.#wsClient.disconnect();
-      if (this.#liveUnsubscribe) this.#liveUnsubscribe();
+      this.#disconnectStreams();
     });
   }
 
+  syncSession(): void {
+    const userId = this.#userId();
+    if (userId === this.#sessionUser) return;
+    this.#sessionUser = userId;
+    const reload = this.initialLoadDone || this.isLoading;
+    this.#loadGeneration++;
+    this.#disconnectStreams();
+    this.isLoading = false;
+    if (this.source === 'twelvedata' || this.source === 'csv') {
+      this.candles = [];
+      this.loadedSymbol = '';
+      this.#loadedContext = null;
+      this.marketDataVersion++;
+    }
+    if (reload && this.source !== 'csv') {
+      if (this.source === 'twelvedata' && !userId) {
+        this.errorMessage = 'Sign in to load Twelve Data market data.';
+      } else {
+        void this.loadMarketData();
+      }
+    }
+  }
+
   loadMarketData = async (): Promise<void> => {
-    if (this.source === 'csv') {
+    const generation = ++this.#loadGeneration;
+    const context = this.#context();
+    this.#disconnectStreams();
+    if (context.source === 'csv') {
       this.errorMessage =
         'Choose a CSV file with the Load button, or pick another data source.';
+      this.isLoading = false;
       this.initialLoadDone = true;
       return;
     }
@@ -93,30 +143,33 @@ export class ChartController {
     this.isLoading = true;
     try {
       const data = await fetchMarketOHLCV(
-        this.symbol,
-        this.source,
-        this.period,
-        this.interval,
+        context.symbol,
+        context.source,
+        context.period,
+        context.interval,
       );
+      if (!this.#isCurrentLoad(generation, context)) return;
       this.candles = data.candles ?? [];
-      this.loadedSymbol = this.symbol;
+      this.loadedSymbol = context.symbol;
+      this.#loadedContext = context;
       this.marketDataVersion += 1;
       this.#onSymbolFetched?.(
-        this.symbol,
-        this.source,
+        context.symbol,
+        context.source,
         data.candles?.length ?? 0,
       );
-      if (providerSupportsWs(this.source)) {
-        this.#startLiveStream(this.source, this.symbol.trim(), this.interval);
-      } else if (this.#liveUnsubscribe) {
-        this.#liveUnsubscribe();
-        this.#liveUnsubscribe = null;
+      if (this.#streamEnabled && providerSupportsWs(context.source)) {
+        this.#startLiveStream(context.source, context.symbol, context.interval);
       }
     } catch (e) {
-      this.errorMessage = e instanceof Error ? e.message : 'Failed to load';
+      if (this.#isCurrentLoad(generation, context)) {
+        this.errorMessage = e instanceof Error ? e.message : 'Failed to load';
+      }
     } finally {
-      this.isLoading = false;
-      this.initialLoadDone = true;
+      if (generation === this.#loadGeneration) {
+        this.isLoading = false;
+        this.initialLoadDone = true;
+      }
     }
   };
 
@@ -132,6 +185,8 @@ export class ChartController {
       return;
     }
     this.errorMessage = null;
+    this.#streamEnabled = true;
+    if (this.isLoading) return;
     if (this.source === 'csv') {
       this.#startWsStream('csv', sym);
       return;
@@ -140,10 +195,44 @@ export class ChartController {
       this.errorMessage = `Live streaming is not available for ${this.source}.`;
       return;
     }
+    if (!this.#loadedContext || !this.#contextMatches(this.#loadedContext)) {
+      void this.loadMarketData();
+      return;
+    }
     this.#startLiveStream(this.source, sym, this.interval);
   };
 
   stopStream = (): void => {
+    this.#streamEnabled = false;
+    this.#disconnectStreams();
+  };
+
+  #context(): ChartContext {
+    return {
+      userId: this.#userId(),
+      symbol: this.symbol.trim(),
+      source: this.source,
+      period: this.period,
+      interval: this.interval,
+    };
+  }
+
+  #contextMatches(context: ChartContext): boolean {
+    return (
+      context.userId === this.#userId() &&
+      context.symbol === this.symbol.trim() &&
+      context.source === this.source &&
+      context.period === this.period &&
+      context.interval === this.interval
+    );
+  }
+
+  #isCurrentLoad(generation: number, context: ChartContext): boolean {
+    return generation === this.#loadGeneration && this.#contextMatches(context);
+  }
+
+  #disconnectStreams(): void {
+    this.#streamGeneration += 1;
     if (this.#liveUnsubscribe) {
       this.#liveUnsubscribe();
       this.#liveUnsubscribe = null;
@@ -153,27 +242,25 @@ export class ChartController {
       this.#wsClient = null;
     }
     this.connectionStatus = 'disconnected';
-  };
+    this.liveBarCloseTs = null;
+  }
 
   #startLiveStream(
     provider: MarketDataProviderValue,
     sym: string,
     interval: string,
   ): void {
-    if (this.#wsClient) {
-      this.#wsClient.disconnect();
-      this.#wsClient = null;
-    }
-    if (this.#liveUnsubscribe) {
-      this.#liveUnsubscribe();
-      this.#liveUnsubscribe = null;
-    }
+    this.#disconnectStreams();
+    const generation = this.#streamGeneration;
+    const context = this.#context();
+    const isCurrent = () =>
+      generation === this.#streamGeneration && this.#contextMatches(context);
 
     const existing = this.candles ?? [];
     const historyEndIso = existing.length
       ? existing[existing.length - 1].timestamp
       : undefined;
-    const liveCandles: OHLCVCandle[] = existing.slice();
+    let liveCandles: OHLCVCandle[] = existing.slice();
     this.candles = liveCandles;
 
     const mapStatus = (s: StreamStatus): ConnectionStatus =>
@@ -190,9 +277,17 @@ export class ChartController {
       symbol: sym,
       interval,
       historyEndIso,
+      onSnapshot: snapshot => {
+        if (!isCurrent()) return;
+        const merged = mergeCandleSnapshot(liveCandles, snapshot);
+        if (merged.length === liveCandles.length) return;
+        liveCandles = merged;
+        this.candles = liveCandles;
+      },
       onCandle: (c, _isFinal) => {
+        if (!isCurrent()) return;
         const last = liveCandles[liveCandles.length - 1];
-        if (last && last.timestamp === c.timestamp) {
+        if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
           liveCandles[liveCandles.length - 1] = c;
         } else {
           liveCandles.push(c);
@@ -200,17 +295,23 @@ export class ChartController {
         this.chartApi?.appendCandle(c);
       },
       onCandleClose: c => {
+        if (!isCurrent()) return;
         const ts = Date.parse(c.timestamp);
         if (Number.isFinite(ts)) this.liveBarCloseTs = ts;
       },
       onStatus: s => {
+        if (!isCurrent()) return;
         this.connectionStatus = mapStatus(s);
       },
     });
   }
 
   handleCsvUpload = async (file: File): Promise<void> => {
-    const sym = this.symbol.trim() || 'CSV';
+    const generation = ++this.#loadGeneration;
+    const context = this.#context();
+    const sym = context.symbol || 'CSV';
+    this.#disconnectStreams();
+    this.#streamEnabled = true;
     this.errorMessage = null;
     this.isLoading = true;
     const form = new FormData();
@@ -222,11 +323,21 @@ export class ChartController {
       );
       if (!res.ok) throw new Error(await readErrorMessage(res));
       await res.json();
-      this.#startWsStream('csv', sym);
+      if (!this.#isCurrentLoad(generation, context)) return;
+      this.loadedSymbol = sym;
+      this.#loadedContext = context;
+      this.marketDataVersion += 1;
+      this.#onSymbolFetched?.(sym, 'csv', 0);
+      if (this.#streamEnabled) this.#startWsStream('csv', sym);
     } catch (e) {
-      this.errorMessage = e instanceof Error ? e.message : 'Upload failed';
+      if (this.#isCurrentLoad(generation, context)) {
+        this.errorMessage = e instanceof Error ? e.message : 'Upload failed';
+      }
     } finally {
-      this.isLoading = false;
+      if (generation === this.#loadGeneration) {
+        this.isLoading = false;
+        this.initialLoadDone = true;
+      }
     }
   };
 
@@ -235,22 +346,26 @@ export class ChartController {
     sym: string,
     opts: { reconnectDelayMs?: number; maxReconnectAttempts?: number } = {},
   ): void {
-    if (this.#liveUnsubscribe) {
-      this.#liveUnsubscribe();
-      this.#liveUnsubscribe = null;
-    }
-    if (this.#wsClient) this.#wsClient.disconnect();
+    this.#disconnectStreams();
+    const generation = this.#streamGeneration;
+    const context = this.#context();
+    const isCurrent = () =>
+      generation === this.#streamGeneration && this.#contextMatches(context);
     const streamCandles: OHLCVCandle[] = [];
     this.candles = streamCandles;
     this.#wsClient = new WSClient({
       provider,
       symbol: sym,
+      maxReconnectAttempts: 0,
       onCandle: c => {
+        if (!isCurrent()) return;
         streamCandles.push(c);
         this.chartApi?.appendCandle(c);
       },
       onStatus: s => {
+        if (!isCurrent()) return;
         this.connectionStatus = s;
+        if (s === 'disconnected') this.#wsClient = null;
       },
       ...opts,
     });

@@ -26,6 +26,7 @@ from backend.backtesting.multi.sandbox import (
     parse_portfolio_strategy_schema,
     run_portfolio_strategy,
 )
+from backend.backtesting.multi.universe import Universe
 from backend.backtesting.run_config import RunInputs
 from backend.backtesting.run_snapshot import assemble_snapshot
 from backend.backtesting.run_store import RunStore
@@ -102,7 +103,7 @@ class PortfolioRunRequest(BaseModel):
     start: str | None = None  # ISO date, inclusive
     end: str | None = None  # ISO date, exclusive
     provider: MarketDataProviderEnum
-    starting_cash: float = 100_000.0
+    starting_cash: float = Field(100_000.0, gt=0, allow_inf_nan=False)
     seed: int = 0
     params: dict = Field(default_factory=dict)
     constraints: ConstraintsModel | None = None
@@ -141,6 +142,12 @@ async def run(body: PortfolioRunRequest) -> dict:
     defaults = {name: p.values()[0] for name, p in schema.items()}
     params = {**defaults, **body.params}
 
+    if body.provider is not MarketDataProviderEnum.yfinance:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Portfolio backtests use the yfinance historical store; choose yfinance and ingest data first.",
+        )
+
     if bool(body.index) == bool(body.symbols):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "provide exactly one of 'index' or 'symbols'"
@@ -163,6 +170,7 @@ async def run(body: PortfolioRunRequest) -> dict:
             symbols = sorted({s.strip() for s in (body.symbols or []) if s.strip()})
             if not symbols:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, "no symbols given")
+            universe = Universe.static(symbols)
 
         frames = store.read_frames(symbols)
     except DataNotFound as e:
@@ -173,6 +181,7 @@ async def run(body: PortfolioRunRequest) -> dict:
     if start is not None or end is not None:
         frames = {s: _clip(f, start, end) for s, f in frames.items()}
 
+    data_version = store.head_version()
     result = await run_in_threadpool(
         run_portfolio_strategy,
         body.code,
@@ -183,7 +192,7 @@ async def run(body: PortfolioRunRequest) -> dict:
         params=params,
         constraints=body.constraints.to_constraints() if body.constraints else None,
         universe=universe,
-        data_version=store.head_version(),
+        data_version=data_version,
     )
     blob = dataclasses.asdict(result)
     if result.status == "ok":
@@ -191,7 +200,7 @@ async def run(body: PortfolioRunRequest) -> dict:
             blob,
             code=body.code,
             params=params,
-            data_version=store.head_version(),
+            data_version=data_version,
             seed=body.seed,
             starting_cash=body.starting_cash,
             universe=universe,

@@ -29,7 +29,7 @@ async def robustness(
             429, "Two robustness suites are already running. Retry when one finishes."
         )
     try:
-        frame, data_version = await _load_frame(body)
+        frame, data_version = await _load_frame(body, user)
         return await run_in_threadpool(run_robustness, body, frame, data_version)
     except (ValueError, ScriptValidationError) as exc:
         raise HTTPException(400, str(exc)) from exc

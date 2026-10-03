@@ -209,6 +209,7 @@ if _security.cors_origins:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["WWW-Authenticate"],
     )
 
 app.include_router(auth_router)
@@ -419,7 +420,9 @@ async def ws_live(websocket: WebSocket) -> None:
     client_id = f"{id(websocket):x}"
 
     async def send(msg: ServerMessage) -> None:
-        await websocket.send_json(msg.model_dump(mode="json"))
+        await websocket.send_json(
+            msg.model_dump(mode="json", exclude_none=isinstance(msg, ErrorMessage))
+        )
 
     session = ClientSession(client_id=client_id, send=send)
     client_msg_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
@@ -450,6 +453,9 @@ async def ws_live(websocket: WebSocket) -> None:
                         ErrorMessage(
                             code="authentication_required",
                             message="Authentication required",
+                            provider=msg.provider,
+                            symbol=msg.symbol,
+                            interval=msg.interval,
                         )
                     )
                     continue
@@ -458,6 +464,9 @@ async def ws_live(websocket: WebSocket) -> None:
                         ErrorMessage(
                             code="subscription_limit",
                             message="Subscription limit reached",
+                            provider=msg.provider,
+                            symbol=msg.symbol,
+                            interval=msg.interval,
                         )
                     )
                     continue
@@ -465,7 +474,15 @@ async def ws_live(websocket: WebSocket) -> None:
                 try:
                     await hub.subscribe(session, key, since=msg.since)
                 except NotImplementedError as exc:
-                    await send(ErrorMessage(code="unsupported", message=str(exc)))
+                    await send(
+                        ErrorMessage(
+                            code="unsupported",
+                            message=str(exc),
+                            provider=msg.provider,
+                            symbol=msg.symbol,
+                            interval=msg.interval,
+                        )
+                    )
                 except Exception:
                     # Don't tear down the socket on a single bad subscribe —
                     # the client would just reconnect and re-fire the same
@@ -474,7 +491,11 @@ async def ws_live(websocket: WebSocket) -> None:
                     await hub.unsubscribe(session, key)
                     await send(
                         ErrorMessage(
-                            code="subscribe_failed", message="Subscription failed"
+                            code="subscribe_failed",
+                            message="Subscription failed",
+                            provider=msg.provider,
+                            symbol=msg.symbol,
+                            interval=msg.interval,
                         )
                     )
             elif isinstance(msg, UnsubscribeMessage):
@@ -486,6 +507,8 @@ async def ws_live(websocket: WebSocket) -> None:
                         ErrorMessage(
                             code="subscription_limit",
                             message="Subscription limit reached",
+                            provider=msg.provider,
+                            symbol=msg.symbol,
                         )
                     )
                     continue
@@ -493,13 +516,23 @@ async def ws_live(websocket: WebSocket) -> None:
                 try:
                     await hub.subscribe_quote(session, qkey)
                 except NotImplementedError as exc:
-                    await send(ErrorMessage(code="unsupported", message=str(exc)))
+                    await send(
+                        ErrorMessage(
+                            code="unsupported",
+                            message=str(exc),
+                            provider=msg.provider,
+                            symbol=msg.symbol,
+                        )
+                    )
                 except Exception:
                     logger.exception("subscribe_quote failed for %s", qkey)
                     await hub.unsubscribe_quote(session, qkey)
                     await send(
                         ErrorMessage(
-                            code="subscribe_failed", message="Subscription failed"
+                            code="subscribe_failed",
+                            message="Subscription failed",
+                            provider=msg.provider,
+                            symbol=msg.symbol,
                         )
                     )
             elif isinstance(msg, UnsubscribeQuoteMessage):

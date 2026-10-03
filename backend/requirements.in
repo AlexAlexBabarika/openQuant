@@ -7,9 +7,9 @@ python-multipart==0.0.31
 python-dateutil==2.9.0.post0
 websockets==15.0.1
 psycopg[binary]==3.3.3
-PyJWT==2.13.0
+PyJWT==2.15.1
 argon2-cffi==25.1.0
-cryptography==48.0.1
+cryptography==50.0.1
 python-binance==1.0.35
 numpy==2.4.4
 scipy==1.17.1

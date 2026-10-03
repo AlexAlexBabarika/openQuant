@@ -10,6 +10,13 @@ launcher_require_docker
 launcher_start_docker
 
 if [ -z "${OPENQUANT_PORT:-}" ]; then
+  compose_environment=$(docker compose config --environment) || launcher_fail \
+    "Docker Compose configuration could not be read. Check your .env and Compose files."
+  OPENQUANT_PORT=$(printf '%s\n' "$compose_environment" | sed -n 's/^OPENQUANT_PORT=//p')
+  unset compose_environment
+fi
+
+if [ -z "${OPENQUANT_PORT:-}" ]; then
   existing_address=$(docker compose port openquant 8000 2>/dev/null | head -n 1)
   existing_port=${existing_address##*:}
   case "$existing_port" in
@@ -19,8 +26,8 @@ if [ -z "${OPENQUANT_PORT:-}" ]; then
       ;;
     *) OPENQUANT_PORT=$existing_port ;;
   esac
-  export OPENQUANT_PORT
 fi
+export OPENQUANT_PORT
 
 printf 'Starting OpenQuant on port %s…\n' "$OPENQUANT_PORT"
 if ! docker compose up -d --wait --wait-timeout 180; then

@@ -80,3 +80,56 @@ def test_run_walk_forward_reports_distinct_is_and_oos_metrics() -> None:
         or report.is_aggregate == report.is_aggregate
     )
     assert "total_return" in report.oos_metrics
+
+
+def test_oos_windows_reset_strategy_state_and_keep_unvaried_params(monkeypatch):
+    import dataclasses
+    from types import SimpleNamespace
+
+    from backend.backtesting.engine import run_backtest
+    from backend.backtesting.optimize import walkforward
+    from backend.backtesting.optimize.types import SweepConfig
+    from backend.backtesting.sandbox import _FunctionStrategy
+    from backend.tests.test_optimize_runner import _frame
+
+    code = (
+        "seen = []\n"
+        "def on_bar(ctx):\n"
+        "    if ctx.bars.index == 0:\n"
+        "        seen.append(1)\n"
+        "        ctx.buy(len(seen) * ctx.params['bonus'])\n"
+    )
+    monkeypatch.setattr(
+        walkforward,
+        "run_sweep",
+        lambda **kwargs: SimpleNamespace(
+            best_trial_id=0,
+            trials=[
+                SimpleNamespace(
+                    trial_id=0, params={"bonus": 2}, metrics={"total_return": 0.1}
+                )
+            ],
+        ),
+    )
+    frame = _frame(60)
+    config = SweepConfig(search="grid", metric="total_return", vary=[])
+    report = walkforward.run_walk_forward(
+        code=code,
+        frame=frame,
+        config=config,
+        is_len=20,
+        oos_len=20,
+        step=20,
+        anchored=False,
+    )
+    for result in report.windows:
+        assert result.best_params == {"bonus": 2}
+        window = result.window
+        independent = run_backtest(
+            frame=frame.slice(window.oos_start, window.oos_end - window.oos_start),
+            strategy=_FunctionStrategy(walkforward._on_bar_from_code(code)),
+            starting_cash=config.starting_cash,
+            seed=config.seed,
+            params={"bonus": 2},
+        )
+        assert result.oos_metrics == dataclasses.asdict(independent.metrics)

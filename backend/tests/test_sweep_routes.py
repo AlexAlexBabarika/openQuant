@@ -42,7 +42,7 @@ def _stub_frame(monkeypatch) -> None:
         }
     ).with_columns(pl.col("timestamp").dt.replace_time_zone("UTC"))
 
-    async def _fake_load_frame(body):  # signature matches the route helper
+    async def _fake_load_frame(body, user=None):
         return frame, "stub-v1"
 
     monkeypatch.setattr(sweep_routes, "_load_frame", _fake_load_frame)

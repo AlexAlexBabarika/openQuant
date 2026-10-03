@@ -124,7 +124,7 @@ installed into the Docker image, direct and transitive.
 | `cffi` | 2.1.0 | MIT-0 |
 | `charset-normalizer` | 3.4.9 | MIT |
 | `click` | 8.4.2 | BSD-3-Clause |
-| `cryptography` | 48.0.1 | Apache-2.0 OR BSD-3-Clause |
+| `cryptography` | 50.0.1 | Apache-2.0 OR BSD-3-Clause |
 | `curl-cffi` | 0.16.0 | MIT |
 | `dateparser` | 1.4.1 | BSD-3-Clause |
 | `dnspython` | 2.8.0 | ISC |
@@ -150,7 +150,7 @@ installed into the Docker image, direct and transitive.
 | `pycryptodome` | 3.23.0 | BSD-2-Clause AND Public-Domain |
 | `pydantic` | 2.12.5 | MIT |
 | `pydantic-core` | 2.41.5 | MIT |
-| `pyjwt` | 2.13.0 | MIT |
+| `pyjwt` | 2.15.1 | MIT |
 | `python-binance` | 1.0.35 | MIT |
 | `python-dateutil` | 2.9.0.post0 | BSD-3-Clause OR Apache-2.0 |
 | `python-dotenv` | 1.2.2 | BSD-3-Clause |
@@ -166,7 +166,7 @@ installed into the Docker image, direct and transitive.
 | `typing-extensions` | 4.16.0 | PSF-2.0 |
 | `typing-inspection` | 0.4.2 | MIT |
 | `tzlocal` | 5.4.4 | MIT |
-| `urllib3` | 2.7.0 | MIT |
+| `urllib3` | 2.8.0 | MIT |
 | `uvicorn` | 0.40.0 | BSD-3-Clause |
 | `uvloop` | 0.22.1 | Apache-2.0 OR MIT |
 | `watchfiles` | 1.2.0 | MIT |

@@ -62,7 +62,9 @@ def set_cached(
     interval: str | None = None,
 ) -> None:
     """Store candles under provider:symbol, stamping (period, interval)."""
-    _data_cache[make_cache_key(provider, symbol)] = (period, interval, candles)
+    key = make_cache_key(provider, symbol)
+    _data_cache.pop(key, None)
+    _data_cache[key] = (period, interval, candles)
 
 
 def get_cached_meta(provider: str, symbol: str) -> tuple[str | None, str | None] | None:
@@ -75,6 +77,7 @@ def set_cached_csv(symbol: str, candles: list[OHLCVCandle]) -> None:
     """Cache CSV upload under provider ``csv``."""
     key = make_cache_key("csv", symbol)
     _csv_keys.add(key)
+    _data_cache.pop(key, None)
     _data_cache[key] = (None, None, candles)
 
 
@@ -83,7 +86,7 @@ def is_csv_cached(symbol: str) -> bool:
 
 
 def list_cached_keys() -> list[str]:
-    """Return all cache keys (``provider:symbol``)."""
+    """Return cache keys (``provider:symbol``), oldest write first."""
     return list(_data_cache.keys())
 
 

@@ -3,6 +3,7 @@ import type { OHLCVCandle } from '$lib/core/types';
 import { fetchMarketOHLCV } from '$lib/features/market/marketData';
 import {
   subscribeMarketStream,
+  mergeCandleSnapshot,
   type StreamStatus,
 } from '$lib/features/market/streaming';
 import {
@@ -18,6 +19,7 @@ import {
   updateComparison,
   type ComparisonRecord,
   type ComparisonSeriesType,
+  type UpdateComparisonInput,
 } from './comparisonsApi';
 
 export const MAX_COMPARISONS = 4;
@@ -105,10 +107,17 @@ export class ComparisonController {
   #lastLoadedMain: string | null = null;
   #userId: () => string | null;
   #onError?: (message: string) => void;
+  #loadGeneration = 0;
+  #fetchGeneration = 0;
+  #fetchesById = new Map<string, number>();
+  #editsByKey = new Map<string, symbol>();
+  #editQueues = new Map<string, Promise<unknown>>();
+  #persisted = new Map<string, ComparisonRecord>();
 
   constructor(opts: ComparisonControllerOptions) {
     this.#onError = opts.onError;
     this.#userId = opts.userId;
+    this.updateContext(opts.period(), opts.interval());
 
     // Load comparisons whenever the main symbol changes.
     $effect(() => {
@@ -121,8 +130,7 @@ export class ComparisonController {
 
     // Refetch all comparison candles on period / interval / mainProvider change.
     $effect(() => {
-      opts.period();
-      opts.interval();
+      this.updateContext(opts.period(), opts.interval());
       opts.mainProvider();
       // Skip first run: load() already fetches candles. Track via a flag on
       // this.#lastLoadedMain — empty = no load has happened yet.
@@ -132,36 +140,41 @@ export class ComparisonController {
       });
     });
 
-    onDestroy(() => this.#clearAll());
+    onDestroy(() => {
+      this.#loadGeneration += 1;
+      this.#clearAll();
+    });
   }
 
   /** Apply server state for a main symbol: replace local comparisons + start streams. */
   load = async (mainSymbol: string): Promise<void> => {
     const userId = this.#userId();
     const target = userId ? mainSymbol.trim() : '';
+    const generation = ++this.#loadGeneration;
     this.#lastLoadedMain = target;
+    this.#clearAll();
+    const isCurrent = () =>
+      generation === this.#loadGeneration && this.#userId() === userId;
     if (!target) {
-      this.#clearAll();
       this.isLoading = false;
       return;
     }
     this.isLoading = true;
     try {
       const records = await listComparisons(target);
-      if (this.#lastLoadedMain !== target || this.#userId() !== userId) return;
-      // Drop any existing subscriptions for the previous main symbol.
-      this.#clearAll();
+      if (!isCurrent()) return;
+      this.#persisted = new Map(records.map(r => [r.id, r]));
       const next = records.map(recordToComparison);
       this.comparisons = next;
       await Promise.all(next.map(c => this.#fetchAndStream(c)));
     } catch (e) {
-      if (this.#lastLoadedMain === target && this.#userId() === userId) {
+      if (isCurrent()) {
         this.#onError?.(
           e instanceof Error ? e.message : 'Failed to load comparisons',
         );
       }
     } finally {
-      if (this.#lastLoadedMain === target && this.#userId() === userId) {
+      if (isCurrent()) {
         this.isLoading = false;
       }
     }
@@ -183,6 +196,12 @@ export class ComparisonController {
     providers: SymbolProviders | null,
     mainProvider: MarketDataProviderValue,
   ): Promise<void> => {
+    const generation = this.#loadGeneration;
+    const userId = this.#userId();
+    const isCurrent = () =>
+      generation === this.#loadGeneration &&
+      this.#userId() === userId &&
+      this.#lastLoadedMain === mainSymbol.trim();
     if (this.comparisons.length >= MAX_COMPARISONS) {
       this.#onError?.(`Maximum ${MAX_COMPARISONS} comparisons.`);
       return;
@@ -217,10 +236,13 @@ export class ComparisonController {
         color,
         series_type: 'line',
       });
+      if (!isCurrent()) return;
       const comp = recordToComparison(record);
+      this.#persisted.set(record.id, record);
       this.comparisons = [...this.comparisons, comp];
       await this.#fetchAndStream(comp);
     } catch (e) {
+      if (!isCurrent()) return;
       this.#onError?.(
         e instanceof Error ? e.message : 'Failed to add comparison',
       );
@@ -230,28 +252,39 @@ export class ComparisonController {
   remove = async (id: string): Promise<void> => {
     const comp = this.comparisons.find(c => c.id === id);
     if (!comp) return;
+    const generation = this.#loadGeneration;
+    const userId = this.#userId();
     this.#stopStream(id);
+    this.#editsByKey.delete(`${id}:color`);
+    this.#editsByKey.delete(`${id}:seriesType`);
     // Optimistic local remove.
     this.comparisons = this.comparisons.filter(c => c.id !== id);
     try {
       await deleteComparison(id);
     } catch (e) {
+      if (generation !== this.#loadGeneration || this.#userId() !== userId)
+        return;
       // Revert on failure.
       this.comparisons = [...this.comparisons, comp];
       this.#onError?.(
         e instanceof Error ? e.message : 'Failed to remove comparison',
       );
+      await this.#fetchAndStream(comp);
     }
   };
 
   setColor = async (id: string, color: string): Promise<void> => {
     const prev = this.comparisons.find(c => c.id === id);
     if (!prev || prev.color === color) return;
+    const isCurrent = this.#beginEdit(id, 'color');
     this.#patchLocal(id, { color });
     try {
-      await updateComparison(id, { color });
+      await this.#saveEdit(id, { color });
     } catch (e) {
-      this.#patchLocal(id, { color: prev.color });
+      if (!isCurrent()) return;
+      this.#patchLocal(id, {
+        color: this.#persisted.get(id)?.color ?? prev.color,
+      });
       this.#onError?.(
         e instanceof Error ? e.message : 'Failed to update colour',
       );
@@ -264,11 +297,15 @@ export class ComparisonController {
   ): Promise<void> => {
     const prev = this.comparisons.find(c => c.id === id);
     if (!prev || prev.seriesType === seriesType) return;
+    const isCurrent = this.#beginEdit(id, 'seriesType');
     this.#patchLocal(id, { seriesType });
     try {
-      await updateComparison(id, { series_type: seriesType });
+      await this.#saveEdit(id, { series_type: seriesType });
     } catch (e) {
-      this.#patchLocal(id, { seriesType: prev.seriesType });
+      if (!isCurrent()) return;
+      this.#patchLocal(id, {
+        seriesType: this.#persisted.get(id)?.series_type ?? prev.seriesType,
+      });
       this.#onError?.(
         e instanceof Error ? e.message : 'Failed to update series type',
       );
@@ -277,6 +314,40 @@ export class ComparisonController {
 
   // --- internals ---
 
+  async #saveEdit(id: string, patch: UpdateComparisonInput): Promise<void> {
+    const generation = this.#loadGeneration;
+    const userId = this.#userId();
+    const isCurrent = () =>
+      generation === this.#loadGeneration &&
+      this.#userId() === userId &&
+      this.comparisons.some(c => c.id === id);
+    const previous = this.#editQueues.get(id) ?? Promise.resolve();
+    const pending = previous
+      .catch(() => {})
+      .then(async () => {
+        if (!isCurrent()) return;
+        const saved = await updateComparison(id, patch);
+        if (isCurrent()) this.#persisted.set(id, saved);
+      });
+    this.#editQueues.set(id, pending);
+    try {
+      await pending;
+    } finally {
+      if (this.#editQueues.get(id) === pending) this.#editQueues.delete(id);
+    }
+  }
+
+  #beginEdit(id: string, field: 'color' | 'seriesType'): () => boolean {
+    const key = `${id}:${field}`;
+    const edit = Symbol();
+    const userId = this.#userId();
+    this.#editsByKey.set(key, edit);
+    return () =>
+      this.#editsByKey.get(key) === edit &&
+      this.#userId() === userId &&
+      this.comparisons.some(c => c.id === id);
+  }
+
   #patchLocal(id: string, patch: Partial<Comparison>) {
     this.comparisons = this.comparisons.map(c =>
       c.id === id ? { ...c, ...patch } : c,
@@ -284,6 +355,7 @@ export class ComparisonController {
   }
 
   #stopStream(id: string) {
+    this.#fetchesById.delete(id);
     const unsub = this.#unsubsById.get(id);
     if (unsub) {
       unsub();
@@ -292,6 +364,10 @@ export class ComparisonController {
   }
 
   #clearAll() {
+    this.#editsByKey.clear();
+    this.#editQueues.clear();
+    this.#persisted.clear();
+    this.#fetchesById.clear();
     for (const unsub of this.#unsubsById.values()) unsub();
     this.#unsubsById.clear();
     this.comparisons = [];
@@ -299,22 +375,35 @@ export class ComparisonController {
 
   async #fetchAndStream(comp: Comparison): Promise<void> {
     if (comp.provider === 'csv') return;
+    this.#stopStream(comp.id);
+    const generation = ++this.#fetchGeneration;
+    this.#fetchesById.set(comp.id, generation);
+    const loadGeneration = this.#loadGeneration;
+    const userId = this.#userId();
+    const period = this.#lastPeriod ?? '1mo';
+    const interval = this.#lastInterval ?? '1d';
+    const isCurrent = () =>
+      this.#fetchesById.get(comp.id) === generation &&
+      loadGeneration === this.#loadGeneration &&
+      this.#userId() === userId &&
+      this.#lastPeriod === period &&
+      this.#lastInterval === interval &&
+      this.comparisons.some(c => c.id === comp.id);
     try {
       const data = await fetchMarketOHLCV(
         comp.symbol,
         comp.provider,
-        // Period / interval are read off the most recent main-chart values via
-        // the same accessors used in the constructor effect; we capture them
-        // on each call so refetchAll picks up fresh values.
-        this.#lastPeriod ?? '1mo',
-        this.#lastInterval ?? '1d',
+        period,
+        interval,
       );
+      if (!isCurrent()) return;
       this.#patchLocal(comp.id, {
         candles: data.candles ?? [],
         status: 'ready',
         errorMessage: undefined,
       });
     } catch (e) {
+      if (!isCurrent()) return;
       this.#patchLocal(comp.id, {
         status: 'error',
         errorMessage: e instanceof Error ? e.message : 'Failed to load',
@@ -331,10 +420,21 @@ export class ComparisonController {
     const unsub = subscribeMarketStream({
       provider: comp.provider,
       symbol: comp.symbol,
-      interval: this.#lastInterval ?? '1d',
+      interval,
       historyEndIso,
-      onCandle: c => this.#applyLiveCandle(comp.id, c),
+      onSnapshot: snapshot => {
+        if (!isCurrent()) return;
+        const current = this.comparisons.find(c => c.id === comp.id);
+        if (current)
+          this.#patchLocal(comp.id, {
+            candles: mergeCandleSnapshot(current.candles, snapshot),
+          });
+      },
+      onCandle: c => {
+        if (isCurrent()) this.#applyLiveCandle(comp.id, c);
+      },
       onStatus: (s: StreamStatus) => {
+        if (!isCurrent()) return;
         if (s === 'error') {
           this.#patchLocal(comp.id, {
             status: 'error',
@@ -352,7 +452,7 @@ export class ComparisonController {
     const comp = this.comparisons[idx];
     const candles = comp.candles.slice();
     const last = candles[candles.length - 1];
-    if (last && last.timestamp === c.timestamp) {
+    if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
       candles[candles.length - 1] = c;
     } else {
       candles.push(c);
@@ -362,9 +462,7 @@ export class ComparisonController {
     this.comparisons = next;
   }
 
-  // Period/interval cache — simplifies fetching candles without coupling the
-  // controller to a concrete ChartController shape. Updated by the parent via
-  // updateContext() each time the chart's period/interval/provider changes.
+  // Period/interval cache is refreshed from the constructor accessors.
   #lastPeriod: string | null = null;
   #lastInterval: string | null = null;
 

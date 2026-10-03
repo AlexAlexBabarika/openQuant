@@ -55,9 +55,19 @@ export class StrategyState {
   runError = $state<string | null>(null);
 
   #client: StrategyClient;
+  #draftVersion = $state(0);
+  #revision = 0;
+  #listRequest = 0;
+  #scriptsRevision = 0;
+  #savingId: string | null = null;
+  #deleting = new Set<string>();
 
   constructor(client: StrategyClient = httpStrategyClient) {
     this.#client = client;
+  }
+
+  get draftVersion(): number {
+    return this.#draftVersion;
   }
 
   active = $derived.by(() =>
@@ -67,19 +77,26 @@ export class StrategyState {
   );
 
   async load(): Promise<void> {
+    const request = ++this.#listRequest;
+    const revision = this.#scriptsRevision;
     this.loading = true;
     this.loadError = null;
     try {
-      this.scripts = await this.#client.list();
+      const scripts = await this.#client.list();
+      if (request === this.#listRequest && revision === this.#scriptsRevision)
+        this.scripts = scripts;
     } catch (err) {
-      this.loadError =
-        err instanceof Error ? err.message : 'Failed to load strategies';
+      if (request === this.#listRequest && revision === this.#scriptsRevision)
+        this.loadError =
+          err instanceof Error ? err.message : 'Failed to load strategies';
     } finally {
-      this.loading = false;
+      if (request === this.#listRequest) this.loading = false;
     }
   }
 
-  newDraft(): void {
+  newDraft(discard = () => confirm('Discard unsaved strategy changes?')): void {
+    if (this.dirty && !discard()) return;
+    this.#draftVersion++;
     this.activeId = null;
     this.draftName = 'Untitled strategy';
     this.draftCode = SEED_CODE;
@@ -87,9 +104,15 @@ export class StrategyState {
     this.saveError = null;
   }
 
-  select(id: string): void {
+  select(
+    id: string,
+    discard = () => confirm('Discard unsaved strategy changes?'),
+  ): void {
+    if (id === this.activeId) return;
     const s = this.scripts.find(x => x.id === id);
     if (!s) return;
+    if (this.dirty && !discard()) return;
+    this.#draftVersion++;
     this.activeId = id;
     this.draftName = s.name;
     this.draftCode = s.code;
@@ -100,51 +123,95 @@ export class StrategyState {
   setName(name: string): void {
     if (this.draftName === name) return;
     this.draftName = name;
+    this.#revision++;
     this.dirty = true;
   }
 
   setCode(code: string): void {
     if (this.draftCode === code) return;
     this.draftCode = code;
+    this.#revision++;
     this.dirty = true;
   }
 
   async save(): Promise<StrategyInfo | null> {
+    if (this.isSaving) return null;
+    const id = this.activeId;
+    if (id && this.#deleting.has(id)) {
+      this.saveError = 'Wait for deletion to finish before saving';
+      return null;
+    }
     const name = this.draftName.trim();
     if (!name) {
       this.saveError = 'Name is required';
       return null;
     }
     this.isSaving = true;
+    this.#savingId = id;
     this.saveError = null;
+    const version = this.#draftVersion;
+    const revision = this.#revision;
+    const code = this.draftCode;
     try {
       let saved: StrategyInfo;
-      if (this.activeId) {
-        saved = await this.#client.update(this.activeId, {
+      if (id) {
+        saved = await this.#client.update(id, {
           name,
-          code: this.draftCode,
+          code,
         });
       } else {
-        saved = await this.#client.create(name, this.draftCode);
+        saved = await this.#client.create(name, code);
       }
+      this.#scriptsRevision++;
       const idx = this.scripts.findIndex(s => s.id === saved.id);
       if (idx >= 0) this.scripts[idx] = saved;
       else this.scripts = [saved, ...this.scripts];
-      this.activeId = saved.id;
-      this.dirty = false;
+      if (version === this.#draftVersion) {
+        this.activeId = saved.id;
+        if (revision === this.#revision) {
+          this.draftName = saved.name;
+          this.dirty = false;
+        }
+      } else if (
+        this.activeId === saved.id &&
+        (this.draftCode !== saved.code || this.draftName !== saved.name)
+      ) {
+        this.dirty = true;
+      }
       return saved;
     } catch (err) {
-      this.saveError = err instanceof Error ? err.message : 'Failed to save';
+      if (version === this.#draftVersion)
+        this.saveError = err instanceof Error ? err.message : 'Failed to save';
       return null;
     } finally {
       this.isSaving = false;
+      this.#savingId = null;
     }
   }
 
   async remove(id: string): Promise<void> {
-    await this.#client.remove(id);
-    this.scripts = this.scripts.filter(s => s.id !== id);
-    if (this.activeId === id) this.newDraft();
+    if (this.isSaving && this.#savingId === id)
+      throw new Error('Wait for the save to finish before deleting');
+    if (this.#deleting.has(id)) return;
+    this.#deleting.add(id);
+    const version = this.#draftVersion;
+    const revision = this.#revision;
+    try {
+      await this.#client.remove(id);
+      this.#scriptsRevision++;
+      this.scripts = this.scripts.filter(s => s.id !== id);
+      if (this.activeId === id) {
+        if (version === this.#draftVersion && revision === this.#revision)
+          this.newDraft(() => true);
+        else {
+          this.#draftVersion++;
+          this.activeId = null;
+          this.dirty = true;
+        }
+      }
+    } finally {
+      this.#deleting.delete(id);
+    }
   }
 
   /**
@@ -167,8 +234,10 @@ export class StrategyState {
     try {
       await bt.load();
     } finally {
-      this.isRunning = false;
-      this.runError = bt.error;
+      if (this.backtest === bt) {
+        this.isRunning = false;
+        this.runError = bt.error;
+      }
     }
     return bt;
   }

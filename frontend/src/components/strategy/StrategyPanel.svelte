@@ -100,8 +100,8 @@
 
   async function runNow() {
     if (strat.isRunning || !symbol) return;
-    await strat.runBacktest({ symbol, provider, period, interval });
-    if (!strat.runError) backtestOpen = true;
+    const bt = await strat.runBacktest({ symbol, provider, period, interval });
+    if (strat.backtest === bt && !bt.error) backtestOpen = true;
   }
 
   async function saveNow() {
@@ -109,7 +109,10 @@
   }
 
   async function confirmDelete(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    const unsaved = strat.activeId === id && strat.dirty
+      ? ' Unsaved changes will be discarded.'
+      : '';
+    if (!confirm(`Delete "${name}"? This cannot be undone.${unsaved}`)) return;
     try {
       await strat.remove(id);
     } catch (err) {
@@ -214,7 +217,7 @@
           {onOpenRuns}
         />
       {:else if tab === 'sweep'}
-        <SweepPanel code={strat.draftCode} {sweep} />
+        <SweepPanel code={strat.draftCode} {symbol} {provider} {sweep} />
       {:else}
         <aside class="rail" aria-label="Saved strategies">
           <div class="rail-head">
@@ -345,7 +348,8 @@
 
           <div class="editor-pane">
             <ScriptEditor
-              bind:value={strat.draftCode}
+              bind:value={() => strat.draftCode, code => strat.setCode(code)}
+              documentKey={strat.draftVersion}
               onRun={runNow}
               onSave={saveNow}
             />

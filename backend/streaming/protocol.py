@@ -134,6 +134,9 @@ class ErrorMessage(BaseModel):
     type: Literal["error"] = "error"
     code: str
     message: str
+    provider: MarketDataProviderEnum | None = None
+    symbol: str | None = None
+    interval: str | None = None
 
 
 class PongMessage(BaseModel):

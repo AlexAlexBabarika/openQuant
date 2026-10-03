@@ -2,7 +2,7 @@
 """Parallel sweep execution.
 
 A ``ProcessPoolExecutor`` sized to the CPU count evaluates trials. The strategy
-``on_bar`` and the frame are bound once per worker via the pool ``initializer`` —
+code and the frame are bound once per worker via the pool ``initializer`` —
 not re-pickled per trial — and each worker applies the sandbox's network block
 and resource limits, so untrusted strategy code runs under the same constraints
 as a single run. Identical parameter combinations are deduplicated through the
@@ -11,7 +11,8 @@ together with engine determinism.
 
 Workers run validated strategy code directly (validation happens once, up front)
 rather than nesting another spawn-sandbox per trial; the pool worker *is* the
-isolation boundary.
+isolation boundary. Each trial gets a fresh strategy namespace so module state
+cannot depend on which trials previously ran on that worker.
 """
 
 from __future__ import annotations
@@ -61,9 +62,7 @@ def _worker_init(
 ) -> None:
     _block_network()
     _apply_resource_limits(DEFAULT_MEMORY_MB)
-    g = _strategy_globals()
-    exec(compile(code, "<strategy>", "exec"), g)
-    _W["on_bar"] = g["on_bar"]
+    _W["compiled"] = compile(code, "<strategy>", "exec")
     _W["frame"] = frame
     _W["cash"] = starting_cash
     _W["seed"] = seed
@@ -71,9 +70,11 @@ def _worker_init(
 
 def _run_trial(item: tuple[int, dict]) -> tuple[int, dict, dict, str]:
     trial_id, params = item
+    g = _strategy_globals()
+    exec(_W["compiled"], g)
     result = run_backtest(
         frame=_W["frame"],
-        strategy=_FunctionStrategy(_W["on_bar"]),
+        strategy=_FunctionStrategy(g["on_bar"]),
         starting_cash=_W["cash"],
         seed=_W["seed"],
         params=params,
@@ -113,6 +114,8 @@ def run_sweep(
     schema = parse_strategy_schema(code)
     space = _build_space(schema, config.vary)
     combos = _combos(config, space)
+    defaults = {name: p.values()[0] for name, p in schema.items()}
+    combos = [{**defaults, **params} for params in combos]
 
     ch = code_hash(code)
     cache = TrialCache()

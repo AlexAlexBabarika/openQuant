@@ -7,7 +7,9 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte';
   import Play from '@lucide/svelte/icons/play';
+  import { reconcileVariedParams } from '$lib/features/sweep/derive';
   import type { ParamSchema, SweepFormValues } from '$lib/features/sweep/types';
 
   let {
@@ -16,12 +18,14 @@
     symbol = 'SPY',
     provider = 'yfinance',
     onsubmit,
+    disabled = false,
   }: {
     schema: ParamSchema;
     code: string;
     symbol?: string;
     provider?: string;
     onsubmit: (form: SweepFormValues) => void;
+    disabled?: boolean;
   } = $props();
 
   const paramNames = $derived(Object.keys(schema));
@@ -31,11 +35,9 @@
   let nRandom = $state(200);
   let seed = $state(0);
 
-  // Default to varying the first two params once the schema arrives.
+  // Reconcile selections only when the declared parameters change.
   $effect(() => {
-    if (vary.length === 0 && paramNames.length > 0) {
-      vary = paramNames.slice(0, 2);
-    }
+    vary = reconcileVariedParams(untrack(() => vary), paramNames);
   });
 
   function toggle(name: string) {
@@ -43,6 +45,7 @@
   }
 
   function submit() {
+    if (disabled || vary.length === 0) return;
     onsubmit({
       code,
       symbol,
@@ -91,7 +94,7 @@
         <label>Trials <input type="number" min="1" bind:value={nRandom} /></label>
       {/if}
       <label>Seed <input type="number" bind:value={seed} /></label>
-      <button type="submit" class="btn primary run" disabled={vary.length === 0}>
+      <button type="submit" class="btn primary run" disabled={disabled || vary.length === 0}>
         <Play class="h-3.5 w-3.5" />
         <span>run sweep</span>
       </button>

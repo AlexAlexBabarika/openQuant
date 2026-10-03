@@ -64,7 +64,7 @@ class BollingerBandsResponse(BaseModel):
 def _find_candles(symbol: str) -> list:
     """Look up cached candles for any provider."""
     sym = symbol.strip()
-    for key in cache.list_cached_keys():
+    for key in reversed(cache.list_cached_keys()):
         if key.endswith(f":{sym}"):
             provider = key.split(":", 1)[0]
             candles = cache.get_cached(provider, sym)

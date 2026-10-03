@@ -24,6 +24,11 @@ export default defineConfig({
     proxy: {
       '/trial': 'http://127.0.0.1:8000',
       '/backtests': 'http://127.0.0.1:8000',
+      '/symbols': 'http://127.0.0.1:8000',
+      '/scripts': 'http://127.0.0.1:8000',
+      '/strategies': 'http://127.0.0.1:8000',
+      '/sweeps': 'http://127.0.0.1:8000',
+      '/portfolio-backtests': 'http://127.0.0.1:8000',
       '/auth': 'http://127.0.0.1:8000',
       '/user': 'http://127.0.0.1:8000',
       '/data': 'http://127.0.0.1:8000',

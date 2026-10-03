@@ -12,6 +12,7 @@ renders and the API echoes back.
 from __future__ import annotations
 
 import decimal
+import math
 import random
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
@@ -38,6 +39,16 @@ class Int:
     high: int
     step: int = 1
 
+    def __post_init__(self) -> None:
+        if (
+            any(type(v) is not int for v in (self.low, self.high, self.step))
+            or self.step <= 0
+            or self.high < self.low
+        ):
+            raise ValueError(
+                "Int parameters require ordered integer bounds and a positive step."
+            )
+
     def values(self) -> list[int]:
         return list(range(self.low, self.high + 1, self.step))
 
@@ -53,6 +64,19 @@ class Float:
     low: float
     high: float
     step: float = 1.0
+
+    def __post_init__(self) -> None:
+        if (
+            any(
+                type(v) not in (int, float) or not math.isfinite(v)
+                for v in (self.low, self.high, self.step)
+            )
+            or self.step <= 0
+            or self.high < self.low
+        ):
+            raise ValueError(
+                "Float parameters require finite ordered bounds and a positive step."
+            )
 
     def values(self) -> list[float]:
         ndigits = _decimals(self.step)
@@ -76,6 +100,8 @@ class Choice:
 
     def __init__(self, options) -> None:
         object.__setattr__(self, "options", tuple(options))
+        if not self.options:
+            raise ValueError("Choice parameters require at least one option.")
 
     def values(self) -> list:
         return list(self.options)

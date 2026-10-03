@@ -83,6 +83,7 @@ export class PortfolioState {
 
   #client: PortfolioClient;
   #runs: RunsClient;
+  #request = 0;
 
   constructor(
     client: PortfolioClient = httpPortfolioClient,
@@ -97,14 +98,18 @@ export class PortfolioState {
    * without re-running. Reuses `isRunning`/`runError` for UI feedback.
    */
   async loadStored(id: string): Promise<void> {
+    const request = ++this.#request;
     this.isRunning = true;
     this.runError = null;
     try {
-      this.response = toPortfolioRunResponse(await this.#runs.getRun(id));
+      const response = toPortfolioRunResponse(await this.#runs.getRun(id));
+      if (request === this.#request) this.response = response;
     } catch (err) {
-      this.runError = err instanceof Error ? err.message : 'Failed to load run';
+      if (request === this.#request)
+        this.runError =
+          err instanceof Error ? err.message : 'Failed to load run';
     } finally {
-      this.isRunning = false;
+      if (request === this.#request) this.isRunning = false;
     }
   }
 
@@ -126,10 +131,15 @@ export class PortfolioState {
    * surfaced as `runError` with the run's stderr; the previous successful
    * response is kept so its dashboard stays readable.
    */
-  async run(code: string, ctx: PortfolioRunContext): Promise<void> {
+  async run(
+    code: string,
+    ctx: PortfolioRunContext,
+  ): Promise<PortfolioRunResponse | null> {
+    const request = ++this.#request;
     if (this.symbols.length === 0) {
+      this.isRunning = false;
       this.runError = 'Add at least one symbol to the universe';
-      return;
+      return null;
     }
     this.isRunning = true;
     this.runError = null;
@@ -140,16 +150,20 @@ export class PortfolioState {
         ...ctx,
         ...(this.constraints ? { constraints: this.constraints } : {}),
       });
+      if (request !== this.#request) return null;
       if (res.status !== 'ok') {
         this.runError = res.stderr.trim() || `Backtest ${res.status}`;
-        return;
+        return null;
       }
       this.response = res;
+      return res;
     } catch (err) {
-      this.runError =
-        err instanceof Error ? err.message : 'Portfolio backtest failed';
+      if (request === this.#request)
+        this.runError =
+          err instanceof Error ? err.message : 'Portfolio backtest failed';
+      return null;
     } finally {
-      this.isRunning = false;
+      if (request === this.#request) this.isRunning = false;
     }
   }
 

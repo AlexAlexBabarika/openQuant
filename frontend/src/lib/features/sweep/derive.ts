@@ -4,6 +4,14 @@
  */
 import type { TrialRow, WindowResult } from './types';
 
+export function reconcileVariedParams(
+  selected: string[],
+  names: string[],
+): string[] {
+  const retained = selected.filter(name => names.includes(name));
+  return retained.length ? retained : names.slice(0, 2);
+}
+
 const num = (v: number | string): number =>
   typeof v === 'number' ? v : Number(v);
 const metric = (t: TrialRow, m: string): number => {

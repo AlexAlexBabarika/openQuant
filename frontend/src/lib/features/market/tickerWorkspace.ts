@@ -1,4 +1,4 @@
-import { apiJson } from '$lib/core/api';
+import { apiJson, getSessionGeneration } from '$lib/core/api';
 import type { TickerGroup, FlaggedPriority, FlaggedStance } from './tickers';
 import {
   isDefaultTickerWorkspaceState,
@@ -78,8 +78,13 @@ export function workspacePayloadToAppState(
 // nothing yet.
 export async function syncWorkspaceOnSignIn(
   current: TickerWorkspaceState,
+  isCurrent: () => boolean = () => true,
+  save: (
+    workspace: TickerWorkspacePayload,
+  ) => Promise<unknown> = putTickerWorkspace,
 ): Promise<TickerWorkspaceState | null> {
   const res = await fetchTickerWorkspace();
+  if (!isCurrent()) return null;
   if (res.from_database) {
     return workspacePayloadToAppState(res.workspace);
   }
@@ -91,7 +96,7 @@ export async function syncWorkspaceOnSignIn(
       current.selectedStance,
     )
   ) {
-    await putTickerWorkspace(
+    await save(
       buildTickerWorkspacePayload(
         current.groups,
         current.selectedGroupName,
@@ -101,4 +106,123 @@ export async function syncWorkspaceOnSignIn(
     );
   }
   return null;
+}
+
+function statePayload(state: TickerWorkspaceState): TickerWorkspacePayload {
+  return buildTickerWorkspacePayload(
+    state.groups,
+    state.selectedGroupName,
+    state.selectedPriority,
+    state.selectedStance,
+  );
+}
+
+export class TickerWorkspaceSync {
+  private userId: string | null = null;
+  private generation = 0;
+  private sessionGeneration = getSessionGeneration();
+  private ready = false;
+  private acknowledgedJson: string | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private writes: Promise<unknown> = Promise.resolve();
+  private pendingWrites = 0;
+
+  constructor(
+    private readonly options: {
+      userId: () => string | null;
+      read: () => TickerWorkspaceState;
+      apply: (state: TickerWorkspaceState) => void;
+      onHydrated: () => void;
+      onError: (error: unknown) => void;
+    },
+  ) {}
+
+  setUser(userId: string | null): void {
+    const sessionGeneration = getSessionGeneration();
+    if (userId === this.userId && sessionGeneration === this.sessionGeneration)
+      return;
+    this.cancelTimer();
+    this.userId = userId;
+    this.sessionGeneration = sessionGeneration;
+    this.generation++;
+    this.ready = false;
+    this.acknowledgedJson = null;
+    if (userId) void this.hydrate(this.generation);
+  }
+
+  private isCurrent(generation: number): boolean {
+    return (
+      generation === this.generation &&
+      this.userId !== null &&
+      this.options.userId() === this.userId &&
+      getSessionGeneration() === this.sessionGeneration
+    );
+  }
+
+  private async hydrate(generation: number): Promise<void> {
+    const current = this.options.read();
+    const initialJson = JSON.stringify(statePayload(current));
+    try {
+      await this.writes;
+      if (!this.isCurrent(generation)) return;
+      const next = await syncWorkspaceOnSignIn(
+        JSON.parse(JSON.stringify(current)) as TickerWorkspaceState,
+        () => this.isCurrent(generation),
+        payload => this.write(JSON.stringify(payload), generation),
+      );
+      if (!this.isCurrent(generation)) return;
+      const unchanged =
+        JSON.stringify(statePayload(this.options.read())) === initialJson;
+      if (unchanged && next) this.options.apply(next);
+      if (unchanged)
+        this.acknowledgedJson = JSON.stringify(
+          statePayload(this.options.read()),
+        );
+      this.ready = true;
+      this.options.onHydrated();
+      this.save(statePayload(this.options.read()));
+    } catch (error) {
+      if (this.isCurrent(generation)) this.options.onError(error);
+    }
+  }
+
+  save(payload: TickerWorkspacePayload): void {
+    this.cancelTimer();
+    if (!this.ready || !this.isCurrent(this.generation)) return;
+    const json = JSON.stringify(payload);
+    if (json === this.acknowledgedJson && this.pendingWrites === 0) return;
+    const generation = this.generation;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.write(json, generation).catch(error => {
+        if (this.isCurrent(generation)) this.options.onError(error);
+      });
+    }, 500);
+  }
+
+  private write(json: string, generation: number): Promise<void> {
+    this.pendingWrites++;
+    const result = this.writes
+      .then(async () => {
+        if (!this.isCurrent(generation) || json === this.acknowledgedJson)
+          return;
+        await putTickerWorkspace(JSON.parse(json) as TickerWorkspacePayload);
+        if (this.isCurrent(generation)) this.acknowledgedJson = json;
+      })
+      .finally(() => {
+        this.pendingWrites--;
+      });
+    this.writes = result.catch(() => {});
+    return result;
+  }
+
+  private cancelTimer(): void {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+  }
+
+  destroy(): void {
+    this.cancelTimer();
+    this.generation++;
+  }
 }
