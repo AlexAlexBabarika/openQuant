@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
+  import { authState } from '$lib/features/auth/auth';
+  import AuthDialog from '../dialogs/AuthDialog.svelte';
   import { Dialog } from 'bits-ui';
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Plus from '@lucide/svelte/icons/plus';
@@ -38,8 +40,15 @@
   let dragging = $state(false);
   let panelEl = $state<HTMLDivElement | null>(null);
 
+  let authDialogOpen = $state(false);
+  let savedUserId: string | null = null;
   $effect(() => {
-    if (open) void ind.refresh();
+    const userId = $authState.user?.id ?? null;
+    if (userId !== savedUserId) untrack(() => {
+      savedUserId = userId;
+      ind.clearSaved();
+    });
+    if (open && userId) untrack(() => { void ind.refresh(); });
   });
 
 
@@ -72,6 +81,7 @@
   }
 
   async function runNow() {
+    if (ind.activeId && !$authState.user) { authDialogOpen = true; return; }
     await ind.run({ symbol, provider, period, interval });
   }
 
@@ -80,6 +90,7 @@
   }
 
   async function toggleScriptRun(id: string) {
+    if (!$authState.user) { authDialogOpen = true; return; }
     if (ind.runners[id]) {
       ind.stop(id);
       return;
@@ -92,14 +103,17 @@
   }
 
   async function saveNow() {
+    if (!$authState.user) { authDialogOpen = true; return; }
     await ind.save();
   }
 
   async function saveAndRun() {
+    if (!$authState.user) { authDialogOpen = true; return; }
     await ind.saveAndRun({ symbol, provider, period, interval });
   }
 
   async function confirmDelete(id: string, name: string) {
+    if (!$authState.user) { authDialogOpen = true; return; }
     const unsaved = ind.activeId === id && ind.dirty
       ? ' Unsaved changes will be discarded.'
       : '';
@@ -208,7 +222,10 @@
         </div>
 
         <div class="rail-list">
-          {#if ind.loading && ind.scripts.length === 0}
+          {#if !$authState.user}
+            <p class="rail-hint">Sign in to load and save indicators. You can run an unsaved draft without an account.</p>
+            <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
+          {:else if ind.loading && ind.scripts.length === 0}
             <p class="rail-hint">loading…</p>
           {:else if ind.loadError}
             <p class="rail-hint err">{ind.loadError}</p>
@@ -219,7 +236,7 @@
             </p>
           {/if}
 
-          {#each ind.scripts as s (s.id)}
+          {#each ($authState.user ? ind.scripts : []) as s (s.id)}
             <div
               class="rail-item"
               class:active={ind.activeId === s.id}
@@ -376,6 +393,7 @@
     {/snippet}
     </Dialog.Content>
   </Dialog.Portal>
+  <AuthDialog bind:open={authDialogOpen} />
 </Dialog.Root>
 
 <style>

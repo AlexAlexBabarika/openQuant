@@ -218,6 +218,7 @@
 <div {...props}
   bind:this={dialogEl}
   class="fixed inset-0 z-50 pointer-events-none"
+  style:pointer-events="none"
   style:--progress={progress}
   role={open ? 'dialog' : undefined}
   aria-modal={open ? 'true' : undefined}
