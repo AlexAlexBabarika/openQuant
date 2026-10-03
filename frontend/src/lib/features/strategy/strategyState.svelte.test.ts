@@ -64,6 +64,47 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+describe('strategy account changes', () => {
+  it('detaches saved resources while retaining unsaved editor work', () => {
+    const state = new StrategyState(fakeClient());
+    state.scripts = [info()];
+    state.select('s1');
+    state.setCode('draft work');
+    state.clearSaved();
+    expect(state.scripts).toEqual([]);
+    expect(state.activeId).toBeNull();
+    expect(state.draftCode).toBe('draft work');
+    expect(state.dirty).toBe(true);
+  });
+
+  it('ignores a saved list arriving after the account changes', async () => {
+    const pending = deferred<StrategyInfo[]>();
+    const state = new StrategyState(
+      fakeClient({ list: () => pending.promise }),
+    );
+    const loading = state.load();
+    state.clearSaved();
+    pending.resolve([info()]);
+    await loading;
+    expect(state.scripts).toEqual([]);
+    expect(state.loading).toBe(false);
+  });
+
+  it('ignores a save arriving after the account changes', async () => {
+    const pending = deferred<StrategyInfo>();
+    const state = new StrategyState(
+      fakeClient({ create: () => pending.promise }),
+    );
+    const saving = state.save();
+    state.clearSaved();
+    pending.resolve(info());
+    expect(await saving).toBeNull();
+    expect(state.scripts).toEqual([]);
+    expect(state.activeId).toBeNull();
+    expect(state.isSaving).toBe(false);
+  });
+});
+
 describe('StrategyState', () => {
   it('ships a parameterized seed strategy as the initial draft', () => {
     const state = new StrategyState(fakeClient());

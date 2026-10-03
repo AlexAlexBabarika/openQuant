@@ -36,6 +36,14 @@ function timeMapping(chart: IChartApi, candles: readonly OHLCVCandle[]) {
   const ts = chart.timeScale();
   const time = (i: number) => candleUnixSeconds(candles[i]);
   const logical = (i: number) => ts.timeToIndex(time(i) as Time) as number;
+  function logicalToX(index: number): number | null {
+    const left = Math.floor(index);
+    const x = ts.logicalToCoordinate(left as Logical);
+    if (x == null || left === index) return x;
+    // LWC 5 returns zero for fractional logical indices; interpolate integer coordinates.
+    const right = ts.logicalToCoordinate((left + 1) as Logical);
+    return right == null ? null : interpolate(index, left, left + 1, x, right);
+  }
   return {
     timeToX(t: number): number | null {
       if (candles.length === 0) return ts.timeToCoordinate(t as Time);
@@ -43,15 +51,13 @@ function timeMapping(chart: IChartApi, candles: readonly OHLCVCandle[]) {
         const anchor = logical(0);
         if (anchor == null) return null;
         // Match placement's one-second minimum when no actual bar gap is available.
-        return ts.logicalToCoordinate((anchor + t - time(0)) as Logical);
+        return logicalToX(anchor + t - time(0));
       }
       const i = bracket(candles.length, t, time);
       const a = logical(i);
       const b = logical(i + 1);
       if (a == null || b == null || time(i) === time(i + 1)) return null;
-      return ts.logicalToCoordinate(
-        interpolate(t, time(i), time(i + 1), a, b) as Logical,
-      );
+      return logicalToX(interpolate(t, time(i), time(i + 1), a, b));
     },
     xToTime(x: number): number | null {
       if (candles.length === 0) {

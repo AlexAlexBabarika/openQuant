@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse, type AST } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import ResultTabs, { resultTabForKey } from './backtest/ResultTabs.svelte';
@@ -14,6 +14,12 @@ import {
 import { IndicatorState } from '$lib/features/indicators/indicatorState.svelte';
 import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
 import sample from '$lib/features/backtest/fixtures/sample-run.json';
+import { authState } from '$lib/features/auth/auth';
+import StrategyTrial from '$lib/features/trial/StrategyTrial.svelte';
+
+beforeEach(() => {
+  authState.set({ user: null, loading: false, error: null });
+});
 
 function elements(html: string): AST.RegularElement[] {
   const result: AST.RegularElement[] = [];
@@ -187,9 +193,20 @@ describe('rendered workbench semantics', () => {
     expect(handle).toBeDefined();
     expect(attr(handle!, 'tabindex')).toBe('0');
     expect(attr(handle!, 'inert')).toBeUndefined();
+    const layer = nodes.find(
+      node => attr(node, 'data-dialog-content') !== undefined,
+    );
+    expect(layer).toBeDefined();
+    expect(attr(layer!, 'style')).toMatch(/pointer-events:\s*none/);
+    expect(attr(layer!, 'style')).not.toMatch(/pointer-events:\s*auto/);
   });
 
   it('renders saved indicator and strategy actions as sibling native buttons', () => {
+    authState.set({
+      user: { id: 'local', email: null },
+      loading: false,
+      error: null,
+    });
     const saved = {
       id: 'saved',
       name: 'Saved draft',
@@ -234,6 +251,67 @@ describe('rendered workbench semantics', () => {
     }
   });
 
+  it('explains account-only storage without hiding anonymous draft execution', () => {
+    const context = {
+      open: true,
+      symbol: 'AAPL',
+      provider: 'yfinance' as const,
+      period: '1y',
+      interval: '1d',
+    };
+    const indicators = new IndicatorState();
+    const strategy = new StrategyState();
+    const saved = {
+      id: 'saved',
+      name: 'Previous account',
+      code: 'print(1)',
+      created_at: '2026-10-01',
+      updated_at: '2026-10-01',
+    };
+    indicators.scripts = [saved];
+    strategy.scripts = [saved];
+    for (const html of [
+      render(IndicatorsPanel, { props: { ...context, indicators } }).body,
+      render(StrategyPanel, { props: { ...context, strategy } }).body,
+    ]) {
+      expect(html).toContain('Sign in to load and save');
+      expect(html).toContain('without an account');
+      expect(html).not.toContain('Previous account');
+      expect(html).not.toContain('Missing Authorization header');
+      const buttons = elements(html).filter(node => node.name === 'button');
+      expect(
+        buttons.some(node =>
+          node.fragment.nodes.some(
+            child => child.type === 'Text' && child.data === 'Sign in',
+          ),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('distinguishes account-required workspace checks from public examples', () => {
+    const workspace = {
+      code: 'def on_bar(ctx):\n    pass',
+      name: 'Draft',
+      symbol: 'AAPL',
+      provider: 'yfinance' as const,
+      period: '1y',
+      interval: '1d',
+    };
+    expect(render(StrategyTrial, { props: { workspace } }).body).toContain(
+      'Sign in to run checks',
+    );
+    expect(render(StrategyTrial).body).not.toContain('Sign in to run checks');
+    authState.set({
+      user: { id: 'local', email: null },
+      loading: false,
+      error: null,
+    });
+    expect(render(StrategyTrial, { props: { workspace } }).body).not.toContain(
+      'Sign in to run checks',
+    );
+  });
+
   it('keeps the open Toolbox drag handle inside its modal focus scope', () => {
     const nodes = elements(
       render(ToolboxPanel, { props: { open: true, theme: 'dark' } }).body,
@@ -241,6 +319,7 @@ describe('rendered workbench semantics', () => {
     const dialog = nodes.find(node => attr(node, 'role') === 'dialog');
     expect(dialog).toBeDefined();
     expect(attr(dialog!, 'aria-modal')).toBe('true');
+    expect(attr(dialog!, 'style')).toMatch(/pointer-events:\s*none/);
     const handle = dialog!.fragment.nodes.find(
       node =>
         node.type === 'RegularElement' &&
