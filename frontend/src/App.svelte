@@ -70,8 +70,7 @@
   } from '$lib/features/market/tickers';
   import {
     buildTickerWorkspacePayload,
-    putTickerWorkspace,
-    syncWorkspaceOnSignIn,
+    TickerWorkspaceSync,
   } from '$lib/features/market/tickerWorkspace';
   import type { SymbolProviders, SymbolSearchResult } from '$lib/features/market/symbols';
   import {
@@ -256,8 +255,19 @@
   let selectedStance = $state<FlaggedStance | null>(loadSelectedStance());
   const authed = $derived($authState.user != null);
   let lastRemoteUserId = $state<string | null>(null);
-  let remoteTickerLoadDone = $state(false);
   let sessionReady = $state(false);
+  const workspaceSync = new TickerWorkspaceSync({
+    userId: () => $authState.user?.id ?? null,
+    read: () => ({ groups, selectedGroupName, selectedPriority, selectedStance }),
+    apply: next => {
+      groups = next.groups;
+      selectedGroupName = next.selectedGroupName;
+      selectedPriority = next.selectedPriority;
+      selectedStance = next.selectedStance;
+    },
+    onHydrated: clearTickerLocalStorage,
+    onError: error => console.warn('[openquant] Ticker workspace sync failed', error),
+  });
   const dialogs = new AppDialogsState();
   provideAppDialogs(dialogs);
 
@@ -404,79 +414,36 @@
   });
 
   $effect(() => {
-    if (authed) return;
+    if (authed || lastRemoteUserId !== null) return;
     persistGroups(groups);
     persistSelectedGroupName(selectedGroupName);
     persistSelectedPriority(selectedPriority);
     persistSelectedStance(selectedStance);
   });
-  let lastPushedPayloadJson: string | null = null;
   $effect(() => {
-    if (!authed || !remoteTickerLoadDone) return;
+    if (!authed) return;
     const payload = buildTickerWorkspacePayload(
       groups,
       selectedGroupName,
       selectedPriority,
       selectedStance,
     );
-    const json = JSON.stringify(payload);
-    if (json === lastPushedPayloadJson) return;
-    const t = setTimeout(() => {
-      void putTickerWorkspace(payload)
-        .then(() => {
-          lastPushedPayloadJson = json;
-        })
-        .catch((err: unknown) => {
-          console.warn('[openquant] Ticker workspace sync failed', err);
-        });
-    }, 500);
-    return () => clearTimeout(t);
+    untrack(() => workspaceSync.save(payload));
   });
   $effect(() => {
     if (!sessionReady) return;
-    const u = $authState.user;
-    const id = u?.id ?? null;
-    if (id && id !== lastRemoteUserId) {
+    const id = $authState.user?.id ?? null;
+    untrack(() => {
+      if (lastRemoteUserId !== null && id !== lastRemoteUserId) {
+        const g = loadGroupsFromStorage();
+        groups = g;
+        selectedGroupName = loadSelectedGroupName(g);
+        selectedPriority = loadSelectedPriority();
+        selectedStance = loadSelectedStance();
+      }
       lastRemoteUserId = id;
-      void (async () => {
-        remoteTickerLoadDone = false;
-        try {
-          const next = await syncWorkspaceOnSignIn({
-            groups,
-            selectedGroupName,
-            selectedPriority,
-            selectedStance,
-          });
-          if (next) {
-            groups = next.groups;
-            selectedGroupName = next.selectedGroupName;
-            selectedPriority = next.selectedPriority;
-            selectedStance = next.selectedStance;
-          }
-          lastPushedPayloadJson = JSON.stringify(
-            buildTickerWorkspacePayload(
-              groups,
-              selectedGroupName,
-              selectedPriority,
-              selectedStance,
-            ),
-          );
-        } catch (e) {
-          console.warn('[openquant] Ticker workspace load failed', e);
-        }
-        clearTickerLocalStorage();
-        remoteTickerLoadDone = true;
-      })();
-    } else if (!id && lastRemoteUserId) {
-      const g = loadGroupsFromStorage();
-      groups = g;
-      selectedGroupName = loadSelectedGroupName(g);
-      selectedPriority = loadSelectedPriority();
-      selectedStance = loadSelectedStance();
-      lastRemoteUserId = null;
-      lastPushedPayloadJson = null;
-      remoteTickerLoadDone = true;
-    }
+      workspaceSync.setUser(id);
+    });
   });
 
   let currentGroup = $derived(groups.find(g => g.name === selectedGroupName));
@@ -748,6 +715,7 @@
   });
 
   onDestroy(() => {
+    workspaceSync.destroy();
     persistOnUnload();
     window.removeEventListener('beforeunload', persistOnUnload);
   });
