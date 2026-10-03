@@ -1,5 +1,7 @@
 // frontend/src/lib/drawables/toolDefaults.ts
 import { safeLocalStorageGet, safeLocalStorageSet } from '$lib/core/storage';
+import { normalizePositionStyle } from './tools/position/compute';
+import { isPositionToolType } from './tools/position/constants';
 
 export const TOOL_DEFAULTS_STORAGE_KEY = 'openQuant.drawables.toolDefaults.v1';
 
@@ -16,7 +18,13 @@ function readAll(): Stored {
 export function loadToolDefaults(
   type: string,
 ): { params: unknown; style: unknown } | null {
-  return readAll()[type] ?? null;
+  const stored = readAll()[type];
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored))
+    return null;
+  if (isPositionToolType(type)) {
+    return { params: {}, style: normalizePositionStyle(stored.style) };
+  }
+  return stored;
 }
 
 export function saveToolDefaults(

@@ -68,6 +68,22 @@ describe('drawables store', () => {
     expect(store.selected).toBeNull();
   });
 
+  it('only exposes a current-symbol selection that has visible geometry', () => {
+    store.add(d('a', 'AAPL'));
+    store.add(d('b', 'MSFT'));
+    store.select('a');
+    expect(store.selectedForSymbol('MSFT', ['b'])).toBeNull();
+    expect(store.selectedForSymbol('AAPL', [])).toBeNull();
+    expect(store.selectedForSymbol('AAPL', ['a'])?.id).toBe('a');
+    const hidden = store.selectedForSymbol('MSFT', ['b']);
+    if (hidden) store.remove(hidden.id);
+    expect(store.items.map(x => x.id)).toEqual(['a', 'b']);
+    store.select('b');
+    const visible = store.selectedForSymbol('MSFT', ['b']);
+    if (visible) store.remove(visible.id);
+    expect(store.items.map(x => x.id)).toEqual(['a']);
+  });
+
   it('removeAllForSymbol removes only matching symbol and clears selection if needed', () => {
     store.add(d('1', 'AAPL'));
     store.add(d('2', 'MSFT'));

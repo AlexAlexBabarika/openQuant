@@ -1,163 +1,148 @@
-import { describe, expect, it } from 'vitest';
-import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
+import { describe, expect, it, vi } from 'vitest';
+import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import type { OHLCVCandle } from '$lib/core/types';
 import {
   buildCoordMap,
   candleUnixSeconds,
   chartTimeAtCoordinate,
+  coordinateInvalidator,
 } from './coordMap';
 
-function makeCandles(times: number[]): OHLCVCandle[] {
-  return times.map((t, i) => ({
-    symbol: 'TEST',
+function candles(times: number[]): OHLCVCandle[] {
+  return times.map(t => ({
+    symbol: 'X',
     timestamp: new Date(t * 1000).toISOString(),
-    open: 100 + i,
-    high: 101 + i,
-    low: 99 + i,
-    close: 100.5 + i,
-    volume: 1000,
+    open: 1,
+    high: 2,
+    low: 1,
+    close: 2,
+    volume: 10,
   }));
 }
 
-function mockChart(opts: {
-  coordinateToTime: (x: number) => Time | null;
-  timeToCoordinate: (t: Time) => number | null;
-  visibleRange?: { from: Time; to: Time } | null;
-  paneWidth?: number;
-  paneHeight?: number;
-}): IChartApi {
-  const w = opts.paneWidth ?? 800;
-  const h = opts.paneHeight ?? 400;
+function chart(
+  times: number[],
+  indices = times.map((_, i) => i),
+  spacing = 40,
+  offset = 100,
+): IChartApi {
   return {
+    paneSize: () => ({ width: 800, height: 400 }),
     timeScale: () => ({
-      coordinateToTime: opts.coordinateToTime,
-      timeToCoordinate: opts.timeToCoordinate,
-      getVisibleRange: () =>
-        opts.visibleRange ?? { from: 1000 as Time, to: 2000 as Time },
+      timeToIndex: (t: number) =>
+        times.includes(t) ? indices[times.indexOf(t)] : null,
+      timeToCoordinate: (t: number) =>
+        times.includes(t) ? offset + indices[times.indexOf(t)] * spacing : null,
+      logicalToCoordinate: (l: number) => offset + l * spacing,
+      coordinateToLogical: (x: number) => (x - offset) / spacing,
+      coordinateToTime: (x: number) =>
+        times[Math.round((x - offset) / spacing)] ?? null,
     }),
-    paneSize: () => ({ width: w, height: h }),
   } as unknown as IChartApi;
 }
+const series = {
+  priceToCoordinate: (p: number) => 400 - p,
+  coordinateToPrice: (y: number) => 400 - y,
+} as ISeriesApi<'Line'>;
 
-const mockPriceSeries = {} as ISeriesApi<'Candlestick' | 'Line'>;
+describe('logical annotation coordinates', () => {
+  it.each([8, 40, 100])(
+    'round-trips fractional times inside and outside unequal history gaps at spacing %s',
+    spacing => {
+      const times = [1000, 1100, 1700, 1900];
+      const c = chart(times, [0, 1, 4, 5], spacing);
+      const map = buildCoordMap(c, series, 1, candles(times));
+      for (const x of [-150, 99, 100, 111.5, 130, 169.2, 250, 400, 650]) {
+        const time = map.xToTime(x);
+        expect(time).not.toBeNull();
+        expect(Math.abs(map.timeToX(time!)! - x)).toBeLessThanOrEqual(1);
+        expect(chartTimeAtCoordinate(c, x, candles(times))).toBe(time);
+      }
+      expect(map.timeToX(1050)).toBeCloseTo(100 + spacing / 2);
+    },
+  );
 
-describe('chartTimeAtCoordinate', () => {
-  it('extrapolates time when x is past the last bar pixel', () => {
-    const t0 = 1_700_000_000;
-    const t1 = 1_700_000_900;
-    const candles = makeCandles([t0, t1]);
-    const chart = mockChart({
-      coordinateToTime: x => {
-        if (x <= 100) return t1 as Time;
-        return t1 as Time;
-      },
-      timeToCoordinate: t => {
-        if (t === (t0 as Time)) return 0;
-        if (t === (t1 as Time)) return 100;
-        return null;
-      },
-      visibleRange: { from: t0 as Time, to: t1 as Time },
-      paneWidth: 800,
-    });
-
-    const tAt120 = chartTimeAtCoordinate(chart, 120, candles);
-    expect(tAt120).not.toBeNull();
-    expect(tAt120!).toBeGreaterThan(t1);
-    const spp = (t1 - t0) / 100;
-    expect(tAt120!).toBeCloseTo(t1 + 20 * spp, 5);
+  it('keeps a synthetic future anchor mappable after append and prepend', () => {
+    for (const times of [
+      [1000, 1100],
+      [1000, 1100, 1200],
+      [900, 1000, 1100, 1200],
+    ]) {
+      const map = buildCoordMap(chart(times), series, 1, candles(times));
+      const x = map.timeToX(1150);
+      expect(x).not.toBeNull();
+      expect(map.xToTime(x!)).toBeCloseTo(1150);
+    }
   });
 
-  it('returns library time when x is not past the last bar', () => {
-    const t0 = 1_700_000_000;
-    const t1 = 1_700_000_900;
-    const candles = makeCandles([t0, t1]);
-    const chart = mockChart({
-      coordinateToTime: x => (x < 50 ? (t0 as Time) : (t1 as Time)),
-      timeToCoordinate: t => {
-        if (t === (t0 as Time)) return 0;
-        if (t === (t1 as Time)) return 100;
-        return null;
-      },
-    });
-
-    expect(chartTimeAtCoordinate(chart, 80, candles)).toBe(t1);
+  it('does not snap an interior pixel to a bar timestamp', () => {
+    expect(
+      chartTimeAtCoordinate(chart([1000, 1100]), 130, candles([1000, 1100])),
+    ).toBe(1075);
   });
 
-  it('extrapolates left of first bar when x is left of first pixel', () => {
-    const t0 = 1_700_000_000;
-    const t1 = 1_700_000_900;
-    const t2 = 1_700_001_800;
-    const candles = makeCandles([t0, t1, t2]);
-    const chart = mockChart({
-      coordinateToTime: () => t0 as Time,
-      timeToCoordinate: t => {
-        if (t === (t0 as Time)) return 100;
-        if (t === (t1 as Time)) return 200;
-        if (t === (t2 as Time)) return 300;
-        return null;
-      },
-    });
+  it.each([{ times: [1000] }, { times: [1000, 1100] }])(
+    'round-trips short histories %j in both empty margins',
+    ({ times }) => {
+      const map = buildCoordMap(chart(times), series, 1, candles(times));
+      for (const x of [-70, 99, 100, 111.5, 160, 450]) {
+        const t = map.xToTime(x);
+        expect(t).not.toBeNull();
+        expect(Math.abs(map.timeToX(t!)! - x)).toBeLessThanOrEqual(1);
+      }
+    },
+  );
 
-    const left = chartTimeAtCoordinate(chart, 50, candles);
-    expect(left).not.toBeNull();
-    const spp = (t1 - t0) / 100;
-    expect(left!).toBeCloseTo(t0 - 50 * spp, 5);
+  it('handles missing chart data and preserves price conversions', () => {
+    const map = buildCoordMap(chart([]), series, 7);
+    expect(map.timeToX(1000)).toBeNull();
+    expect(map.xToTime(100)).toBeNull();
+    expect(map.priceToY(25)).toBe(375);
+    expect(map.yToPrice(375)).toBe(25);
+    expect(map.version).toBe(7);
+    expect(candleUnixSeconds(candles([1700000123])[0])).toBe(1700000123);
   });
 });
 
-describe('buildCoordMap with candles', () => {
-  it('timeToX and xToTime round-trip for a synthetic future time', () => {
-    const t0 = 1_700_000_000;
-    const t1 = 1_700_000_900;
-    const candles = makeCandles([t0, t1]);
-    const chart = mockChart({
-      coordinateToTime: x => (x <= 100 ? (t1 as Time) : (t1 as Time)),
-      timeToCoordinate: t => {
-        if (t === (t0 as Time)) return 0;
-        if (t === (t1 as Time)) return 100;
-        return null;
+describe('price coordinate invalidation lifecycle', () => {
+  it('updates throughout scale gestures, settles after release, and leaves no permanent timer', () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let id = 0;
+    const invalidate = vi.fn();
+    const invalidator = coordinateInvalidator(
+      invalidate,
+      cb => {
+        frames.set(++id, cb);
+        return id;
       },
-      visibleRange: { from: t0 as Time, to: t1 as Time },
-    });
-
-    const map = buildCoordMap(chart, mockPriceSeries, 1, candles);
-    const futureT = t1 + 3600;
-    const x = map.timeToX(futureT);
-    expect(x).not.toBeNull();
-    const back = map.xToTime(x!);
-    expect(back).not.toBeNull();
-    expect(back!).toBeCloseTo(futureT, 3);
-  });
-
-  it('candleUnixSeconds matches floor seconds from ISO timestamp', () => {
-    const c = makeCandles([1_700_000_123])[0];
-    expect(candleUnixSeconds(c)).toBe(1_700_000_123);
-  });
-
-  it('timeToX extrapolates past last bar when timeToCoordinate clamps future times', () => {
-    const t0 = 1_700_000_000;
-    const t1 = 1_700_000_900;
-    const candles = makeCandles([t0, t1]);
-    const chart = mockChart({
-      coordinateToTime: () => t1 as Time,
-      timeToCoordinate: t => {
-        const tn = t as number;
-        if (tn === t0) return 0;
-        if (tn === t1) return 100;
-        if (tn > t1) return 100;
-        return null;
+      n => {
+        frames.delete(n);
       },
-      visibleRange: { from: t0 as Time, to: t1 as Time },
-    });
-
-    const map = buildCoordMap(chart, mockPriceSeries, 1, candles);
-    const xAtLast = map.timeToX(t1);
-    expect(xAtLast).toBe(100);
-    const xa = map.timeToX(t1 + 100);
-    const xb = map.timeToX(t1 + 500);
-    expect(xa).not.toBeNull();
-    expect(xb).not.toBeNull();
-    expect(xa!).toBeGreaterThan(100);
-    expect(xb!).toBeGreaterThan(xa!);
+    );
+    const frame = () => {
+      const [n, cb] = [...frames][0];
+      frames.delete(n);
+      cb(0);
+    };
+    expect(frames.size).toBe(0);
+    invalidator.stop();
+    expect(frames.size).toBe(0);
+    invalidator.start();
+    for (let n = 0; n < 4; n++) frame();
+    expect(invalidate).toHaveBeenCalledTimes(4);
+    invalidator.stop();
+    frame();
+    frame();
+    expect(invalidate).toHaveBeenCalledTimes(6);
+    expect(frames.size).toBe(0);
+    invalidator.settle();
+    invalidator.settle();
+    expect(frames.size).toBe(1);
+    frame();
+    frame();
+    expect(frames.size).toBe(0);
+    invalidator.start();
+    invalidator.destroy();
+    expect(frames.size).toBe(0);
   });
 });

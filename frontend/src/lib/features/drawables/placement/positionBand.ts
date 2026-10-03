@@ -40,7 +40,7 @@ function buildGeo(
     }
   } else {
     endTime = Math.max(anchorEnd, pt.time);
-    startTime = Math.min(pt.time, endTime - MIN_TIME_SPAN);
+    startTime = Math.min(pt.time, endTime - minSpanPastLastBar(ctx));
     if (startTime >= endTime) {
       startTime = endTime - MIN_TIME_SPAN;
     }
