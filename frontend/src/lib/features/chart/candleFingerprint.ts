@@ -2,12 +2,15 @@ import type { OHLCVCandle } from '$lib/core/types';
 
 /** FNV-1a 32-bit; hex digest for logging / keys (not cryptographic). */
 export function fnv1a32Hex(s: string): string {
-  let h = 0x811c9dc5;
+  return (hashString(0x811c9dc5, s) >>> 0).toString(16);
+}
+
+function hashString(h: number, s: string): number {
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
-  return (h >>> 0).toString(16);
+  return h;
 }
 
 /**
@@ -17,13 +20,16 @@ export function fnv1a32Hex(s: string): string {
  */
 export function candleBatchSignature(cs: OHLCVCandle[]): string {
   if (cs.length === 0) return '0';
-  const rows: string[] = new Array(cs.length);
+  let hash = 0x811c9dc5;
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
-    rows[i] =
-      `${c.timestamp}\x1f${c.open}\x1f${c.high}\x1f${c.low}\x1f${c.close}\x1f${c.volume}`;
+    if (i > 0) hash = hashString(hash, '\x1e');
+    hash = hashString(
+      hash,
+      `${c.timestamp}\x1f${c.open}\x1f${c.high}\x1f${c.low}\x1f${c.close}\x1f${c.volume}`,
+    );
   }
-  return `${cs.length}:${fnv1a32Hex(rows.join('\x1e'))}`;
+  return `${cs.length}:${(hash >>> 0).toString(16)}`;
 }
 
 /** Same shape as {@link candleBatchSignature}: count + FNV-1a over row records (not cryptographic). */

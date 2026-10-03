@@ -46,7 +46,7 @@ export class ChartController {
 
   errorMessage = $state<string | null>(null);
   connectionStatus = $state<ConnectionStatus>('disconnected');
-  candles = $state.raw<OHLCVCandle[]>([]);
+  candles = $state<OHLCVCandle[]>([]);
   chartApi = $state<ChartApiLike | null>(null);
   isLoading = $state(false);
   marketDataVersion = $state(0);
@@ -63,6 +63,7 @@ export class ChartController {
   #loadedContext: ChartContext | null = null;
   #userId: () => string | null;
   #sessionUser: string | null;
+  #requestedTimeframe: string | null = null;
 
   constructor(opts: ChartControllerOptions = {}) {
     this.#userId = opts.userId ?? (() => null);
@@ -91,11 +92,13 @@ export class ChartController {
     });
 
     $effect(() => {
-      this.period;
-      this.interval;
-      if (!this.initialLoadDone) return;
-      if (this.source === 'csv') return;
-      void this.loadMarketData();
+      const timeframe = JSON.stringify([this.period, this.interval]);
+      const ready = this.initialLoadDone;
+      untrack(() => {
+        if (!ready || this.source === 'csv') return;
+        if (timeframe === this.#requestedTimeframe) return;
+        void this.loadMarketData();
+      });
     });
 
     onDestroy(() => {
@@ -131,6 +134,10 @@ export class ChartController {
   loadMarketData = async (): Promise<void> => {
     const generation = ++this.#loadGeneration;
     const context = this.#context();
+    this.#requestedTimeframe = JSON.stringify([
+      context.period,
+      context.interval,
+    ]);
     this.#disconnectStreams();
     if (context.source === 'csv') {
       this.errorMessage =
@@ -260,8 +267,8 @@ export class ChartController {
     const historyEndIso = existing.length
       ? existing[existing.length - 1].timestamp
       : undefined;
-    let liveCandles: OHLCVCandle[] = existing.slice();
-    this.candles = liveCandles;
+    this.candles = existing.slice();
+    let liveCandles = this.candles;
 
     const mapStatus = (s: StreamStatus): ConnectionStatus =>
       s === 'connected'
@@ -281,8 +288,8 @@ export class ChartController {
         if (!isCurrent()) return;
         const merged = mergeCandleSnapshot(liveCandles, snapshot);
         if (merged.length === liveCandles.length) return;
-        liveCandles = merged;
-        this.candles = liveCandles;
+        this.candles = merged;
+        liveCandles = this.candles;
       },
       onCandle: (c, _isFinal) => {
         if (!isCurrent()) return;
@@ -351,15 +358,20 @@ export class ChartController {
     const context = this.#context();
     const isCurrent = () =>
       generation === this.#streamGeneration && this.#contextMatches(context);
-    const streamCandles: OHLCVCandle[] = [];
-    this.candles = streamCandles;
+    this.candles = [];
+    const streamCandles = this.candles;
     this.#wsClient = new WSClient({
       provider,
       symbol: sym,
       maxReconnectAttempts: 0,
       onCandle: c => {
         if (!isCurrent()) return;
-        streamCandles.push(c);
+        const last = streamCandles[streamCandles.length - 1];
+        if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
+          streamCandles[streamCandles.length - 1] = c;
+        } else {
+          streamCandles.push(c);
+        }
         this.chartApi?.appendCandle(c);
       },
       onStatus: s => {

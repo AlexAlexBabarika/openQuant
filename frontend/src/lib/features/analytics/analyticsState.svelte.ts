@@ -1,3 +1,4 @@
+import { untrack } from 'svelte';
 import { safeLocalStorageGet, safeLocalStorageSet } from '$lib/core/storage';
 import { METRICS, type MetricId } from './metrics';
 import {
@@ -91,6 +92,7 @@ export class AnalyticsState {
   // Monotonic per-metric request token. Increments on every #fetchOne call;
   // out-of-order resolutions are dropped by comparing tokens after await.
   #reqIds: Record<MetricId, number>;
+  #flights = new Map<MetricId, { key: string; promise: Promise<void> }>();
 
   enabledIds = $derived<MetricId[]>(
     METRICS.map(m => m.id).filter(id => this.enabled[id]),
@@ -139,6 +141,7 @@ export class AnalyticsState {
   toggle(id: MetricId): void {
     const next = !this.enabled[id];
     this.enabled[id] = next;
+    if (!next) this.#cancel(id);
     if (next && this.symbol && this.results[id] === null) {
       void this.#fetchOne(id, this.symbol);
     }
@@ -149,20 +152,24 @@ export class AnalyticsState {
    * re-fetch every currently-enabled metric. If the symbol is unchanged, only
    * fills in metrics that have no cached result yet.
    */
-  async refresh(symbol: string): Promise<void> {
-    const trimmed = symbol.trim();
-    if (!trimmed) return;
-    if (trimmed !== this.symbol) {
-      this.symbol = trimmed;
-      this.results = emptyResultMap();
-      this.errors = emptyErrorMap();
-    }
-    const targets = this.enabledIds.filter(id => this.results[id] === null);
-    await Promise.all(targets.map(id => this.#fetchOne(id, trimmed)));
+  refresh(symbol: string): Promise<void> {
+    return untrack(async () => {
+      const trimmed = symbol.trim();
+      if (!trimmed) return;
+      if (trimmed !== this.symbol) {
+        for (const m of METRICS) this.#cancel(m.id);
+        this.symbol = trimmed;
+        this.results = emptyResultMap();
+        this.errors = emptyErrorMap();
+      }
+      const targets = this.enabledIds.filter(id => this.results[id] === null);
+      await Promise.all(targets.map(id => this.#fetchOne(id, trimmed)));
+    });
   }
 
   /** Drop cached results for the current symbol and re-fetch enabled metrics. */
   invalidate(): void {
+    for (const m of METRICS) this.#cancel(m.id);
     this.results = emptyResultMap();
     this.errors = emptyErrorMap();
     if (!this.symbol) return;
@@ -179,6 +186,7 @@ export class AnalyticsState {
       return;
     }
     this.correlationBenchmarks = next;
+    this.#cancel('correlation');
     persistCorrelationBenchmarks(next);
     this.errors.correlation = null;
     // Keep the previous result around so the chip editor stays visible while
@@ -214,21 +222,40 @@ export class AnalyticsState {
     );
   }
 
-  async #fetchOne(id: MetricId, symbol: string): Promise<void> {
+  #cancel(id: MetricId): void {
+    this.#reqIds[id]++;
+    this.#flights.delete(id);
+    this.loading[id] = false;
+  }
+
+  #fetchOne(id: MetricId, symbol: string): Promise<void> {
+    const key = JSON.stringify([
+      symbol,
+      id,
+      id === 'correlation' ? this.correlationBenchmarks : null,
+    ]);
+    const flight = this.#flights.get(id);
+    if (flight?.key === key) return flight.promise;
     const token = ++this.#reqIds[id];
     this.loading[id] = true;
     this.errors[id] = null;
-    try {
-      const result = await this.fetchers[id](symbol);
-      if (this.symbol !== symbol || this.#reqIds[id] !== token) return;
-      this.results[id] = result;
-    } catch (err) {
-      if (this.symbol !== symbol || this.#reqIds[id] !== token) return;
-      this.errors[id] = err instanceof Error ? err.message : 'Fetch failed';
-    } finally {
-      if (this.#reqIds[id] === token) {
-        this.loading[id] = false;
+    const promise = (async () => {
+      try {
+        const result = await this.fetchers[id](symbol);
+        if (this.symbol !== symbol || this.#reqIds[id] !== token) return;
+        this.results[id] = result;
+      } catch (err) {
+        if (this.symbol !== symbol || this.#reqIds[id] !== token) return;
+        this.errors[id] = err instanceof Error ? err.message : 'Fetch failed';
+      } finally {
+        if (this.#reqIds[id] === token) {
+          this.loading[id] = false;
+        }
       }
-    }
+    })().finally(() => {
+      if (this.#reqIds[id] === token) this.#flights.delete(id);
+    });
+    this.#flights.set(id, { key, promise });
+    return promise;
   }
 }
