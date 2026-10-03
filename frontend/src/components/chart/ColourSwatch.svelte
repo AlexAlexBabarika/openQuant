@@ -5,16 +5,18 @@
   let {
     colour = $bindable('#000000'),
     label,
+    ariaLabel,
   }: {
     colour: string;
     label: string;
+    ariaLabel?: string;
   } = $props();
 </script>
 
 <Popover.Root>
   <Popover.Trigger
     class="flex items-center gap-2 group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
-    aria-label="Pick colour for {label}"
+    aria-label={ariaLabel ?? `Pick colour for ${label}`}
   >
     <span
       class="block w-6 h-6 rounded border border-border group-hover:border-foreground transition-colors cursor-pointer"
