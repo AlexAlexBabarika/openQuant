@@ -19,20 +19,23 @@
     HighlightStyle,
   } from '@codemirror/language';
   import { tags as t } from '@lezer/highlight';
+  import { syncEditorDocument } from '$lib/features/indicators/editorDocument';
 
   let {
     value = $bindable(''),
+    documentKey = 0,
     onRun,
     onSave,
   }: {
     value: string;
+    documentKey?: number;
     onRun?: () => void;
     onSave?: () => void;
   } = $props();
 
   let host = $state<HTMLDivElement | null>(null);
   let view: EditorView | null = null;
-  let updatingFromOutside = false;
+  let syncedKey: number | undefined;
 
   // Class-based highlighter so the palette can swap with the app theme via
   // CSS. Dark theme keeps a Tokyo-Night-ish palette; light theme uses a
@@ -121,7 +124,7 @@
   );
 
   const updateListener = EditorView.updateListener.of(u => {
-    if (u.docChanged && !updatingFromOutside) {
+    if (u.docChanged) {
       value = u.state.doc.toString();
     }
   });
@@ -168,6 +171,7 @@
   onMount(() => {
     if (!host) return;
     view = new EditorView({ state: makeState(value), parent: host });
+    syncedKey = documentKey;
   });
 
   onDestroy(() => {
@@ -178,13 +182,10 @@
   // Sync external value changes (e.g. opening a different script) into the editor.
   $effect(() => {
     const v = value;
+    const key = documentKey;
     if (!view) return;
-    if (view.state.doc.toString() === v) return;
-    updatingFromOutside = true;
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: v },
-    });
-    updatingFromOutside = false;
+    syncEditorDocument(view, v, makeState, key !== syncedKey);
+    syncedKey = key;
   });
 </script>
 
