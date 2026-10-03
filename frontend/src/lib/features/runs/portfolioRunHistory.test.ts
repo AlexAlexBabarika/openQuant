@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { runAndRecord } from '../../../components/strategy/PortfolioPanel.svelte';
 import { PortfolioState } from '../portfolio/portfolioState.svelte';
 import type { PortfolioRunResponse } from '../portfolio/portfolioClient';
+import type { RunsClient } from './runsClient';
 
 const CTX = { provider: 'yfinance', period: '1y', interval: '1d' } as const;
 const response = (id: string) =>
@@ -13,6 +14,40 @@ const response = (id: string) =>
   }) as PortfolioRunResponse;
 
 describe('portfolio run history', () => {
+  it('does not record a stored selection as the result of a superseded run', async () => {
+    let resolve!: (value: PortfolioRunResponse) => void;
+    const portfolio = new PortfolioState(
+      {
+        run: vi.fn(
+          () =>
+            new Promise<PortfolioRunResponse>(r => {
+              resolve = r;
+            }),
+        ),
+        ingest: vi.fn(),
+      },
+      {
+        getRun: vi.fn(async () => ({
+          ...response('stored'),
+          bars: {},
+          orders: [],
+          fills: [],
+          equity: [],
+          trades: [],
+          metrics: {},
+        })),
+      } as unknown as RunsClient,
+    );
+    const history = { record: vi.fn() };
+    portfolio.add('AAPL');
+    const pending = runAndRecord(portfolio, 'code', CTX, history);
+    await portfolio.loadStored('stored');
+    resolve(response('obsolete'));
+    await pending;
+    expect(portfolio.response?.meta.run_id).toBe('stored');
+    expect(history.record).not.toHaveBeenCalled();
+  });
+
   it('does not re-record the previous successful run when the next attempt fails', async () => {
     const client = {
       run: vi

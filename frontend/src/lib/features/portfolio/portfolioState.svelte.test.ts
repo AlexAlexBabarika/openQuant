@@ -5,6 +5,17 @@ import type {
   PortfolioClient,
   PortfolioRunResponse,
 } from './portfolioClient';
+import type { RunsClient } from '../runs/runsClient';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
 
 function okRun(over: Partial<PortfolioRunResponse> = {}): PortfolioRunResponse {
   return {
@@ -23,6 +34,19 @@ function okRun(over: Partial<PortfolioRunResponse> = {}): PortfolioRunResponse {
     elapsed_ms: 1,
     ...over,
   } as PortfolioRunResponse;
+}
+
+function runMeta(run_id: string): PortfolioRunResponse['meta'] {
+  return {
+    run_id,
+    seed: 0,
+    starting_cash: 10000,
+    started_at: '2026-01-01T00:00:00Z',
+    finished_at: '2026-01-01T00:01:00Z',
+    strategy_id: null,
+    params: null,
+    data_version: null,
+  };
 }
 
 function okReport(over: Partial<IngestReport> = {}): IngestReport {
@@ -46,6 +70,62 @@ function fakeClient(over: Partial<PortfolioClient> = {}): PortfolioClient {
 const CTX = { provider: 'yfinance', period: '1y', interval: '1d' } as const;
 
 describe('PortfolioState', () => {
+  it.each(['success', 'failure'])(
+    'keeps a newer stored selection after a delayed run %s',
+    async outcome => {
+      const old = deferred<PortfolioRunResponse>();
+      const state = new PortfolioState(
+        fakeClient({ run: vi.fn(() => old.promise) }),
+        {
+          getRun: vi.fn(async () => okRun({ meta: runMeta('stored') })),
+        } as unknown as RunsClient,
+      );
+      state.add('AAPL');
+      const pending = state.run('code', CTX);
+      await state.loadStored('stored');
+      if (outcome === 'success') old.resolve(okRun({ meta: runMeta('old') }));
+      else old.reject(new Error('obsolete run failed'));
+      await pending;
+      expect(state.response?.meta.run_id).toBe('stored');
+      expect(state.runError).toBeNull();
+      expect(state.isRunning).toBe(false);
+    },
+  );
+
+  it('does not finish or replace a newer run when an older stored load settles', async () => {
+    const stored = deferred<unknown>();
+    const run = deferred<PortfolioRunResponse>();
+    const state = new PortfolioState(
+      fakeClient({ run: vi.fn(() => run.promise) }),
+      { getRun: vi.fn(() => stored.promise) } as unknown as RunsClient,
+    );
+    const loading = state.loadStored('old');
+    state.add('AAPL');
+    const running = state.run('code', CTX);
+    stored.resolve(okRun({ meta: runMeta('old') }));
+    await loading;
+    expect(state.isRunning).toBe(true);
+    expect(state.response).toBeNull();
+    run.resolve(okRun({ meta: runMeta('new') }));
+    await running;
+    expect(state.response?.meta.run_id).toBe('new');
+  });
+
+  it('keeps the newest stored selection when responses arrive out of order', async () => {
+    const old = deferred<unknown>();
+    const state = new PortfolioState(fakeClient(), {
+      getRun: vi
+        .fn()
+        .mockReturnValueOnce(old.promise)
+        .mockResolvedValueOnce(okRun({ meta: runMeta('new') })),
+    } as unknown as RunsClient);
+    const loading = state.loadStored('old');
+    await state.loadStored('new');
+    old.resolve(okRun({ meta: runMeta('old') }));
+    await loading;
+    expect(state.response?.meta.run_id).toBe('new');
+  });
+
   it('builds the universe from pasted text and removes symbols', () => {
     const state = new PortfolioState(fakeClient());
     state.add('aapl, msft goog');

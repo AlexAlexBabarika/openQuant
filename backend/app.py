@@ -209,6 +209,7 @@ if _security.cors_origins:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["WWW-Authenticate"],
     )
 
 app.include_router(auth_router)

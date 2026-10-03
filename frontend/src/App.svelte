@@ -151,6 +151,7 @@
   });
 
   const chart = new ChartController({
+    userId: () => $authState.user?.id ?? null,
     onSymbolFetched: (sym, src, count) => maybeMarkYFinance(sym, src, count),
   });
 
@@ -588,10 +589,19 @@
   let stanceCountsMap = $derived(computeStanceCounts(groups));
 
   let tickerQuotes = $state<Record<string, TickerQuote>>({});
+  let quoteUserId = $authState.user?.id ?? null;
 
   $effect(() => {
+    const userId = $authState.user?.id ?? null;
     const currentSource = chart.source;
     const tickers = displayTickers;
+    if (userId !== quoteUserId) {
+      quoteUserId = userId;
+      tickerQuotes = {};
+    }
+    let active = true;
+    const isCurrent = () => active &&
+      userId === ($authState.user?.id ?? null) && currentSource === chart.source;
     if (currentSource === 'csv') return;
 
     if (providerSupportsQuoteStream(currentSource)) {
@@ -613,6 +623,7 @@
         const key = `${currentSource}:${t.symbol}`;
         unsubs.push(
           subscribeQuoteStream(t.symbol, currentSource, price => {
+            if (!isCurrent()) return;
             tickerQuotes = {
               ...tickerQuotes,
               [key]: { status: 'ok', close: price },
@@ -621,6 +632,7 @@
         );
       }
       return () => {
+        active = false;
         for (const u of unsubs) u();
       };
     }
@@ -629,7 +641,7 @@
     const snapshot = untrack(() => tickerQuotes);
     const missing = tickers.filter(t => {
       const entry = snapshot[`${currentSource}:${t.symbol}`];
-      return !entry || entry.status === 'error';
+      return !entry || entry.status !== 'ok';
     });
     if (missing.length === 0) return;
 
@@ -643,12 +655,15 @@
       const key = `${currentSource}:${t.symbol}`;
       fetchLastClose(t.symbol, currentSource)
         .then(close => {
+          if (!isCurrent()) return;
           tickerQuotes = { ...tickerQuotes, [key]: { status: 'ok', close } };
         })
         .catch(() => {
+          if (!isCurrent()) return;
           tickerQuotes = { ...tickerQuotes, [key]: { status: 'error' } };
         });
     }
+    return () => { active = false; };
   });
 
   let tickerQuotesForGroup = $derived.by(() => {

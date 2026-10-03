@@ -70,6 +70,89 @@ function setup() {
 afterEach(() => vi.resetAllMocks());
 
 describe('chart request and streaming lifecycles', () => {
+  it.each([null, 'user-2'])(
+    'rejects history and stream callbacks after changing account to %s',
+    async nextUser => {
+      let userId: string | null = 'user-1';
+      const unsubscribe = vi.fn();
+      vi.mocked(subscribeMarketStream).mockReturnValue(unsubscribe);
+      vi.mocked(fetchMarketOHLCV).mockResolvedValue(response);
+      const controller = new ChartController({
+        initialSymbol: 'BTCUSDT',
+        initialSource: 'binance',
+        userId: () => userId,
+      });
+      await controller.loadMarketData();
+      const callbacks = vi.mocked(subscribeMarketStream).mock.calls[0][0];
+      const old = deferred<MarketOHLCVResponse>();
+      vi.mocked(fetchMarketOHLCV).mockReturnValueOnce(old.promise);
+      const pending = controller.loadMarketData();
+      userId = nextUser;
+      callbacks.onCandle?.({ ...candle, close: 999 }, true);
+      old.resolve({ ...response, candles: [{ ...candle, close: 888 }] });
+      await pending;
+      expect(controller.candles[0].close).toBe(11);
+      expect(subscribeMarketStream).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('clears private history on logout without an anonymous reload', async () => {
+    let userId: string | null = 'user-1';
+    const unsubscribe = vi.fn();
+    vi.mocked(subscribeMarketStream).mockReturnValue(unsubscribe);
+    vi.mocked(fetchMarketOHLCV).mockResolvedValue(response);
+    const controller = new ChartController({
+      initialSource: 'twelvedata',
+      userId: () => userId,
+    });
+    await controller.loadMarketData();
+    userId = null;
+    controller.syncSession();
+    expect(subscribeMarketStream).not.toHaveBeenCalled();
+    expect(controller.candles).toEqual([]);
+    expect(controller.loadedSymbol).toBe('');
+    expect(controller.connectionStatus).toBe('disconnected');
+    expect(fetchMarketOHLCV).toHaveBeenCalledOnce();
+  });
+
+  it('disconnects an active stream and reloads under the new account', async () => {
+    let userId: string | null = 'user-1';
+    const unsubscribe = vi.fn();
+    vi.mocked(subscribeMarketStream).mockReturnValue(unsubscribe);
+    vi.mocked(fetchMarketOHLCV).mockResolvedValue(response);
+    const controller = new ChartController({
+      initialSource: 'binance',
+      userId: () => userId,
+    });
+    await controller.loadMarketData();
+    const replacement = deferred<MarketOHLCVResponse>();
+    vi.mocked(fetchMarketOHLCV).mockReturnValueOnce(replacement.promise);
+    userId = 'user-2';
+    controller.syncSession();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(controller.connectionStatus).toBe('disconnected');
+    expect(controller.isLoading).toBe(true);
+    replacement.resolve(response);
+    await vi.waitFor(() => expect(controller.isLoading).toBe(false));
+    expect(subscribeMarketStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects delayed private history after logout before the reactive effect runs', async () => {
+    let userId: string | null = 'user-1';
+    const controller = new ChartController({
+      initialSource: 'twelvedata',
+      userId: () => userId,
+    });
+    const old = deferred<MarketOHLCVResponse>();
+    vi.mocked(fetchMarketOHLCV).mockReturnValueOnce(old.promise);
+    const pending = controller.loadMarketData();
+    userId = null;
+    old.resolve(response);
+    await pending;
+    expect(controller.candles).toEqual([]);
+    expect(controller.loadedSymbol).toBe('');
+  });
+
   it('keeps only the newest response and its captured stream context', async () => {
     const { controller, onSymbolFetched } = setup();
     const old = deferred<MarketOHLCVResponse>();

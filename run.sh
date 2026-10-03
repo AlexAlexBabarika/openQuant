@@ -13,9 +13,12 @@ cleanup() {
   if [[ -n "$BACKEND_PID" ]] && kill -0 "$BACKEND_PID" 2>/dev/null; then
     echo "Stopping backend (PID $BACKEND_PID)..."
     kill "$BACKEND_PID" 2>/dev/null || true
+    wait "$BACKEND_PID" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # --- Backend ---
 run_backend() {
@@ -28,7 +31,7 @@ run_backend() {
     PYTHON=python3
   fi
   export PYTHONPATH="$ROOT"
-  "$PYTHON" run_backend.py
+  exec "$PYTHON" run_backend.py
 }
 
 # --- Frontend ---
@@ -79,9 +82,11 @@ BACKEND_PID=$!
 cd "$ROOT"
 
 # Wait for backend to be up
+BACKEND_READY=false
 for i in {1..30}; do
   if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health 2>/dev/null | grep -q 200; then
     echo "Backend ready."
+    BACKEND_READY=true
     break
   fi
   if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
@@ -90,6 +95,11 @@ for i in {1..30}; do
   fi
   sleep 0.5
 done
+
+if ! "$BACKEND_READY"; then
+  echo "Backend did not become healthy. Check logs above."
+  exit 1
+fi
 
 echo "Starting frontend on http://localhost:5173 ..."
 run_frontend

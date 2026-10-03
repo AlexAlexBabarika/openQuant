@@ -1,4 +1,4 @@
-import { onDestroy } from 'svelte';
+import { onDestroy, untrack } from 'svelte';
 import { apiFetch, readErrorMessage } from '$lib/core/api';
 import { WSClient, type ConnectionStatus } from '$lib/core/ws';
 import type { OHLCVCandle } from '$lib/core/types';
@@ -18,6 +18,7 @@ import {
 export type ChartApiLike = { appendCandle: (c: OHLCVCandle) => void };
 
 interface ChartContext {
+  userId: string | null;
   symbol: string;
   source: MarketDataProviderValue;
   period: string;
@@ -25,6 +26,7 @@ interface ChartContext {
 }
 
 export interface ChartControllerOptions {
+  userId?: () => string | null;
   initialSymbol?: string;
   initialSource?: MarketDataProviderValue;
   onSymbolFetched?: (
@@ -59,11 +61,20 @@ export class ChartController {
   #streamGeneration = 0;
   #streamEnabled = true;
   #loadedContext: ChartContext | null = null;
+  #userId: () => string | null;
+  #sessionUser: string | null;
 
   constructor(opts: ChartControllerOptions = {}) {
+    this.#userId = opts.userId ?? (() => null);
+    this.#sessionUser = this.#userId();
     if (opts.initialSymbol !== undefined) this.symbol = opts.initialSymbol;
     if (opts.initialSource !== undefined) this.source = opts.initialSource;
     this.#onSymbolFetched = opts.onSymbolFetched;
+
+    $effect(() => {
+      this.#userId();
+      untrack(() => this.syncSession());
+    });
 
     $effect(() => {
       if (this.#refreshIntervalId) {
@@ -92,6 +103,29 @@ export class ChartController {
       if (this.#refreshIntervalId) clearInterval(this.#refreshIntervalId);
       this.#disconnectStreams();
     });
+  }
+
+  syncSession(): void {
+    const userId = this.#userId();
+    if (userId === this.#sessionUser) return;
+    this.#sessionUser = userId;
+    const reload = this.initialLoadDone || this.isLoading;
+    this.#loadGeneration++;
+    this.#disconnectStreams();
+    this.isLoading = false;
+    if (this.source === 'twelvedata' || this.source === 'csv') {
+      this.candles = [];
+      this.loadedSymbol = '';
+      this.#loadedContext = null;
+      this.marketDataVersion++;
+    }
+    if (reload && this.source !== 'csv') {
+      if (this.source === 'twelvedata' && !userId) {
+        this.errorMessage = 'Sign in to load Twelve Data market data.';
+      } else {
+        void this.loadMarketData();
+      }
+    }
   }
 
   loadMarketData = async (): Promise<void> => {
@@ -175,6 +209,7 @@ export class ChartController {
 
   #context(): ChartContext {
     return {
+      userId: this.#userId(),
       symbol: this.symbol.trim(),
       source: this.source,
       period: this.period,
@@ -184,6 +219,7 @@ export class ChartController {
 
   #contextMatches(context: ChartContext): boolean {
     return (
+      context.userId === this.#userId() &&
       context.symbol === this.symbol.trim() &&
       context.source === this.source &&
       context.period === this.period &&

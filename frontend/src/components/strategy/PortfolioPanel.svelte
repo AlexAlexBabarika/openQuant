@@ -12,11 +12,9 @@
     history: Pick<RunsHistory, 'record'> = runsHistory,
   ): Promise<void> {
     if (portfolio.isRunning) return;
-    const previous = portfolio.response;
-    await portfolio.run(code, context);
-    const result = portfolio.response;
+    const result = await portfolio.run(code, context);
     const runId = result?.meta?.run_id;
-    if (!portfolio.runError && result && result !== previous && runId) {
+    if (result && runId) {
       const label =
         result.symbols.length <= 3
           ? result.symbols.join(', ')

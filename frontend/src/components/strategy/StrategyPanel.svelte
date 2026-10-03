@@ -217,7 +217,7 @@
           {onOpenRuns}
         />
       {:else if tab === 'sweep'}
-        <SweepPanel code={strat.draftCode} {sweep} />
+        <SweepPanel code={strat.draftCode} {symbol} {provider} {sweep} />
       {:else}
         <aside class="rail" aria-label="Saved strategies">
           <div class="rail-head">

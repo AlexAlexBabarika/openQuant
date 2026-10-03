@@ -8,7 +8,7 @@
   import TrialsTable from './TrialsTable.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
 
-  let { code, sweep = new SweepState() }: { code: string; sweep?: SweepState } = $props();
+  let { code, symbol = 'SPY', provider = 'yfinance', sweep = new SweepState() }: { code: string; symbol?: string; provider?: string; sweep?: SweepState } = $props();
 
   let lastForm = $state<SweepFormValues | null>(null);
   let drillOpen = $state(false);
@@ -40,7 +40,7 @@
 </script>
 
 <div class="sweep">
-  <ParamForm schema={sweep.schema} {code} onsubmit={start} disabled={sweep.schemaLoading || sweep.status === 'running'} />
+  <ParamForm schema={sweep.schema} {code} {symbol} {provider} onsubmit={start} disabled={sweep.schemaLoading || sweep.status === 'running'} />
   {#if sweep.schemaLoading}<p class="card">Loading parameters…</p>{/if}
   {#if sweep.schemaError}<p class="card err" role="alert">{sweep.schemaError}</p>{/if}
 
