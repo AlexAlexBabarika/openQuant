@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -42,13 +43,15 @@ jobs:
       fail-fast: false
       matrix:
         platform: [linux/amd64, linux/arm64]
-    env:
-      DOCKER_DEFAULT_PLATFORM: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - run: docker compose --env-file /dev/null up --build --wait --wait-timeout 180
+        env:
+          DOCKER_DEFAULT_PLATFORM: ${{ matrix.platform }}
       - name: Verify UI, chart data, account lifecycle, and persistence
+        env:
+          DOCKER_DEFAULT_PLATFORM: ${{ matrix.platform }}
         run: |
           curl --fail --retry 5 http://127.0.0.1:8000/
           curl --fail --cookie-jar /tmp/openquant-cookies \

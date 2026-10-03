@@ -15,6 +15,7 @@
   import PeriodPicker from './PeriodPicker.svelte';
   import LoaderCircle from '@lucide/svelte/icons/loader-circle';
   import ChartCandlestick from '@lucide/svelte/icons/chart-candlestick';
+  import * as Dialog from '$lib/components/ui/dialog';
   let {
     symbol = $bindable('AAPL'),
     period = $bindable(DEFAULT_MARKET_PERIOD),
@@ -82,6 +83,12 @@
     <span>openQuant</span>
     <ChartCandlestick class="h-4 w-4 text-primary" />
   </div>
+
+  <Dialog.Trigger>
+    {#snippet child({ props })}
+      <button {...props} class="ot-workbench-ghost" title="Check your workspace strategy and selected market data, or explore built-in examples">Robustness</button>
+    {/snippet}
+  </Dialog.Trigger>
 
   <span class="ot-hairline-v"></span>
 

@@ -118,6 +118,9 @@
   import LeftToolbar from './components/toolbar/LeftToolbar.svelte';
   import ToolSettingsModal from './components/toolbar/ToolSettingsModal.svelte';
   import DrawablesPersistence from '$lib/features/drawables/DrawablesPersistence.svelte';
+  import * as Dialog from '$lib/components/ui/dialog';
+  import StrategyTrial from '$lib/features/trial/StrategyTrial.svelte';
+  import { selectEntry, trialSearch } from './entry';
   import type { CrosshairModeName } from '$lib/features/chart/crosshair';
   import {
     CURSOR,
@@ -128,11 +131,32 @@
 
   const drawableToolbarCommands = toolbarCommandsFromStore(drawables);
 
+  let trialOpen = $state(selectEntry(window.location.search, false) === 'trial');
+
+  function setTrialOpen(open: boolean): void {
+    trialOpen = open;
+    const url = new URL(window.location.href);
+    const search = trialSearch(url.search, open);
+    if (url.search !== search) {
+      url.search = search;
+      window.history.pushState(null, '', url);
+    }
+  }
+
+  onMount(() => {
+    const syncTrial = () => {
+      trialOpen = selectEntry(window.location.search, false) === 'trial';
+    };
+    window.addEventListener('popstate', syncTrial);
+    return () => window.removeEventListener('popstate', syncTrial);
+  });
+
   const chart = new ChartController({
     onSymbolFetched: (sym, src, count) => maybeMarkYFinance(sym, src, count),
   });
 
   const comparisonController = new ComparisonController({
+    userId: () => $authState.user?.id ?? null,
     mainSymbol: () => chart.loadedSymbol,
     period: () => chart.period,
     interval: () => chart.interval,
@@ -729,6 +753,7 @@
   });
 </script>
 
+<Dialog.Root open={trialOpen} onOpenChange={setTrialOpen}>
 <div class="flex flex-col h-screen bg-background">
   <DrawablesPersistence />
   <TopHeader
@@ -870,6 +895,7 @@
     {strategy}
     onOpenRuns={() => (runsOpen = true)}
     {portfolioRunId}
+    onRobustness={() => { strategyOpen = false; setTrialOpen(true); }}
   />
   <AppDialogs
     {groupDialogInitial}
@@ -898,3 +924,14 @@
       )}
   />
 </div>
+  <Dialog.Content class="flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none flex-col gap-0 overflow-hidden rounded-md p-0 sm:max-w-6xl">
+    <Dialog.Title class="sr-only">Robustness checks</Dialog.Title>
+    <Dialog.Description class="sr-only">Compare execution costs, chronological holdout, parameter sensitivity and benchmarks for your workspace strategy and selected market data, or explore built-in synthetic examples. Your research workspace stays open behind this panel.</Dialog.Description>
+    <div class="min-h-0 flex-1 overflow-hidden">
+      <StrategyTrial embedded
+        workspace={{ code: strategy.draftCode, name: strategy.draftName, symbol: chart.loadedSymbol || chart.symbol, provider: chart.source, period: chart.period, interval: chart.interval }}
+        onopenstrategy={() => { setTrialOpen(false); strategyOpen = true; }}
+        onreturnworkspace={() => setTrialOpen(false)} />
+    </div>
+  </Dialog.Content>
+</Dialog.Root>

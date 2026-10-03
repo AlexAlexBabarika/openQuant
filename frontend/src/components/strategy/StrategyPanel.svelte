@@ -24,6 +24,7 @@
     interval,
     strategy,
     onOpenRuns,
+    onRobustness,
     portfolioRunId = null,
   }: {
     open?: boolean;
@@ -33,6 +34,7 @@
     interval: string;
     strategy: StrategyState;
     onOpenRuns?: () => void;
+    onRobustness?: () => void;
     /** When set to a new id, load that stored portfolio run and show it. */
     portfolioRunId?: string | null;
   } = $props();
@@ -298,6 +300,7 @@
             </div>
 
             <div class="actions">
+              {#if onRobustness}<button type="button" class="btn ghost" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
               {#if strat.saveError}
                 <ErrorBanner message={strat.saveError} />
               {/if}

@@ -38,6 +38,7 @@ export interface Comparison {
 }
 
 export interface ComparisonControllerOptions {
+  userId: () => string | null;
   /** Reactive accessor for the main chart symbol (use `() => chart.loadedSymbol`). */
   mainSymbol: () => string;
   /** Reactive accessor for the main chart period. */
@@ -102,21 +103,19 @@ export class ComparisonController {
 
   #unsubsById = new Map<string, () => void>();
   #lastLoadedMain: string | null = null;
+  #userId: () => string | null;
   #onError?: (message: string) => void;
 
   constructor(opts: ComparisonControllerOptions) {
     this.#onError = opts.onError;
+    this.#userId = opts.userId;
 
     // Load comparisons whenever the main symbol changes.
     $effect(() => {
       const sym = opts.mainSymbol();
+      const userId = opts.userId();
       untrack(() => {
-        if (!sym || !sym.trim()) {
-          this.#clearAll();
-          this.#lastLoadedMain = '';
-          return;
-        }
-        void this.load(sym);
+        void this.load(userId ? sym : '');
       });
     });
 
@@ -138,23 +137,33 @@ export class ComparisonController {
 
   /** Apply server state for a main symbol: replace local comparisons + start streams. */
   load = async (mainSymbol: string): Promise<void> => {
-    const target = mainSymbol.trim();
-    if (!target) return;
+    const userId = this.#userId();
+    const target = userId ? mainSymbol.trim() : '';
     this.#lastLoadedMain = target;
+    if (!target) {
+      this.#clearAll();
+      this.isLoading = false;
+      return;
+    }
     this.isLoading = true;
     try {
       const records = await listComparisons(target);
+      if (this.#lastLoadedMain !== target || this.#userId() !== userId) return;
       // Drop any existing subscriptions for the previous main symbol.
       this.#clearAll();
       const next = records.map(recordToComparison);
       this.comparisons = next;
       await Promise.all(next.map(c => this.#fetchAndStream(c)));
     } catch (e) {
-      this.#onError?.(
-        e instanceof Error ? e.message : 'Failed to load comparisons',
-      );
+      if (this.#lastLoadedMain === target && this.#userId() === userId) {
+        this.#onError?.(
+          e instanceof Error ? e.message : 'Failed to load comparisons',
+        );
+      }
     } finally {
-      this.isLoading = false;
+      if (this.#lastLoadedMain === target && this.#userId() === userId) {
+        this.isLoading = false;
+      }
     }
   };
 
