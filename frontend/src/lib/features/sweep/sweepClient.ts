@@ -33,7 +33,8 @@ export const httpSweepClient: SweepClient = {
     return json<SweepProgress>(await fetch(`${base}/sweeps/${sweepId}`));
   },
   async cancel(sweepId) {
-    await fetch(`${base}/sweeps/${sweepId}`, { method: 'DELETE' });
+    const res = await fetch(`${base}/sweeps/${sweepId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
   },
   async loadTrial(sweepId, trialId, form) {
     const q = new URLSearchParams({

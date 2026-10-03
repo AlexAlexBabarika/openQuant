@@ -8,7 +8,7 @@
   import RunIdChip from './RunIdChip.svelte';
   import StaleBanner from './StaleBanner.svelte';
   import { runsHistory } from '$lib/features/runs/runsHistory.svelte';
-  import { runsClient, RerunFailedError } from '$lib/features/runs/runsClient';
+  import { RerunState } from '$lib/features/backtest/rerunState.svelte';
   import type { RunDiff } from '$lib/features/runs/runTypes';
 
   let {
@@ -23,27 +23,33 @@
     onOpenRuns?: () => void;
   } = $props();
 
-  let rerunning = $state(false);
-  let rerunError = $state<string | null>(null);
+  const rerunState = new RerunState();
+
+  $effect(() => {
+    backtest.result?.meta.run_id;
+    open;
+    rerunState.reset();
+  });
 
   async function rerun(): Promise<void> {
-    const id = backtest.result?.meta.run_id;
+    const source = backtest;
+    const id = source.result?.meta.run_id;
     if (!id) return;
-    rerunning = true;
-    rerunError = null;
-    try {
-      const resp = await runsClient.rerunRun(id);
+    const label = source.result?.meta.strategy_id ?? 'run';
+    const resp = await rerunState.run(id);
+    if (
+      resp &&
+      source === backtest &&
+      id === backtest.result?.meta.run_id &&
+      open
+    ) {
       runsHistory.record({
         run_id: resp.run_id,
         kind: 'single',
-        label: backtest.result?.meta.strategy_id ?? 'run',
+        label,
         created_at: new Date().toISOString(),
       });
       onCompareAfterRerun?.(id, resp.run_id, resp.diff);
-    } catch (e) {
-      rerunError = e instanceof RerunFailedError ? e.message : 'rerun failed';
-    } finally {
-      rerunning = false;
     }
   }
 
@@ -63,6 +69,7 @@
   });
 
   function close() {
+    rerunState.reset();
     open = false;
   }
 
@@ -115,13 +122,22 @@
       </button>
     </header>
 
-    <StaleBanner status={backtest.status} rerunning={rerunning} error={rerunError} onRerun={rerun} />
+    <StaleBanner
+      status={backtest.status}
+      rerunning={rerunState.running}
+      error={rerunState.error}
+      onRerun={rerun}
+    />
 
     <div class="body">
       {#if backtest.loading && !backtest.result}
         <p class="status">running…</p>
       {:else if backtest.error}
         <p class="status err">{backtest.error}</p>
+      {:else if backtest.result && backtest.result.bars.length === 0}
+        <p class="status">
+          This run returned no market bars. Check the symbol and data range before running again.
+        </p>
       {:else if backtest.result}
         <MetricsStrip metrics={backtest.result.metrics} />
         <div class="chart-pane">
