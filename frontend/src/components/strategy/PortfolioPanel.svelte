@@ -1,3 +1,36 @@
+<script lang="ts" module>
+  import type {
+    PortfolioState,
+    PortfolioRunContext,
+  } from '$lib/features/portfolio/portfolioState.svelte';
+  import { runsHistory, type RunsHistory } from '$lib/features/runs/runsHistory.svelte';
+
+  export async function runAndRecord(
+    portfolio: PortfolioState,
+    code: string,
+    context: PortfolioRunContext,
+    history: Pick<RunsHistory, 'record'> = runsHistory,
+  ): Promise<void> {
+    if (portfolio.isRunning) return;
+    const previous = portfolio.response;
+    await portfolio.run(code, context);
+    const result = portfolio.response;
+    const runId = result?.meta?.run_id;
+    if (!portfolio.runError && result && result !== previous && runId) {
+      const label =
+        result.symbols.length <= 3
+          ? result.symbols.join(', ')
+          : `${result.symbols.slice(0, 3).join(', ')}... (${result.symbols.length})`;
+      history.record({
+        run_id: runId,
+        kind: 'portfolio',
+        label,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+</script>
+
 <script lang="ts">
   import Play from '@lucide/svelte/icons/play';
   import Database from '@lucide/svelte/icons/database';
@@ -6,8 +39,6 @@
   import WeightsHeatmap from './WeightsHeatmap.svelte';
   import RunIdChip from '../backtest/RunIdChip.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
-  import { PortfolioState } from '$lib/features/portfolio/portfolioState.svelte';
-  import { runsHistory } from '$lib/features/runs/runsHistory.svelte';
   import { MAX_UNIVERSE_SYMBOLS } from '$lib/features/portfolio/universe';
   import type { MarketDataProviderValue } from '$lib/features/market/marketDataProviders';
 
@@ -46,21 +77,7 @@
   }
 
   async function runNow() {
-    if (portfolio.isRunning) return;
-    await portfolio.run(code, { provider, period, interval });
-    const runId = portfolio.response?.meta?.run_id;
-    if (runId) {
-      const label =
-        portfolio.symbols.length <= 3
-          ? portfolio.symbols.join(', ')
-          : `${portfolio.symbols.slice(0, 3).join(', ')}... (${portfolio.symbols.length})`;
-      runsHistory.record({
-        run_id: runId,
-        kind: 'portfolio',
-        label,
-        created_at: new Date().toISOString(),
-      });
-    }
+    await runAndRecord(portfolio, code, { provider, period, interval });
   }
 
   async function ingestNow() {

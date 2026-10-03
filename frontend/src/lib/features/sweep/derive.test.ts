@@ -1,11 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import {
+  reconcileVariedParams,
   heatmapMatrix,
   sortTrials,
   filterTrials,
   parallelCoordsModel,
   paramStability,
 } from './derive';
+
+describe('parameter selection after an editor change', () => {
+  it('removes undeclared parameters and defaults to the new schema when none remain', () => {
+    expect(reconcileVariedParams(['qty'], ['fast', 'slow', 'side'])).toEqual([
+      'fast',
+      'slow',
+    ]);
+    expect(reconcileVariedParams(['qty', 'fast'], ['fast', 'slow'])).toEqual([
+      'fast',
+    ]);
+    expect(reconcileVariedParams(['qty'], [])).toEqual([]);
+  });
+});
 import type { TrialRow, WindowResult } from './types';
 
 const trials: TrialRow[] = [

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { SweepState } from '$lib/features/sweep/sweepState.svelte';
   import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
-  import { httpSweepClient } from '$lib/features/sweep/sweepClient';
   import type { SweepFormValues } from '$lib/features/sweep/types';
   import ParamForm from './ParamForm.svelte';
   import Heatmap from './Heatmap.svelte';
@@ -17,10 +16,13 @@
 
   // Schema introspection when the panel mounts / code changes.
   $effect(() => {
-    if (code) void sweep.loadSchema(code);
+    void sweep.loadSchema(code);
   });
 
   function start(form: SweepFormValues) {
+    if (sweep.status === 'running') return;
+    drillOpen = false;
+    drillState = null;
     lastForm = form;
     void sweep.run(form);
   }
@@ -28,7 +30,7 @@
   async function openTrial(trialId: number) {
     if (!lastForm || !sweep.sweepId) return;
     // Drill-in reuses the dashboard reader: load this trial's full BacktestResult.
-    const loader = () => httpSweepClient.loadTrial(sweep.sweepId!, trialId, lastForm!);
+    const loader = sweep.trialLoader(trialId, lastForm);
     drillState = new BacktestState(loader);
     drillOpen = true;
   }
@@ -38,7 +40,9 @@
 </script>
 
 <div class="sweep">
-  <ParamForm schema={sweep.schema} {code} onsubmit={start} />
+  <ParamForm schema={sweep.schema} {code} onsubmit={start} disabled={sweep.schemaLoading || sweep.status === 'running'} />
+  {#if sweep.schemaLoading}<p class="card">Loading parameters…</p>{/if}
+  {#if sweep.schemaError}<p class="card err" role="alert">{sweep.schemaError}</p>{/if}
 
   {#if sweep.status !== 'idle'}
     <fieldset class="card">
@@ -48,11 +52,16 @@
         <progress max={sweep.total || 1} value={sweep.done}></progress>
         <span>{sweep.done}/{sweep.total}</span>
         {#if sweep.status === 'running'}
-          <button type="button" onclick={() => sweep.cancel()}>cancel</button>
+          <button type="button" disabled={sweep.cancelling} onclick={() => sweep.cancel()}>{sweep.cancelling ? 'cancelling…' : 'cancel'}</button>
         {/if}
         {#if sweep.error}<span class="err">{sweep.error}</span>{/if}
+        {#if sweep.cancelError}<span class="err" role="alert">{sweep.cancelError}</span>{/if}
       </div>
     </fieldset>
+  {/if}
+
+  {#if sweep.status === 'done' && sweep.trials.length === 0}
+    <p class="card">No trials were returned for this sweep.</p>
   {/if}
 
   {#if sweep.trials.length > 0}
