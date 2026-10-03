@@ -112,12 +112,14 @@
   }
 
   async function saveAndRun() {
-    const saved = await ind.save();
-    if (saved) await runNow();
+    await ind.saveAndRun({ symbol, provider, period, interval });
   }
 
   async function confirmDelete(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    const unsaved = ind.activeId === id && ind.dirty
+      ? ' Unsaved changes will be discarded.'
+      : '';
+    if (!confirm(`Delete "${name}"? This cannot be undone.${unsaved}`)) return;
     try {
       await ind.delete(id);
     } catch (err) {
@@ -357,7 +359,8 @@
         <div class="split" style:--top="{splitPct}%">
           <div class="pane editor-pane">
             <ScriptEditor
-              bind:value={ind.draftCode}
+              bind:value={() => ind.draftCode, code => ind.setCode(code)}
+              documentKey={ind.draftVersion}
               onRun={runNow}
               onSave={saveNow}
             />

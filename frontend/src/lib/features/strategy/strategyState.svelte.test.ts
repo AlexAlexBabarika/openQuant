@@ -54,6 +54,16 @@ const CTX = {
   interval: '1d',
 } as const;
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('StrategyState', () => {
   it('ships a parameterized seed strategy as the initial draft', () => {
     const state = new StrategyState(fakeClient());
@@ -124,6 +134,168 @@ describe('StrategyState', () => {
     expect(client.create).not.toHaveBeenCalled();
   });
 
+  it('keeps edits made while creating a strategy dirty and updates the created id next time', async () => {
+    const pending = deferred<StrategyInfo>();
+    const client = fakeClient({ create: vi.fn(() => pending.promise) });
+    const state = new StrategyState(client);
+    state.setCode('submitted');
+    const saving = state.save();
+    state.setCode('newer code');
+    state.setName('newer name');
+    pending.resolve(info({ id: 'new1', code: 'submitted' }));
+    await saving;
+    expect(state.activeId).toBe('new1');
+    expect(state.draftCode).toBe('newer code');
+    expect(state.draftName).toBe('newer name');
+    expect(state.dirty).toBe(true);
+    await state.save();
+    expect(client.update).toHaveBeenCalledWith('new1', {
+      name: 'newer name',
+      code: 'newer code',
+    });
+  });
+
+  it('does not steal selection or clear a newer draft after a delayed save', async () => {
+    const pending = deferred<StrategyInfo>();
+    const state = new StrategyState(
+      fakeClient({ update: vi.fn(() => pending.promise) }),
+    );
+    state.scripts = [info(), info({ id: 's2', code: 'second' })];
+    state.select('s1');
+    state.setCode('submitted');
+    const saving = state.save();
+    state.select('s2', () => true);
+    state.setCode('second edited');
+    pending.resolve(info({ code: 'submitted' }));
+    await saving;
+    expect(state.activeId).toBe('s2');
+    expect(state.draftCode).toBe('second edited');
+    expect(state.dirty).toBe(true);
+    expect(state.scripts.find(s => s.id === 's1')?.code).toBe('submitted');
+  });
+
+  it('ignores a save completion after resetting to a new draft, even with identical text', async () => {
+    const pending = deferred<StrategyInfo>();
+    const state = new StrategyState(
+      fakeClient({ create: vi.fn(() => pending.promise) }),
+    );
+    const saving = state.save();
+    state.newDraft();
+    pending.resolve(info());
+    await saving;
+    expect(state.activeId).toBeNull();
+    expect(state.draftCode).toBe(SEED_CODE);
+  });
+
+  it('does not duplicate creates from repeated save shortcuts', async () => {
+    const pending = deferred<StrategyInfo>();
+    const client = fakeClient({ create: vi.fn(() => pending.promise) });
+    const state = new StrategyState(client);
+    const first = state.save();
+    expect(await state.save()).toBeNull();
+    expect(state.isSaving).toBe(true);
+    expect(client.create).toHaveBeenCalledTimes(1);
+    pending.resolve(info());
+    await first;
+  });
+
+  it('does not show a previous draft save failure in the current draft', async () => {
+    const pending = deferred<StrategyInfo>();
+    const state = new StrategyState(
+      fakeClient({ create: vi.fn(() => pending.promise) }),
+    );
+    const saving = state.save();
+    state.newDraft();
+    pending.reject(new Error('old save failed'));
+    expect(await saving).toBeNull();
+    expect(state.saveError).toBeNull();
+  });
+
+  it('protects the earlier source reopened before an in-flight update finishes', async () => {
+    const pending = deferred<StrategyInfo>();
+    const state = new StrategyState(
+      fakeClient({ update: vi.fn(() => pending.promise) }),
+    );
+    state.scripts = [info({ code: 'original' }), info({ id: 's2' })];
+    state.select('s1');
+    state.setCode('submitted');
+    const saving = state.save();
+    state.select('s2', () => true);
+    state.select('s1');
+    pending.resolve(info({ code: 'submitted' }));
+    await saving;
+    expect(state.draftCode).toBe('original');
+    expect(state.dirty).toBe(true);
+  });
+
+  it('requires confirmation before replacing dirty drafts and preserves same-id edits', () => {
+    const state = new StrategyState(fakeClient());
+    state.scripts = [info(), info({ id: 's2' })];
+    state.select('s1');
+    state.setCode('unsaved');
+    const cancel = vi.fn(() => false);
+    state.select('s1', cancel);
+    expect(cancel).not.toHaveBeenCalled();
+    state.select('s2', cancel);
+    state.newDraft(cancel);
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(state.activeId).toBe('s1');
+    expect(state.draftCode).toBe('unsaved');
+    state.select('s2', () => true);
+    expect(state.activeId).toBe('s2');
+  });
+
+  it('preserves edits made while deleting the active strategy as an unsaved draft', async () => {
+    const pending = deferred<void>();
+    const state = new StrategyState(
+      fakeClient({ remove: vi.fn(() => pending.promise) }),
+    );
+    state.scripts = [info()];
+    state.select('s1');
+    const removing = state.remove('s1');
+    state.setCode('typed during delete');
+    pending.resolve();
+    await removing;
+    expect(state.scripts).toHaveLength(0);
+    expect(state.activeId).toBeNull();
+    expect(state.draftCode).toBe('typed during delete');
+    expect(state.dirty).toBe(true);
+  });
+
+  it('prevents conflicting saves and deletes of the same strategy', async () => {
+    const saving = deferred<StrategyInfo>();
+    const deleting = deferred<void>();
+    const client = fakeClient({
+      update: vi.fn(() => saving.promise),
+      remove: vi.fn(() => deleting.promise),
+    });
+    const state = new StrategyState(client);
+    state.scripts = [info()];
+    state.select('s1');
+    const save = state.save();
+    await expect(state.remove('s1')).rejects.toThrow('save');
+    expect(client.remove).not.toHaveBeenCalled();
+    saving.resolve(info());
+    await save;
+    const remove = state.remove('s1');
+    expect(await state.save()).toBeNull();
+    expect(state.saveError).toContain('delet');
+    deleting.resolve();
+    await remove;
+  });
+
+  it('does not let an old list response erase a newly saved strategy', async () => {
+    const pending = deferred<StrategyInfo[]>();
+    const state = new StrategyState(
+      fakeClient({ list: vi.fn(() => pending.promise) }),
+    );
+    const loading = state.load();
+    await state.save();
+    pending.resolve([]);
+    await loading;
+    expect(state.scripts.map(s => s.id)).toEqual(['new1']);
+  });
+
   it('remove() deletes and resets the draft when it was active', async () => {
     const client = fakeClient();
     const state = new StrategyState(client);
@@ -161,5 +333,46 @@ describe('StrategyState', () => {
     await state.runBacktest(CTX);
     expect(state.runError).toContain('NameError: boom');
     expect(state.isRunning).toBe(false);
+  });
+
+  it('does not let a superseded backtest clear the current loading state or error', async () => {
+    const old = deferred<BacktestRunResponse>();
+    const latest = deferred<BacktestRunResponse>();
+    const client = fakeClient({
+      runBacktest: vi
+        .fn()
+        .mockReturnValueOnce(old.promise)
+        .mockReturnValueOnce(latest.promise),
+    });
+    const state = new StrategyState(client);
+    const first = state.runBacktest(CTX);
+    const second = state.runBacktest({ ...CTX, symbol: 'NEW' });
+    old.resolve(okRun({ status: 'error', stderr: 'old failure' }));
+    await first;
+    expect(state.isRunning).toBe(true);
+    expect(state.runError).toBeNull();
+    latest.resolve(okRun());
+    const bt = await second;
+    expect(state.backtest).toBe(bt);
+    expect(state.isRunning).toBe(false);
+    expect(state.runError).toBeNull();
+  });
+
+  it('does not clear the latest failed backtest error when an older run finishes', async () => {
+    const old = deferred<BacktestRunResponse>();
+    const client = fakeClient({
+      runBacktest: vi
+        .fn()
+        .mockReturnValueOnce(old.promise)
+        .mockResolvedValueOnce(
+          okRun({ status: 'error', stderr: 'latest failure' }),
+        ),
+    });
+    const state = new StrategyState(client);
+    const first = state.runBacktest(CTX);
+    await state.runBacktest(CTX);
+    old.resolve(okRun());
+    await first;
+    expect(state.runError).toBe('latest failure');
   });
 });
