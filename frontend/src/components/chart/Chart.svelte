@@ -113,8 +113,8 @@
 
   let containerEl = $state<HTMLDivElement | null>(null);
   let chart: IChartApi | null = null;
-  let candleSeries: ISeriesApi<'Candlestick'> | null = null;
-  let lineSeries: ISeriesApi<'Line'> | null = null;
+  let candleSeries = $state.raw<ISeriesApi<'Candlestick'> | null>(null);
+  let lineSeries = $state.raw<ISeriesApi<'Line'> | null>(null);
   let areaSeries: ISeriesApi<'Area'> | null = null;
   let volumeSeries: ISeriesApi<'Histogram'> | null = null;
   let smaSeries: ISeriesApi<'Line'> | null = null;

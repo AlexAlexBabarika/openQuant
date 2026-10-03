@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { compile, compileModule } from 'svelte/compiler';
 import { transformSync } from 'esbuild';
+import ts from 'typescript';
 // @ts-expect-error Svelte does not publish types for its client test runtime.
 import * as runtime from 'svelte/internal/client';
 
@@ -20,13 +21,14 @@ export const client: {
 export function clientModule<T>(
   url: URL,
   imports: Record<string, unknown> = {},
+  source = readFileSync(url, 'utf8'),
 ): T {
-  const source = readFileSync(url, 'utf8');
   const filename = url.pathname;
   const code = filename.endsWith('.svelte')
     ? compile(source, {
         filename,
         generate: 'client',
+        runes: true,
         dev: false,
         discloseVersion: false,
       }).js.code
@@ -54,6 +56,35 @@ export function clientModule<T>(
     module,
   );
   return module.exports as T;
+}
+
+// Execute named production script declarations without mounting chart/editor DOM.
+export function componentDeclarations(url: URL, names: string[]): string {
+  const source = readFileSync(url, 'utf8')
+    .split('</script>')[0]
+    .replace(/^<script[^>]*>/, '');
+  const ast = ts.createSourceFile(
+    url.pathname,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return names
+    .map(name => {
+      const statement = ast.statements.find(
+        node =>
+          (ts.isFunctionDeclaration(node) && node.name?.text === name) ||
+          (ts.isVariableStatement(node) &&
+            node.declarationList.declarations.some(
+              d => ts.isIdentifier(d.name) && d.name.text === name,
+            )),
+      );
+      if (!statement)
+        throw new Error(`Missing production declaration: ${name}`);
+      return statement.getText(ast);
+    })
+    .join('\n');
 }
 
 export function deferred<T>() {

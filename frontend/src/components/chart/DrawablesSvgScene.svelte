@@ -40,6 +40,11 @@
     onSelectDrawable: (id: string) => void;
     onAnchorPoint: (id: string, pt: ScreenPoint | null) => void;
   } = $props();
+
+  let sceneItems = $derived.by(() => {
+    const selected = items.find(d => d.id === selectedId);
+    return selected ? [...items.filter(d => d !== selected), selected] : items;
+  });
 </script>
 
 <svg
@@ -47,7 +52,7 @@
   class="absolute inset-0 w-full h-full z-10 pointer-events-none"
   style="overflow: visible;"
 >
-  {#each items as d (d.id)}
+  {#each sceneItems as d (d.id)}
     {@const tool = getTool(d.type)}
     {#if tool}
       {@const RendererCmp = tool.Renderer}
