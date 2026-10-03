@@ -45,22 +45,38 @@ export class WSClient {
   }
 
   connect(): void {
+    if (
+      this.ws &&
+      (this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING)
+    )
+      return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.intentionalClose = false;
     this.reconnectAttempts = 0;
     this.doConnect();
   }
 
   private doConnect(): void {
-    this.onStatus?.('connecting');
+    const previous = this.ws;
+    this.ws = null;
+    previous?.close();
     const url = wsStreamUrl(this.provider, this.symbol, getAccessToken());
-    this.ws = new WebSocket(url);
+    const ws = new WebSocket(url);
+    this.ws = ws;
+    this.onStatus?.('connecting');
 
-    this.ws.onopen = () => {
+    ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.reconnectAttempts = 0;
       this.onStatus?.('connected');
     };
 
-    this.ws.onmessage = event => {
+    ws.onmessage = event => {
+      if (this.ws !== ws) return;
       try {
         const data = JSON.parse(event.data as string) as Record<
           string,
@@ -83,7 +99,8 @@ export class WSClient {
       }
     };
 
-    this.ws.onclose = () => {
+    ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.ws = null;
       this.onStatus?.('disconnected');
       if (
@@ -91,13 +108,15 @@ export class WSClient {
         this.reconnectAttempts < this.maxReconnectAttempts
       ) {
         this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
           this.reconnectAttempts++;
           this.doConnect();
         }, this.nextReconnectDelay());
       }
     };
 
-    this.ws.onerror = () => {
+    ws.onerror = () => {
+      if (this.ws !== ws) return;
       this.onStatus?.('error');
     };
   }
@@ -116,8 +135,9 @@ export class WSClient {
       this.reconnectTimer = null;
     }
     if (this.ws) {
-      this.ws.close();
+      const ws = this.ws;
       this.ws = null;
+      ws.close();
     }
     this.onStatus?.('disconnected');
   }
