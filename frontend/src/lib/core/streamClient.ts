@@ -104,7 +104,6 @@ export class StreamClient {
   #pingTimer: ReturnType<typeof setInterval> | null = null;
   #silenceTimer: ReturnType<typeof setTimeout> | null = null;
   #intentionalClose = false;
-  #pendingSends: string[] = [];
 
   readonly reconnectDelayMs = 1000;
   readonly maxReconnectDelayMs = 30000;
@@ -127,7 +126,9 @@ export class StreamClient {
     }
     entry.handlers.add(handlers);
 
+    const alreadyConnected = this.#ws?.readyState === WebSocket.OPEN;
     this.#ensureConnected();
+    if (alreadyConnected) handlers.onConnectionChange?.('connected');
     if (isFirst) {
       this.#sendJson({
         type: 'subscribe',
@@ -138,9 +139,12 @@ export class StreamClient {
       });
     }
 
+    let unsubscribed = false;
     return () => {
+      if (unsubscribed) return;
+      unsubscribed = true;
       const e = this.#candleSubs.get(key);
-      if (!e) return;
+      if (e !== entry) return;
       e.handlers.delete(handlers);
       if (e.handlers.size === 0) {
         this.#candleSubs.delete(key);
@@ -174,9 +178,12 @@ export class StreamClient {
       });
     }
 
+    let unsubscribed = false;
     return () => {
+      if (unsubscribed) return;
+      unsubscribed = true;
       const e = this.#quoteSubs.get(key);
-      if (!e) return;
+      if (e !== entry) return;
       e.handlers.delete(handlers);
       if (e.handlers.size === 0) {
         this.#quoteSubs.delete(key);
@@ -208,19 +215,30 @@ export class StreamClient {
   }
 
   #connect(): void {
+    if (this.#reconnectTimer) {
+      clearTimeout(this.#reconnectTimer);
+      this.#reconnectTimer = null;
+    }
+    const previous = this.#ws;
+    this.#ws = null;
+    previous?.close();
+    this.#stopHeartbeat();
+    this.#clearSilenceTimer();
     this.#intentionalClose = false;
-    this.#emitConnectionState('connecting');
     const ws = new WebSocket(wsLiveUrl());
     this.#ws = ws;
+    this.#emitConnectionState('connecting');
 
     ws.onopen = () => {
+      if (this.#ws !== ws) return;
       this.#reconnectAttempts = 0;
       this.#emitConnectionState('connected');
+      if (this.#ws !== ws) return;
       this.#startHeartbeat();
       this.#armSilenceTimer();
-      // Re-subscribe everything (covers reconnect; on first connect sends queued subs).
+      // The subscription maps are authoritative, including changes made before open.
       for (const entry of this.#candleSubs.values()) {
-        this.#sendJsonRaw({
+        this.#sendJson({
           type: 'subscribe',
           provider: entry.sub.provider,
           symbol: entry.sub.symbol,
@@ -229,19 +247,16 @@ export class StreamClient {
         });
       }
       for (const entry of this.#quoteSubs.values()) {
-        this.#sendJsonRaw({
+        this.#sendJson({
           type: 'subscribe_quote',
           provider: entry.sub.provider,
           symbol: entry.sub.symbol,
         });
       }
-      // Flush anything queued before open (typically subsumed by re-sub above, but safe).
-      const queued = this.#pendingSends;
-      this.#pendingSends = [];
-      for (const m of queued) ws.send(m);
     };
 
     ws.onmessage = ev => {
+      if (this.#ws !== ws) return;
       this.#armSilenceTimer();
       let msg: ServerMsg;
       try {
@@ -253,6 +268,7 @@ export class StreamClient {
     };
 
     ws.onclose = () => {
+      if (this.#ws !== ws) return;
       this.#ws = null;
       this.#stopHeartbeat();
       this.#clearSilenceTimer();
@@ -262,6 +278,7 @@ export class StreamClient {
       if (this.#reconnectAttempts >= this.maxReconnectAttempts) return;
       const delay = this.#nextReconnectDelay();
       this.#reconnectTimer = setTimeout(() => {
+        this.#reconnectTimer = null;
         this.#reconnectAttempts += 1;
         this.#connect();
       }, delay);
@@ -281,10 +298,11 @@ export class StreamClient {
     this.#stopHeartbeat();
     this.#clearSilenceTimer();
     if (this.#ws) {
-      this.#ws.close();
+      const ws = this.#ws;
       this.#ws = null;
+      ws.close();
     }
-    this.#pendingSends = [];
+    this.#reconnectAttempts = 0;
   }
 
   #startHeartbeat(): void {
@@ -328,13 +346,7 @@ export class StreamClient {
   #sendJson(payload: unknown): void {
     if (this.#ws && this.#ws.readyState === WebSocket.OPEN) {
       this.#ws.send(JSON.stringify(payload));
-    } else {
-      this.#pendingSends.push(JSON.stringify(payload));
     }
-  }
-
-  #sendJsonRaw(payload: unknown): void {
-    this.#ws?.send(JSON.stringify(payload));
   }
 
   #emitConnectionState(state: StreamConnectionState): void {

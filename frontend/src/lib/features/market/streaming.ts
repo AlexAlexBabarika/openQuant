@@ -16,6 +16,8 @@ export interface SubscribeMarketStreamOptions extends CandleSubscription {
   historyEndIso?: string;
   /** Fired for every candle that should be applied to the chart (snapshot tail + live updates). */
   onCandle: (c: OHLCVCandle, isFinal: boolean) => void;
+  /** Reconcile gap-fill bars that may arrive after newer live candles. */
+  onSnapshot?: (candles: OHLCVCandle[]) => void;
   /** Fired only when the live stream delivers a final (closed) candle. Snapshot replay does NOT trigger this. */
   onCandleClose?: (c: OHLCVCandle) => void;
   onStatus?: (s: StreamStatus) => void;
@@ -30,10 +32,18 @@ export interface SubscribeMarketStreamOptions extends CandleSubscription {
 export function subscribeMarketStream(
   opts: SubscribeMarketStreamOptions,
 ): () => void {
-  const { historyEndIso, onCandle, onCandleClose, onStatus, ...sub } = opts;
+  const {
+    historyEndIso,
+    onCandle,
+    onSnapshot,
+    onCandleClose,
+    onStatus,
+    ...sub
+  } = opts;
   const cutoff = historyEndIso
     ? Date.parse(historyEndIso)
     : Number.NEGATIVE_INFINITY;
+  let latest = cutoff;
 
   const mapState = (s: StreamConnectionState): StreamStatus =>
     s === 'connected'
@@ -46,11 +56,26 @@ export function subscribeMarketStream(
     sub,
     {
       onSnapshot: msg => {
-        for (const c of msg.candles) {
-          if (Date.parse(c.timestamp) > cutoff) onCandle(c, true);
+        const candles = msg.candles.filter(
+          c => Date.parse(c.timestamp) > cutoff,
+        );
+        if (onSnapshot) {
+          onSnapshot(candles);
+          for (const c of candles)
+            latest = Math.max(latest, Date.parse(c.timestamp));
+        } else {
+          for (const c of candles) {
+            const ts = Date.parse(c.timestamp);
+            if (ts <= latest) continue;
+            latest = ts;
+            onCandle(c, true);
+          }
         }
       },
       onCandle: msg => {
+        const ts = Date.parse(msg.candle.timestamp);
+        if (!Number.isFinite(ts) || ts < latest) return;
+        latest = ts;
         onCandle(msg.candle, msg.is_final);
         if (msg.is_final) onCandleClose?.(msg.candle);
       },
@@ -65,4 +90,16 @@ export function subscribeMarketStream(
     },
     { since: historyEndIso },
   );
+}
+
+/** Insert missing snapshot bars without overwriting more recent live values. */
+export function mergeCandleSnapshot(
+  existing: OHLCVCandle[],
+  snapshot: OHLCVCandle[],
+): OHLCVCandle[] {
+  const byTime = new Map<number, OHLCVCandle>();
+  for (const c of [...snapshot, ...existing]) {
+    byTime.set(Date.parse(c.timestamp), c);
+  }
+  return [...byTime.entries()].sort(([a], [b]) => a - b).map(([, c]) => c);
 }
