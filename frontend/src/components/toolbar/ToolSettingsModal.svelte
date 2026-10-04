@@ -45,6 +45,10 @@
       open = false;
       return;
     }
+    if (!panelEl) return;
+    for (const input of panelEl.querySelectorAll<HTMLInputElement>('input[type="number"]')) {
+      if (!input.reportValidity()) return;
+    }
     const nextParams = stagedParams;
     const nextStyle = stagedStyle;
 

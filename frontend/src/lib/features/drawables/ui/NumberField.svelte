@@ -16,20 +16,23 @@
   } = $props();
 
   const inputId = `num-${crypto.randomUUID()}`;
+
+  function updateValue(event: Event): void {
+    const n = (event.currentTarget as HTMLInputElement).valueAsNumber;
+    if (Number.isFinite(n)) value = n;
+  }
 </script>
 
 <Field {label} id={inputId}>
   <input
     id={inputId}
     type="number"
+    required
     class="h-7 w-20 rounded border border-border bg-transparent px-2 text-sm text-right outline-none focus:border-ring"
     {min}
     {max}
     {step}
     value={value}
-    oninput={(e) => {
-      const n = Number((e.currentTarget as HTMLInputElement).value);
-      if (!Number.isNaN(n)) value = n;
-    }}
+    oninput={updateValue}
   />
 </Field>
