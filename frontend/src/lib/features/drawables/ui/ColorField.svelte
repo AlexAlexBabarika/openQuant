@@ -12,5 +12,5 @@
 </script>
 
 <Field {label}>
-  <ColourSwatch bind:colour={value} label="" />
+  <ColourSwatch bind:colour={value} label="" ariaLabel="Pick colour for {label}" />
 </Field>

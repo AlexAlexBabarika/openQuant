@@ -61,6 +61,20 @@ export class StrategyState {
   #scriptsRevision = 0;
   #savingId: string | null = null;
   #deleting = new Set<string>();
+  #accountVersion = 0;
+
+  clearSaved(): void {
+    this.#accountVersion++;
+    this.#listRequest++;
+    this.#scriptsRevision++;
+    this.#draftVersion++;
+    this.scripts = [];
+    this.loading = false;
+    this.loadError = null;
+    this.saveError = null;
+    if (this.activeId) this.dirty = true;
+    this.activeId = null;
+  }
 
   constructor(client: StrategyClient = httpStrategyClient) {
     this.#client = client;
@@ -152,6 +166,7 @@ export class StrategyState {
     const version = this.#draftVersion;
     const revision = this.#revision;
     const code = this.draftCode;
+    const accountVersion = this.#accountVersion;
     try {
       let saved: StrategyInfo;
       if (id) {
@@ -162,6 +177,7 @@ export class StrategyState {
       } else {
         saved = await this.#client.create(name, code);
       }
+      if (accountVersion !== this.#accountVersion) return null;
       this.#scriptsRevision++;
       const idx = this.scripts.findIndex(s => s.id === saved.id);
       if (idx >= 0) this.scripts[idx] = saved;
@@ -196,8 +212,10 @@ export class StrategyState {
     this.#deleting.add(id);
     const version = this.#draftVersion;
     const revision = this.#revision;
+    const accountVersion = this.#accountVersion;
     try {
       await this.#client.remove(id);
+      if (accountVersion !== this.#accountVersion) return;
       this.#scriptsRevision++;
       this.scripts = this.scripts.filter(s => s.id !== id);
       if (this.activeId === id) {

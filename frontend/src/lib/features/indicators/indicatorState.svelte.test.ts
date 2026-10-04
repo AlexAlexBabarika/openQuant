@@ -50,6 +50,48 @@ const CTX = {
   interval: '1d',
 } as const;
 
+describe('indicator account changes', () => {
+  it('detaches saved scripts and stops runners while retaining editor work', async () => {
+    const state = new IndicatorState();
+    state.scripts = [info()];
+    state.openScript('s1');
+    state.setCode('draft work');
+    await state.run(CTX);
+    state.clearSaved();
+    expect(state.scripts).toEqual([]);
+    expect(state.runners).toEqual({});
+    expect(state.activeId).toBeNull();
+    expect(state.draftCode).toBe('draft work');
+    expect(state.dirty).toBe(true);
+  });
+
+  it('ignores a saved list arriving after the account changes', async () => {
+    const pending = deferred<ScriptInfo[]>();
+    vi.mocked(listScripts).mockReturnValue(pending.promise);
+    const state = new IndicatorState();
+    const loading = state.refresh();
+    state.clearSaved();
+    pending.resolve([info()]);
+    await loading;
+    expect(state.scripts).toEqual([]);
+    expect(state.loading).toBe(false);
+  });
+
+  it('does not start a saved runner if the account changed during save', async () => {
+    const pending = deferred<ScriptInfo>();
+    vi.mocked(createScript).mockReturnValue(pending.promise);
+    const state = new IndicatorState();
+    const saving = state.saveAndRun(CTX);
+    state.clearSaved();
+    pending.resolve(info());
+    expect(await saving).toBeNull();
+    expect(executeScript).not.toHaveBeenCalled();
+    expect(state.scripts).toEqual([]);
+    expect(state.activeId).toBeNull();
+    expect(state.isSaving).toBe(false);
+  });
+});
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(createScript).mockImplementation(async (name, code) =>

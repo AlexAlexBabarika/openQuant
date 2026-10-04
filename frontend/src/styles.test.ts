@@ -221,6 +221,31 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it.each([
+    'components/chart/ChartOptionsMenu.svelte',
+    'components/toolbar/ToolSettingsModal.svelte',
+  ])(
+    'bounds %s by the dynamic viewport and allows vertical scrolling',
+    async filename => {
+      const menu = readFileSync(`${base}${filename}`, 'utf8');
+      const classes = menu
+        .match(/<Dialog\.Content[\s\S]*?class="([^"]+)"/)![1]
+        .split(/\s+/);
+      const compiled = await compileCss(source, { base, onDependency() {} });
+      const menuCss = postcss.parse(
+        optimize(compiled.build(classes), { minify: false }).code,
+      );
+      expect(
+        declarations('.max-h-\\[calc\\(100dvh-2rem\\)\\]', menuCss)[
+          'max-height'
+        ],
+      ).toBe('calc(100dvh - 2rem)');
+      expect(declarations('.overflow-y-auto', menuCss)['overflow-y']).toBe(
+        'auto',
+      );
+    },
+  );
+
   it('ships native light-only selectors and the declared pill/ghost treatment', () => {
     css.walkRules(rule => {
       expect(

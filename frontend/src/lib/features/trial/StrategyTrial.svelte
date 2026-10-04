@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { authState } from '$lib/features/auth/auth';
+  import AuthDialog from '../../../components/dialogs/AuthDialog.svelte';
   import { apiFetch, readErrorMessage } from '$lib/core/api';
   import type { TrialCatalog, TrialConfig, TrialReport, TrialStrategy } from '$lib/features/trial-report/types';
   import { readTrialShareConfig } from '$lib/features/trial-report/sharing';
@@ -30,6 +32,7 @@
   let catalogError = $state('');
   let running = $state(false);
   let configurationExpanded = $state(false);
+  let authDialogOpen = $state(false);
   let runError = $state('');
   let report = $state.raw<EvidenceReport | null>(null);
   let mode = $state<'workspace' | 'examples'>(untrack(() => workspace ? 'workspace' : 'examples'));
@@ -175,6 +178,7 @@
   }
 
   async function runWorkspace(): Promise<void> {
+    if (!$authState.user) { authDialogOpen = true; return; }
     if (!workspace || !workspaceSettings || !canRun) {
       runError = 'Choose a market symbol, enter a strategy and valid costs, cash, holdout percentage and JSON parameter overrides.';
       return;
@@ -313,7 +317,7 @@
       </div>
       </div>
       <div class="run-controls">
-        <button class="run-button ot-workbench-primary" type="submit" form="robustness-run-form" disabled={!canRun || running}>{running ? 'Running…' : 'Run checks'}</button>
+        <button class="run-button ot-workbench-primary" type="submit" form="robustness-run-form" disabled={!canRun || running}>{running ? 'Running…' : mode === 'workspace' && !$authState.user ? 'Sign in to run checks' : 'Run checks'}</button>
         {#if running}<button class="ot-workbench-ghost" type="button" onclick={() => { cancelRun(); statusMessage = 'Stopped waiting for this result. A workspace suite may continue up to its 30-second server limit.'; }}>Stop waiting</button>{/if}
         <span class="muted">{mode === 'workspace' ? 'Current editor draft · no live orders' : 'Synthetic examples · not chart data'}</span>
       </div>
@@ -425,6 +429,8 @@
     </main>
   </div>
 </div>
+
+<AuthDialog bind:open={authDialogOpen} />
 
 <style>
   .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 12px/1.6 var(--font-mono); }
