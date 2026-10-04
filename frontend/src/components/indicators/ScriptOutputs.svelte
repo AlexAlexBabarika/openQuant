@@ -217,26 +217,27 @@
     border-bottom: 1px dashed #000;
   }
   :global(html:not(.dark)) .meta { color: #000; opacity: 0.7; }
-  :global(html:not(.dark)) .tone-muted { color: #000; opacity: 0.5; }
+  :global(html:not(.dark)) .tone-ok { color: oklch(var(--primary)); }
+  :global(html:not(.dark)) .tone-err,
+  :global(html:not(.dark)) .text-line.tone-error,
+  :global(html:not(.dark)) .text-line.tone-error .prefix {
+    color: oklch(var(--destructive));
+  }
+  :global(html:not(.dark)) .tone-warn,
+  :global(html:not(.dark)) .text-line.tone-warn,
+  :global(html:not(.dark)) .text-line.tone-warn .prefix {
+    color: #92400e;
+  }
+  :global(html:not(.dark)) .text-line.tone-info .prefix { color: #1d4ed8; }
   :global(html:not(.dark)) .meta kbd {
     background: #ffffff;
     border-color: #000;
     color: #000;
   }
-  :global(html:not(.dark)) .empty,
-  :global(html:not(.dark)) .empty-line.muted {
-    color: #000;
-    opacity: 0.55;
-  }
   :global(html:not(.dark)) .empty-line .ink {
     background: #ffffff;
     color: #000;
     border: 1px solid #000;
-  }
-  :global(html:not(.dark)) .block-head,
-  :global(html:not(.dark)) .prefix {
-    color: #000;
-    opacity: 0.7;
   }
   :global(html:not(.dark)) .block-title { color: #000; opacity: 1; }
   :global(html:not(.dark)) .trace {
@@ -337,12 +338,12 @@
   }
 
   .empty {
-    color: color-mix(in oklab, oklch(var(--foreground)) 40%, transparent);
+    color: oklch(var(--muted-foreground));
     font-style: italic;
   }
   .empty-line { margin: 0; }
   .empty-line.muted {
-    color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent);
+    color: oklch(var(--muted-foreground));
   }
   .empty-line .ink {
     font-style: normal;

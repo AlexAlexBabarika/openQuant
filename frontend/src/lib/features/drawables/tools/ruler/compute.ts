@@ -1,4 +1,5 @@
 import type { OHLCVCandle } from '$lib/core/types';
+import { formatMarketPrice } from '$lib/features/market/priceFormat';
 
 export interface RulerGeometry {
   startTime: number;
@@ -124,8 +125,9 @@ export function computeStats(
 }
 
 export function formatPriceDelta(n: number): string {
+  if (!Number.isFinite(n)) return '—';
   const sign = n >= 0 ? '+' : '−';
-  return `${sign}${Math.abs(n).toFixed(2)}`;
+  return `${sign}${formatMarketPrice(Math.abs(n))}`;
 }
 
 export function formatPct(n: number): string {

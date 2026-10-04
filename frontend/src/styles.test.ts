@@ -66,13 +66,18 @@ function contrast(
   background: string,
   vars: Record<string, string>,
   surface: string,
+  opacity = 1,
 ) {
   // Test both channel clipping and CSS Color 4's perceptual sRGB gamut mapping.
   return [(color: Rgb) => clampRgb(color), toGamut('rgb', 'oklch')].map(map => {
     const rgb = (value: string) =>
       converter('rgb')(map(resolveColor(value, vars)))!;
     const bg = composite(rgb(background), rgb(surface));
-    return wcagContrast(composite(rgb(foreground), bg), bg);
+    const text = rgb(foreground);
+    return wcagContrast(
+      composite({ ...text, alpha: (text.alpha ?? 1) * opacity }, bg),
+      bg,
+    );
   });
 }
 
@@ -95,6 +100,8 @@ beforeAll(async () => {
         ] as const
       ).flatMap(variant => buttonVariants({ variant }).split(' ')),
     ),
+    'bg-primary/10',
+    'text-primary',
   ];
   const compiled = await compileCss(source, { base, onDependency() {} });
   css = postcss.parse(
@@ -103,6 +110,30 @@ beforeAll(async () => {
 });
 
 describe.each([false, true])('resolved action colors (dark=%s)', dark => {
+  it('keeps enabled inactive-tab text readable on the muted surface', () => {
+    const vars = tokens(dark);
+    for (const ratio of contrast(
+      'oklch(var(--muted-foreground))',
+      'oklch(var(--muted))',
+      vars,
+      'oklch(var(--background))',
+    ))
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('keeps selected-control text readable over translucent primary on every surface', () => {
+    const vars = tokens(dark);
+    for (const surface of ['background', 'card', 'popover']) {
+      for (const ratio of contrast(
+        utility('text-primary').color,
+        utility('bg-primary/10')['background-color'],
+        vars,
+        `oklch(var(--${surface}))`,
+      ))
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('keeps every shared action variant readable normally and on hover on each surface', () => {
     const vars = tokens(dark);
     for (const variant of [
@@ -221,6 +252,139 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it.each([false, true])(
+    'keeps console statuses, output levels and empty hints readable (dark=%s)',
+    dark => {
+      const filename = `${base}components/indicators/ScriptOutputs.svelte`;
+      const panel = postcss.parse(
+        compileSvelte(readFileSync(filename, 'utf8'), {
+          filename,
+          generate: 'server',
+        }).css!.code,
+      );
+      panel.walkRules(rule => {
+        rule.selectors = rule.selectors.map(selector =>
+          selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
+        );
+      });
+      const state = (selector: string) => ({
+        ...declarations(selector, panel),
+        ...(dark ? {} : declarations(`html:not(.dark) ${selector}`, panel)),
+      });
+      const vars = tokens(dark);
+      for (const [surface, selectors] of [
+        ['.status', ['.tone-ok', '.tone-err', '.tone-warn', '.tone-muted']],
+        [
+          '.console',
+          [
+            '.empty',
+            '.empty-line.muted',
+            '.text-line.tone-info',
+            '.text-line.tone-warn',
+            '.text-line.tone-error',
+          ],
+        ],
+      ] as const) {
+        const substrate = state(surface).background;
+        for (const selector of selectors) {
+          const text = state(selector);
+          const opacity =
+            Number(text.opacity ?? 1) *
+            (selector === '.empty-line.muted'
+              ? Number(state('.empty').opacity ?? 1)
+              : 1);
+          for (const ratio of contrast(
+            text.color,
+            substrate,
+            vars,
+            substrate,
+            opacity,
+          ))
+            expect(ratio, `${selector} dark=${dark}`).toBeGreaterThanOrEqual(
+              4.5,
+            );
+        }
+      }
+    },
+  );
+
+  it('keeps the light error foreground readable on every surface', () => {
+    const vars = tokens(false);
+    for (const surface of ['background', 'card', 'popover']) {
+      const substrate = `oklch(var(--${surface}))`;
+      for (const ratio of contrast(
+        'oklch(var(--destructive))',
+        substrate,
+        vars,
+        substrate,
+      ))
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each([
+    'components/strategy/StrategyPanel.svelte',
+    'components/indicators/IndicatorsPanel.svelte',
+  ])('keeps %s tabs on semantic readable colors in both themes', filename => {
+    const path = `${base}${filename}`;
+    const panel = postcss.parse(
+      compileSvelte(readFileSync(path, 'utf8'), {
+        filename: path,
+        generate: 'server',
+      }).css!.code,
+    );
+    panel.walkRules(rule => {
+      rule.selectors = rule.selectors.map(selector =>
+        selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
+      );
+    });
+
+    expect(declarations('.tab', panel)).toMatchObject({
+      color: 'oklch(var(--muted-foreground))',
+      background: 'transparent',
+    });
+    expect(declarations('.tab:hover', panel).color).toBe(
+      'oklch(var(--foreground))',
+    );
+    expect(declarations('.tab.active', panel)).toMatchObject({
+      color: 'oklch(var(--primary-foreground))',
+      background: 'oklch(var(--primary))',
+    });
+    expect(declarations('html:not(.dark) .tab', panel)).toEqual({});
+    expect(declarations('.ri-time', panel).color).toBe(
+      'oklch(var(--muted-foreground))',
+    );
+    expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
+      'oklch(var(--destructive))',
+    );
+    expect(declarations('html:not(.dark) .ri-del', panel).color).toBe('#000');
+    expect(declarations('html:not(.dark) .ri-del:hover', panel)).toMatchObject({
+      background: '#000',
+      color: '#fff',
+    });
+    if (filename.includes('IndicatorsPanel')) {
+      expect(
+        declarations('html:not(.dark) .ri-status.running', panel).background,
+      ).toBe('oklch(var(--primary))');
+    }
+  });
+
+  it('preserves the dark-theme primary palette', () => {
+    const vars = tokens(true);
+    expect(converter('oklch')(`oklch(${vars['--primary']})`)).toMatchObject({
+      l: 0.648,
+      c: 0.2,
+      h: 131.684,
+    });
+    expect(
+      converter('oklch')(`oklch(${vars['--primary-foreground']})`),
+    ).toMatchObject({
+      l: 0.141,
+      c: 0.005,
+      h: 285.823,
+    });
+  });
+
   it.each([
     'components/chart/ChartOptionsMenu.svelte',
     'components/toolbar/ToolSettingsModal.svelte',

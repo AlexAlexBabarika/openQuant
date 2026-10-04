@@ -24,11 +24,12 @@ const item = (id: string) => ({
   style: { showStats: true },
 });
 
-function setup() {
+function setup(candleRevision?: number) {
   const props = client.proxy({
     symbol: 'AAA',
     provider: 'binance',
     interval: '1m',
+    candleRevision,
     items: [item('a'), item('b')],
     candles: [
       {
@@ -63,7 +64,12 @@ function setup() {
       candleBatchSignature: signature,
     },
     '$lib/features/drawables': {
-      getTool: (type: string) => (type === 'ruler' ? { compute } : undefined),
+      getTool: (type: string) =>
+        type === 'ruler'
+          ? { compute }
+          : type === 'position-long'
+            ? { compute, computeUsesCandles: false }
+            : undefined,
     },
     '$lib/features/drawables/tools/ruler/compute': { withRulerCandleIndex },
     '$lib/core/dev/drawablesProfile': {
@@ -86,6 +92,9 @@ function setup() {
       },
       get candles() {
         return props.candles;
+      },
+      get candleRevision() {
+        return props.candleRevision;
       },
       get computedData() {
         return client.get(data);
@@ -115,6 +124,100 @@ function setup() {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('uses owned revisions without scanning history, including same-reference edits', async () => {
+    const { props, requests, signature, data } = setup(0);
+    expect(signature).not.toHaveBeenCalled();
+    requests[0].request.resolve('old');
+    await Promise.resolve();
+    props.candles[0].volume = 777;
+    props.candleRevision = 1;
+    client.flush();
+    expect(requests).toHaveLength(4);
+    expect(data().has('a')).toBe(false);
+    expect(requests[0].signal.aborted).toBe(true);
+    props.candles = [{ ...props.candles[0], high: 500 }];
+    props.candleRevision = 2;
+    client.flush();
+    expect(requests).toHaveLength(6);
+    expect(signature).not.toHaveBeenCalled();
+    requests[2].request.resolve('obsolete');
+    await Promise.resolve();
+    expect(data().has('a')).toBe(false);
+    props.candleRevision = undefined;
+    client.flush();
+    expect(signature).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(8);
+  });
+
+  it('keeps geometry-only work/results across candle changes without hashing history', async () => {
+    const { props, requests, signature, data } = setup();
+    props.items = [{ ...item('position'), type: 'position-long' }];
+    client.flush();
+    const pending = requests[requests.length - 1];
+    const requestCount = requests.length;
+    signature.mockClear();
+    props.candles[0].close = 99;
+    client.flush();
+    expect(pending.signal.aborted).toBe(false);
+    expect(requests).toHaveLength(requestCount);
+    pending.request.resolve('metrics');
+    await Promise.resolve();
+    props.candles = [{ ...props.candles[0], volume: 500 }];
+    client.flush();
+    expect(signature).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(requestCount);
+    expect(data().get('position')).toBe('metrics');
+    props.items[0].geometry.endTime = 2;
+    client.flush();
+    expect(requests).toHaveLength(requestCount + 1);
+    expect(data().has('position')).toBe(false);
+    props.interval = '1h';
+    client.flush();
+    expect(requests).toHaveLength(requestCount + 2);
+    expect(requests[requestCount].signal.aborted).toBe(true);
+    requests[requestCount].request.resolve('obsolete');
+    await Promise.resolve();
+    expect(data().has('position')).toBe(false);
+  });
+
+  it('only recalculates candle-dependent tools in a mixed scene', async () => {
+    const { props, requests, data } = setup();
+    props.items[0].type = 'position-long';
+    client.flush();
+    requests[2].request.resolve('position-metrics');
+    requests[1].request.resolve('ruler-volume');
+    await Promise.resolve();
+    props.candles[0].volume = 777;
+    client.flush();
+    expect(requests.map(r => r.id)).toEqual(['a', 'b', 'a', 'b']);
+    expect(requests[2].signal.aborted).toBe(false);
+    expect(data().get('a')).toBe('position-metrics');
+    expect(data().has('b')).toBe(false);
+  });
+
+  it('skips history hashing without compute tools and resumes with fresh candles', () => {
+    const { props, signature, requests } = setup();
+    props.items = [];
+    client.flush();
+    signature.mockClear();
+    props.candles[0].close = 3;
+    props.candles.push({
+      ...props.candles[0],
+      timestamp: '2026-01-01T00:01:00Z',
+    });
+    client.flush();
+    expect(signature).not.toHaveBeenCalled();
+    props.items = [{ ...item('c'), type: 'horizontal-line' }];
+    client.flush();
+    expect(signature).not.toHaveBeenCalled();
+    props.items[0].type = 'ruler';
+    client.flush();
+    expect(signature).toHaveBeenCalledOnce();
+    expect(requests[requests.length - 1]?.id).toBe('c');
+    expect(signature.mock.calls[0][0]).toHaveLength(2);
+    expect(signature.mock.calls[0][0][0].close).toBe(3);
+  });
+
   it('clears result/status and cancels work if the same id no longer has a compute tool', async () => {
     const { props, requests, data, states } = setup();
     requests[0].request.resolve('old');

@@ -113,6 +113,7 @@ function createPositionTool(
     schemaVersion: 2,
     migrate: raw => migratePositionEntry(raw, type),
     createPlacement: ctx => positionBandPlacement(ctx, side),
+    computeUsesCandles: false,
     compute: (d, ctx) => computePositionMetrics(side, d, ctx),
     Renderer,
     Settings,

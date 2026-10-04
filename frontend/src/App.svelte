@@ -956,7 +956,7 @@
 <svelte:window onkeydown={event => { if (isCommandShortcut(event)) { event.preventDefault(); commandsOpen = !commandsOpen; } }} />
 
 <div class="flex flex-col h-dvh bg-background">
-  <DrawablesPersistence />
+  <DrawablesPersistence userId={$authState.user?.id ?? null} ready={sessionReady} />
   <TopHeader
     bind:symbol={chart.symbol}
     bind:period={chart.period}
@@ -1016,6 +1016,8 @@
       {/if}
       <Chart
         candles={chart.candles}
+        candleRevision={chart.candleRevision}
+        annotationOwner={sessionReady ? ($authState.user ? `user:${$authState.user.id}` : 'guest') : 'pending'}
         symbol={chart.loadedSymbol || chart.symbol}
         {chartType}
         {showArea}

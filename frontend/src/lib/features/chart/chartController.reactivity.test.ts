@@ -101,11 +101,13 @@ describe('chart reactive publication', () => {
     const ref = controller.candles;
     const resetCount = reset.mock.calls.length;
     const publicationCount = snapshots.length;
+    const revision = controller.candleRevision;
     const callbacks = subscribe.mock.calls[0][0];
     callbacks.onCandle({ ...candle, high: 90, close: 77, volume: 200 }, false);
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([1, 77, 200]);
     expect(snapshots).toHaveLength(publicationCount + 1);
+    expect(controller.candleRevision).toBe(revision + 1);
     callbacks.onCandle(
       {
         ...candle,
@@ -119,6 +121,7 @@ describe('chart reactive publication', () => {
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([2, 88, 500]);
     expect(snapshots).toHaveLength(publicationCount + 2);
+    expect(controller.candleRevision).toBe(revision + 2);
     expect(controller.candles).toBe(ref);
     expect(append).toHaveBeenCalledTimes(2);
     expect(reset).toHaveBeenCalledTimes(resetCount);
@@ -126,6 +129,16 @@ describe('chart reactive publication', () => {
     callbacks.onSnapshot?.([candle]);
     client.flush();
     expect(snapshots).toHaveLength(before);
+    expect(controller.candleRevision).toBe(revision + 2);
+    callbacks.onSnapshot?.([{ ...candle, timestamp: '2025-12-31T23:59:00Z' }]);
+    client.flush();
+    expect(controller.candleRevision).toBe(revision + 3);
+    callbacks.onCandle(
+      { ...candle, timestamp: '2026-01-01T00:01:00Z', close: 88, volume: 300 },
+      false,
+    );
+    client.flush();
+    expect(controller.candleRevision).toBe(revision + 3);
   });
 
   it('publishes CSV updates and drops old callbacks after account/destroy', () => {
@@ -135,19 +148,44 @@ describe('chart reactive publication', () => {
     client.flush();
     const callback = csvCallbacks[0].onCandle!;
     const resets = reset.mock.calls.length;
+    const revision = controller.candleRevision;
     callback(candle);
     client.flush();
     callback({ ...candle, high: 40, close: 33 });
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([1, 33, 100]);
+    expect(controller.candleRevision).toBe(revision + 2);
     expect(reset).toHaveBeenCalledTimes(resets);
+    callback({ ...candle, close: 33 });
+    client.flush();
+    expect(controller.candleRevision).toBe(revision + 2);
     user.id = null;
     callback({ ...candle, close: 99 });
     client.flush();
     expect(controller.candles).toEqual([]);
+    const afterSignOut = controller.candleRevision;
     stop();
     callback(candle);
+    expect(controller.candleRevision).toBe(afterSignOut);
     expect(append).toHaveBeenCalledTimes(2);
+  });
+
+  it('revisions same-length historical corrections and rejects stale stream publication', async () => {
+    const { controller, fetchHistory, subscribe } = setup();
+    await controller.loadMarketData();
+    client.flush();
+    const oldCallback = subscribe.mock.calls[0][0].onCandle;
+    const revision = controller.candleRevision;
+    fetchHistory.mockResolvedValueOnce({ candles: [{ ...candle, high: 99 }] });
+    await controller.loadMarketData();
+    client.flush();
+    expect(controller.candles[0].high).toBe(99);
+    expect(controller.candleRevision).toBeGreaterThan(revision);
+    const reloadedRevision = controller.candleRevision;
+    oldCallback({ ...candle, high: 200 }, false);
+    client.flush();
+    expect(controller.candleRevision).toBe(reloadedRevision);
+    expect(controller.candles[0].high).toBe(99);
   });
 
   it.each([false, true])(

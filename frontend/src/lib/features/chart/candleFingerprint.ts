@@ -14,20 +14,28 @@ function hashString(h: number, s: string): number {
 }
 
 /**
- * Fingerprint of the full candle series: any change to any bar’s OHLCV or
- * timestamp changes the result. Used in drawable `compute` `workKey` so we
- * do not skip work when only the array reference changes.
+ * Full-series dirty key, including historical OHLCV edits. Numeric fields use
+ * fixed-width bytes to avoid decimal-string allocation on large histories.
  */
 export function candleBatchSignature(cs: OHLCVCandle[]): string {
   if (cs.length === 0) return '0';
   let hash = 0x811c9dc5;
+  const numberBytes = new DataView(new ArrayBuffer(8));
+  function hashNumber(value: number): void {
+    numberBytes.setFloat64(0, value === 0 ? 0 : value, true);
+    for (let i = 0; i < 8; i++) {
+      hash = Math.imul(hash ^ numberBytes.getUint8(i), 0x01000193);
+    }
+  }
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
-    if (i > 0) hash = hashString(hash, '\x1e');
-    hash = hashString(
-      hash,
-      `${c.timestamp}\x1f${c.open}\x1f${c.high}\x1f${c.low}\x1f${c.close}\x1f${c.volume}`,
-    );
+    hash = hashString(hash, c.timestamp);
+    hash = Math.imul(hash ^ 0x1f, 0x01000193);
+    hashNumber(c.open);
+    hashNumber(c.high);
+    hashNumber(c.low);
+    hashNumber(c.close);
+    hashNumber(c.volume);
   }
   return `${cs.length}:${(hash >>> 0).toString(16)}`;
 }

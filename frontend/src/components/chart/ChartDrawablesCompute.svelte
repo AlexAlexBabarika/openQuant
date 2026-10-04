@@ -11,6 +11,7 @@
   let {
     symbol,
     candles,
+    candleRevision,
     provider,
     interval,
     items,
@@ -19,6 +20,8 @@
   }: {
     symbol: string;
     candles: OHLCVCandle[];
+    /** Omit for externally mutable candles without an owned publication token. */
+    candleRevision?: number;
     provider: string;
     interval: string;
     items: readonly BundledDrawable[];
@@ -26,10 +29,18 @@
     computedStates?: Map<string, DrawableComputeState>;
   } = $props();
 
+  const needsCandles = $derived(items.some(d => {
+    const tool = getTool(d.type);
+    return tool?.compute && tool.computeUsesCandles !== false;
+  }));
   const candleSig = $derived(
-    measureDrawablesSync('drawables:candle-signature', () =>
-      candleBatchSignature(candles),
-    ),
+    needsCandles
+      ? candleRevision !== undefined
+        ? `revision:${candleRevision}`
+        : measureDrawablesSync('drawables:candle-signature', () =>
+            candleBatchSignature(candles),
+          )
+      : '0',
   );
   const jobs = new Map<string, { key: string; controller: AbortController }>();
   let destroyed = false;
@@ -41,12 +52,15 @@
     const prov = provider;
     const iv = interval;
     const keyed = measureDrawablesSync('drawables:workKey', () =>
-      items.map(d => ({
-        drawable: d,
-        key: JSON.stringify([
-          sym, prov, iv, sig, d.type, d.geometry, d.params, d.style,
-        ]),
-      })),
+      items.map(d => {
+        const dataKey = getTool(d.type)?.computeUsesCandles === false ? '0' : sig;
+        return {
+          drawable: d,
+          key: JSON.stringify([
+            sym, prov, iv, dataKey, d.type, d.geometry, d.params, d.style,
+          ]),
+        };
+      }),
     );
 
     untrack(() => {
