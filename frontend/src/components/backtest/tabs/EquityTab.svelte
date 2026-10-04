@@ -40,6 +40,7 @@
 <style>
   .equity {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr auto 0.4fr;
     height: 100%;
     min-height: 0;
@@ -63,6 +64,7 @@
   }
   .main,
   .sub {
+    min-width: 0;
     min-height: 0;
   }
   .sub-label {

@@ -10,6 +10,21 @@ import { tradeSelection, drawdownSelection } from './resultSelection';
 import { client, clientModule } from '../chart/reactiveTestSupport';
 
 describe('empty backtest results', () => {
+  it.each(['EquityTab', 'DrawdownTab'])(
+    'lets %s chart grids shrink below an existing canvas width',
+    name => {
+      const source = readFileSync(
+        new URL(
+          `../../../components/backtest/tabs/${name}.svelte`,
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      expect(source).toContain('grid-template-columns: minmax(0, 1fr)');
+      expect(source).toContain('min-width: 0');
+    },
+  );
+
   it('reserves a separate layout row for a focused selection and its reset control', async () => {
     const backtest = new BacktestState(async () => sample);
     await backtest.load();

@@ -48,14 +48,17 @@
 <style>
   .drawdown {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(100px, 1fr) minmax(140px, 0.6fr);
     height: 100%;
     min-height: 0;
   }
   .chart {
+    min-width: 0;
     min-height: 0;
   }
   .table-wrap {
+    min-width: 0;
     min-height: 0;
     overflow: auto;
     border-top: 1px solid
