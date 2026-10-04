@@ -70,6 +70,72 @@ function setup() {
 afterEach(() => vi.resetAllMocks());
 
 describe('chart request and streaming lifecycles', () => {
+  it.each([
+    { candles: [{ ...candle, timestamp: 'invalid-date' }] },
+    { candles: [{ ...candle, volume: -1 }] },
+    { candles: [candle, candle] },
+    { candles: [{ ...candle, timestamp: '2026-01-02T00:00:00Z' }, candle] },
+  ])(
+    'rejects unusable history without replacing bars, context or receipt time (%j)',
+    async ({ candles }) => {
+      const { controller, onSymbolFetched } = setup();
+      await controller.loadMarketData();
+      const received = controller.snapshotReceivedAt;
+      const version = controller.marketDataVersion;
+      controller.interval = '1h';
+      vi.mocked(fetchMarketOHLCV).mockResolvedValueOnce({
+        ...response,
+        candles,
+      });
+      await controller.loadMarketData();
+      expect(controller.candles).toEqual([candle]);
+      expect(controller.loadedContext?.interval).not.toBe('1h');
+      expect(controller.snapshotReceivedAt).toBe(received);
+      expect(controller.marketDataVersion).toBe(version);
+      expect(controller.dataContextCurrent).toBe(false);
+      expect(controller.rejectedData).toMatchObject({
+        context: { interval: '1h' },
+        candles,
+      });
+      expect(controller.errorMessage).toContain('not replaced');
+      expect(onSymbolFetched).toHaveBeenCalledTimes(1);
+      expect(subscribeMarketStream).toHaveBeenCalledTimes(1);
+      await controller.loadMarketData();
+      expect(controller.rejectedData).toBeNull();
+      expect(controller.dataContextCurrent).toBe(true);
+    },
+  );
+
+  it('rejects invalid live data before publication, chart updates or final-bar signals', async () => {
+    const { controller } = setup();
+    await controller.loadMarketData();
+    const callbacks = vi.mocked(subscribeMarketStream).mock.calls[0][0];
+    const invalid = { ...candle, volume: -1 };
+    callbacks.onCandle(invalid, true);
+    callbacks.onCandleClose?.(invalid);
+    callbacks.onSnapshot?.([{ ...candle, timestamp: 'invalid-date' }]);
+    expect(controller.candles).toEqual([candle]);
+    expect(controller.streamReceivedAt).toBeNull();
+    expect(controller.liveBarCloseTs).toBeNull();
+    expect(controller.chartApi?.appendCandle).not.toHaveBeenCalled();
+    expect(controller.rejectedData?.candles[0].timestamp).toBe('invalid-date');
+  });
+
+  it('keeps browser receipt times associated with successful loaded data, including stale failures', async () => {
+    const { controller } = setup();
+    await controller.loadMarketData();
+    const received = controller.snapshotReceivedAt;
+    expect(received).toEqual(expect.any(Number));
+    expect(controller.streamReceivedAt).toBeNull();
+    const callbacks = vi.mocked(subscribeMarketStream).mock.calls[0][0];
+    callbacks.onCandle(candle, true);
+    expect(controller.streamReceivedAt).toEqual(expect.any(Number));
+    controller.symbol = 'OTHER';
+    vi.mocked(fetchMarketOHLCV).mockRejectedValueOnce(new Error('offline'));
+    await controller.loadMarketData();
+    expect(controller.snapshotReceivedAt).toBe(received);
+    expect(controller.loadedContext?.symbol).toBe('BTCUSDT');
+  });
   it.each([null, 'user-2'])(
     'rejects history and stream callbacks after changing account to %s',
     async nextUser => {

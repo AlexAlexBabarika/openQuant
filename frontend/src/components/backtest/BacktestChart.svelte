@@ -25,7 +25,7 @@
   const HOLDINGS_EPS = 1e-9;
 
   let containerEl = $state<HTMLDivElement | null>(null);
-  let chart: IChartApi | null = null;
+  let chart = $state.raw<IChartApi | null>(null);
   let candleSeries: ISeriesApi<'Candlestick'> | null = null;
   let inMarketSeries: ISeriesApi<'Histogram'> | null = null;
   let markers: ISeriesMarkersPluginApi<Time> | null = null;
@@ -57,12 +57,13 @@
   function buildMarkers(
     result: BacktestResult,
     hovered: number | null,
+    selected: number | null,
   ): SeriesMarker<Time>[] {
     const up = getCssVarColor('--up-color', '#26a69a');
     const down = getCssVarColor('--down-color', '#ef5350');
     const out: SeriesMarker<Time>[] = [];
     result.trades.forEach((tr, i) => {
-      const emp = i === hovered;
+      const emp = i === hovered || i === selected;
       const entryBar = result.bars[tr.entry_index];
       const exitBar = result.bars[tr.exit_index];
       if (entryBar) {
@@ -116,6 +117,10 @@
           : null;
       if (idx !== backtest.hoveredTrade) backtest.hoverTrade(idx);
     });
+    chart.subscribeClick(param => {
+      const index = param.time == null ? undefined : timeToTrade.get(Number(param.time));
+      if (index !== undefined) backtest.selectTrade(index);
+    });
 
     resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(containerEl);
@@ -142,12 +147,20 @@
     const result = backtest.result;
     const hovered = backtest.hoveredTrade;
     if (!result || !candleSeries) return;
-    const data = buildMarkers(result, hovered);
+    const data = buildMarkers(result, hovered, backtest.selection?.kind === 'trade' ? backtest.selection.index : null);
     if (markers) {
       markers.setMarkers(data);
     } else {
       markers = createSeriesMarkers(candleSeries, data);
     }
+  });
+
+  $effect(() => {
+    const selection = backtest.selection;
+    const result = backtest.result;
+    if (!chart || !result) return;
+    if (selection) chart.timeScale().setVisibleLogicalRange({ from: selection.from, to: selection.to });
+    else chart.timeScale().fitContent();
   });
 
   onDestroy(() => {

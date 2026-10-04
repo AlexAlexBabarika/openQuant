@@ -132,7 +132,9 @@
     { title: 'Backtesting', purpose: 'Inspect the latest simulated run and trades.' },
     { title: 'Analytics', purpose: 'Measure returns, risk and distributions on chart data.' },
     { title: 'Indicators', purpose: 'Write and project Python indicators onto the chart.' },
-    { title: 'Runs', purpose: 'Reopen stored runs and compare reproducible outputs.' },
+    { title: 'Runs', purpose: 'Name experiments, add notes, and compare with a baseline.' },
+    { title: 'Workspaces', purpose: 'Recover local drafts and restore research layouts.' },
+    { title: 'Commands', purpose: 'Ctrl/⌘ K: search symbols, tools, scripts, and recent runs.' },
   ];
 
   let backdropOpacity = $derived(clamp(progress, 0, 1));

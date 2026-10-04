@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { Dialog } from 'bits-ui';
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import X from '@lucide/svelte/icons/x';
@@ -18,12 +18,14 @@
     backtest = new BacktestState(),
     onCompareAfterRerun,
     onOpenRuns,
+    onCompare,
     embedded = false,
   }: {
     open?: boolean;
     backtest?: BacktestState;
     onCompareAfterRerun?: (a: string, b: string, diff: RunDiff) => void;
     onOpenRuns?: () => void;
+    onCompare?: (a: string, b: string) => void;
     embedded?: boolean;
   } = $props();
 
@@ -37,12 +39,14 @@
 
   async function rerun(): Promise<void> {
     const source = backtest;
+    const accountVersion = runsHistory.accountVersion;
     const id = source.result?.meta.run_id;
     if (!id) return;
     const label = source.result?.meta.strategy_id ?? 'run';
     const resp = await rerunState.run(id);
     if (
       resp &&
+      accountVersion === runsHistory.accountVersion &&
       source === backtest &&
       id === backtest.result?.meta.run_id &&
       open
@@ -59,7 +63,8 @@
 
   // Load the result the first time the panel opens.
   $effect(() => {
-    if (open && !embedded) void backtest.load();
+    const state = backtest;
+    if (open && !embedded) untrack(() => void state.load());
   });
 
 
@@ -89,6 +94,9 @@
         <span class="ctx-sym">{meta?.strategy_id ?? '—'}</span>
         {#if meta?.run_id}
           <RunIdChip runId={meta.run_id} onCompare={onOpenRuns} />
+          {#if onCompare && runsHistory.baseline && runsHistory.baseline.run_id !== meta.run_id}
+            <button type="button" class="ot-workbench-ghost" onclick={() => onCompare?.(runsHistory.baseline!.run_id, meta.run_id)}>Compare with baseline</button>
+          {/if}
         {/if}
       </div>
 
@@ -104,17 +112,29 @@
       onRerun={rerun}
     />
 
-    <div class="body">
+    <div class="body" class:has-selection={backtest.selection !== null}>
       {#if backtest.loading && !backtest.result}
-        <p class="status">running…</p>
+        <p class="status">Loading result…</p>
       {:else if backtest.error}
-        <p class="status err">{backtest.error}</p>
+        <div class="status">
+          <p class="err" role="alert">{backtest.error}</p>
+          {#if !embedded}
+            <p class="text-xs text-muted-foreground">A notebook reference does not guarantee that its stored result is available. Stored results require their original account.</p>
+            <button type="button" class="ot-workbench-ghost" onclick={() => void backtest.load()}>Retry loading result</button>
+          {/if}
+        </div>
       {:else if backtest.result && backtest.result.bars.length === 0}
         <p class="status">
           This run returned no market bars. Check the symbol and data range before running again.
         </p>
       {:else if backtest.result}
         <MetricsStrip metrics={backtest.result.metrics} />
+        {#if backtest.selection}
+          <div class="selection-summary flex flex-wrap items-center gap-2 px-3 py-1 text-xs" role="status">
+            <span>{backtest.selection.label} · this run's price bars</span>
+            <button type="button" class="ot-workbench-ghost" onclick={() => backtest.clearSelection()}>Show full run</button>
+          </div>
+        {/if}
         <div class="chart-pane">
           <BacktestChart {backtest} />
         </div>
@@ -149,10 +169,9 @@
   .embedded .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .embedded .body { display: flex; flex-direction: column; overflow-y: auto; }
   .embedded .chart-pane { height: 260px; flex-shrink: 0; }
-  .embedded .tabs-pane { min-height: 280px; flex-shrink: 0; }
+  .embedded .tabs-pane { min-height: 320px; flex-shrink: 0; }
   button:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
   @media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } }
-  @media (max-width: 900px) { .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; } .topbar .close { margin-left: auto; } }
 
   .backdrop {
     position: fixed;
@@ -212,7 +231,7 @@
 
   .topbar {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 16px;
     padding: 14px 22px;
@@ -241,6 +260,10 @@
     text-transform: uppercase;
   }
   .ctx {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
     justify-self: center;
     display: inline-flex;
     align-items: baseline;
@@ -263,6 +286,7 @@
     letter-spacing: 0.06em;
   }
   .iconbtn {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -285,7 +309,15 @@
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.25fr);
+    overflow-y: auto;
+    grid-template-rows: auto minmax(160px, 1fr) minmax(320px, 1.25fr);
+  }
+  .body.has-selection {
+    grid-template-rows: auto auto minmax(160px, 1fr) minmax(320px, 1.25fr);
+  }
+  .selection-summary {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .chart-pane,
   .tabs-pane {
@@ -303,7 +335,7 @@
     font-size: 13px;
     letter-spacing: 0.06em;
   }
-  .status.err {
+  .err {
     color: #ff9c9c;
   }
 
@@ -321,5 +353,13 @@
   :global(html:not(.dark)) .iconbtn {
     border-color: #000;
     color: #000;
+  }
+
+  @media (max-width: 900px) {
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .brand { flex: 1 1 14rem; min-width: 0; flex-wrap: wrap; }
+    .brand-sub { flex-basis: 100%; }
+    .topbar .close { order: 1; margin-left: auto; }
+    .ctx { order: 2; flex-basis: 100%; }
   }
 </style>

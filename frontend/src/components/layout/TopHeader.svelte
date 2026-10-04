@@ -31,6 +31,9 @@
     onstream = () => {},
     oncsvupload = (_file: File) => {},
     onstrategy = () => {},
+    onworkspaces = () => {},
+    oninspectdata = () => {},
+    loadedProvider = null,
     errorMessage = null,
     compact = false,
   }: {
@@ -45,6 +48,9 @@
     onstream: () => void;
     oncsvupload: (file: File) => void;
     onstrategy?: () => void;
+    onworkspaces?: () => void;
+    oninspectdata?: () => void;
+    loadedProvider?: string | null;
     errorMessage?: string | null;
     compact?: boolean;
   } = $props();
@@ -54,6 +60,12 @@
   let accountOpen = $state(false);
   let dataSettingsOpen = $state(false);
   let currentUser = $derived($authState.user);
+
+  async function openResearch(action: () => void) {
+    dataSettingsOpen = false;
+    await tick();
+    action();
+  }
 
   async function handleLogout() {
     await logout();
@@ -85,6 +97,8 @@
 </script>
 
 {#snippet dataControls()}
+  <button type="button" class="ot-workbench-ghost" onclick={() => openResearch(onworkspaces)}>Workspaces</button>
+  <button type="button" class="ot-workbench-ghost" onclick={() => openResearch(oninspectdata)} aria-label="Inspect loaded market data">{loadedProvider ?? 'No data'} · inspect</button>
   <PeriodPicker bind:value={period} />
   <Select.Root type="single" bind:value={source}>
     <Select.Trigger class="ot-ctx-pill h-7 px-3 outline-none [&_svg]:opacity-60" aria-label="Market data source">

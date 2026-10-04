@@ -41,6 +41,15 @@ Use OpenQuant to:
 > [!WARNING]
 > OpenQuant is educational and research software, not investment advice or a brokerage. It does not place trades. Backtests and simulated results do not guarantee future performance. Market data may be delayed, incomplete, or inaccurate; verify important information with an authoritative source before making financial decisions.
 
+## Continuing research
+
+- Open **Runs** in the toolbox to name experiments, add comma-separated tags and notes, and pin a single-symbol baseline. **Compare with baseline** beside a result uses the existing stored-run comparison; portfolio runs can be reopened but are not comparable to single-symbol baselines.
+- **Workspaces** offers local Strategy/Indicator draft recovery and up to ten named presets. Presets include data context, overlays, panel visibility, editor split sizes, and copies of both editor drafts. Restore requires confirmation, does not execute scripts, and does not include CSV data. Re-upload CSV files when needed.
+- Draft recovery, notebook annotations, and presets live in this browser, separated by account (including a guest scope). They are not cloud saves or a secure vault. Reloaded drafts require an explicit recovery choice; clearing browser storage removes them. Older unscoped notebook references remain in the guest notebook; you can explicitly copy them into your account from **Runs** without moving the originals. Account-saved scripts and stored results retain their existing account requirements.
+- **Inspect data** in the data controls shows loaded versus selected context, actual coverage, browser receipt times, and observed timestamp/OHLCV anomalies. Long intervals are not proof of missing bars; exchange calendars and adjustment policies remain unknown unless supplied by the source.
+- In result **Trades** and **Drawdown** tabs, **Focus** selects that period on the result's own price chart. **Show full run** clears the selection without changing calculations.
+- Press **Ctrl/⌘ K**, or choose **Commands** in the toolbox, to search research surfaces, drawing tools, symbols, saved account scripts, and notebook runs. Use arrow keys and Enter to select, Escape to dismiss. Opening a saved script does not run it and asks before discarding unsaved editor changes.
+
 ## Quick start
 
 1. Install [Docker Desktop](https://docs.docker.com/desktop/) (or Docker Engine with the Compose plugin on Linux).
