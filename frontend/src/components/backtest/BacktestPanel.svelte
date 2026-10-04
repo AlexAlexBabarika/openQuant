@@ -169,7 +169,7 @@
   .embedded .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .embedded .body { display: flex; flex-direction: column; overflow-y: auto; }
   .embedded .chart-pane { height: 260px; flex-shrink: 0; }
-  .embedded .tabs-pane { min-height: 280px; flex-shrink: 0; }
+  .embedded .tabs-pane { min-height: 320px; flex-shrink: 0; }
   button:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
   @media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } }
 
@@ -309,10 +309,11 @@
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.25fr);
+    overflow-y: auto;
+    grid-template-rows: auto minmax(160px, 1fr) minmax(320px, 1.25fr);
   }
   .body.has-selection {
-    grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-template-rows: auto auto minmax(160px, 1fr) minmax(320px, 1.25fr);
   }
   .selection-summary {
     min-width: 0;

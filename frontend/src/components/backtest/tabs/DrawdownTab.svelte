@@ -48,7 +48,7 @@
 <style>
   .drawdown {
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: minmax(100px, 1fr) minmax(140px, 0.6fr);
     height: 100%;
     min-height: 0;
   }
@@ -56,7 +56,7 @@
     min-height: 0;
   }
   .table-wrap {
-    max-height: 42%;
+    min-height: 0;
     overflow: auto;
     border-top: 1px solid
       color-mix(in oklab, oklch(var(--border)) 100%, transparent);
