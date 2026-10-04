@@ -105,6 +105,8 @@ export interface DrawableTool<
     drawable: Drawable<Geo, Params, Style>,
     ctx: ComputeCtx,
   ) => Data | Promise<Data>;
+  /** Defaults to true; false keeps geometry-only results across candle updates. */
+  computeUsesCandles?: boolean;
 
   Renderer: Component<RendererProps<Geo, Params, Style, Data>>;
   Settings: Component<SettingsProps<Geo, Params, Style>>;

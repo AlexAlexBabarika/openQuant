@@ -26,7 +26,10 @@
     computedStates?: Map<string, DrawableComputeState>;
   } = $props();
 
-  const needsCandles = $derived(items.some(d => Boolean(getTool(d.type)?.compute)));
+  const needsCandles = $derived(items.some(d => {
+    const tool = getTool(d.type);
+    return tool?.compute && tool.computeUsesCandles !== false;
+  }));
   const candleSig = $derived(
     needsCandles
       ? measureDrawablesSync('drawables:candle-signature', () =>
@@ -44,12 +47,15 @@
     const prov = provider;
     const iv = interval;
     const keyed = measureDrawablesSync('drawables:workKey', () =>
-      items.map(d => ({
-        drawable: d,
-        key: JSON.stringify([
-          sym, prov, iv, sig, d.type, d.geometry, d.params, d.style,
-        ]),
-      })),
+      items.map(d => {
+        const dataKey = getTool(d.type)?.computeUsesCandles === false ? '0' : sig;
+        return {
+          drawable: d,
+          key: JSON.stringify([
+            sym, prov, iv, dataKey, d.type, d.geometry, d.params, d.style,
+          ]),
+        };
+      }),
     );
 
     untrack(() => {

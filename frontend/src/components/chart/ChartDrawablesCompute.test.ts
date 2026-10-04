@@ -63,7 +63,12 @@ function setup() {
       candleBatchSignature: signature,
     },
     '$lib/features/drawables': {
-      getTool: (type: string) => (type === 'ruler' ? { compute } : undefined),
+      getTool: (type: string) =>
+        type === 'ruler'
+          ? { compute }
+          : type === 'position-long'
+            ? { compute, computeUsesCandles: false }
+            : undefined,
     },
     '$lib/features/drawables/tools/ruler/compute': { withRulerCandleIndex },
     '$lib/core/dev/drawablesProfile': {
@@ -115,6 +120,52 @@ function setup() {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('keeps geometry-only work/results across candle changes without hashing history', async () => {
+    const { props, requests, signature, data } = setup();
+    props.items = [{ ...item('position'), type: 'position-long' }];
+    client.flush();
+    const pending = requests[requests.length - 1];
+    const requestCount = requests.length;
+    signature.mockClear();
+    props.candles[0].close = 99;
+    client.flush();
+    expect(pending.signal.aborted).toBe(false);
+    expect(requests).toHaveLength(requestCount);
+    pending.request.resolve('metrics');
+    await Promise.resolve();
+    props.candles = [{ ...props.candles[0], volume: 500 }];
+    client.flush();
+    expect(signature).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(requestCount);
+    expect(data().get('position')).toBe('metrics');
+    props.items[0].geometry.endTime = 2;
+    client.flush();
+    expect(requests).toHaveLength(requestCount + 1);
+    expect(data().has('position')).toBe(false);
+    props.interval = '1h';
+    client.flush();
+    expect(requests).toHaveLength(requestCount + 2);
+    expect(requests[requestCount].signal.aborted).toBe(true);
+    requests[requestCount].request.resolve('obsolete');
+    await Promise.resolve();
+    expect(data().has('position')).toBe(false);
+  });
+
+  it('only recalculates candle-dependent tools in a mixed scene', async () => {
+    const { props, requests, data } = setup();
+    props.items[0].type = 'position-long';
+    client.flush();
+    requests[2].request.resolve('position-metrics');
+    requests[1].request.resolve('ruler-volume');
+    await Promise.resolve();
+    props.candles[0].volume = 777;
+    client.flush();
+    expect(requests.map(r => r.id)).toEqual(['a', 'b', 'a', 'b']);
+    expect(requests[2].signal.aborted).toBe(false);
+    expect(data().get('a')).toBe('position-metrics');
+    expect(data().has('b')).toBe(false);
+  });
+
   it('skips history hashing without compute tools and resumes with fresh candles', () => {
     const { props, signature, requests } = setup();
     props.items = [];
