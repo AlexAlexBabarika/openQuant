@@ -24,11 +24,12 @@ const item = (id: string) => ({
   style: { showStats: true },
 });
 
-function setup() {
+function setup(candleRevision?: number) {
   const props = client.proxy({
     symbol: 'AAA',
     provider: 'binance',
     interval: '1m',
+    candleRevision,
     items: [item('a'), item('b')],
     candles: [
       {
@@ -92,6 +93,9 @@ function setup() {
       get candles() {
         return props.candles;
       },
+      get candleRevision() {
+        return props.candleRevision;
+      },
       get computedData() {
         return client.get(data);
       },
@@ -120,6 +124,31 @@ function setup() {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('uses owned revisions without scanning history, including same-reference edits', async () => {
+    const { props, requests, signature, data } = setup(0);
+    expect(signature).not.toHaveBeenCalled();
+    requests[0].request.resolve('old');
+    await Promise.resolve();
+    props.candles[0].volume = 777;
+    props.candleRevision = 1;
+    client.flush();
+    expect(requests).toHaveLength(4);
+    expect(data().has('a')).toBe(false);
+    expect(requests[0].signal.aborted).toBe(true);
+    props.candles = [{ ...props.candles[0], high: 500 }];
+    props.candleRevision = 2;
+    client.flush();
+    expect(requests).toHaveLength(6);
+    expect(signature).not.toHaveBeenCalled();
+    requests[2].request.resolve('obsolete');
+    await Promise.resolve();
+    expect(data().has('a')).toBe(false);
+    props.candleRevision = undefined;
+    client.flush();
+    expect(signature).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(8);
+  });
+
   it('keeps geometry-only work/results across candle changes without hashing history', async () => {
     const { props, requests, signature, data } = setup();
     props.items = [{ ...item('position'), type: 'position-long' }];

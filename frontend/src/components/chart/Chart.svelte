@@ -66,6 +66,7 @@
 
   let {
     candles = [] as OHLCVCandle[],
+    candleRevision = undefined as number | undefined,
     symbol = '',
     chartType = 'candlestick' as ChartType,
     showArea = true,
@@ -89,6 +90,7 @@
     onSetComparisonSeriesType,
   }: {
     candles: OHLCVCandle[];
+    candleRevision?: number;
     symbol: string;
     chartType?: ChartType;
     showArea?: boolean;
@@ -751,6 +753,7 @@
   {coordMap}
   {symbol}
   {candles}
+  {candleRevision}
   {provider}
   {interval}
   seriesIdentity={chartType}

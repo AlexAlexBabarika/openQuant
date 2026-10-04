@@ -11,6 +11,7 @@
   let {
     symbol,
     candles,
+    candleRevision,
     provider,
     interval,
     items,
@@ -19,6 +20,8 @@
   }: {
     symbol: string;
     candles: OHLCVCandle[];
+    /** Omit for externally mutable candles without an owned publication token. */
+    candleRevision?: number;
     provider: string;
     interval: string;
     items: readonly BundledDrawable[];
@@ -32,9 +35,11 @@
   }));
   const candleSig = $derived(
     needsCandles
-      ? measureDrawablesSync('drawables:candle-signature', () =>
-          candleBatchSignature(candles),
-        )
+      ? candleRevision !== undefined
+        ? `revision:${candleRevision}`
+        : measureDrawablesSync('drawables:candle-signature', () =>
+            candleBatchSignature(candles),
+          )
       : '0',
   );
   const jobs = new Map<string, { key: string; controller: AbortController }>();

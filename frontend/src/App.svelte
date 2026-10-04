@@ -770,6 +770,7 @@
     <div class="flex-1 min-w-0 min-h-0 flex flex-col">
       <Chart
         candles={chart.candles}
+        candleRevision={chart.candleRevision}
         symbol={chart.symbol}
         {chartType}
         {showArea}

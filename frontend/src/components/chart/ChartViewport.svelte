@@ -20,6 +20,7 @@
     coordMap = null as CoordMap | null,
     symbol = '',
     candles = [] as OHLCVCandle[],
+    candleRevision = undefined as number | undefined,
     provider = 'yfinance',
     interval = '1d',
     seriesIdentity = '',
@@ -46,6 +47,7 @@
     coordMap: CoordMap | null;
     symbol: string;
     candles: OHLCVCandle[];
+    candleRevision?: number;
     provider: string;
     interval: string;
     seriesIdentity?: string;
@@ -109,6 +111,7 @@
     {coordMap}
     {symbol}
     {candles}
+    {candleRevision}
     {provider}
     {interval}
     {seriesIdentity}

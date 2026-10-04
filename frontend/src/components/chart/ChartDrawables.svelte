@@ -29,6 +29,7 @@
     activeTool,
     onActiveToolChange,
     candles = [] as OHLCVCandle[],
+    candleRevision = undefined as number | undefined,
     provider = 'yfinance',
     interval = '1d',
     seriesIdentity = '',
@@ -42,6 +43,7 @@
     /** Prefer this over nested $bindable so App state always updates when placement finishes. */
     onActiveToolChange: (t: ActiveTool) => void;
     candles: OHLCVCandle[];
+    candleRevision?: number;
     provider: string;
     interval: string;
     seriesIdentity?: string;
@@ -299,6 +301,7 @@
     bind:computedStates
     {symbol}
     {candles}
+    {candleRevision}
     {provider}
     {interval}
     items={itemsForSymbol}
