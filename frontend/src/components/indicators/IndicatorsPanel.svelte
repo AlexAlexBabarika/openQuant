@@ -24,6 +24,9 @@
     period,
     interval,
     indicators,
+    splitPct = $bindable(60),
+    recoverySavedAt = null,
+    tab = $bindable<'editor' | 'docs'>('editor'),
   }: {
     open?: boolean;
     symbol: string;
@@ -31,13 +34,14 @@
     period: string;
     interval: string;
     indicators: IndicatorState;
+    splitPct?: number;
+    recoverySavedAt?: string | null;
+    tab?: 'editor' | 'docs';
   } = $props();
 
   const ind = $derived(indicators);
 
-  let tab = $state<'editor' | 'docs'>('editor');
   let libraryOpen = $state(untrack(() => ind.scripts.length > 0));
-  let splitPct = $state(60);
   let dragging = $state(false);
   let panelEl = $state<HTMLDivElement | null>(null);
 
@@ -348,6 +352,7 @@
           </div>
         </div>
 
+        <p class="px-3 py-1 text-xs text-muted-foreground" title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{ind.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : ind.activeId ? 'Saved to account' : 'Local starter draft'}</p>
         <div class="split" style:--top="{splitPct}%">
           <div class="pane editor-pane">
             <ScriptEditor

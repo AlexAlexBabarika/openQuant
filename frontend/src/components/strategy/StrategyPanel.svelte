@@ -25,6 +25,7 @@
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
   import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
+  import { runsHistory } from '$lib/features/runs/runsHistory.svelte';
   import { SweepState } from '$lib/features/sweep/sweepState.svelte';
   import { PortfolioState } from '$lib/features/portfolio/portfolioState.svelte';
   import type { MarketDataProviderValue } from '$lib/features/market/marketDataProviders';
@@ -37,8 +38,12 @@
     interval,
     strategy,
     onOpenRuns,
+    onCompare,
     onRobustness,
     portfolioRunId = null,
+    editorShare = $bindable(50),
+    recoverySavedAt = null,
+    tab = $bindable<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor'),
   }: {
     open?: boolean;
     symbol: string;
@@ -47,14 +52,17 @@
     interval: string;
     strategy: StrategyState;
     onOpenRuns?: () => void;
+    onCompare?: (a: string, b: string) => void;
     onRobustness?: () => void;
     /** When set to a new id, load that stored portfolio run and show it. */
     portfolioRunId?: string | null;
+    editorShare?: number;
+    recoverySavedAt?: string | null;
+    tab?: 'editor' | 'sweep' | 'portfolio' | 'docs';
   } = $props();
 
   const strat = $derived(strategy);
 
-  let tab = $state<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor');
   // One SweepState for the panel's lifetime so a running sweep survives
   // toggling between the editor and sweep views; same for the portfolio run.
   const sweep = new SweepState();
@@ -62,7 +70,6 @@
   let backtestOpen = $state(false);
   let libraryOpen = $state(untrack(() => strat.scripts.length > 0));
   let editorView = $state<'editor' | 'results'>('editor');
-  let editorShare = $state(50);
   let panesEl = $state<HTMLDivElement | null>(null);
   let resizing = $state(false);
   let completedSource = $state<string | null>(null);
@@ -119,9 +126,15 @@
   async function runNow() {
     if (strat.isRunning || !symbol) return;
     const source = strat.draftCode;
+    const runName = strat.draftName;
+    const accountVersion = runsHistory.accountVersion;
     const context = `${symbol}|${provider}|${period}|${interval}`;
     const bt = await strat.runBacktest({ symbol, provider, period, interval });
     if (strat.backtest === bt && !bt.error) {
+      if (bt.result && accountVersion === runsHistory.accountVersion) runsHistory.record({
+        run_id: bt.result.meta.run_id, kind: 'single', label: runName,
+        created_at: bt.result.meta.finished_at,
+      });
       completedSource = source;
       completedContext = context;
       completedResult = bt;
@@ -374,6 +387,7 @@
           </div>
 
           <div class="editor-views" aria-label="Editor and results views">
+            <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
             <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'editor'} onclick={() => (editorView = 'editor')}>Editor</button>
             <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'results'} onclick={() => (editorView = 'results')}>Results</button>
             {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
@@ -393,7 +407,7 @@
           <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
           <div class="results-pane" class:inactive={editorView !== 'results'}>
             {#if strat.backtest}
-              <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} />
+              <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />
             {:else}
               <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p></div>
             {/if}
@@ -407,7 +421,7 @@
     </Dialog.Content>
   </Dialog.Portal>
 
-  <BacktestPanel bind:open={backtestOpen} backtest={strat.backtest ?? undefined} />
+  <BacktestPanel bind:open={backtestOpen} backtest={strat.backtest ?? undefined} {onOpenRuns} {onCompare} />
   <AuthDialog bind:open={authDialogOpen} />
 </Dialog.Root>
 

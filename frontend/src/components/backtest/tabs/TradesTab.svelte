@@ -110,11 +110,11 @@
       {#each rows as r (r.idx)}
         <tr
           bind:this={rowEls[r.idx]}
-          class:active={backtest.hoveredTrade === r.idx}
+          class:active={backtest.hoveredTrade === r.idx || (backtest.selection?.kind === 'trade' && backtest.selection.index === r.idx)}
           onmouseenter={() => backtest.hoverTrade(r.idx)}
           onmouseleave={() => backtest.hoverTrade(null)}
         >
-          <td class="num">{r.idx + 1}</td>
+          <td class="num"><button type="button" class="ot-workbench-ghost" aria-label={`Focus trade ${r.idx + 1} on result chart`} aria-pressed={backtest.selection?.kind === 'trade' && backtest.selection.index === r.idx} onclick={() => backtest.selectTrade(r.idx)}>#{r.idx + 1} ↗</button></td>
           <td>{formatIsoDate(r.entry_time)}</td>
           <td>{formatIsoDate(r.exit_time)}</td>
           <td class="side {r.side}">{r.side}</td>

@@ -4,8 +4,9 @@
   import { getCssVarColor } from '$lib/features/chart/chart';
   import { formatPct, formatUnixDate, formatInt } from '$lib/features/backtest/format';
   import type { BacktestResult } from '$lib/features/backtest/types';
+  import type { BacktestState } from '$lib/features/backtest/backtestState.svelte';
 
-  let { result }: { result: BacktestResult } = $props();
+  let { result, backtest }: { result: BacktestResult; backtest: BacktestState } = $props();
 
   const down = getCssVarColor('--down-color', '#ef5350');
   const underwater = $derived(underwaterSeries(result.equity));
@@ -31,7 +32,7 @@
       <tbody>
         {#each top as dd, i (dd.start)}
           <tr>
-            <td class="num">{i + 1}</td>
+            <td class="num"><button type="button" class="ot-workbench-ghost" aria-label={`Focus drawdown ${i + 1} on result chart`} aria-pressed={backtest.selection?.kind === 'drawdown' && backtest.selection.index === i} onclick={() => backtest.selectDrawdown(dd, i)}>#{i + 1} ↗</button></td>
             <td>{formatUnixDate(dd.start)}</td>
             <td>{formatUnixDate(dd.trough)}</td>
             <td>{dd.recovery == null ? 'ongoing' : formatUnixDate(dd.recovery)}</td>
@@ -47,7 +48,7 @@
 <style>
   .drawdown {
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: minmax(100px, 1fr) minmax(140px, 0.6fr);
     height: 100%;
     min-height: 0;
   }
@@ -55,7 +56,7 @@
     min-height: 0;
   }
   .table-wrap {
-    max-height: 42%;
+    min-height: 0;
     overflow: auto;
     border-top: 1px solid
       color-mix(in oklab, oklch(var(--border)) 100%, transparent);

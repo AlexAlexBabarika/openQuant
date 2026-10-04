@@ -9,12 +9,13 @@
     portfolio: PortfolioState,
     code: string,
     context: PortfolioRunContext,
-    history: Pick<RunsHistory, 'record'> = runsHistory,
+    history: Pick<RunsHistory, 'record'> & Partial<Pick<RunsHistory, 'accountVersion'>> = runsHistory,
   ): Promise<void> {
     if (portfolio.isRunning) return;
+    const accountVersion = history.accountVersion;
     const result = await portfolio.run(code, context);
     const runId = result?.meta?.run_id;
-    if (result && runId) {
+    if (result && runId && accountVersion === history.accountVersion) {
       const label =
         result.symbols.length <= 3
           ? result.symbols.join(', ')
