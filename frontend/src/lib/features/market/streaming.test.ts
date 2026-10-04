@@ -23,21 +23,71 @@ function setup() {
   } as unknown as ReturnType<typeof getStreamClient>);
   const onCandle = vi.fn();
   const onCandleClose = vi.fn();
+  const onRejected = vi.fn();
   subscribeMarketStream({
     ...sub,
     historyEndIso: '2026-01-01T00:00:00Z',
     onCandle,
     onCandleClose,
+    onRejected,
   });
   const handlers = subscribeCandles.mock.calls[0] as unknown as [
     unknown,
     CandleHandlers,
   ];
-  return { handlers: handlers[1], onCandle, onCandleClose };
+  return { handlers: handlers[1], onCandle, onCandleClose, onRejected };
 }
 afterEach(() => vi.clearAllMocks());
 
 describe('market stream reconciliation', () => {
+  it.each(['candle', 'snapshot'] as const)(
+    'rejects malformed future %s data without starving valid follow-up candles',
+    type => {
+      const { handlers, onCandle, onCandleClose, onRejected } = setup();
+      const bad = { ...candle('2099-01-01T00:00:00Z'), volume: -1 };
+      if (type === 'candle')
+        handlers.onCandle?.({ type, ...sub, candle: bad, is_final: true });
+      else handlers.onSnapshot?.({ type, ...sub, candles: [bad] });
+      expect(onCandle).not.toHaveBeenCalled();
+      expect(onCandleClose).not.toHaveBeenCalled();
+      expect(onRejected).toHaveBeenCalledExactlyOnceWith([bad]);
+      const valid = candle('2026-01-01T00:01:00Z');
+      handlers.onCandle?.({
+        type: 'candle',
+        ...sub,
+        candle: valid,
+        is_final: true,
+      });
+      expect(onCandle).toHaveBeenCalledExactlyOnceWith(valid, true);
+      expect(onCandleClose).toHaveBeenCalledExactlyOnceWith(valid);
+    },
+  );
+
+  it('rejects the whole malformed snapshot before cutoff filtering or gap-fill publication', () => {
+    const subscribeCandles = vi.fn(() => vi.fn());
+    vi.mocked(getStreamClient).mockReturnValue({
+      subscribeCandles,
+    } as unknown as ReturnType<typeof getStreamClient>);
+    const onSnapshot = vi.fn();
+    const onRejected = vi.fn();
+    subscribeMarketStream({
+      ...sub,
+      onCandle: vi.fn(),
+      onSnapshot,
+      onRejected,
+    });
+    const handlers = (
+      subscribeCandles.mock.calls[0] as unknown as [unknown, CandleHandlers]
+    )[1];
+    const bars = [candle('invalid'), candle('2099-01-01T00:00:00Z')];
+    handlers.onSnapshot?.({ type: 'snapshot', ...sub, candles: bars });
+    expect(onSnapshot).not.toHaveBeenCalled();
+    expect(onRejected).toHaveBeenCalledExactlyOnceWith(bars);
+    const valid = candle('2026-01-01T00:01:00Z');
+    handlers.onSnapshot?.({ type: 'snapshot', ...sub, candles: [valid] });
+    expect(onSnapshot).toHaveBeenCalledExactlyOnceWith([valid]);
+  });
+
   it('reports a rejected live subscription as an error instead of staying connected', () => {
     const subscribeCandles = vi.fn(() => vi.fn());
     vi.mocked(getStreamClient).mockReturnValue({

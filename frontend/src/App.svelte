@@ -516,7 +516,10 @@
   let runsOpen = $state(false);
   $effect(() => {
     const account = $authState.user?.id ?? null;
-    untrack(() => runsHistory.setAccount(account));
+    untrack(() => {
+      runsHistory.setAccount(account);
+      if (compareState.setAccount(account)) compareOpen = false;
+    });
   });
   let compareOpen = $state(false);
   let portfolioRunId = $state<string | null>(null);

@@ -1,3 +1,5 @@
+from hashlib import sha256
+
 from backend.backtesting.engine import run_backtest
 from backend.backtesting.run_config import RunInputs
 from backend.backtesting.run_snapshot import assemble_snapshot
@@ -58,6 +60,23 @@ def test_read_round_trips(tmp_path):
     assert blob["metrics"] == snap.metrics
     assert len(blob["bars"]) == len(snap.bars["data"])
     assert blob["bars"][0]["t"] == snap.bars["data"][0]["t"]
+    assert blob["strategy_source"] == {
+        "sha256": sha256(snap.strategy_code.encode()).hexdigest(),
+        "ast_hash": snap.meta["ast_hash"],
+    }
+
+
+def test_read_reports_missing_or_unparseable_source_without_hiding_results(tmp_path):
+    store = RunStore(tmp_path)
+    rid = store.write(_snap())
+    source = store.path(rid) / "strategy.py"
+    source.unlink()
+    assert store.read(rid)["strategy_source"] is None
+    source.write_text("def invalid(")
+    blob = store.read(rid)
+    assert blob["strategy_source"]["ast_hash"] is None
+    assert blob["strategy_source"]["sha256"] == sha256(source.read_bytes()).hexdigest()
+    assert blob["metrics"] == _snap().metrics
 
 
 def test_read_missing_raises(tmp_path):

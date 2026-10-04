@@ -70,6 +70,13 @@ def test_compare_shows_single_param_diff(tmp_path, monkeypatch):
     monkeypatch.setattr(rr, "_RUN_STORE", store)
     diff = TestClient(app).get(f"/backtests/runs/{rid_a}/compare/{rid_b}").json()
     assert [r["path"] for r in diff["inputs_diff"]] == ["params.n"]
+    row = next(r for r in diff["lineage"]["rows"] if r["path"] == "params")
+    assert row["a"]["value"] == {"n": 10}
+    assert row["b"]["value"] == {"n": 20}
+    assert row["status"] == "changed"
+    assert diff["metrics_diff"]
+    assert diff["equity_overlay"]["residual"]
+    assert "trades_diff" in diff
 
 
 def test_rerun_failing_strategy_returns_422(tmp_path, monkeypatch):

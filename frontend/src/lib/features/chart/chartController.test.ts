@@ -70,6 +70,23 @@ function setup() {
 afterEach(() => vi.resetAllMocks());
 
 describe('chart request and streaming lifecycles', () => {
+  it('retains rejected stream diagnostics without publishing or finalizing invalid bars', async () => {
+    const { controller } = setup();
+    await controller.loadMarketData();
+    const callbacks = vi.mocked(subscribeMarketStream).mock.calls[0][0];
+    const bad = { ...candle, timestamp: '2099-01-01T00:00:00Z', volume: -1 };
+    callbacks.onRejected?.([bad]);
+    expect(controller.rejectedData?.candles).toEqual([bad]);
+    expect(controller.candles).toEqual([candle]);
+    expect(controller.streamReceivedAt).toBeNull();
+    expect(controller.liveBarCloseTs).toBeNull();
+    expect(controller.chartApi?.appendCandle).not.toHaveBeenCalled();
+    controller.stopStream();
+    const rejection = controller.rejectedData;
+    callbacks.onRejected?.([{ ...bad, timestamp: '2100-01-01T00:00:00Z' }]);
+    expect(controller.rejectedData).toBe(rejection);
+  });
+
   it.each([
     { candles: [{ ...candle, timestamp: 'invalid-date' }] },
     { candles: [{ ...candle, volume: -1 }] },

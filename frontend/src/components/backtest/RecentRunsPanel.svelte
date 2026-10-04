@@ -35,11 +35,11 @@
   <Dialog.Content portalProps={{ disabled: typeof window === 'undefined' }} class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
     <Dialog.Header>
       <Dialog.Title>Experiment notebook</Dialog.Title>
-      <Dialog.Description>Run references, names, tags, and notes stay in this browser, separated by account. Stored results require their original account.</Dialog.Description>
+      <Dialog.Description>Run references, names, tags, and notes stay in this browser, separated by account. Stored snapshots are server-local and not account-scoped.</Dialog.Description>
     </Dialog.Header>
     {#if runsHistory.storageError}<p role="status">{runsHistory.storageError}</p>{/if}
     {#if runsHistory.guestReferenceCount}
-      <button type="button" class="ot-workbench-ghost" onclick={() => { if (confirm('Copy guest/legacy references and notes into this account? Existing account notes stay unchanged. Stored results still require their original account.')) runsHistory.copyGuestReferences(); }}>Copy {runsHistory.guestReferenceCount} guest/legacy references into this account</button>
+      <button type="button" class="ot-workbench-ghost" onclick={() => { if (confirm('Copy guest/legacy references and notes into this account? Existing account notes stay unchanged. This copies notebook metadata, not stored snapshots.')) runsHistory.copyGuestReferences(); }}>Copy {runsHistory.guestReferenceCount} guest/legacy references into this account</button>
     {/if}
     <label class="grid gap-1 text-sm">Search experiments<input class="rounded border bg-background p-2" bind:value={query} /></label>
     <button class="ot-workbench-ghost" type="button" disabled={selected.length !== 2} onclick={compareSelected}>Compare selected ({selected.length}/2)</button>

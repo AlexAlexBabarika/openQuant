@@ -328,6 +328,9 @@ export class ChartController {
       symbol: sym,
       interval,
       historyEndIso,
+      onRejected: candles => {
+        if (isCurrent()) this.#usableCandles(candles, context);
+      },
       onSnapshot: snapshot => {
         if (!isCurrent()) return;
         if (!this.#usableCandles(snapshot, context)) return;

@@ -14,6 +14,47 @@ const DIFF = {
 } as RunDiff;
 
 describe('CompareState', () => {
+  it('clears comparison lineage across accounts and ignores the old in-flight response', async () => {
+    let resolve!: (diff: RunDiff) => void;
+    const s = new CompareState({
+      compareRuns: () =>
+        new Promise<RunDiff>(done => {
+          resolve = done;
+        }),
+    } as never);
+    s.setAccount('alice');
+    s.setDiff('a', 'b', DIFF);
+    expect(s.setAccount('alice')).toBe(false);
+    expect(s.diff).toEqual(DIFF);
+    const pending = s.load('alice-a', 'alice-b');
+    expect(s.setAccount('bob')).toBe(true);
+    expect([s.a, s.b, s.diff, s.error]).toEqual([null, null, null, null]);
+    expect(s.loading).toBe(false);
+    resolve(DIFF);
+    await pending;
+    expect(s.diff).toBeNull();
+    s.setDiff('bob-a', 'bob-b', DIFF);
+    s.setAccount(null);
+    expect(s.diff).toBeNull();
+  });
+
+  it('does not show an account error after switching accounts', async () => {
+    let reject!: (error: Error) => void;
+    const s = new CompareState({
+      compareRuns: () =>
+        new Promise<RunDiff>((_, fail) => {
+          reject = fail;
+        }),
+    } as never);
+    s.setAccount('alice');
+    const pending = s.load('a', 'b');
+    s.setAccount('bob');
+    reject(new Error('old account error'));
+    await pending;
+    expect(s.error).toBeNull();
+    expect(s.loading).toBe(false);
+  });
+
   it('load() fetches and stores the diff', async () => {
     const compareRuns = vi.fn().mockResolvedValue(DIFF);
     const s = new CompareState({ compareRuns } as never);

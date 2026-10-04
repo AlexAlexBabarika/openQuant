@@ -49,11 +49,28 @@ export interface TradesDiff {
 }
 
 export interface RunDiff {
+  lineage?: RunLineage;
   inputs_diff: InputsDiffRow[];
   metrics_diff: MetricDiffRow[];
   equity_overlay: EquityOverlay;
   trades_diff: TradesDiff;
   status: { a: RunStatus; b: RunStatus };
+}
+
+export interface LineageCell {
+  available: boolean;
+  value: unknown;
+}
+
+export interface RunLineage {
+  rows: {
+    path: string;
+    label: string;
+    a: LineageCell;
+    b: LineageCell;
+    status: 'changed' | 'unchanged' | 'unavailable';
+  }[];
+  limitations: { a: string[]; b: string[] };
 }
 
 export interface RerunResponse {

@@ -120,6 +120,14 @@
     if (!open && !otherDialog) triggerEl?.focus();
   }
 
+  async function selectTile(title: string) {
+    if (!onTileSelect) return;
+    close();
+    await tick();
+    focusTrigger();
+    onTileSelect(title);
+  }
+
   $effect(() => {
     const nextOpen = open;
     untrack(() => {
@@ -308,13 +316,7 @@
       <p class="mb-3 text-xs text-muted-foreground">Research tools · simulated outputs, no live orders</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {#each cards as card (card.title)}
-          <button type="button" class="tool-card" aria-label="Open {card.title}" disabled={!onTileSelect} onclick={async () => {
-              if (onTileSelect) {
-                  close();
-                  await tick();
-                  onTileSelect(card.title);
-                }
-              }}><span class="font-mono text-sm font-bold">{card.title}</span><span class="text-xs text-muted-foreground">{card.purpose}</span></button>
+          <button type="button" class="tool-card" aria-label="Open {card.title}" disabled={!onTileSelect} onclick={() => void selectTile(card.title)}><span class="font-mono text-sm font-bold">{card.title}</span><span class="text-xs text-muted-foreground">{card.purpose}</span></button>
         {/each}
       </div>
       <p class="mt-4 text-xs text-muted-foreground">Chart annotations are separate: use Drawing tools for rulers, volume profiles and long/short position annotations. Their settings apply to all Elements of a type, not a selected object.</p>

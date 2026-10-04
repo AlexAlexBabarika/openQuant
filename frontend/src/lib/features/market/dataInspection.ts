@@ -1,4 +1,5 @@
 import type { OHLCVCandle } from '$lib/core/types';
+import { hasValidOhlcv } from '$lib/core/candles';
 
 export function inspectCandles(
   candles: readonly OHLCVCandle[],
@@ -35,13 +36,7 @@ export function inspectCandles(
       last = last === null ? t : Math.max(last, t);
       previous = t;
     }
-    if (
-      ![c.open, c.high, c.low, c.close, c.volume].every(Number.isFinite) ||
-      c.volume < 0 ||
-      c.high < Math.max(c.open, c.close, c.low) ||
-      c.low > Math.min(c.open, c.close, c.high)
-    )
-      invalidBars++;
+    if (!hasValidOhlcv(c)) invalidBars++;
   }
   return {
     count: candles.length,
