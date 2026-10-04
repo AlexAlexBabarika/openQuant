@@ -31,6 +31,7 @@ from contextlib import asynccontextmanager
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from polars.exceptions import PolarsError
 
 from backend.market import cache
 from backend.core.migrations import apply_migrations
@@ -86,6 +87,9 @@ FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 _WS_PROVIDERS = frozenset({"yfinance", "binance", "twelvedata", "csv"})
 _WS_PRIVATE_PROVIDERS = frozenset({"twelvedata", "csv"})
+_CSV_VALIDATION_ERROR = (
+    "Invalid CSV: check date/time columns, numeric values and row lengths."
+)
 _ws_connections: dict[str, int] = defaultdict(int)
 
 
@@ -296,7 +300,13 @@ async def post_csv(
         tmp.write(content)
         tmp_path = tmp.name
     try:
-        candles = await run_in_threadpool(load_csv, tmp_path, symbol)
+        try:
+            candles = await run_in_threadpool(load_csv, tmp_path, symbol)
+        except (ValueError, PolarsError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_CSV_VALIDATION_ERROR,
+            ) from exc
         cache.set_cached_csv(symbol, candles)
         return {
             "symbol": symbol,
@@ -332,6 +342,11 @@ async def csv_preview_endpoint(
                 {k: str(v) if hasattr(v, "isoformat") else v for k, v in r.items()}
             )
         return {"columns": columns, "preview": out_rows}
+    except (ValueError, PolarsError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_CSV_VALIDATION_ERROR,
+        ) from exc
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
