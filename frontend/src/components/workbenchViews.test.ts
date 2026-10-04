@@ -47,64 +47,109 @@ describe('persistent research task views', () => {
     },
   );
 
-  it('switches exclusively between tasks while preserving other URL parameters', () => {
-    const window = {
-      location: { href: 'http://localhost/?symbol=MSFT' },
-      history: {
-        pushState: vi.fn((_state: unknown, _title: string, url: URL) => {
-          window.location.href = url.href;
-        }),
-      },
-    };
-    const module = clientModule<{
-      default: (
-        anchor: unknown,
-        props: unknown,
-      ) => {
-        view: () => string;
-        chart: () => void;
-        strategy: () => void;
-        robustness: () => void;
+  it.each(['', '&trial=1'])(
+    'restores task history from initial query %s and preserves other URL parameters',
+    initialQuery => {
+      const entries: { url: string; state: Record<string, unknown> | null }[] =
+        [{ url: `http://localhost/?symbol=MSFT${initialQuery}`, state: null }];
+      let position = 0;
+      const window = {
+        location: {
+          href: entries[0].url,
+          search: new URL(entries[0].url).search,
+        },
+        history: {
+          state: null as Record<string, unknown> | null,
+          pushState: vi.fn(
+            (state: Record<string, unknown>, _title: string, url: URL) => {
+              entries.splice(++position, entries.length, {
+                url: url.href,
+                state,
+              });
+              window.history.state = state;
+              window.location.href = url.href;
+              window.location.search = url.search;
+            },
+          ),
+          go: (delta: number) => {
+            position += delta;
+            window.history.state = entries[position].state;
+            window.location.href = entries[position].url;
+            window.location.search = new URL(entries[position].url).search;
+          },
+        },
       };
-    }>(
-      app,
-      { 'test:entry': { selectEntry, trialSearch }, 'test:window': { window } },
-      `<script lang="ts">
+      const module = clientModule<{
+        default: (
+          anchor: unknown,
+          props: unknown,
+        ) => {
+          view: () => string;
+          chart: () => void;
+          strategy: () => void;
+          robustness: () => void;
+          navigate: (delta: number) => void;
+        };
+      }>(
+        app,
+        {
+          'test:entry': { selectEntry, trialSearch },
+          'test:window': { window },
+        },
+        `<script lang="ts">
       import { selectEntry, trialSearch } from 'test:entry';
       import { window } from 'test:window';
       window.location.search = new URL(window.location.href).search;
-      ${componentDeclarations(app, ['trialOpen', 'strategyOpen', 'activeView', 'setTrialOpen', 'openStrategy', 'openChart'])}
+      ${componentDeclarations(app, ['trialOpen', 'strategyOpen', 'activeView', 'setTrialOpen', 'openStrategy', 'openChart', 'syncWorkbenchView'])}
       export function view() { return activeView; }
       export function chart() { openChart(); }
       export function strategy() { openStrategy(); }
       export function robustness() { setTrialOpen(true); }
+      export function navigate(delta: number) { window.history.go(delta); syncWorkbenchView(); }
     </script>`,
-    );
-    let harness!: ReturnType<typeof module.default>;
-    const stop = client.effect_root(() => {
-      harness = module.default(null, {});
-    });
-    try {
-      expect(harness.view()).toBe('chart');
-      harness.strategy();
-      expect(harness.view()).toBe('strategy');
-      harness.robustness();
-      expect(harness.view()).toBe('robustness');
-      expect(new URL(window.location.href).searchParams.get('trial')).toBe('1');
-      harness.strategy();
-      expect(harness.view()).toBe('strategy');
-      expect(new URL(window.location.href).searchParams.has('trial')).toBe(
-        false,
       );
-      harness.chart();
-      expect(harness.view()).toBe('chart');
-      expect(new URL(window.location.href).searchParams.get('symbol')).toBe(
-        'MSFT',
-      );
-    } finally {
-      stop();
-    }
-  });
+      let harness!: ReturnType<typeof module.default>;
+      const stop = client.effect_root(() => {
+        harness = module.default(null, {});
+      });
+      try {
+        const initialView = initialQuery ? 'robustness' : 'chart';
+        expect(harness.view()).toBe(initialView);
+        harness.strategy();
+        expect(harness.view()).toBe('strategy');
+        harness.navigate(-1);
+        expect(harness.view()).toBe(initialView);
+        harness.navigate(1);
+        expect(harness.view()).toBe('strategy');
+        harness.chart();
+        harness.navigate(-1);
+        expect(harness.view()).toBe('strategy');
+        harness.navigate(1);
+        expect(harness.view()).toBe('chart');
+        harness.robustness();
+        expect(harness.view()).toBe('robustness');
+        expect(new URL(window.location.href).searchParams.get('trial')).toBe(
+          '1',
+        );
+        harness.strategy();
+        expect(harness.view()).toBe('strategy');
+        harness.navigate(-1);
+        expect(harness.view()).toBe('robustness');
+        harness.navigate(1);
+        expect(harness.view()).toBe('strategy');
+        expect(new URL(window.location.href).searchParams.has('trial')).toBe(
+          false,
+        );
+        harness.chart();
+        expect(harness.view()).toBe('chart');
+        expect(new URL(window.location.href).searchParams.get('symbol')).toBe(
+          'MSFT',
+        );
+      } finally {
+        stop();
+      }
+    },
+  );
 
   it('keeps chart, editor and report components mounted instead of conditionally destroying them', () => {
     const fragment = parse(readFileSync(app, 'utf8'), {

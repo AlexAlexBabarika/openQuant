@@ -139,34 +139,35 @@
 
   let trialOpen = $state(selectEntry(window.location.search, false) === 'trial');
 
-  function setTrialOpen(open: boolean): void {
+  function setTrialOpen(open: boolean, workspaceView: 'chart' | 'strategy' = 'chart'): void {
+    const view = open ? 'robustness' : workspaceView;
     trialOpen = open;
-    if (open) strategyOpen = false;
+    strategyOpen = view === 'strategy';
     const url = new URL(window.location.href);
     const search = trialSearch(url.search, open);
-    if (url.search !== search) {
+    const currentView = window.history.state?.openquantView ?? (selectEntry(url.search, false) === 'trial' ? 'robustness' : 'chart');
+    if (url.search !== search || currentView !== view) {
       url.search = search;
-      window.history.pushState(null, '', url);
+      window.history.pushState({ ...window.history.state, openquantView: view }, '', url);
     }
   }
 
   function openStrategy(): void {
-    setTrialOpen(false);
-    strategyOpen = true;
+    setTrialOpen(false, 'strategy');
   }
 
   function openChart(): void {
     setTrialOpen(false);
-    strategyOpen = false;
+  }
+
+  function syncWorkbenchView(): void {
+    trialOpen = selectEntry(window.location.search, false) === 'trial';
+    strategyOpen = !trialOpen && window.history.state?.openquantView === 'strategy';
   }
 
   onMount(() => {
-    const syncTrial = () => {
-      trialOpen = selectEntry(window.location.search, false) === 'trial';
-      if (trialOpen) strategyOpen = false;
-    };
-    window.addEventListener('popstate', syncTrial);
-    return () => window.removeEventListener('popstate', syncTrial);
+    window.addEventListener('popstate', syncWorkbenchView);
+    return () => window.removeEventListener('popstate', syncWorkbenchView);
   });
 
   const chart = new ChartController({
@@ -360,7 +361,7 @@
   let indicatorsOpen = $state(false);
   let analyticsOpen = $state(false);
   let backtestOpen = $state(false);
-  let strategyOpen = $state(false);
+  let strategyOpen = $state(selectEntry(window.location.search, false) !== 'trial' && window.history.state?.openquantView === 'strategy');
   const activeView = $derived(trialOpen ? 'robustness' : strategyOpen ? 'strategy' : 'chart');
   const indicators = new IndicatorState();
   const analytics = new AnalyticsState();
@@ -520,8 +521,8 @@
       editor.newDraft(() => true); editor.setName(layout[kind].name); editor.setCode(layout[kind].code); editor.dirty = true;
       researchShelf.resolve(kind); draftBoundary[kind] = '';
     }
-    setTrialOpen(false);
-    strategyOpen = layout.strategyOpen; indicatorsOpen = layout.indicatorsOpen;
+    setTrialOpen(false, layout.strategyOpen ? 'strategy' : 'chart');
+    indicatorsOpen = layout.indicatorsOpen;
     if (chart.source !== 'csv') void chart.loadMarketData();
     else chart.errorMessage = 'Workspace restored. Upload its CSV again; CSV bars are not part of the preset.';
     return true;
