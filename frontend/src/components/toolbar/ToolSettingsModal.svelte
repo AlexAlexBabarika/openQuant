@@ -24,7 +24,7 @@
   // Staged copies live for the lifetime of the open modal. Cleared on close.
   let stagedParams = $state<unknown>(null);
   let stagedStyle = $state<unknown>(null);
-  let lastOpenedType: string | null = null;
+  let lastOpenedType = $state<string | null>(null);
   let panelEl = $state<HTMLDivElement | null>(null);
   const modal = createModalLifecycle();
   onDestroy(() => modal.close());
@@ -79,12 +79,12 @@
 >
   <Dialog.Content
     bind:ref={panelEl}
-    class="sm:max-w-md"
+    class="sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto"
     showCloseButton={false}
     onOpenAutoFocus={() => modal.open(panelEl)}
     onCloseAutoFocus={() => modal.close()}
   >
-    {#if tool && stagedParams !== null && stagedStyle !== null}
+    {#if tool && lastOpenedType === tool.type && stagedParams !== null && stagedStyle !== null}
       {@const SettingsCmp = tool.Settings}
       <Dialog.Header>
         <Dialog.Title class="text-lg font-semibold"
