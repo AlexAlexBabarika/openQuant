@@ -11,6 +11,146 @@ afterEach(() => {
 });
 
 describe('Chart active series integration', () => {
+  it.each([
+    ['BacktestChart', 'pendingViewport', 'updateViewport'],
+    ['TimeSeriesChart', 'pendingFitContent', 'fitSeriesContent'],
+  ])(
+    'defers hidden %s result fitting and preserves its viewport on later task switches',
+    (name, flag, fit) => {
+      const url = new URL(`../backtest/${name}.svelte`, import.meta.url);
+      const order: string[] = [];
+      const fitContent = vi.fn(() => order.push('fit'));
+      const setVisibleLogicalRange = vi.fn();
+      const applyOptions = vi.fn(() => order.push('resize'));
+      const containerEl = { clientWidth: 0, clientHeight: 0 };
+      const backtest: { selection: { from: number; to: number } | null } = {
+        selection: null,
+      };
+      const module = clientModule<{
+        default: (
+          anchor: unknown,
+          props: unknown,
+        ) => { fit: () => void; resize: () => void };
+      }>(
+        url,
+        {
+          'test:chart': {
+            containerEl,
+            backtest,
+            chart: {
+              applyOptions,
+              timeScale: () => ({ fitContent, setVisibleLogicalRange }),
+            },
+          },
+        },
+        `<script lang="ts">
+      import { chart, containerEl, backtest } from 'test:chart';
+      ${componentDeclarations(url, [flag, fit, 'resize'])}
+      export function fit() { ${fit}(); }
+      export { resize };
+      </script>`,
+      );
+      let harness!: ReturnType<typeof module.default>;
+      cleanups.push(
+        client.effect_root(() => {
+          harness = module.default(null, {});
+        }),
+      );
+      harness.fit();
+      harness.resize();
+      expect(order).toEqual([]);
+      containerEl.clientWidth = 900;
+      containerEl.clientHeight = 260;
+      harness.resize();
+      expect(order).toEqual(['resize', 'fit']);
+      containerEl.clientWidth = 0;
+      harness.resize();
+      containerEl.clientWidth = 900;
+      harness.resize();
+      expect(fitContent).toHaveBeenCalledTimes(1);
+
+      if (name === 'BacktestChart') {
+        containerEl.clientWidth = 0;
+        backtest.selection = { from: 10, to: 30 };
+        harness.fit();
+        expect(setVisibleLogicalRange).not.toHaveBeenCalled();
+        containerEl.clientWidth = 900;
+        harness.resize();
+        expect(setVisibleLogicalRange).toHaveBeenCalledWith({
+          from: 10,
+          to: 30,
+        });
+        expect(fitContent).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  it('defers fitting hidden data until after a measurable resize without refitting on later task switches', () => {
+    const chartUrl = new URL('./Chart.svelte', import.meta.url);
+    const order: string[] = [];
+    const fitContent = vi.fn(() => order.push('fit'));
+    const applyOptions = vi.fn(options => {
+      if ('width' in options) order.push('resize');
+    });
+    const containerEl = { clientWidth: 0, clientHeight: 0 };
+    const module = clientModule<{
+      default: (
+        anchor: unknown,
+        props: unknown,
+      ) => {
+        fit: () => void;
+        resize: () => void;
+      };
+    }>(
+      chartUrl,
+      {
+        'test:chart': {
+          containerEl,
+          chart: { applyOptions, timeScale: () => ({ fitContent }) },
+        },
+      },
+      `<script lang="ts">
+      import { chart, containerEl } from 'test:chart';
+      let coordVersion = $state(0), priceInvalidator = null;
+      const CHART_TIME_SCALE_RIGHT_OFFSET = 8;
+      ${componentDeclarations(chartUrl, ['pendingFitContent', 'fitSeriesContent', 'handleResize'])}
+      export function fit() { fitSeriesContent(); }
+      export function resize() { handleResize(); }
+      </script>`,
+    );
+    let harness!: ReturnType<typeof module.default>;
+    cleanups.push(
+      client.effect_root(() => {
+        harness = module.default(null, {});
+      }),
+    );
+    harness.fit();
+    harness.resize();
+    expect(applyOptions).not.toHaveBeenCalled();
+    expect(fitContent).not.toHaveBeenCalled();
+
+    containerEl.clientWidth = 1200;
+    containerEl.clientHeight = 700;
+    harness.resize();
+    expect(order).toEqual(['resize', 'fit']);
+    expect(applyOptions).toHaveBeenLastCalledWith({
+      timeScale: { rightOffset: 8 },
+    });
+
+    containerEl.clientWidth = 0;
+    harness.resize();
+    containerEl.clientWidth = 1200;
+    harness.resize();
+    expect(fitContent).toHaveBeenCalledTimes(1);
+
+    // New history loaded while another task is visible needs a fresh fit.
+    containerEl.clientWidth = 0;
+    harness.fit();
+    containerEl.clientWidth = 900;
+    harness.resize();
+    expect(fitContent).toHaveBeenCalledTimes(2);
+  });
+
   it('publishes actual applySeries replacements to the marker effect without changing scripts', () => {
     const chartUrl = new URL('./Chart.svelte', import.meta.url);
     const removed: unknown[] = [];

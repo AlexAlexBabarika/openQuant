@@ -375,6 +375,19 @@
     priceInvalidator?.settle();
   }
 
+  let pendingFitContent = false;
+
+  function fitSeriesContent(): void {
+    if (!chart || !containerEl) return;
+    pendingFitContent = true;
+    if (!containerEl.clientWidth || !containerEl.clientHeight) return;
+    chart.timeScale().fitContent();
+    chart.applyOptions({
+      timeScale: { rightOffset: CHART_TIME_SCALE_RIGHT_OFFSET },
+    });
+    pendingFitContent = false;
+  }
+
   function applyPriceFormat(reference: number): void {
     const priceFormat = marketPriceFormat(reference);
     for (const series of [candleSeries, lineSeries, areaSeries]) {
@@ -388,10 +401,12 @@
 
   function handleResize(): void {
     if (chart && containerEl) {
+      if (!containerEl.clientWidth || !containerEl.clientHeight) return;
       chart.applyOptions({
         width: containerEl.clientWidth,
         height: containerEl.clientHeight,
       });
+      if (pendingFitContent) fitSeriesContent();
       coordVersion += 1;
       priceInvalidator?.settle();
     }
@@ -550,10 +565,7 @@
       setSeriesData(data);
       coordVersion += 1;
       if (data !== prevCandles) {
-        chart.timeScale().fitContent();
-        chart.applyOptions({
-          timeScale: { rightOffset: CHART_TIME_SCALE_RIGHT_OFFSET },
-        });
+        fitSeriesContent();
         prevCandles = data;
       }
     });

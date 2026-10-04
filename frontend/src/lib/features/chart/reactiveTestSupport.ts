@@ -61,8 +61,12 @@ export function clientModule<T>(
 // Execute named production script declarations without mounting chart/editor DOM.
 export function componentDeclarations(url: URL, names: string[]): string {
   const component = readFileSync(url, 'utf8');
-  const script = parse(component).instance?.content;
-  const source = script ? component.slice(script.start, script.end) : '';
+  const instance = parse(component, { modern: true }).instance;
+  const source = instance
+    ? component
+        .slice(instance.start, instance.end)
+        .replace(/^<script[^>]*>|<\/script>$/g, '')
+    : '';
   const ast = ts.createSourceFile(
     url.pathname,
     source,

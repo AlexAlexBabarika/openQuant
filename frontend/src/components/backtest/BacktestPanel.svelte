@@ -165,7 +165,7 @@
 {/if}
 
 <style>
-  .panel.embedded { position: static; height: 100%; width: 100%; border: 0; border-radius: 0; box-shadow: none; z-index: auto; container-type: inline-size; }
+  .panel.embedded { position: static; height: 100%; width: 100%; flex: 1; min-height: 0; border: 0; border-radius: 0; box-shadow: none; z-index: auto; container-type: inline-size; }
   .embedded .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .embedded .body { display: flex; flex-direction: column; overflow-y: auto; }
   .embedded .chart-pane { height: 260px; flex-shrink: 0; }

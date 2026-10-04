@@ -32,6 +32,7 @@
 
   let {
     open = $bindable(false),
+    embedded = false,
     symbol,
     provider,
     period,
@@ -46,6 +47,7 @@
     tab = $bindable<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor'),
   }: {
     open?: boolean;
+    embedded?: boolean;
     symbol: string;
     provider: MarketDataProviderValue;
     period: string;
@@ -70,10 +72,13 @@
   let backtestOpen = $state(false);
   let libraryOpen = $state(untrack(() => strat.scripts.length > 0));
   let editorView = $state<'editor' | 'results'>('editor');
+  let splitEnabled = $state(false);
   let panesEl = $state<HTMLDivElement | null>(null);
   let resizing = $state(false);
   let completedSource = $state<string | null>(null);
   let completedContext = $state('');
+  let completedName = $state('');
+  let completedMarket = $state<{ symbol: string; provider: MarketDataProviderValue; period: string; interval: string } | null>(null);
   let completedResult = $state<StrategyState['backtest']>(null);
   const resultChanged = $derived(completedResult === strat.backtest && completedSource !== null && (completedSource !== strat.draftCode || completedContext !== `${symbol}|${provider}|${period}|${interval}`));
 
@@ -109,6 +114,12 @@
     if (userId !== savedUserId) untrack(() => {
       savedUserId = userId;
       strat.clearSaved();
+      completedSource = null;
+      completedResult = null;
+      completedMarket = null;
+      strat.backtest = null;
+      strat.isRunning = false;
+      strat.runError = null;
     });
     if (open && userId) untrack(() => { void strat.load(); });
   });
@@ -129,7 +140,8 @@
     const runName = strat.draftName;
     const accountVersion = runsHistory.accountVersion;
     const context = `${symbol}|${provider}|${period}|${interval}`;
-    const bt = await strat.runBacktest({ symbol, provider, period, interval });
+    const market = { symbol, provider, period, interval };
+    const bt = await strat.runBacktest(market);
     if (strat.backtest === bt && !bt.error) {
       if (bt.result && accountVersion === runsHistory.accountVersion) runsHistory.record({
         run_id: bt.result.meta.run_id, kind: 'single', label: runName,
@@ -137,6 +149,8 @@
       });
       completedSource = source;
       completedContext = context;
+      completedName = runName;
+      completedMarket = market;
       completedResult = bt;
       editorView = 'results';
     }
@@ -174,24 +188,14 @@
   }
 </script>
 
-<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
-  <Dialog.Portal disabled={typeof window === 'undefined'}>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="backdrop"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content
-      onOpenAutoFocus={() => modal.open(panelEl)}
-      onCloseAutoFocus={() => modal.close()}
-      onEscapeKeydown={e => { if (backtestOpen) e.preventDefault(); }}
-    >
-    {#snippet child({ props })}
+{#snippet panelContent(props: Record<string, unknown> = {})}
   <div {...props}
     bind:this={panelEl}
     class="panel"
-    role="dialog"
-    aria-modal="true"
+    class:embedded
+    role={embedded ? 'region' : 'dialog'}
+    tabindex="-1"
+    aria-modal={embedded ? undefined : true}
     aria-label="Strategy workbench"
     onkeydown={event => {
       if (event.defaultPrevented || tab !== 'editor' || !(event.metaKey || event.ctrlKey) || event.repeat) return;
@@ -247,7 +251,7 @@
         </span>
       </div>
 
-      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
+      <button type="button" class="iconbtn close" onclick={close} aria-label={embedded ? 'Return to chart' : 'Close'}>
         <X class="h-3.5 w-3.5" />
       </button>
     </header>
@@ -386,14 +390,15 @@
             </div>
           </div>
 
-          <div class="editor-views" aria-label="Editor and results views">
+          <div class="editor-views" class:single={!splitEnabled} aria-label="Editor and results views">
             <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
             <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'editor'} onclick={() => (editorView = 'editor')}>Editor</button>
             <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'results'} onclick={() => (editorView = 'results')}>Results</button>
+            <button type="button" class="split-view ot-workbench-ghost" aria-pressed={splitEnabled} onclick={() => (splitEnabled = !splitEnabled)}>Split view</button>
             {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
             <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
           </div>
-          <div class="editing-panes" class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
+          <div class="editing-panes" class:single={!splitEnabled} class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
           <div class="editor-pane" class:inactive={editorView !== 'editor'}>
             <ScriptEditor
               bind:value={() => strat.draftCode, code => strat.setCode(code)}
@@ -406,6 +411,9 @@
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions (Keyboard-operable splitter.) -->
           <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
           <div class="results-pane" class:inactive={editorView !== 'results'}>
+            {#if completedResult === strat.backtest && strat.backtest?.result && completedMarket}
+              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval}<br />Completed {strat.backtest.result.meta.finished_at} · simulated</p>
+            {/if}
             {#if strat.backtest}
               <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />
             {:else}
@@ -417,9 +425,21 @@
       {/if}
     </div>
   </div>
-    {/snippet}
-    </Dialog.Content>
-  </Dialog.Portal>
+{/snippet}
+
+<Dialog.Root open={!embedded && open} onOpenChange={v => { if (!v && !embedded) close(); }}>
+  {#if embedded}
+    {@render panelContent()}
+  {:else}
+    <Dialog.Portal disabled={typeof window === 'undefined'}>
+      <Dialog.Overlay>
+        {#snippet child({ props })}<div {...props} class="backdrop"></div>{/snippet}
+      </Dialog.Overlay>
+      <Dialog.Content onOpenAutoFocus={() => modal.open(panelEl)} onCloseAutoFocus={() => modal.close()} onEscapeKeydown={e => { if (backtestOpen) e.preventDefault(); }}>
+        {#snippet child({ props })}{@render panelContent(props)}{/snippet}
+      </Dialog.Content>
+    </Dialog.Portal>
+  {/if}
 
   <BacktestPanel bind:open={backtestOpen} backtest={strat.backtest ?? undefined} {onOpenRuns} {onCompare} />
   <AuthDialog bind:open={authDialogOpen} />
@@ -464,9 +484,13 @@
     overflow: hidden;
   }
 
+  .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); overflow-y: auto; }
+  .embedded .topbar { flex-shrink: 0; }
+  .embedded .body { flex-shrink: 0; min-height: min(600px, 75dvh); }
+
   .topbar {
-    display: grid;
-    grid-template-columns: auto auto 1fr auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 16px;
     padding: 14px 22px;
@@ -495,6 +519,7 @@
   }
 
   .ctx {
+    margin-left: auto;
     justify-self: center;
     display: inline-flex;
     align-items: baseline;
@@ -589,17 +614,23 @@
   .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
   .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
   .compact-view { display: none; }
+  .single .compact-view { display: inline-flex; }
+  .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
   .editing-panes.resizing { user-select: none; }
+  .editing-panes.single { grid-template-columns: minmax(0, 1fr); }
+  .editing-panes.single .inactive, .editing-panes.single .editor-splitter { display: none; }
   .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
   .editor-splitter:hover, .editor-splitter:focus-visible { background: oklch(var(--primary)); outline: 2px solid oklch(var(--foreground)); outline-offset: -2px; }
-  .results-pane { min-width: 0; min-height: 0; overflow: hidden; }
+  .results-pane { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); font-size: 11px; overflow-wrap: anywhere; }
   .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: 12px; }
   .results-empty h2 { color: oklch(var(--foreground)); margin-bottom: 12px; }
   @media (max-width: 1100px) {
     .editing-panes { grid-template-columns: minmax(0, 1fr); }
     .editing-panes .inactive, .editor-splitter { display: none; }
     .compact-view { display: inline-flex; }
+    .split-view { display: none; }
   }
   .body.sweep-mode {
     grid-template-columns: 1fr;
@@ -890,7 +921,7 @@
   /* ---------------------------------------------------------------- */
   /* Light theme: pure white chrome, mirroring IndicatorsPanel.        */
   /* ---------------------------------------------------------------- */
-  :global(html:not(.dark)) .panel {
+  :global(html:not(.dark)) .panel:not(.embedded) {
     background: #ffffff;
     box-shadow:
       0 -1px 0 0 #000 inset,

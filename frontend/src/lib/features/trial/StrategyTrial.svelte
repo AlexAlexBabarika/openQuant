@@ -8,6 +8,7 @@
   import ReportActions from '$lib/features/trial-report/ReportActions.svelte';
   import EquityEvidence from './EquityEvidence.svelte';
   import RunMetrics from './RunMetrics.svelte';
+  import ReportContext from './ReportContext.svelte';
   import { formatDate, formatMoney, formatPercent, validCost } from './evidence';
   import ChartCandlestick from '@lucide/svelte/icons/chart-candlestick';
   import Activity from '@lucide/svelte/icons/activity';
@@ -35,6 +36,8 @@
   let authDialogOpen = $state(false);
   let runError = $state('');
   let report = $state.raw<EvidenceReport | null>(null);
+  let receivedAt = $state('');
+  let reportAccount = untrack(() => $authState.user?.id ?? null);
   let mode = $state<'workspace' | 'examples'>(untrack(() => workspace ? 'workspace' : 'examples'));
   let startingCash = $state<number | undefined>(100_000);
   let holdoutPercent = $state<number | undefined>(30);
@@ -65,6 +68,22 @@
   ));
   let selectedStrategy = $derived(strategies.find(strategy => strategy.id === selectedId));
   let canRun = $derived(mode === 'workspace' ? !!workspaceSettings && !!workspace?.code.trim() && !!workspace?.symbol.trim() : costsValid && !!selectedStrategy);
+
+  $effect(() => {
+    const account = $authState.user?.id ?? null;
+    if (account === reportAccount) return;
+    reportAccount = account;
+    untrack(() => {
+      if (mode === 'workspace') cancelRun();
+      if (report && isWorkspaceReport(report)) {
+        report = null;
+        completedFingerprint = '';
+        receivedAt = '';
+        runError = '';
+        statusMessage = 'Account changed. Run checks for the current workspace.';
+      }
+    });
+  });
 
   function chooseMode(next: 'workspace' | 'examples'): void {
     if (next === mode) return;
@@ -164,6 +183,7 @@
         throw new Error('The report did not match this example configuration.');
       }
       report = result;
+      receivedAt = new Date().toISOString();
       statusMessage = `Results ready for ${result.strategy.name}.`;
     } catch (error) {
       if (controller.signal.aborted || disposed || sequence !== runSequence) return;
@@ -200,6 +220,7 @@
         throw new Error('The workspace report uses an unsupported format.');
       }
       report = result;
+      receivedAt = new Date().toISOString();
       completedFingerprint = fingerprint;
       statusMessage = `Results ready for ${result.strategy.name} · ${result.dataset.label}.`;
     } catch (error) {
@@ -340,14 +361,21 @@
           <div><h2>{report.strategy.name}</h2><p class="muted">{report.strategy.lesson}</p></div>
           <span class="badge">{isWorkspaceReport(report) ? 'PROVIDER SNAPSHOT' : 'SYNTHETIC'}</span>
         </div>
-        <p class="result-context">{report.dataset.label} · {formatDate(report.dataset.start)} — {formatDate(report.dataset.end)} UTC<br />{report.dataset.training_bars.toLocaleString('en-US')} earlier / {report.dataset.holdout_bars.toLocaleString('en-US')} holdout bars · {report.config.commission_bps} bps commission / {report.config.slippage_bps} bps slippage per fill</p>
+        <ReportContext {report} {receivedAt} />
 
         <div class="metric-strip">
-          <div><span>Return · with costs</span><strong>{formatPercent(report.realistic.total_return, true)}</strong><small>Zero-cost: {formatPercent(report.baseline.total_return, true)}</small></div>
+          <div><span>Return · with costs</span><strong>{formatPercent(report.realistic.total_return, true)}</strong><small>Zero-cost: {formatPercent(report.baseline.total_return, true)}</small><small>Buy &amp; hold + costs: {formatPercent(report.benchmark.total_return, true)}</small></div>
           <div><span>Max drawdown</span><strong>{formatPercent(report.realistic.max_drawdown)}</strong><small>Full period · with costs</small></div>
           <div><span>Execution costs · currency units</span><strong>{formatMoney(report.realistic.total_cost, isWorkspaceReport(report))}</strong><small>{report.realistic.trade_count.toLocaleString('en-US')} completed round trips</small></div>
           <div><span>Holdout vs benchmark</span><strong>{formatPercent(report.holdout.strategy.total_return - report.holdout.benchmark.total_return, true).replace('%', ' pp')}</strong><small>Return difference · percentage points</small></div>
         </div>
+
+        <section class="findings" aria-labelledby="findings-heading">
+          <h3 id="findings-heading">Measured findings</h3>
+          {#each report.findings as finding (finding.id)}
+            <article class:warning={finding.severity === 'warning'}><h4>{finding.title}</h4><p>{finding.detail}</p></article>
+          {:else}<p class="muted">No findings were supplied for this run.</p>{/each}
+        </section>
 
         <Tabs.Root value="performance">
           <Tabs.List class="result-tabs" aria-label="Robustness report sections" onfocusin={(event) => {
@@ -367,12 +395,6 @@
               { label: 'Strategy + costs', summary: report.realistic },
               { label: 'Buy & hold + costs', summary: report.benchmark },
             ]} />
-            <section class="findings" aria-labelledby="findings-heading">
-              <h3 id="findings-heading">Measured findings</h3>
-              {#each report.findings as finding (finding.id)}
-                <article class:warning={finding.severity === 'warning'}><h4>{finding.title}</h4><p>{finding.detail}</p></article>
-              {:else}<p class="muted">No findings were supplied for this run.</p>{/each}
-            </section>
           </Tabs.Content>
           <Tabs.Content class="result-content" value="holdout">
             <h3>{isWorkspaceReport(report) ? 'Chronological holdout comparison' : 'Out-of-sample comparison'}</h3>
@@ -466,7 +488,6 @@
   .scope { margin-top: 22px; padding-top: 16px; border-top: 1px solid oklch(var(--border)); font-size: 11px; }
   .scope h2 { color: oklch(var(--foreground)); }
   .results { min-width: 0; min-height: 0; overflow-y: auto; padding: 18px; }
-  .result-context { color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; font-size: 11px; border-left: 2px solid oklch(var(--border)); padding-left: 10px; }
   .live-status { font-size: 11px; }
   .notice { border: 1px solid oklch(var(--border)); background: oklch(var(--muted)); padding: 12px; margin-bottom: 16px; }
   .notice p { margin-bottom: 8px; }
@@ -484,7 +505,7 @@
   .trial-shell :global(.result-tab[data-state="active"]) { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--primary)); }
   .trial-shell :global(.result-content) { padding: 16px 0; }
   .trial-shell :global(.result-content > * + *) { margin-top: 16px; }
-  .findings { margin-top: 20px; }
+  .findings { margin: 0 0 20px; }
   .findings article { padding: 12px 0 12px 12px; border-left: 2px solid oklch(var(--border)); margin-top: 10px; }
   .findings article.warning { border-left-color: oklch(var(--primary)); }
   .findings h4 { margin-bottom: 6px; }
