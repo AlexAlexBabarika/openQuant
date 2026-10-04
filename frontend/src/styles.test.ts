@@ -105,6 +105,17 @@ beforeAll(async () => {
 });
 
 describe.each([false, true])('resolved action colors (dark=%s)', dark => {
+  it('keeps enabled inactive-tab text readable on the muted surface', () => {
+    const vars = tokens(dark);
+    for (const ratio of contrast(
+      'oklch(var(--muted-foreground))',
+      'oklch(var(--muted))',
+      vars,
+      'oklch(var(--background))',
+    ))
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('keeps selected-control text readable over translucent primary on every surface', () => {
     const vars = tokens(dark);
     for (const surface of ['background', 'card', 'popover']) {
