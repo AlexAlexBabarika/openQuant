@@ -37,7 +37,7 @@ export function marketPriceFormat(reference: number): PriceFormatCustom {
   const digits = priceDigits(reference);
   return {
     type: 'custom',
-    formatter: formatMarketPrice,
+    formatter: price => formatMarketPrice(price),
     minMove: 10 ** -digits,
     base: 10 ** digits,
   };

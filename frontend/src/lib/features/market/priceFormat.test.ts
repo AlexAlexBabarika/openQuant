@@ -38,4 +38,19 @@ describe('market price display precision', () => {
     expect(format.base).toBe(1e11);
     expect(marketPriceFormat(100).minMove).toBe(0.01);
   });
+
+  it('accepts the chart library tickmark fallback calling Array.map', () => {
+    const format = marketPriceFormat(0.00000123456);
+    const prices = [0.00000123456, 0.00000123457, 0.00000123458] as BarPrice[];
+    expect(prices.map(format.formatter)).toEqual([
+      '0.00000123456',
+      '0.00000123457',
+      '0.00000123458',
+    ]);
+    expect(
+      ([1234.56, 1234.57] as BarPrice[]).map(
+        marketPriceFormat(1234.56).formatter,
+      ),
+    ).toEqual(['1234.56', '1234.57']);
+  });
 });
