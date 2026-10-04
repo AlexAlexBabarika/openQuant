@@ -31,6 +31,48 @@ const commands: ResearchCommand[] = [
   { id: 'drawing:ruler', title: 'Ruler', group: 'Drawing', action: vi.fn() },
 ];
 describe('research commands', () => {
+  it('focuses the persistent Tools launcher before opening a selected toolbox destination', async () => {
+    const toolbox = new URL(
+      '../../../components/toolbar/ToolboxPanel.svelte',
+      import.meta.url,
+    );
+    const order: string[] = [];
+    const module = clientModule<{
+      default: (
+        anchor: unknown,
+        props: unknown,
+      ) => { choose: (title: string) => Promise<void> };
+    }>(
+      toolbox,
+      {
+        'test:focus': {
+          focus: () => order.push('focus'),
+          select: (title: string) => order.push(title),
+        },
+      },
+      `<script lang="ts">
+      import { focus, select } from 'test:focus';
+      import { tick } from 'svelte';
+      let open = $state(true), progress = 1;
+      const animateTo = () => {}, dialogEl = null;
+      const triggerEl = { ownerDocument: { querySelectorAll: () => [] }, focus };
+      const onTileSelect = select;
+      ${componentDeclarations(toolbox, ['close', 'focusTrigger', 'selectTile'])}
+      export function choose(title) { return selectTile(title); }
+    </script>`,
+    );
+    let harness!: ReturnType<typeof module.default>;
+    const stop = client.effect_root(() => {
+      harness = module.default(null, {});
+    });
+    try {
+      await harness.choose('Commands');
+      expect(order).toEqual(['focus', 'Commands']);
+    } finally {
+      stop();
+    }
+  });
+
   it('allows native focus restoration and executes the command only after palette close completes', () => {
     const palette = new URL(
       '../../../components/dialogs/CommandPalette.svelte',
