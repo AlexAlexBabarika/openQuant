@@ -67,6 +67,8 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
+  @container (max-width: 800px) { .strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } .cell { padding: 10px; } .value { font-size: 16px; } }
+  @container (max-width: 440px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
   :global(html:not(.dark)) .strip {
     background: #000;

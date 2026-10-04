@@ -76,7 +76,7 @@
     <DropdownMenu.Content
       align="start"
       sideOffset={4}
-      class="z-50 w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-md py-1 outline-none"
+      class="z-[80] w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-md py-1 outline-none"
     >
       {#if inGroupMode}
         <DropdownMenu.Item

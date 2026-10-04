@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
+  import { Popover } from 'bits-ui';
   import TopHeader from './components/layout/TopHeader.svelte';
   import BottomHeader from './components/layout/BottomHeader.svelte';
   import ErrorMessage from './components/layout/ErrorMessage.svelte';
@@ -241,13 +242,18 @@
     persistTheme(next);
   }
   let hasCandles = $derived(chart.candles.length > 0);
-  let sidebarVisible = $state(true);
+  let narrow = $state(false);
+  let desktopSidebarVisible = $state(true);
+  let watchlistOpen = $state(false);
+  let drawingToolsOpen = $state(false);
+  let sidebarVisible = $derived(narrow ? watchlistOpen : desktopSidebarVisible);
   let crosshairMode = $state<CrosshairModeName>('normal');
   let activeTool = $state<ActiveTool>(CURSOR);
   let toolSettingsOpen = $state(false);
   let toolSettingsType = $state<string | null>(null);
 
   function openToolSettings(type: string): void {
+    drawingToolsOpen = false;
     toolSettingsType = type;
     toolSettingsOpen = true;
   }
@@ -274,6 +280,12 @@
   });
   const dialogs = new AppDialogsState();
   provideAppDialogs(dialogs);
+
+  async function openWatchlistDialog(action: () => void) {
+    watchlistOpen = false;
+    await tick();
+    action();
+  }
 
   let notes = $state<NotesBySymbol>(loadNotesFromStorage());
   let symbolMeta = $state<SymbolSearchResult | null>(null);
@@ -732,6 +744,18 @@
     await chart.loadMarketData();
   });
 
+  onMount(() => {
+    const query = window.matchMedia('(max-width: 760px)');
+    function updateLayout() {
+      narrow = query.matches;
+      watchlistOpen = false;
+      drawingToolsOpen = false;
+    }
+    updateLayout();
+    query.addEventListener('change', updateLayout);
+    return () => query.removeEventListener('change', updateLayout);
+  });
+
   onDestroy(() => {
     workspaceSync.destroy();
     persistOnUnload();
@@ -740,7 +764,7 @@
 </script>
 
 <Dialog.Root open={trialOpen} onOpenChange={setTrialOpen}>
-<div class="flex flex-col h-screen bg-background">
+<div class="flex flex-col h-dvh bg-background">
   <DrawablesPersistence userId={$authState.user?.id ?? null} ready={sessionReady} />
   <TopHeader
     bind:symbol={chart.symbol}
@@ -753,9 +777,23 @@
     onload={chart.loadMarketData}
     onstream={chart.startStream}
     oncsvupload={chart.handleCsvUpload}
+    onstrategy={() => (strategyOpen = true)}
+    errorMessage={chart.errorMessage}
+    compact={narrow}
   />
-  <ErrorMessage bind:message={chart.errorMessage} />
+  <ErrorMessage bind:message={chart.errorMessage} context={`${chart.symbol} · ${chart.source} · ${chart.period} / ${chart.interval}`} loadedContext={chart.candles.length && chart.loadedContext ? `${chart.loadedContext.symbol} · ${chart.loadedContext.source} · ${chart.loadedContext.period} / ${chart.loadedContext.interval}` : ''} onretry={chart.source !== 'csv' ? () => void chart.loadMarketData() : undefined} />
+  {#snippet drawingToolsControl()}
+    {#if narrow}
+      <Popover.Root bind:open={drawingToolsOpen}>
+        <Popover.Trigger class="ot-workbench-ghost" aria-label="Drawing tools" aria-pressed={activeTool !== CURSOR}>Draw</Popover.Trigger>
+        <Popover.Portal><Popover.Content side="right" sideOffset={8} class="z-[60] rounded border border-border bg-popover p-2">
+          <LeftToolbar nested chartSymbol={chart.symbol} bind:crosshairMode {activeTool} onToolSettings={openToolSettings} drawableCommands={drawableToolbarCommands} onActivate={tool => { activeTool = tool; drawingToolsOpen = false; }} />
+        </Popover.Content></Popover.Portal>
+      </Popover.Root>
+    {/if}
+  {/snippet}
   <div class="flex flex-1 min-h-0">
+    {#if !narrow}
     <LeftToolbar
       chartSymbol={chart.symbol}
       bind:crosshairMode
@@ -763,16 +801,20 @@
       onToolSettings={openToolSettings}
       drawableCommands={drawableToolbarCommands}
     />
+    {/if}
     <ToolSettingsModal
       toolType={toolSettingsType}
       bind:open={toolSettingsOpen}
     />
-    <div class="flex-1 min-w-0 min-h-0 flex flex-col">
+  <div class="flex-1 min-w-0 min-h-0 flex flex-col">
+      {#if chart.candles.length && chart.loadedContext && !chart.dataContextCurrent}
+        <p class="px-3 py-2 text-xs text-muted-foreground border-b border-border" role="status">Showing last loaded data: {chart.loadedContext.symbol} · {chart.loadedContext.source} · {chart.loadedContext.period} / {chart.loadedContext.interval}. {chart.isLoading ? 'New request loading…' : 'Load the current context to update.'}</p>
+      {/if}
       <Chart
         candles={chart.candles}
         candleRevision={chart.candleRevision}
         annotationOwner={sessionReady ? ($authState.user ? `user:${$authState.user.id}` : 'guest') : 'pending'}
-        symbol={chart.symbol}
+        symbol={chart.loadedSymbol || chart.symbol}
         {chartType}
         {showArea}
         {showVolume}
@@ -784,8 +826,8 @@
         bbandsLineWidth={bbandsConfig.lineWidth}
         {colours}
         {crosshairMode}
-        provider={chart.source}
-        interval={chart.interval}
+        provider={chart.loadedContext?.source ?? chart.source}
+        interval={chart.loadedContext?.interval ?? chart.interval}
         runningScripts={indicators.runningOutputs}
         bind:activeTool
         bind:api={chart.chartApi}
@@ -796,8 +838,9 @@
           void comparisonController.setSeriesType(id, t)}
       />
     </div>
-    {#if sidebarVisible}
+    {#snippet watchlistContent()}
       <Sidebar
+        sheet={narrow}
         symbol={chart.loadedSymbol}
         symbolFullName={symbolFullName}
         symbolExchange={symbolExchangeLabel}
@@ -812,13 +855,13 @@
         quotes={tickerQuotesForGroup}
         groupActions={{
           select: handleSelectGroup,
-          rename: dialogs.openRenameGroup,
+          rename: () => void openWatchlistDialog(dialogs.openRenameGroup),
           duplicate: handleDuplicateGroup,
           clear: handleClearGroup,
-          add: dialogs.openAddGroup,
+          add: () => void openWatchlistDialog(dialogs.openAddGroup),
           delete: handleDeleteGroup,
         }}
-        onaddticker={dialogs.openAddSymbol}
+        onaddticker={() => void openWatchlistDialog(dialogs.openAddSymbol)}
         onselectpriority={handleSelectPriority}
         onselectstance={handleSelectStance}
         onselectticker={sym => {
@@ -827,18 +870,31 @@
           const next = pickProviderForSymbol(chart.source, providers);
           if (next !== chart.source) chart.source = next;
           void chart.loadMarketData();
+          watchlistOpen = false;
         }}
         ondeleteticker={handleDeleteTicker}
         onsetpriority={handleSetPriority}
         onsetstance={handleSetStance}
         notes={currentNotes}
-        onaddnote={dialogs.openAddNote}
-        oneditnote={dialogs.openEditNote}
+        onaddnote={symbol => void openWatchlistDialog(() => dialogs.openAddNote(symbol))}
+        oneditnote={note => void openWatchlistDialog(() => dialogs.openEditNote(note))}
         ondeletenote={handleDeleteNote}
       />
+    {/snippet}
+    {#if narrow}
+      <Dialog.Root bind:open={watchlistOpen}>
+        <Dialog.Content class="left-auto right-0 top-0 h-dvh w-[min(360px,100vw)] max-w-none translate-x-0 translate-y-0 rounded-none p-0 flex flex-col gap-0" >
+          <Dialog.Title class="px-3 py-3 pr-12 font-mono text-sm border-b border-border">Watchlist</Dialog.Title>
+          <Dialog.Description class="sr-only">Symbols, groups and notes for the current research workspace.</Dialog.Description>
+          {@render watchlistContent()}
+        </Dialog.Content>
+      </Dialog.Root>
+    {:else if sidebarVisible}
+      {@render watchlistContent()}
     {/if}
   </div>
   <BottomHeader
+    drawingTools={drawingToolsControl}
     bind:chartType
     bind:showArea
     bind:showVolume
@@ -849,7 +905,7 @@
     {theme}
     onthemechange={setTheme}
     {sidebarVisible}
-    ontogglesidebar={() => (sidebarVisible = !sidebarVisible)}
+    ontogglesidebar={() => { if (narrow) watchlistOpen = !watchlistOpen; else desktopSidebarVisible = !desktopSidebarVisible; }}
     comparisonCount={comparisonController.comparisons.length}
     oncompare={() => (comparisonDialogOpen = true)}
   />

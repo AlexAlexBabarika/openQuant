@@ -5,10 +5,12 @@
     result,
     runError,
     isRunning,
+    projected = false,
   }: {
     result: RunResult | null;
     runError: string | null;
     isRunning: boolean;
+    projected?: boolean;
   } = $props();
 
   function fmtCell(v: unknown): string {
@@ -22,8 +24,7 @@
 
   // Group outputs by visual section so we can render them in a stable order
   // regardless of script-emit order: text/error first, then tables, then a
-  // structural summary of overlays/panes/markers/histograms (chart-bound,
-  // shown as placeholders pre-Phase-4).
+  // structural summary of overlays/panes/markers/histograms.
   type Bucket = {
     text: Extract<ScriptOutput, { type: 'text' }>[];
     tables: Extract<ScriptOutput, { type: 'table' }>[];
@@ -105,7 +106,7 @@
           // emit a table via <span class="ink">display.table(cols, rows)</span>
         </p>
         <p class="empty-line muted">
-          // overlays render on the chart in phase 4
+          // save and start to project overlays onto the chart
         </p>
       </div>
     {/if}
@@ -172,7 +173,7 @@
       <div class="block deferred">
         <div class="block-head">
           <span class="prefix">◌</span>
-          <span class="block-title">chart outputs · awaiting projection</span>
+          <span class="block-title">chart outputs · {projected ? 'projected onto chart' : 'save and start to project'}</span>
         </div>
         <ul class="deferred-list">
           {#each bucket.deferred as o, i (i)}

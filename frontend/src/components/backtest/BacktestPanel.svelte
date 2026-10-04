@@ -18,11 +18,13 @@
     backtest = new BacktestState(),
     onCompareAfterRerun,
     onOpenRuns,
+    embedded = false,
   }: {
     open?: boolean;
     backtest?: BacktestState;
     onCompareAfterRerun?: (a: string, b: string, diff: RunDiff) => void;
     onOpenRuns?: () => void;
+    embedded?: boolean;
   } = $props();
 
   const rerunState = new RerunState();
@@ -57,7 +59,7 @@
 
   // Load the result the first time the panel opens.
   $effect(() => {
-    if (open) void backtest.load();
+    if (open && !embedded) void backtest.load();
   });
 
 
@@ -74,25 +76,7 @@
   const meta = $derived(backtest.result?.meta ?? null);
 </script>
 
-<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
-  <Dialog.Portal disabled={typeof window === 'undefined'}>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="backdrop"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content
-      onOpenAutoFocus={() => modal.open(panelEl)}
-      onCloseAutoFocus={() => modal.close()}
-    >
-    {#snippet child({ props })}
-  <div {...props}
-    bind:this={panelEl}
-    class="panel"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Backtest results"
-  >
+{#snippet resultContent()}
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark">≈</span>
@@ -108,9 +92,9 @@
         {/if}
       </div>
 
-      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
+      {#if !embedded}<button type="button" class="iconbtn close" onclick={close} aria-label="Close">
         <X class="h-3.5 w-3.5" />
-      </button>
+      </button>{/if}
     </header>
 
     <StaleBanner
@@ -139,13 +123,33 @@
         </div>
       {/if}
     </div>
+{/snippet}
+
+{#if embedded}
+  <section class="panel embedded" aria-label="Backtest results">{@render resultContent()}</section>
+{:else}
+<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+  <Dialog.Portal disabled={typeof window === 'undefined'}>
+    <Dialog.Overlay>
+      {#snippet child({ props })}<div {...props} class="backdrop"></div>{/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content onOpenAutoFocus={() => modal.open(panelEl)} onCloseAutoFocus={() => modal.close()}>
+    {#snippet child({ props })}
+  <div {...props} bind:this={panelEl} class="panel" role="dialog" aria-modal="true" aria-label="Backtest results">
+    {@render resultContent()}
   </div>
     {/snippet}
     </Dialog.Content>
   </Dialog.Portal>
 </Dialog.Root>
+{/if}
 
 <style>
+  .panel.embedded { position: static; height: 100%; width: 100%; border: 0; border-radius: 0; box-shadow: none; z-index: auto; container-type: inline-size; }
+  .embedded .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .embedded .body { display: flex; flex-direction: column; overflow-y: auto; }
+  .embedded .chart-pane { height: 260px; flex-shrink: 0; }
+  .embedded .tabs-pane { min-height: 280px; flex-shrink: 0; }
   button:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
   @media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } }
   @media (max-width: 900px) { .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; } .topbar .close { margin-left: auto; } }

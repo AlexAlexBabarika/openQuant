@@ -24,6 +24,8 @@
     activeTool = $bindable<ActiveTool>(CURSOR),
     onToolSettings,
     drawableCommands,
+    onActivate,
+    nested = false,
   }: {
     /** Current chart ticker — drawables cleared for this symbol only. */
     chartSymbol?: string;
@@ -32,6 +34,8 @@
     onToolSettings: (toolType: string) => void;
     /** Injected drawable actions (use `toolbarCommandsFromStore(drawables)` in App; pass fakes in tests). */
     drawableCommands: DrawableToolbarCommands;
+    onActivate?: (tool: ActiveTool) => void;
+    nested?: boolean;
   } = $props();
 
   /** Snapshot at mount; bundled tool list is fixed after `ensureToolsRegistered()`. */
@@ -55,17 +59,20 @@
   function selectCrosshair(mode: CrosshairModeName) {
     crosshairMode = mode;
     crosshairOpen = false;
+    onActivate?.(activeTool);
   }
 
   function activateTool(type: string) {
     activeTool = activeTool === type ? CURSOR : type;
     toolPopoverOpen = { ...toolPopoverOpen, [type]: false };
+    onActivate?.(activeTool);
   }
 
   function selectPositionTool(type: string) {
     activeTool = activeTool === type ? CURSOR : type;
     positionSettingsType = type;
     positionPopoverOpen = false;
+    onActivate?.(activeTool);
   }
 
   async function openPositionSettings() {
@@ -99,7 +106,7 @@
     >
       <Crosshair class="h-4 w-4" />
     </Popover.Trigger>
-    <Popover.Portal>
+    <Popover.Portal disabled={nested}>
       <Popover.Content
         side="right"
         align="start"
@@ -135,7 +142,7 @@
     >
       <BadgeDollarSign class="h-4 w-4" />
     </Popover.Trigger>
-    <Popover.Portal>
+    <Popover.Portal disabled={nested}>
       <Popover.Content
         side="right"
         align="start"
@@ -162,8 +169,8 @@
           <button
             type="button"
             class="flex items-center justify-center w-8 h-8 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
-            aria-label="Position tool settings"
-            title="Position tool settings"
+            aria-label="Type-wide position annotation settings"
+            title="Settings for all position annotations of this type"
             onclick={() => openPositionSettings()}
           >
             <Settings class="h-4 w-4" />
@@ -184,11 +191,12 @@
           ? 'bg-accent text-foreground'
           : 'text-muted-foreground'}"
         aria-label={tool.label}
+        title={tool.label}
         aria-pressed={activeTool === tool.type}
       >
         <Icon class="h-4 w-4" />
       </Popover.Trigger>
-      <Popover.Portal>
+      <Popover.Portal disabled={nested}>
         <Popover.Content
           side="right"
           align="start"
@@ -210,8 +218,8 @@
             <button
               type="button"
               class="flex items-center justify-center w-8 h-8 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
-              aria-label="{tool.label} settings"
-              title="{tool.label} settings"
+              aria-label="Type-wide {tool.label} settings"
+              title="Settings for all {tool.label} Elements"
               onclick={() => openSettings(tool.type)}
             >
               <Settings class="h-4 w-4" />

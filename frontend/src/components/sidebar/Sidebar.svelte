@@ -29,6 +29,7 @@
   import type { TickerNote } from '$lib/features/notes/notes';
 
   let {
+    sheet = false,
     symbol = '',
     symbolFullName = null as string | null,
     symbolExchange = null as string | null,
@@ -54,6 +55,7 @@
     oneditnote,
     ondeletenote,
   }: {
+    sheet?: boolean;
     symbol?: string;
     symbolFullName?: string | null;
     symbolExchange?: string | null;
@@ -104,7 +106,7 @@
 </script>
 
 <aside
-  class="w-[17%] min-w-[200px] border-l border-border bg-background flex flex-col shrink-0 overflow-visible"
+  class="{sheet ? 'w-full min-w-0 flex-1 min-h-0' : 'w-[17%] min-w-[200px]'} border-l border-border bg-background flex flex-col shrink-0 overflow-visible"
   aria-label="Sidebar"
 >
   <div class="flex items-center justify-between px-2 py-2 border-b border-border h-10">
@@ -193,7 +195,7 @@
             </ContextMenu.Trigger>
             <ContextMenu.Portal>
               <ContextMenu.Content
-                class="z-50 w-44 rounded-md border border-border bg-popover text-popover-foreground shadow-md py-1 outline-none"
+                class="z-[80] w-44 rounded-md border border-border bg-popover text-popover-foreground shadow-md py-1 outline-none"
               >
                 <ContextMenu.Item
                   onSelect={() => onaddnote(ticker.symbol)}

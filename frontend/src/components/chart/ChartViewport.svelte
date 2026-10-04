@@ -76,7 +76,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
-  class="flex-1 min-h-[400px] relative w-full z-0 overflow-hidden"
+  class="flex-1 min-h-0 relative w-full z-0 overflow-hidden"
   class:cursor-crosshair={activeTool !== CURSOR}
   bind:this={containerEl}
   role="region"

@@ -34,6 +34,13 @@ export class SweepState {
   sweepId = $state<string | null>(null);
   cancelling = $state(false);
   cancelError = $state<string | null>(null);
+  form = $state({
+    vary: [] as string[],
+    search: 'grid' as 'grid' | 'random',
+    metric: 'sharpe',
+    nRandom: 200,
+    seed: 0,
+  });
 
   #client: SweepClient;
   #interval: number;
