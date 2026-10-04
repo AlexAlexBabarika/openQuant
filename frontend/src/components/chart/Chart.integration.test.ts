@@ -11,6 +11,72 @@ afterEach(() => {
 });
 
 describe('Chart active series integration', () => {
+  it('defers fitting hidden data until after a measurable resize without refitting on later task switches', () => {
+    const chartUrl = new URL('./Chart.svelte', import.meta.url);
+    const order: string[] = [];
+    const fitContent = vi.fn(() => order.push('fit'));
+    const applyOptions = vi.fn(options => {
+      if ('width' in options) order.push('resize');
+    });
+    const containerEl = { clientWidth: 0, clientHeight: 0 };
+    const module = clientModule<{
+      default: (
+        anchor: unknown,
+        props: unknown,
+      ) => {
+        fit: () => void;
+        resize: () => void;
+      };
+    }>(
+      chartUrl,
+      {
+        'test:chart': {
+          containerEl,
+          chart: { applyOptions, timeScale: () => ({ fitContent }) },
+        },
+      },
+      `<script lang="ts">
+      import { chart, containerEl } from 'test:chart';
+      let coordVersion = $state(0), priceInvalidator = null;
+      const CHART_TIME_SCALE_RIGHT_OFFSET = 8;
+      ${componentDeclarations(chartUrl, ['pendingFitContent', 'fitSeriesContent', 'handleResize'])}
+      export function fit() { fitSeriesContent(); }
+      export function resize() { handleResize(); }
+      </script>`,
+    );
+    let harness!: ReturnType<typeof module.default>;
+    cleanups.push(
+      client.effect_root(() => {
+        harness = module.default(null, {});
+      }),
+    );
+    harness.fit();
+    harness.resize();
+    expect(applyOptions).not.toHaveBeenCalled();
+    expect(fitContent).not.toHaveBeenCalled();
+
+    containerEl.clientWidth = 1200;
+    containerEl.clientHeight = 700;
+    harness.resize();
+    expect(order).toEqual(['resize', 'fit']);
+    expect(applyOptions).toHaveBeenLastCalledWith({
+      timeScale: { rightOffset: 8 },
+    });
+
+    containerEl.clientWidth = 0;
+    harness.resize();
+    containerEl.clientWidth = 1200;
+    harness.resize();
+    expect(fitContent).toHaveBeenCalledTimes(1);
+
+    // New history loaded while another task is visible needs a fresh fit.
+    containerEl.clientWidth = 0;
+    harness.fit();
+    containerEl.clientWidth = 900;
+    harness.resize();
+    expect(fitContent).toHaveBeenCalledTimes(2);
+  });
+
   it('publishes actual applySeries replacements to the marker effect without changing scripts', () => {
     const chartUrl = new URL('./Chart.svelte', import.meta.url);
     const removed: unknown[] = [];
