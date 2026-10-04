@@ -373,6 +373,7 @@
 
   function handleResize(): void {
     if (chart && containerEl) {
+      if (!containerEl.clientWidth || !containerEl.clientHeight) return;
       chart.applyOptions({
         width: containerEl.clientWidth,
         height: containerEl.clientHeight,

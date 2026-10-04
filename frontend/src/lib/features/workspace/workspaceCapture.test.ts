@@ -5,6 +5,7 @@ import {
   componentDeclarations,
 } from '../chart/reactiveTestSupport';
 import type { ResearchLayout } from './researchShelf.svelte';
+import { trialSearch } from '../../../entry';
 
 const app = new URL('../../../App.svelte', import.meta.url);
 
@@ -35,10 +36,13 @@ describe('workspace capture through research commands', () => {
         {
           'test:shelf': { saveWorkspace },
           'test:tick': { tick: () => Promise.resolve() },
+          'test:entry': { trialSearch },
         },
         `<script lang="ts">
         import { saveWorkspace } from 'test:shelf';
         import { tick } from 'test:tick';
+        import { trialSearch } from 'test:entry';
+        const window = { location: { href: 'http://localhost/' }, history: { pushState: () => {} } };
         const researchShelf = { saveWorkspace };
         const chart = { symbol: 'SPY', source: 'yfinance', interval: '1d', period: '1y' };
         const strategy = { draftName: 'Strategy draft', draftCode: 'strategy code', scripts: [] };
@@ -55,6 +59,8 @@ describe('workspace capture through research commands', () => {
         let trialOpen = false, watchlistOpen = false, activeTool = CURSOR;
         ${componentDeclarations(app, [
           'strategyOpen',
+          'setTrialOpen',
+          'openStrategy',
           'indicatorsOpen',
           'analyticsOpen',
           'backtestOpen',

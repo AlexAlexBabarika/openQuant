@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { compile, compileModule } from 'svelte/compiler';
+import { compile, compileModule, parse } from 'svelte/compiler';
 import { transformSync } from 'esbuild';
 import ts from 'typescript';
 // @ts-expect-error Svelte does not publish types for its client test runtime.
@@ -60,9 +60,13 @@ export function clientModule<T>(
 
 // Execute named production script declarations without mounting chart/editor DOM.
 export function componentDeclarations(url: URL, names: string[]): string {
-  const source = readFileSync(url, 'utf8')
-    .split('</script>')[0]
-    .replace(/^<script[^>]*>/, '');
+  const component = readFileSync(url, 'utf8');
+  const instance = parse(component, { modern: true }).instance;
+  const source = instance
+    ? component
+        .slice(instance.start, instance.end)
+        .replace(/^<script[^>]*>|<\/script>$/g, '')
+    : '';
   const ast = ts.createSourceFile(
     url.pathname,
     source,

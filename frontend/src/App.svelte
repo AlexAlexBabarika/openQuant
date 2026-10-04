@@ -141,6 +141,7 @@
 
   function setTrialOpen(open: boolean): void {
     trialOpen = open;
+    if (open) strategyOpen = false;
     const url = new URL(window.location.href);
     const search = trialSearch(url.search, open);
     if (url.search !== search) {
@@ -149,9 +150,20 @@
     }
   }
 
+  function openStrategy(): void {
+    setTrialOpen(false);
+    strategyOpen = true;
+  }
+
+  function openChart(): void {
+    setTrialOpen(false);
+    strategyOpen = false;
+  }
+
   onMount(() => {
     const syncTrial = () => {
       trialOpen = selectEntry(window.location.search, false) === 'trial';
+      if (trialOpen) strategyOpen = false;
     };
     window.addEventListener('popstate', syncTrial);
     return () => window.removeEventListener('popstate', syncTrial);
@@ -349,6 +361,7 @@
   let analyticsOpen = $state(false);
   let backtestOpen = $state(false);
   let strategyOpen = $state(false);
+  const activeView = $derived(trialOpen ? 'robustness' : strategyOpen ? 'strategy' : 'chart');
   const indicators = new IndicatorState();
   const analytics = new AnalyticsState();
   let backtest = $state(new BacktestState());
@@ -375,7 +388,7 @@
 
   function closeResearchPanels(): void {
     strategyOpen = false; indicatorsOpen = false; analyticsOpen = false;
-    backtestOpen = false; runsOpen = false; compareOpen = false; trialOpen = false;
+    backtestOpen = false; runsOpen = false; compareOpen = false; setTrialOpen(false);
     researchWorkspacesOpen = false; dataInspectorOpen = false; watchlistOpen = false;
   }
 
@@ -396,13 +409,13 @@
   const researchCommands = $derived.by<ResearchCommand[]>(() => {
     const command = (id: string, title: string, action: () => void, group = 'Workspace', detail = ''): ResearchCommand => ({ id, title, group, detail, action: () => void activateCommand(action, group === 'Drawing' || group === 'Symbol') });
     const commands = [
-      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; strategyTab = 'editor'; strategyOpen = true; }),
+      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }),
       command('indicators', 'Open Indicators editor', () => { indicatorTab = 'editor'; indicatorsOpen = true; }),
       command('analytics', 'Open Analytics', () => (analyticsOpen = true)),
       command('runs', 'Open Experiment notebook', () => (runsOpen = true), 'Workspace', 'runs baseline notes tags compare'),
       { id: 'workspaces', title: 'Workspaces and draft recovery', group: 'Workspace', action: openResearchWorkspaces },
       command('data', 'Inspect loaded market data', () => (dataInspectorOpen = true), 'Workspace', 'provenance coverage quality source'),
-      command('robustness', 'Open Robustness', () => (trialOpen = true)),
+      command('robustness', 'Open Robustness', () => setTrialOpen(true)),
       command('backtest', 'Open backtest results', () => { void backtest.load(); backtestOpen = true; }),
       command('cursor', 'Select chart cursor', () => (activeTool = CURSOR), 'Drawing'),
       ...listTools().map(tool => command(`drawing:${tool.type}`, tool.label, () => (activeTool = tool.type), 'Drawing')),
@@ -410,7 +423,7 @@
     const symbols = new Map(groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
     for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
     if ($authState.user) {
-      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, () => { strategy.select(script.id); portfolioRunId = null; strategyTab = 'editor'; strategyOpen = true; }, 'Strategy', 'saved script')));
+      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, () => { strategy.select(script.id); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
       commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, () => { indicators.openScript(script.id); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
     }
     commands.push(...runsHistory.entries.map(run => command(`run:${run.run_id}`, run.label, () => openStoredRun(run.run_id), 'Run', `${run.kind} ${run.tags?.join(' ') ?? ''} ${run.baseline ? 'baseline' : ''}`)));
@@ -461,7 +474,7 @@
     editor.setName(draft.name); editor.setCode(draft.code); editor.dirty = true;
     researchShelf.resolve(kind);
     draftBoundary[kind] = '';
-    if (kind === 'strategy') strategyOpen = true;
+    if (kind === 'strategy') openStrategy();
     else indicatorsOpen = true;
     researchWorkspacesOpen = false;
   }
@@ -507,6 +520,7 @@
       editor.newDraft(() => true); editor.setName(layout[kind].name); editor.setCode(layout[kind].code); editor.dirty = true;
       researchShelf.resolve(kind); draftBoundary[kind] = '';
     }
+    setTrialOpen(false);
     strategyOpen = layout.strategyOpen; indicatorsOpen = layout.indicatorsOpen;
     if (chart.source !== 'csv') void chart.loadMarketData();
     else chart.errorMessage = 'Workspace restored. Upload its CSV again; CSV bars are not part of the preset.';
@@ -530,7 +544,7 @@
       portfolioRunId = null;
       portfolioRunId = id;
       strategyTab = 'portfolio';
-      strategyOpen = true;
+      openStrategy();
       return;
     }
     backtest = new BacktestState(storedRunLoader(id));
@@ -553,7 +567,7 @@
     Indicators: () => (indicatorsOpen = true),
     Analytics: () => (analyticsOpen = true),
     Backtesting: () => (backtestOpen = true),
-    Strategy: () => (strategyOpen = true),
+    Strategy: openStrategy,
     Runs: () => (runsOpen = true),
     Workspaces: openResearchWorkspaces,
     Commands: () => (commandsOpen = true),
@@ -937,7 +951,6 @@
 
 <svelte:window onkeydown={event => { if (isCommandShortcut(event)) { event.preventDefault(); commandsOpen = !commandsOpen; } }} />
 
-<Dialog.Root open={trialOpen} onOpenChange={setTrialOpen}>
 <div class="flex flex-col h-dvh bg-background">
   <DrawablesPersistence />
   <TopHeader
@@ -948,10 +961,13 @@
     bind:autoRefresh={chart.autoRefresh}
     connectionStatus={chart.connectionStatus}
     isLoading={chart.isLoading}
-    onload={chart.loadMarketData}
+    onload={() => { chart.stopStream(); void chart.loadMarketData(); }}
     onstream={chart.startStream}
     oncsvupload={chart.handleCsvUpload}
-    onstrategy={() => (strategyOpen = true)}
+    onstrategy={openStrategy}
+    onchart={openChart}
+    onrobustness={() => setTrialOpen(true)}
+    {activeView}
     onworkspaces={openResearchWorkspaces}
     oninspectdata={() => (dataInspectorOpen = true)}
     loadedProvider={chart.loadedContext?.source ?? null}
@@ -964,6 +980,7 @@
       <button type="button" class="ot-workbench-ghost" onclick={openResearchWorkspaces}>Review recovery</button>
     </div>
   {/if}
+  <section class="workbench-view chart-workspace" hidden={activeView !== 'chart'} inert={activeView !== 'chart'} aria-label="Chart workspace">
   <ErrorMessage bind:message={chart.errorMessage} context={`${chart.symbol} · ${chart.source} · ${chart.period} / ${chart.interval}`} loadedContext={chart.candles.length && chart.loadedContext ? `${chart.loadedContext.symbol} · ${chart.loadedContext.source} · ${chart.loadedContext.period} / ${chart.loadedContext.interval}` : ''} onretry={chart.source !== 'csv' ? () => void chart.loadMarketData() : undefined} />
   {#snippet drawingToolsControl()}
     {#if narrow}
@@ -1083,6 +1100,31 @@
     comparisonCount={comparisonController.comparisons.length}
     oncompare={() => (comparisonDialogOpen = true)}
   />
+  </section>
+  <section class="workbench-view" hidden={activeView !== 'strategy'} inert={activeView !== 'strategy'} aria-label="Strategy workspace">
+  <StrategyPanel
+    embedded
+    bind:tab={strategyTab}
+    bind:editorShare={strategyEditorShare}
+    recoverySavedAt={localRecoveryTime('strategy')}
+    bind:open={strategyOpen}
+    symbol={chart.symbol}
+    provider={chart.source}
+    period={chart.period}
+    interval={chart.interval}
+    {strategy}
+    onOpenRuns={() => (runsOpen = true)}
+    onCompare={openCompare}
+    {portfolioRunId}
+    onRobustness={() => setTrialOpen(true)}
+  />
+  </section>
+  <section class="workbench-view" hidden={activeView !== 'robustness'} inert={activeView !== 'robustness'} aria-label="Robustness workspace">
+    <StrategyTrial embedded
+      workspace={{ code: strategy.draftCode, name: strategy.draftName, symbol: chart.symbol, provider: chart.source, period: chart.period, interval: chart.interval }}
+      onopenstrategy={openStrategy}
+      onreturnworkspace={openChart} />
+  </section>
   <ToolboxPanel
     bind:open={toolboxOpen}
     {theme}
@@ -1116,21 +1158,6 @@
     scriptStatus={!$authState.user ? 'Sign in to browse account scripts. Local commands and notebook references are available.' : strategy.loading || indicators.loading ? 'Loading saved scripts…' : [strategy.loadError, indicators.loadError].filter(Boolean).join(' · ')}
   />
   <CompareView bind:open={compareOpen} compare={compareState} />
-  <StrategyPanel
-    bind:tab={strategyTab}
-    bind:editorShare={strategyEditorShare}
-    recoverySavedAt={localRecoveryTime('strategy')}
-    bind:open={strategyOpen}
-    symbol={chart.loadedSymbol || chart.symbol}
-    provider={chart.source}
-    period={chart.period}
-    interval={chart.interval}
-    {strategy}
-    onOpenRuns={() => (runsOpen = true)}
-    onCompare={openCompare}
-    {portfolioRunId}
-    onRobustness={() => { strategyOpen = false; setTrialOpen(true); }}
-  />
   <AppDialogs
     {groupDialogInitial}
     {groupDialogExistingNames}
@@ -1158,14 +1185,9 @@
       )}
   />
 </div>
-  <Dialog.Content class="flex h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none flex-col gap-0 overflow-hidden rounded-md p-0 sm:max-w-6xl">
-    <Dialog.Title class="sr-only">Robustness checks</Dialog.Title>
-    <Dialog.Description class="sr-only">Compare execution costs, chronological holdout, parameter sensitivity and benchmarks for your workspace strategy and selected market data, or explore built-in synthetic examples. Your research workspace stays open behind this panel.</Dialog.Description>
-    <div class="min-h-0 flex-1 overflow-hidden">
-      <StrategyTrial embedded
-        workspace={{ code: strategy.draftCode, name: strategy.draftName, symbol: chart.loadedSymbol || chart.symbol, provider: chart.source, period: chart.period, interval: chart.interval }}
-        onopenstrategy={() => { setTrialOpen(false); strategyOpen = true; }}
-        onreturnworkspace={() => setTrialOpen(false)} />
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+
+<style>
+  .workbench-view { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+  .chart-workspace { display: flex; flex-direction: column; }
+  .workbench-view[hidden] { display: none; }
+</style>

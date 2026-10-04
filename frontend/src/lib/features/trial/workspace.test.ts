@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import { clearAccessToken, setAccessToken } from '$lib/core/api';
 import StrategyTrial from './StrategyTrial.svelte';
+import ReportContext from './ReportContext.svelte';
+import type { TrialReport } from '../trial-report/types';
 import ReportActions from '../trial-report/ReportActions.svelte';
 import {
   generateTrialReportHtml,
@@ -205,6 +207,78 @@ describe('workspace robustness inputs and boundary', () => {
 });
 
 describe('private workspace evidence export', () => {
+  it('renders completed context from the report, including the original market and source identity', () => {
+    const report = fixture();
+    const receivedAt = '2026-10-04T18:30:00.000Z';
+    const html = render(ReportContext, { props: { report, receivedAt } }).body;
+    for (const value of [
+      'Completed report',
+      'MSFT · yfinance · 1y / 1d',
+      '25,000.00 currency units',
+      'source-hash',
+      'bars-hash',
+      'engine-version',
+      'Report received (UTC)',
+      receivedAt,
+      'My draft',
+    ])
+      expect(html).toContain(value);
+    expect(html).not.toContain(context.code);
+    expect(html).not.toContain('$10,000');
+    expect(html).not.toContain('synthetic example');
+    const changedInputs = {
+      ...context,
+      name: 'Different draft',
+      symbol: 'AAPL',
+      period: '5y',
+    };
+    expect(workspaceFingerprint(changedInputs, settings)).not.toBe(
+      workspaceFingerprint(context, settings),
+    );
+    expect(
+      render(ReportContext, { props: { report, receivedAt } }).body,
+    ).not.toContain('Different draft');
+    expect(
+      render(ReportContext, { props: { report, receivedAt } }).body,
+    ).not.toContain('AAPL');
+  });
+
+  it('keeps synthetic provenance distinct from workspace source and cash', () => {
+    const workspaceReport = fixture();
+    const report: TrialReport = {
+      schema_version: 1,
+      report_id: 'example-report',
+      strategy: { ...workspaceReport.strategy, id: 'boring-benchmark' },
+      dataset: {
+        ...workspaceReport.dataset,
+        label: 'Synthetic scenario',
+        synthetic: true,
+      },
+      config: {
+        strategy_id: 'boring-benchmark',
+        commission_bps: 1,
+        slippage_bps: 5,
+      },
+      baseline: workspaceReport.baseline,
+      realistic: workspaceReport.realistic,
+      benchmark: workspaceReport.benchmark,
+      holdout: workspaceReport.holdout,
+      sensitivity: [],
+      selected_parameter: null,
+      findings: [],
+      assumptions: [],
+      limitations: [],
+    };
+    const html = render(ReportContext, {
+      props: { report, receivedAt: '2026-10-04T18:30:00.000Z' },
+    }).body;
+    expect(html).toContain('synthetic example');
+    expect(html).toContain('$10,000');
+    expect(html).not.toContain('Source SHA-256');
+    expect(html).not.toContain('Engine / seed');
+    expect(html).not.toContain('25,000.00');
+  });
+
   it('exports actual cash and provenance without demo/untouched-holdout claims or source', () => {
     const report = fixture();
     const html = generateTrialReportHtml(report);
