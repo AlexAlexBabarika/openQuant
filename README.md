@@ -135,6 +135,11 @@ This is workbench account isolation, not cloud sync or encrypted storage. Anyone
 with access to the browser profile can inspect local storage; clearing browser data
 removes these annotations.
 
+Unsent watchlist edits are also retained in an account-specific browser record.
+They are retried on that account's next session restoration and cleared only
+after the matching remote save succeeds. As with normal watchlist saves, a retried
+edit replaces the account's remote watchlist; this is not multi-device merging.
+
 ## Data providers
 
 | Provider | Credentials | Internet | Notes |

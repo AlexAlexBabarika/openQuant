@@ -1,4 +1,5 @@
 import { apiJson, getSessionGeneration } from '$lib/core/api';
+import { safeLocalStorageGet, safeLocalStorageSet } from '$lib/core/storage';
 import type { TickerGroup, FlaggedPriority, FlaggedStance } from './tickers';
 import {
   isDefaultTickerWorkspaceState,
@@ -117,6 +118,10 @@ function statePayload(state: TickerWorkspaceState): TickerWorkspacePayload {
   );
 }
 
+function pendingStorageKey(userId: string): string {
+  return `openQuant.tickerWorkspace.pending.v1.${encodeURIComponent(userId)}`;
+}
+
 export class TickerWorkspaceSync {
   private userId: string | null = null;
   private generation = 0;
@@ -126,6 +131,7 @@ export class TickerWorkspaceSync {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private writes: Promise<unknown> = Promise.resolve();
   private pendingWrites = 0;
+  private pendingJson: string | null = null;
 
   constructor(
     private readonly options: {
@@ -147,6 +153,7 @@ export class TickerWorkspaceSync {
     this.generation++;
     this.ready = false;
     this.acknowledgedJson = null;
+    this.pendingJson = null;
     if (userId) void this.hydrate(this.generation);
   }
 
@@ -165,6 +172,23 @@ export class TickerWorkspaceSync {
     try {
       await this.writes;
       if (!this.isCurrent(generation)) return;
+      const key = pendingStorageKey(this.userId!);
+      const pending = safeLocalStorageGet<TickerWorkspacePayload>(key);
+      if (
+        pending &&
+        Array.isArray(pending.groups) &&
+        typeof pending.selectedGroup === 'string'
+      ) {
+        const restored = workspacePayloadToAppState(pending);
+        const payload = statePayload(restored);
+        this.pendingJson = JSON.stringify(payload);
+        safeLocalStorageSet(key, payload);
+        if (JSON.stringify(statePayload(this.options.read())) === initialJson) {
+          this.options.apply(restored);
+        }
+        await this.write(this.pendingJson, generation);
+        if (!this.isCurrent(generation)) return;
+      }
       const next = await syncWorkspaceOnSignIn(
         JSON.parse(JSON.stringify(current)) as TickerWorkspaceState,
         () => this.isCurrent(generation),
@@ -190,7 +214,19 @@ export class TickerWorkspaceSync {
     this.cancelTimer();
     if (!this.ready || !this.isCurrent(this.generation)) return;
     const json = JSON.stringify(payload);
-    if (json === this.acknowledgedJson && this.pendingWrites === 0) return;
+    const key = pendingStorageKey(this.userId!);
+    if (json === this.acknowledgedJson && this.pendingWrites === 0) {
+      if (
+        this.pendingJson !== null &&
+        JSON.stringify(safeLocalStorageGet(key)) === this.pendingJson
+      ) {
+        safeLocalStorageSet(key, null);
+      }
+      this.pendingJson = null;
+      return;
+    }
+    this.pendingJson = json;
+    safeLocalStorageSet(key, payload);
     const generation = this.generation;
     this.timer = setTimeout(() => {
       this.timer = null;
@@ -207,7 +243,14 @@ export class TickerWorkspaceSync {
         if (!this.isCurrent(generation) || json === this.acknowledgedJson)
           return;
         await putTickerWorkspace(JSON.parse(json) as TickerWorkspacePayload);
-        if (this.isCurrent(generation)) this.acknowledgedJson = json;
+        if (this.isCurrent(generation)) {
+          this.acknowledgedJson = json;
+          const key = pendingStorageKey(this.userId!);
+          if (JSON.stringify(safeLocalStorageGet(key)) === json) {
+            safeLocalStorageSet(key, null);
+          }
+          if (this.pendingJson === json) this.pendingJson = null;
+        }
       })
       .finally(() => {
         this.pendingWrites--;

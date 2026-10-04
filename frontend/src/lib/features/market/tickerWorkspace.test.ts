@@ -73,6 +73,18 @@ function fixture(initial = 'local') {
   };
 }
 
+function pendingStorage() {
+  const values = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  });
+  return (account = 'a') =>
+    JSON.parse(
+      values.get(`openQuant.tickerWorkspace.pending.v1.${account}`) ?? 'null',
+    );
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   setAccessToken('account-a');
@@ -218,6 +230,147 @@ describe('ticker workspace hydration', () => {
 });
 
 describe('ticker workspace writes', () => {
+  it('does not clear another tab pending record on an unchanged save', async () => {
+    const pending = pendingStorage();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response('remote')),
+    );
+    const f = fixture();
+    f.select('a');
+    await settle();
+    const payload = {
+      groups: f.read().groups,
+      selectedGroup: f.read().selectedGroupName,
+      selectedPriority: null,
+      selectedStance: null,
+    };
+    localStorage.setItem(
+      'openQuant.tickerWorkspace.pending.v1.a',
+      JSON.stringify({ ...payload, selectedGroup: 'other-tab' }),
+    );
+    f.sync.save(payload);
+    expect(pending().selectedGroup).toBe('other-tab');
+    f.sync.destroy();
+  });
+
+  it('replays an unsent edit for the same account after immediate destruction and reload', async () => {
+    const pending = pendingStorage();
+    let server = 'remote';
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT')
+        server = JSON.parse(init.body as string).selectedGroup;
+      return response(server);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const old = fixture();
+    old.select('a');
+    await settle();
+    old.edit('unsent');
+    old.sync.destroy();
+    expect(server).toBe('remote');
+    expect(pending().selectedGroup).toBe('unsent');
+    const fresh = fixture();
+    fresh.select('a');
+    await settle();
+    expect(fresh.read().selectedGroupName).toBe('unsent');
+    expect(server).toBe('unsent');
+    expect(pending()).toBeNull();
+    fresh.sync.destroy();
+  });
+
+  it('does not replay another account draft and retains it through logout', async () => {
+    const pending = pendingStorage();
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) =>
+      response(init?.method === 'PUT' ? 'saved' : 'remote'),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const f = fixture();
+    f.select('a');
+    await settle();
+    f.edit('a-unsent');
+    f.select(null);
+    expect(pending().selectedGroup).toBe('a-unsent');
+    setAccessToken('account-b');
+    f.select('b');
+    await settle();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(f.read().selectedGroupName).toBe('remote');
+    expect(
+      fetch.mock.calls.filter(([, init]) => init?.method === 'PUT'),
+    ).toHaveLength(0);
+    expect(pending().selectedGroup).toBe('a-unsent');
+    expect(pending('b')).toBeNull();
+    f.sync.destroy();
+  });
+
+  it('keeps newer pending edits when an older write acknowledges', async () => {
+    const pending = pendingStorage();
+    const first = deferred<Response>();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response('remote'))
+      .mockImplementationOnce(() => first.promise)
+      .mockResolvedValueOnce(response('newer'));
+    vi.stubGlobal('fetch', fetch);
+    const f = fixture();
+    f.select('a');
+    await settle();
+    f.edit('older');
+    await vi.advanceTimersByTimeAsync(500);
+    f.edit('newer');
+    first.resolve(response('older'));
+    await settle();
+    expect(pending().selectedGroup).toBe('newer');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(pending()).toBeNull();
+    f.sync.destroy();
+  });
+
+  it('retains a failed save for restoration retry', async () => {
+    const pending = pendingStorage();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response('remote'))
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue(response('retry'));
+    vi.stubGlobal('fetch', fetch);
+    const old = fixture();
+    old.select('a');
+    await settle();
+    old.edit('retry');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(pending().selectedGroup).toBe('retry');
+    old.sync.destroy();
+    const fresh = fixture();
+    fresh.select('a');
+    await settle();
+    expect(fresh.read().selectedGroupName).toBe('retry');
+    expect(pending()).toBeNull();
+    fresh.sync.destroy();
+  });
+
+  it('discards an unsent draft reverted to the acknowledged workspace', async () => {
+    const pending = pendingStorage();
+    const fetch = vi.fn(async () => response('remote'));
+    vi.stubGlobal('fetch', fetch);
+    const f = fixture();
+    f.select('a');
+    await settle();
+    const original = f.read();
+    f.edit('temporary');
+    f.sync.save({
+      groups: original.groups,
+      selectedGroup: original.selectedGroupName,
+      selectedPriority: original.selectedPriority,
+      selectedStance: original.selectedStance,
+    });
+    expect(pending()).toBeNull();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    f.sync.destroy();
+  });
+
   it('waits for an older same-account save before hydrating a new login session', async () => {
     const pending = deferred<Response>();
     let server = 'original';
