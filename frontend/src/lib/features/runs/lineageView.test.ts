@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import LineageView from '../../../components/backtest/compare/LineageView.svelte';
+import RecentRunsPanel from '../../../components/backtest/RecentRunsPanel.svelte';
 import type { RunLineage } from './runTypes';
 
 const lineage: RunLineage = {
@@ -36,6 +37,14 @@ const lineage: RunLineage = {
 };
 
 describe('experiment lineage', () => {
+  it('distinguishes account-scoped notebook metadata from shared server snapshots', () => {
+    const html = render(RecentRunsPanel, {
+      props: { open: true, onOpenRun: () => {}, onCompare: () => {} },
+    }).body;
+    expect(html).toContain('separated by account');
+    expect(html).toContain('server-local and not account-scoped');
+    expect(html).not.toContain('original account');
+  });
   it('renders changed, unavailable and explicitly empty metadata distinctly', () => {
     const html = render(LineageView, { props: { lineage } }).body;
     for (const text of [
