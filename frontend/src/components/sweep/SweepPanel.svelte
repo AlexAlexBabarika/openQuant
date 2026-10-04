@@ -36,11 +36,11 @@
   }
 
   const varied = $derived(lastForm?.vary ?? []);
-  const metric = $derived(lastForm?.metric ?? 'sharpe');
+  const resultMetric = $derived(lastForm?.metric ?? 'sharpe');
 </script>
 
 <div class="sweep">
-  <ParamForm schema={sweep.schema} {code} {symbol} {provider} onsubmit={start} disabled={sweep.schemaLoading || sweep.status === 'running'} />
+  <ParamForm schema={sweep.schema} {code} {symbol} {provider} bind:vary={sweep.form.vary} bind:search={sweep.form.search} bind:metric={sweep.form.metric} bind:nRandom={sweep.form.nRandom} bind:seed={sweep.form.seed} onsubmit={start} disabled={sweep.schemaLoading || sweep.status === 'running'} />
   {#if sweep.schemaLoading}<p class="card">Loading parameters…</p>{/if}
   {#if sweep.schemaError}<p class="card err" role="alert">{sweep.schemaError}</p>{/if}
 
@@ -69,15 +69,15 @@
       <fieldset class="card">
         <legend>{varied.length === 2 ? 'Heatmap' : 'Parallel coordinates'}</legend>
         {#if varied.length === 2}
-          <Heatmap trials={sweep.trials} xParam={varied[0]} yParam={varied[1]} {metric} ontrial={openTrial} />
+          <Heatmap trials={sweep.trials} xParam={varied[0]} yParam={varied[1]} metric={resultMetric} ontrial={openTrial} />
         {:else}
-          <ParallelCoords trials={sweep.trials} {varied} {metric} ontrial={openTrial} />
+          <ParallelCoords trials={sweep.trials} {varied} metric={resultMetric} ontrial={openTrial} />
         {/if}
       </fieldset>
     {/if}
     <fieldset class="card">
       <legend>Trials</legend>
-      <TrialsTable trials={sweep.trials} {metric} {varied} bestTrialId={sweep.bestTrialId} onopen={openTrial} />
+      <TrialsTable trials={sweep.trials} metric={resultMetric} {varied} bestTrialId={sweep.bestTrialId} onopen={openTrial} />
     </fieldset>
   {/if}
 </div>

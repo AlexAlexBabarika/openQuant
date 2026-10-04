@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
@@ -39,7 +39,7 @@
 
   $effect(() => {
     if (open) {
-      loadExistingKeys();
+      untrack(() => void loadExistingKeys());
     }
   });
 

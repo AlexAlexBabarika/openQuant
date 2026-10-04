@@ -31,6 +31,7 @@
   let catalogLoading = $state(true);
   let catalogError = $state('');
   let running = $state(false);
+  let configurationExpanded = $state(false);
   let authDialogOpen = $state(false);
   let runError = $state('');
   let report = $state.raw<EvidenceReport | null>(null);
@@ -245,9 +246,11 @@
 
   <div class="workbench">
     <aside class="configuration" aria-label="Robustness configuration">
+      <button type="button" class="config-toggle ot-workbench-ghost" aria-expanded={configurationExpanded} aria-controls="robustness-configuration-fields" onclick={() => (configurationExpanded = !configurationExpanded)}>Configuration · {mode === 'workspace' ? workspace?.symbol || 'No symbol' : 'Example data'}</button>
+      <div id="robustness-configuration-fields" class="config-scroll" class:expanded={configurationExpanded}>
       <h2>Configuration</h2>
       <p class="muted">Compare execution costs, buy-and-hold, an out-of-sample period and neighboring parameter values.</p>
-      <form onsubmit={event => { event.preventDefault(); void runTrial(); }}>
+      <form id="robustness-run-form" onsubmit={event => { event.preventDefault(); void runTrial(); }}>
         {#if workspace}
           <label for="robustness-source">Strategy source</label>
           <select id="robustness-source" value={mode} onchange={event => chooseMode(event.currentTarget.value as 'workspace' | 'examples')}>
@@ -297,10 +300,6 @@
             bind:value={slippage} aria-describedby="trial-cost-help" />
           <p id="trial-cost-help" class="muted">0–50 bps per fill. 1 bp = 0.01%.{#if !costsValid} <strong class="error">Enter finite costs within this range.</strong>{/if}</p>
         </fieldset>
-        <button class="run-button ot-workbench-primary" type="submit" disabled={!canRun || running}>
-          {running ? 'Running…' : mode === 'workspace' && !$authState.user ? 'Sign in to run checks' : 'Run checks'}
-        </button>
-        {#if running}<button class="ot-workbench-ghost" type="button" onclick={() => { cancelRun(); statusMessage = 'Stopped waiting for this result. A workspace suite may continue up to its 30-second server limit.'; }}>Stop waiting</button>{/if}
       </form>
 
       <div class="scope">
@@ -315,6 +314,12 @@
         <p>These checks do not use your chart data or custom strategy. Use Strategy and Backtesting in the workspace for your own research.</p>
         {/if}
         <p>No live orders or investment advice.</p>
+      </div>
+      </div>
+      <div class="run-controls">
+        <button class="run-button ot-workbench-primary" type="submit" form="robustness-run-form" disabled={!canRun || running}>{running ? 'Running…' : mode === 'workspace' && !$authState.user ? 'Sign in to run checks' : 'Run checks'}</button>
+        {#if running}<button class="ot-workbench-ghost" type="button" onclick={() => { cancelRun(); statusMessage = 'Stopped waiting for this result. A workspace suite may continue up to its 30-second server limit.'; }}>Stop waiting</button>{/if}
+        <span class="muted">{mode === 'workspace' ? 'Current editor draft · no live orders' : 'Synthetic examples · not chart data'}</span>
       </div>
     </aside>
 
@@ -335,6 +340,7 @@
           <div><h2>{report.strategy.name}</h2><p class="muted">{report.strategy.lesson}</p></div>
           <span class="badge">{isWorkspaceReport(report) ? 'PROVIDER SNAPSHOT' : 'SYNTHETIC'}</span>
         </div>
+        <p class="result-context">{report.dataset.label} · {formatDate(report.dataset.start)} — {formatDate(report.dataset.end)} UTC<br />{report.dataset.training_bars.toLocaleString('en-US')} earlier / {report.dataset.holdout_bars.toLocaleString('en-US')} holdout bars · {report.config.commission_bps} bps commission / {report.config.slippage_bps} bps slippage per fill</p>
 
         <div class="metric-strip">
           <div><span>Return · with costs</span><strong>{formatPercent(report.realistic.total_return, true)}</strong><small>Zero-cost: {formatPercent(report.baseline.total_return, true)}</small></div>
@@ -428,9 +434,9 @@
 
 <style>
   .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 12px/1.6 var(--font-mono); }
-  .standalone { min-height: 100dvh; }
+  .standalone { height: 100dvh; min-height: 0; }
   .embedded { height: 100%; min-height: 0; }
-  .embedded .workbench { min-height: 0; overflow-y: auto; }
+  .workbench { min-height: 0; overflow: hidden; }
   .topbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 48px 12px 18px; border-bottom: 1px solid oklch(var(--border)); }
   .brand, .wordmark { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .wordmark { font-weight: 600; }
@@ -442,7 +448,11 @@
   p { margin: 0 0 12px; }
   .badge { border: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); border-radius: 3px; padding: 2px 6px; font-size: 10px; letter-spacing: .04em; white-space: nowrap; }
   .workbench { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; }
-  .configuration { padding: 18px; border-right: 1px solid oklch(var(--border)); background: oklch(var(--popover)); }
+  .configuration { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid oklch(var(--border)); background: oklch(var(--popover)); }
+  .config-scroll { min-height: 0; flex: 1; overflow-y: auto; padding: 18px; }
+  .config-toggle { display: none; }
+  .run-controls { display: flex; flex-direction: column; flex-shrink: 0; gap: 8px; padding: 12px 18px; border-top: 1px solid oklch(var(--border)); }
+  .run-controls span { font-size: 10px; }
   form { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
   label, legend { font-size: 11px; font-weight: 600; }
   input, select, textarea { width: 100%; min-height: 36px; border: 1px solid oklch(var(--border)); border-radius: 3px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
@@ -455,7 +465,8 @@
   input:focus-visible, select:focus-visible, textarea:focus-visible, .trial-shell :global(button:focus-visible), .trial-shell :global(a:focus-visible) { outline: 2px solid oklch(var(--primary)); outline-offset: 2px; }
   .scope { margin-top: 22px; padding-top: 16px; border-top: 1px solid oklch(var(--border)); font-size: 11px; }
   .scope h2 { color: oklch(var(--foreground)); }
-  .results { min-width: 0; padding: 18px; }
+  .results { min-width: 0; min-height: 0; overflow-y: auto; padding: 18px; }
+  .result-context { color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; font-size: 11px; border-left: 2px solid oklch(var(--border)); padding-left: 10px; }
   .live-status { font-size: 11px; }
   .notice { border: 1px solid oklch(var(--border)); background: oklch(var(--muted)); padding: 12px; margin-bottom: 16px; }
   .notice p { margin-bottom: 8px; }
@@ -493,5 +504,17 @@
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 300px; text-align: center; color: oklch(var(--muted-foreground)); }
   .empty-state p { max-width: 50ch; }
   @media (max-width: 900px) { .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .metric-strip > div:nth-child(3) { border-left: 0; } .metric-strip > div:nth-child(n+3) { border-top: 1px solid oklch(var(--border)); } }
-  @media (max-width: 700px) { .workbench { grid-template-columns: minmax(0, 1fr); } .configuration { border-right: 0; border-bottom: 1px solid oklch(var(--border)); } .topbar { padding-left: 14px; } .results, .configuration { padding: 14px; } .empty-state { min-height: 180px; } }
+  @media (max-width: 700px) {
+    .workbench { display: flex; flex-direction: column; overflow-y: auto; }
+    .configuration { position: sticky; top: 0; z-index: 1; flex-shrink: 0; border-right: 0; border-bottom: 1px solid oklch(var(--border)); }
+    .config-toggle { display: flex; justify-content: space-between; margin: 8px 14px; }
+    .config-scroll { display: none; flex: none; padding: 14px; max-height: min(45dvh, 360px); overflow-y: auto; }
+    .config-scroll.expanded { display: block; }
+    .run-controls { padding: 10px 14px; }
+    .run-controls span { display: none; }
+    .topbar { padding-left: 14px; }
+    .results { flex-shrink: 0; overflow: visible; padding: 14px; }
+    .empty-state { min-height: 180px; }
+    .metric-strip strong { font-size: 16px; overflow-wrap: anywhere; }
+  }
 </style>

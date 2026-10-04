@@ -15,13 +15,11 @@
   import { runSpring } from '$lib/features/chart/spring';
   import ChartCandlestick from '@lucide/svelte/icons/chart-candlestick';
   import ChevronUp from '@lucide/svelte/icons/chevron-up';
-  import ToolboxWidget from './ToolboxWidget.svelte';
   import type { Theme } from '$lib/features/theme/theme';
 
   let {
     open = $bindable(false),
     api = $bindable<ToolboxPanelApi | null>(null),
-    theme,
     onTileSelect,
   }: {
     open?: boolean;
@@ -34,6 +32,7 @@
   let progress = $state(0);
   let panelEl = $state<HTMLDivElement | null>(null);
   let dialogEl = $state<HTMLDivElement | null>(null);
+  let triggerEl = $state<HTMLButtonElement | null>(null);
   const modal = createModalLifecycle();
   onDestroy(() => { modal.close(); cancelSpring?.(); });
   let cancelSpring: (() => void) | null = null;
@@ -53,6 +52,11 @@
   function animateTo(target: number, velocity = 0) {
     animatedOpen = target === 1;
     cancelSpring?.();
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      progress = target;
+      cancelSpring = null;
+      return;
+    }
     cancelSpring = runSpring({
       from: progress,
       to: target,
@@ -104,6 +108,18 @@
     animateTo(0);
   }
 
+  function restoreTriggerFocus(event: Event) {
+    modal.close();
+    event.preventDefault();
+    void tick().then(() => requestAnimationFrame(focusTrigger));
+  }
+
+  function focusTrigger() {
+    const doc = triggerEl?.ownerDocument;
+    const otherDialog = Array.from(doc?.querySelectorAll('[role="dialog"]') ?? []).some(node => node !== dialogEl);
+    if (!open && !otherDialog) triggerEl?.focus();
+  }
+
   $effect(() => {
     const nextOpen = open;
     untrack(() => {
@@ -111,12 +127,12 @@
     });
   });
 
-  const cards: { title: string; colors: string[] }[] = [
-    { title: 'Analytics', colors: ['#2a3b6e', '#3d2a5c', '#14304a', '#0c1a2f'] },
-    { title: 'Backtesting', colors: ['#5c2a4a', '#2a3d5c', '#3a1f3d', '#0f1a26'] },
-    { title: 'Indicators', colors: ['#2a5c4a', '#1f3d4a', '#14302e', '#0a1a1c'] },
-    { title: 'Strategy', colors: ['#6e4a2a', '#5c3a2a', '#3d2614', '#1a0f0a'] },
-    { title: 'Runs', colors: ['#4a2a6e', '#2a1f5c', '#1a143d', '#0a0a1f'] },
+  const cards = [
+    { title: 'Strategy', purpose: 'Write Python, run a backtest, inspect results.' },
+    { title: 'Backtesting', purpose: 'Inspect the latest simulated run and trades.' },
+    { title: 'Analytics', purpose: 'Measure returns, risk and distributions on chart data.' },
+    { title: 'Indicators', purpose: 'Write and project Python indicators onto the chart.' },
+    { title: 'Runs', purpose: 'Reopen stored runs and compare reproducible outputs.' },
   ];
 
   let backdropOpacity = $derived(clamp(progress, 0, 1));
@@ -193,9 +209,10 @@
   }
 </script>
 
-<Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
+<Dialog.Root bind:open onOpenChangeComplete={value => { if (!value) { modal.close(); void tick().then(focusTrigger); } }}>
+    <Dialog.Trigger bind:ref={triggerEl} type="button" class="toolbox-trigger ot-workbench-ghost" aria-label="Open toolbox" style="visibility: {open ? 'hidden' : 'visible'}; transition-property: color, background-color, border-color, box-shadow" inert={open}>Tools</Dialog.Trigger>
   <Dialog.Portal disabled={typeof window === 'undefined'}>
-    <Dialog.Overlay forceMount>
+    <Dialog.Overlay>
       {#snippet child({ props })}
         <div {...props}
           class="fixed inset-0 z-50 bg-black"
@@ -206,13 +223,13 @@
         ></div>
       {/snippet}
     </Dialog.Overlay>
-    <Dialog.Content forceMount
+    <Dialog.Content
       onOpenAutoFocus={e => {
         modal.open(dialogEl);
         e.preventDefault();
         panelEl?.querySelector<HTMLButtonElement>('button')?.focus();
       }}
-      onCloseAutoFocus={() => modal.close()}
+      onCloseAutoFocus={restoreTriggerFocus}
     >
     {#snippet child({ props })}
 <div {...props}
@@ -224,9 +241,10 @@
   aria-modal={open ? 'true' : undefined}
   aria-label={open ? 'Toolbox' : undefined}
 >
+  {#if open}
   <div
     class="pull-handle pointer-events-auto absolute left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing select-none touch-none"
-    style="bottom: calc(80vh * var(--progress))"
+    style="bottom: calc(min(480px, 80dvh) * var(--progress))"
     role="button"
     tabindex="0"
     aria-label={open ? 'Close toolbox' : 'Open toolbox'}
@@ -263,17 +281,18 @@
       />
     </div>
   </div>
+  {/if}
 
   <div
     inert={!open}
     aria-hidden={!open}
     bind:this={panelEl}
-    class="absolute left-0 right-0 bottom-0 h-[80vh] bg-popover text-popover-foreground rounded-t-2xl shadow-2xl border-t border-border overflow-hidden"
+    class="absolute left-0 right-0 bottom-0 h-[min(480px,80dvh)] bg-popover text-popover-foreground rounded-t-lg shadow-lg border-t border-border overflow-hidden"
     style:transform="translateY({translatePct}%)"
     style:pointer-events={interactive ? 'auto' : 'none'}
     aria-label="Toolbox"
   >
-    <div class="h-full overflow-y-auto p-6">
+    <div class="h-full overflow-y-auto p-4 sm:p-6">
       <div class="flex items-center gap-3 mb-4">
         <div
           class="flex items-center gap-1.5 font-mono text-lg font-semibold tracking-tight select-none"
@@ -282,26 +301,21 @@
           <ChartCandlestick class="h-5 w-5 text-primary" />
         </div>
         <h2 class="ml-auto text-lg font-semibold font-mono">Toolbox</h2>
-        <button type="button" class="rounded p-1 hover:bg-accent" onclick={close} aria-label="Close toolbox"><X class="h-4 w-4" /></button>
+        <Dialog.Close type="button" class="rounded p-1 hover:bg-accent" aria-label="Close toolbox"><X class="h-4 w-4" /></Dialog.Close>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-5 gap-4">
-        {#each cards as card, i (card.title)}
-          <ToolboxWidget
-            title={card.title}
-            colors={card.colors}
-            rotation={30 * i}
-            autoRotate={3 + i * 2}
-            showBends={theme !== 'light'}
-            onclick={onTileSelect
-              ? async () => {
+      <p class="mb-3 text-xs text-muted-foreground">Research tools · simulated outputs, no live orders</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {#each cards as card (card.title)}
+          <button type="button" class="tool-card" aria-label="Open {card.title}" disabled={!onTileSelect} onclick={async () => {
+              if (onTileSelect) {
                   close();
                   await tick();
                   onTileSelect(card.title);
                 }
-              : undefined}
-          />
+              }}><span class="font-mono text-sm font-bold">{card.title}</span><span class="text-xs text-muted-foreground">{card.purpose}</span></button>
         {/each}
       </div>
+      <p class="mt-4 text-xs text-muted-foreground">Chart annotations are separate: use Drawing tools for rulers, volume profiles and long/short position annotations. Their settings apply to all Elements of a type, not a selected object.</p>
     </div>
   </div>
 </div>
@@ -311,6 +325,9 @@
 </Dialog.Root>
 
 <style>
+  .tool-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; text-align: left; background: oklch(var(--background)); border: 1px solid oklch(var(--border)); border-radius: 4px; cursor: pointer; }
+  .tool-card:hover { background: oklch(var(--accent)); }
+  .toolbox-trigger { position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%); z-index: 40; }
   .pull-handle:focus-visible, button:focus-visible {
     outline: 2px solid oklch(var(--foreground));
     outline-offset: 2px;

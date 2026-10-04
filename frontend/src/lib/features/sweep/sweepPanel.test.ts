@@ -4,6 +4,17 @@ import SweepPanel from '../../../components/sweep/SweepPanel.svelte';
 import { SweepState } from './sweepState.svelte';
 
 describe('sweep control feedback', () => {
+  it('preserves edited search controls when the view remounts with the same sweep', () => {
+    const sweep = new SweepState();
+    sweep.form.seed = 7;
+    sweep.form.search = 'random';
+    sweep.form.nRandom = 32;
+    for (let i = 0; i < 2; i++) {
+      const html = render(SweepPanel, { props: { code: 'x', sweep } }).body;
+      expect(html).toMatch(/Seed <input[^>]*value="7"/);
+      expect(html).toMatch(/Trials <input[^>]*value="32"/);
+    }
+  });
   it('shows schema errors and disables starting while parameters are loading', () => {
     const sweep = new SweepState();
     sweep.schemaLoading = true;

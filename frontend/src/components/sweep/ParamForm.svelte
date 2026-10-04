@@ -19,6 +19,11 @@
     provider = 'yfinance',
     onsubmit,
     disabled = false,
+    vary = $bindable<string[]>([]),
+    search = $bindable<'grid' | 'random'>('grid'),
+    metric = $bindable('sharpe'),
+    nRandom = $bindable(200),
+    seed = $bindable(0),
   }: {
     schema: ParamSchema;
     code: string;
@@ -26,15 +31,14 @@
     provider?: string;
     onsubmit: (form: SweepFormValues) => void;
     disabled?: boolean;
+    vary?: string[];
+    search?: 'grid' | 'random';
+    metric?: string;
+    nRandom?: number;
+    seed?: number;
   } = $props();
 
   const paramNames = $derived(Object.keys(schema));
-  let vary = $state<string[]>([]);
-  let search = $state<'grid' | 'random'>('grid');
-  let metric = $state('sharpe');
-  let nRandom = $state(200);
-  let seed = $state(0);
-
   // Reconcile selections only when the declared parameters change.
   $effect(() => {
     vary = reconcileVariedParams(untrack(() => vary), paramNames);

@@ -1,3 +1,12 @@
+<script lang="ts" module>
+  export function editorShareForKey(event: Pick<KeyboardEvent, 'key' | 'preventDefault'>, value: number): number | null {
+    const next = event.key === 'ArrowLeft' ? value - 5 : event.key === 'ArrowRight' ? value + 5 : event.key === 'Home' ? 25 : event.key === 'End' ? 75 : null;
+    if (next === null) return null;
+    event.preventDefault();
+    return Math.max(25, Math.min(75, next));
+  }
+</script>
+
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import { authState } from '$lib/features/auth/auth';
@@ -51,6 +60,21 @@
   const sweep = new SweepState();
   const portfolio = new PortfolioState();
   let backtestOpen = $state(false);
+  let libraryOpen = $state(untrack(() => strat.scripts.length > 0));
+  let editorView = $state<'editor' | 'results'>('editor');
+  let editorShare = $state(50);
+  let panesEl = $state<HTMLDivElement | null>(null);
+  let resizing = $state(false);
+  let completedSource = $state<string | null>(null);
+  let completedContext = $state('');
+  let completedResult = $state<StrategyState['backtest']>(null);
+  const resultChanged = $derived(completedResult === strat.backtest && completedSource !== null && (completedSource !== strat.draftCode || completedContext !== `${symbol}|${provider}|${period}|${interval}`));
+
+  function resizeEditor(event: PointerEvent) {
+    if (!resizing || !panesEl) return;
+    const rect = panesEl.getBoundingClientRect();
+    editorShare = Math.max(25, Math.min(75, (event.clientX - rect.left) / rect.width * 100));
+  }
 
   function openPortfolioTab() {
     // Seed the universe with the chart's symbol so the tab is one click
@@ -94,8 +118,15 @@
 
   async function runNow() {
     if (strat.isRunning || !symbol) return;
+    const source = strat.draftCode;
+    const context = `${symbol}|${provider}|${period}|${interval}`;
     const bt = await strat.runBacktest({ symbol, provider, period, interval });
-    if (strat.backtest === bt && !bt.error) backtestOpen = true;
+    if (strat.backtest === bt && !bt.error) {
+      completedSource = source;
+      completedContext = context;
+      completedResult = bt;
+      editorView = 'results';
+    }
   }
 
   async function saveNow() {
@@ -149,6 +180,11 @@
     role="dialog"
     aria-modal="true"
     aria-label="Strategy workbench"
+    onkeydown={event => {
+      if (event.defaultPrevented || tab !== 'editor' || !(event.metaKey || event.ctrlKey) || event.repeat) return;
+      if (event.key === 'Enter') { event.preventDefault(); void runNow(); }
+      else if (event.key.toLowerCase() === 's') { event.preventDefault(); void saveNow(); }
+    }}
   >
     <header class="topbar">
       <div class="brand">
@@ -183,6 +219,7 @@
           onclick={() => (tab = 'docs')}
         >docs</button>
       </nav>
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
 
       <div class="ctx" aria-label="Active market context">
         <span class="ctx-label">CTX</span>
@@ -206,6 +243,7 @@
       class="body"
       class:sweep-mode={tab === 'sweep' || tab === 'portfolio'}
       class:docs-mode={tab === 'docs'}
+      class:library-collapsed={!libraryOpen}
     >
       {#if tab === 'docs'}
         <StrategyDocs />
@@ -221,7 +259,7 @@
       {:else if tab === 'sweep'}
         <SweepPanel code={strat.draftCode} {symbol} {provider} {sweep} />
       {:else}
-        <aside class="rail" aria-label="Saved strategies">
+        {#if libraryOpen}<aside class="rail" id="strategy-library" aria-label="Saved strategies">
           <div class="rail-head">
             <span class="rail-title">strategies</span>
             <span class="rail-count">{strat.scripts.length}</span>
@@ -281,7 +319,7 @@
             <span class="legend"><span class="kbd">⌘↵</span> backtest</span>
             <span class="legend"><span class="kbd">⌘S</span> save</span>
           </footer>
-        </aside>
+        </aside>{/if}
 
         <main class="work">
           <div class="work-head">
@@ -302,6 +340,7 @@
             </div>
 
             <div class="actions">
+              <button type="button" class="btn ghost" onclick={() => strat.newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
               {#if onRobustness}<button type="button" class="btn ghost" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
               {#if strat.saveError}
                 <ErrorBanner message={strat.saveError} />
@@ -321,17 +360,6 @@
                 <span>{strat.isSaving ? 'saving…' : 'save'}</span>
               </button>
 
-              {#if strat.backtest?.result}
-                <button
-                  type="button"
-                  class="btn ghost"
-                  onclick={() => (backtestOpen = true)}
-                  title="Reopen last backtest result"
-                >
-                  <span>last result</span>
-                </button>
-              {/if}
-
               <button
                 type="button"
                 class="btn primary"
@@ -345,13 +373,31 @@
             </div>
           </div>
 
-          <div class="editor-pane">
+          <div class="editor-views" aria-label="Editor and results views">
+            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'editor'} onclick={() => (editorView = 'editor')}>Editor</button>
+            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'results'} onclick={() => (editorView = 'results')}>Results</button>
+            {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
+            <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
+          </div>
+          <div class="editing-panes" class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
+          <div class="editor-pane" class:inactive={editorView !== 'editor'}>
             <ScriptEditor
               bind:value={() => strat.draftCode, code => strat.setCode(code)}
               documentKey={strat.draftVersion}
               onRun={runNow}
               onSave={saveNow}
             />
+          </div>
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard-operable splitter.) -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions (Keyboard-operable splitter.) -->
+          <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
+          <div class="results-pane" class:inactive={editorView !== 'results'}>
+            {#if strat.backtest}
+              <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} />
+            {:else}
+              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p></div>
+            {/if}
+          </div>
           </div>
         </main>
       {/if}
@@ -534,7 +580,23 @@
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .body.library-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
+  .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
+  .compact-view { display: none; }
+  .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
+  .editing-panes.resizing { user-select: none; }
+  .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
+  .editor-splitter:hover, .editor-splitter:focus-visible { background: oklch(var(--primary)); outline: 2px solid oklch(var(--foreground)); outline-offset: -2px; }
+  .results-pane { min-width: 0; min-height: 0; overflow: hidden; }
+  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: 12px; }
+  .results-empty h2 { color: oklch(var(--foreground)); margin-bottom: 12px; }
+  @media (max-width: 1100px) {
+    .editing-panes { grid-template-columns: minmax(0, 1fr); }
+    .editing-panes .inactive, .editor-splitter { display: none; }
+    .compact-view { display: inline-flex; }
   }
   .body.sweep-mode {
     grid-template-columns: 1fr;
@@ -592,7 +654,7 @@
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
-  .rail-hint .dim { color: color-mix(in oklab, oklch(var(--foreground)) 30%, transparent); }
+  .rail-hint .dim { color: oklch(var(--muted-foreground)); }
   .rail-hint.err { color: #ff7373; }
 
   .rail-item {
@@ -782,7 +844,8 @@
   }
 
   @media (max-width: 760px) {
-    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
+    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    .body:not(.library-collapsed):not(.sweep-mode):not(.docs-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.sweep-mode, .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
     .rail { border-bottom: 1px solid oklch(var(--border)); }
     .rail-head { padding: 8px 12px; }

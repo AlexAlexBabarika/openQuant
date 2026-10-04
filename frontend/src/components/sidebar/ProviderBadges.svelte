@@ -15,7 +15,7 @@
     { key: 'binance', short: 'BN', full: 'Binance' },
   ];
 
-  let textClass = $derived(size === 'xs' ? 'text-[9px]' : 'text-[10px]');
+  let textClass = $derived(size === 'xs' ? 'text-[10px]' : 'text-[11px]');
   let padClass = $derived(size === 'xs' ? 'px-1 py-0' : 'px-1.5 py-0.5');
 </script>
 
@@ -24,8 +24,9 @@
     {@const on = providers[key]}
     <span
       class="inline-flex items-center rounded border font-mono tracking-wider uppercase {textClass} {padClass} {on
-        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-        : 'border-border bg-muted text-muted-foreground/60'}"
+        ? 'border-border bg-secondary text-secondary-foreground'
+        : 'border-border bg-muted text-muted-foreground'}"
+      aria-label="{full}: {on ? 'supported' : 'not in directory'}"
       title="{full}: {on ? 'supported' : 'not in directory'}"
     >
       {short}

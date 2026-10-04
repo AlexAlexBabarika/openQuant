@@ -36,6 +36,7 @@
   const ind = $derived(indicators);
 
   let tab = $state<'editor' | 'docs'>('editor');
+  let libraryOpen = $state(untrack(() => ind.scripts.length > 0));
   let splitPct = $state(60);
   let dragging = $state(false);
   let panelEl = $state<HTMLDivElement | null>(null);
@@ -183,6 +184,7 @@
           onclick={() => (tab = 'docs')}
         >docs</button>
       </nav>
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
 
       <div class="ctx" aria-label="Active market context">
         <span class="ctx-label">CTX</span>
@@ -202,11 +204,11 @@
       </button>
     </header>
 
-    <div class="body" class:docs-mode={tab === 'docs'}>
+    <div class="body" class:docs-mode={tab === 'docs'} class:library-collapsed={!libraryOpen}>
       {#if tab === 'docs'}
         <ScriptDocs />
       {:else}
-      <aside class="rail" aria-label="Saved scripts">
+      {#if libraryOpen}<aside class="rail" id="indicator-library" aria-label="Saved scripts">
         <div class="rail-head">
           <span class="rail-title">scripts</span>
           <span class="rail-count">{ind.scripts.length}</span>
@@ -274,7 +276,7 @@
           <span class="legend"><span class="kbd">⌘↵</span> run</span>
           <span class="legend"><span class="kbd">⌘S</span> save</span>
         </footer>
-      </aside>
+      </aside>{/if}
 
       <main class="work">
         <div class="work-head">
@@ -295,6 +297,7 @@
           </div>
 
           <div class="actions">
+            <button type="button" class="btn ghost" onclick={() => ind.newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
             {#if ind.saveError}
               <ErrorBanner message={ind.saveError} />
             {/if}
@@ -383,6 +386,7 @@
               result={ind.lastResult}
               runError={ind.runError}
               isRunning={ind.isRunning}
+              projected={ind.runningOutputs.some(script => script.scriptId === ind.activeId)}
             />
           </div>
         </div>
@@ -580,6 +584,7 @@
   .body.docs-mode {
     grid-template-columns: 1fr;
   }
+  .body.library-collapsed { grid-template-columns: minmax(0, 1fr); }
 
   .rail {
     display: flex;
@@ -628,7 +633,7 @@
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
-  .rail-hint .dim { color: color-mix(in oklab, oklch(var(--foreground)) 30%, transparent); }
+  .rail-hint .dim { color: oklch(var(--muted-foreground)); }
   .rail-hint.err { color: #ff7373; }
 
   .rail-item {
@@ -884,7 +889,8 @@
   }
 
   @media (max-width: 760px) {
-    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 30%) minmax(0, 1fr); }
+    .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    .body:not(.library-collapsed):not(.docs-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
     .rail { border-bottom: 1px solid oklch(var(--border)); }
     .rail-head { padding: 8px 12px; }
