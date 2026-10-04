@@ -10,6 +10,23 @@ import { tradeSelection, drawdownSelection } from './resultSelection';
 import { client, clientModule } from '../chart/reactiveTestSupport';
 
 describe('empty backtest results', () => {
+  it('reserves a separate layout row for a focused selection and its reset control', async () => {
+    const backtest = new BacktestState(async () => sample);
+    await backtest.load();
+    backtest.selectTrade(0);
+    const html = render(BacktestPanel, {
+      props: { open: true, backtest },
+    }).body;
+    expect(html).toContain('has-selection');
+    expect(html).toContain('Show full run');
+    backtest.clearSelection();
+    const cleared = render(BacktestPanel, {
+      props: { open: true, backtest },
+    }).body;
+    expect(cleared).not.toContain('has-selection');
+    expect(cleared).not.toContain('Show full run');
+  });
+
   it('renders a stable load error with an explicit retry and stored-account explanation', async () => {
     const backtest = new BacktestState(async () => {
       throw new Error('Run not found');

@@ -112,7 +112,7 @@
       onRerun={rerun}
     />
 
-    <div class="body">
+    <div class="body" class:has-selection={backtest.selection !== null}>
       {#if backtest.loading && !backtest.result}
         <p class="status">Loading result…</p>
       {:else if backtest.error}
@@ -130,7 +130,7 @@
       {:else if backtest.result}
         <MetricsStrip metrics={backtest.result.metrics} />
         {#if backtest.selection}
-          <div class="flex flex-wrap items-center gap-2 px-3 py-1 text-xs" role="status">
+          <div class="selection-summary flex flex-wrap items-center gap-2 px-3 py-1 text-xs" role="status">
             <span>{backtest.selection.label} · this run's price bars</span>
             <button type="button" class="ot-workbench-ghost" onclick={() => backtest.clearSelection()}>Show full run</button>
           </div>
@@ -172,7 +172,6 @@
   .embedded .tabs-pane { min-height: 280px; flex-shrink: 0; }
   button:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
   @media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } }
-  @media (max-width: 900px) { .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; } .topbar .close { margin-left: auto; } }
 
   .backdrop {
     position: fixed;
@@ -232,7 +231,7 @@
 
   .topbar {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 16px;
     padding: 14px 22px;
@@ -261,6 +260,10 @@
     text-transform: uppercase;
   }
   .ctx {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
     justify-self: center;
     display: inline-flex;
     align-items: baseline;
@@ -283,6 +286,7 @@
     letter-spacing: 0.06em;
   }
   .iconbtn {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -307,6 +311,13 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.25fr);
   }
+  .body.has-selection {
+    grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+  .selection-summary {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .chart-pane,
   .tabs-pane {
     min-height: 0;
@@ -323,7 +334,7 @@
     font-size: 13px;
     letter-spacing: 0.06em;
   }
-  .status.err {
+  .err {
     color: #ff9c9c;
   }
 
@@ -341,5 +352,13 @@
   :global(html:not(.dark)) .iconbtn {
     border-color: #000;
     color: #000;
+  }
+
+  @media (max-width: 900px) {
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .brand { flex: 1 1 14rem; min-width: 0; flex-wrap: wrap; }
+    .brand-sub { flex-basis: 100%; }
+    .topbar .close { order: 1; margin-left: auto; }
+    .ctx { order: 2; flex-basis: 100%; }
   }
 </style>
