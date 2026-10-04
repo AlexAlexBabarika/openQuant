@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { Dialog } from 'bits-ui';
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import X from '@lucide/svelte/icons/x';
@@ -63,7 +63,8 @@
 
   // Load the result the first time the panel opens.
   $effect(() => {
-    if (open && !embedded) void backtest.load();
+    const state = backtest;
+    if (open && !embedded) untrack(() => void state.load());
   });
 
 
@@ -113,9 +114,15 @@
 
     <div class="body">
       {#if backtest.loading && !backtest.result}
-        <p class="status">running…</p>
+        <p class="status">Loading result…</p>
       {:else if backtest.error}
-        <p class="status err">{backtest.error}</p>
+        <div class="status">
+          <p class="err" role="alert">{backtest.error}</p>
+          {#if !embedded}
+            <p class="text-xs text-muted-foreground">A notebook reference does not guarantee that its stored result is available. Stored results require their original account.</p>
+            <button type="button" class="ot-workbench-ghost" onclick={() => void backtest.load()}>Retry loading result</button>
+          {/if}
+        </div>
       {:else if backtest.result && backtest.result.bars.length === 0}
         <p class="status">
           This run returned no market bars. Check the symbol and data range before running again.

@@ -5,6 +5,7 @@ import type { OHLCVCandle } from '$lib/core/types';
 import { fetchMarketOHLCV } from '$lib/features/market/marketData';
 import { DEFAULT_MARKET_INTERVAL } from '$lib/features/market/marketIntervals';
 import { DEFAULT_MARKET_PERIOD } from '$lib/features/market/marketPeriods';
+import { inspectCandles } from '$lib/features/market/dataInspection';
 import {
   providerSupportsWs,
   type MarketDataProviderValue,
@@ -54,6 +55,11 @@ export class ChartController {
   liveBarCloseTs = $state<number | null>(null);
   snapshotReceivedAt = $state<number | null>(null);
   streamReceivedAt = $state<number | null>(null);
+  rejectedData = $state<{
+    context: ChartContext;
+    candles: OHLCVCandle[];
+    receivedAt: number;
+  } | null>(null);
 
   #wsClient: WSClient | null = null;
   #liveUnsubscribe: (() => void) | null = null;
@@ -114,6 +120,7 @@ export class ChartController {
     const userId = this.#userId();
     if (userId === this.#sessionUser) return;
     this.#sessionUser = userId;
+    this.rejectedData = null;
     const reload = this.initialLoadDone || this.isLoading;
     this.#loadGeneration++;
     this.#disconnectStreams();
@@ -149,6 +156,7 @@ export class ChartController {
   loadMarketData = async (): Promise<void> => {
     const generation = ++this.#loadGeneration;
     const context = this.#context();
+    this.rejectedData = null;
     this.#requestedTimeframe = JSON.stringify([
       context.period,
       context.interval,
@@ -171,6 +179,7 @@ export class ChartController {
         context.interval,
       );
       if (!this.#isCurrentLoad(generation, context)) return;
+      if (!this.#usableCandles(data.candles ?? [], context, true)) return;
       this.candles = data.candles ?? [];
       this.loadedSymbol = context.symbol;
       this.#loadedContext = context;
@@ -241,6 +250,24 @@ export class ChartController {
     };
   }
 
+  #usableCandles(
+    candles: OHLCVCandle[],
+    context: ChartContext,
+    ordered = false,
+  ): boolean {
+    const inspection = inspectCandles(candles, context.interval);
+    if (
+      !inspection.invalidTimestamps &&
+      !inspection.invalidBars &&
+      (!ordered || (!inspection.duplicates && !inspection.outOfOrder))
+    )
+      return true;
+    this.rejectedData = { context, candles, receivedAt: Date.now() };
+    this.errorMessage =
+      'Unusable candle data received. The chart was not replaced; inspect the rejected response in Data inspector.';
+    return false;
+  }
+
   #contextMatches(context: ChartContext): boolean {
     return (
       context.userId === this.#userId() &&
@@ -303,6 +330,7 @@ export class ChartController {
       historyEndIso,
       onSnapshot: snapshot => {
         if (!isCurrent()) return;
+        if (!this.#usableCandles(snapshot, context)) return;
         this.streamReceivedAt = Date.now();
         const merged = mergeCandleSnapshot(liveCandles, snapshot);
         if (merged.length === liveCandles.length) return;
@@ -311,6 +339,7 @@ export class ChartController {
       },
       onCandle: (c, _isFinal) => {
         if (!isCurrent()) return;
+        if (!this.#usableCandles([c], context)) return;
         this.streamReceivedAt = Date.now();
         const last = liveCandles[liveCandles.length - 1];
         if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
@@ -322,6 +351,7 @@ export class ChartController {
       },
       onCandleClose: c => {
         if (!isCurrent()) return;
+        if (!this.#usableCandles([c], context)) return;
         const ts = Date.parse(c.timestamp);
         if (Number.isFinite(ts)) this.liveBarCloseTs = ts;
       },
@@ -335,6 +365,7 @@ export class ChartController {
   handleCsvUpload = async (file: File): Promise<void> => {
     const generation = ++this.#loadGeneration;
     const context = this.#context();
+    this.rejectedData = null;
     const sym = context.symbol || 'CSV';
     this.#disconnectStreams();
     this.#streamEnabled = true;
@@ -388,6 +419,7 @@ export class ChartController {
       maxReconnectAttempts: 0,
       onCandle: c => {
         if (!isCurrent()) return;
+        if (!this.#usableCandles([c], context)) return;
         this.streamReceivedAt = Date.now();
         const last = streamCandles[streamCandles.length - 1];
         if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {

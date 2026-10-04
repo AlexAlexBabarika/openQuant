@@ -362,6 +362,16 @@
   let strategyTab = $state<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor');
   let indicatorTab = $state<'editor' | 'docs'>('editor');
   let commandsOpen = $state(false);
+  let workspaceLayout: ResearchLayout | null = null;
+
+  function openResearchWorkspaces(): void {
+    if (!researchWorkspacesOpen) workspaceLayout = currentResearchLayout();
+    void activateCommand(() => (researchWorkspacesOpen = true));
+  }
+
+  function saveResearchWorkspace(name: string): boolean {
+    return researchShelf.saveWorkspace(name, workspaceLayout ?? currentResearchLayout());
+  }
 
   function closeResearchPanels(): void {
     strategyOpen = false; indicatorsOpen = false; analyticsOpen = false;
@@ -390,7 +400,7 @@
       command('indicators', 'Open Indicators editor', () => { indicatorTab = 'editor'; indicatorsOpen = true; }),
       command('analytics', 'Open Analytics', () => (analyticsOpen = true)),
       command('runs', 'Open Experiment notebook', () => (runsOpen = true), 'Workspace', 'runs baseline notes tags compare'),
-      command('workspaces', 'Workspaces and draft recovery', () => (researchWorkspacesOpen = true)),
+      { id: 'workspaces', title: 'Workspaces and draft recovery', group: 'Workspace', action: openResearchWorkspaces },
       command('data', 'Inspect loaded market data', () => (dataInspectorOpen = true), 'Workspace', 'provenance coverage quality source'),
       command('robustness', 'Open Robustness', () => (trialOpen = true)),
       command('backtest', 'Open backtest results', () => { void backtest.load(); backtestOpen = true; }),
@@ -545,7 +555,7 @@
     Backtesting: () => (backtestOpen = true),
     Strategy: () => (strategyOpen = true),
     Runs: () => (runsOpen = true),
-    Workspaces: () => (researchWorkspacesOpen = true),
+    Workspaces: openResearchWorkspaces,
     Commands: () => (commandsOpen = true),
   };
 
@@ -942,7 +952,7 @@
     onstream={chart.startStream}
     oncsvupload={chart.handleCsvUpload}
     onstrategy={() => (strategyOpen = true)}
-    onworkspaces={() => (researchWorkspacesOpen = true)}
+    onworkspaces={openResearchWorkspaces}
     oninspectdata={() => (dataInspectorOpen = true)}
     loadedProvider={chart.loadedContext?.source ?? null}
     errorMessage={chart.errorMessage}
@@ -951,7 +961,7 @@
   {#if researchShelf.pending.strategy || researchShelf.pending.indicator || researchShelf.error}
     <div class="flex flex-wrap items-center gap-2 border-b px-3 py-1 text-xs" role="status">
       <span>{researchShelf.error ?? 'Recovered local drafts are available; your editors have not been replaced.'}</span>
-      <button type="button" class="ot-workbench-ghost" onclick={() => (researchWorkspacesOpen = true)}>Review recovery</button>
+      <button type="button" class="ot-workbench-ghost" onclick={openResearchWorkspaces}>Review recovery</button>
     </div>
   {/if}
   <ErrorMessage bind:message={chart.errorMessage} context={`${chart.symbol} · ${chart.source} · ${chart.period} / ${chart.interval}`} loadedContext={chart.candles.length && chart.loadedContext ? `${chart.loadedContext.symbol} · ${chart.loadedContext.source} · ${chart.loadedContext.period} / ${chart.loadedContext.interval}` : ''} onretry={chart.source !== 'csv' ? () => void chart.loadMarketData() : undefined} />
@@ -1096,7 +1106,7 @@
   />
   <BacktestPanel bind:open={backtestOpen} {backtest} onCompareAfterRerun={compareAfterRerun} onOpenRuns={() => (runsOpen = true)} onCompare={openCompare} />
   <RecentRunsPanel bind:open={runsOpen} onOpenRun={openStoredRun} onCompare={openCompare} />
-  <ResearchWorkspacesDialog bind:open={researchWorkspacesOpen} shelf={researchShelf} onSave={name => researchShelf.saveWorkspace(name, currentResearchLayout())} onRestore={restoreResearchWorkspace} onRecover={recoverDraft} onKeep={keepCurrentDraft} />
+  <ResearchWorkspacesDialog bind:open={researchWorkspacesOpen} shelf={researchShelf} onSave={saveResearchWorkspace} onRestore={restoreResearchWorkspace} onRecover={recoverDraft} onKeep={keepCurrentDraft} />
   <DataInspector bind:open={dataInspectorOpen} {chart} />
   <CommandPalette
     bind:open={commandsOpen}

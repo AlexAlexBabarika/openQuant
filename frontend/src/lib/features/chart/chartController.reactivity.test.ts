@@ -9,6 +9,7 @@ import {
 import { providerSupportsWs } from '../market/marketDataProviders';
 import { DEFAULT_MARKET_INTERVAL } from '../market/marketIntervals';
 import { DEFAULT_MARKET_PERIOD } from '../market/marketPeriods';
+import { inspectCandles } from '../market/dataInspection';
 
 const candle: OHLCVCandle = {
   symbol: 'BTCUSDT',
@@ -44,6 +45,7 @@ function setup(source: 'binance' | 'csv' = 'binance') {
       '$lib/features/market/marketData': { fetchMarketOHLCV: fetchHistory },
       '$lib/features/market/marketIntervals': { DEFAULT_MARKET_INTERVAL },
       '$lib/features/market/marketPeriods': { DEFAULT_MARKET_PERIOD },
+      '$lib/features/market/dataInspection': { inspectCandles },
       '$lib/features/market/marketDataProviders': { providerSupportsWs },
       '$lib/features/market/streaming': {
         subscribeMarketStream: subscribe,
@@ -100,12 +102,18 @@ describe('chart reactive publication', () => {
     const resetCount = reset.mock.calls.length;
     const publicationCount = snapshots.length;
     const callbacks = subscribe.mock.calls[0][0];
-    callbacks.onCandle({ ...candle, close: 77, volume: 200 }, false);
+    callbacks.onCandle({ ...candle, high: 90, close: 77, volume: 200 }, false);
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([1, 77, 200]);
     expect(snapshots).toHaveLength(publicationCount + 1);
     callbacks.onCandle(
-      { ...candle, timestamp: '2026-01-01T00:01:00Z', close: 88, volume: 300 },
+      {
+        ...candle,
+        timestamp: '2026-01-01T00:01:00Z',
+        high: 90,
+        close: 88,
+        volume: 300,
+      },
       false,
     );
     client.flush();
@@ -129,7 +137,7 @@ describe('chart reactive publication', () => {
     const resets = reset.mock.calls.length;
     callback(candle);
     client.flush();
-    callback({ ...candle, close: 33 });
+    callback({ ...candle, high: 40, close: 33 });
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([1, 33, 100]);
     expect(reset).toHaveBeenCalledTimes(resets);
