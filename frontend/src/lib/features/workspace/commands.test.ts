@@ -49,10 +49,11 @@ describe('research commands', () => {
           focus: () => order.push('focus'),
           select: (title: string) => order.push(title),
         },
+        'test:tick': { tick: () => Promise.resolve() },
       },
       `<script lang="ts">
       import { focus, select } from 'test:focus';
-      import { tick } from 'svelte';
+      import { tick } from 'test:tick';
       let open = $state(true), progress = 1;
       const animateTo = () => {}, dialogEl = null;
       const triggerEl = { ownerDocument: { querySelectorAll: () => [] }, focus };
