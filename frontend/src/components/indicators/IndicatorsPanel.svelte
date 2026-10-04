@@ -416,7 +416,6 @@
     border: 0;
     padding: 0;
     cursor: pointer;
-    animation: fadeIn 180ms ease;
   }
 
   .panel {
@@ -443,7 +442,6 @@
     border-radius: 16px 16px 0 0;
     font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
     overflow: hidden;
-    animation: slideUp 280ms cubic-bezier(0.18, 0.9, 0.24, 1);
   }
 
   .corner {
@@ -455,15 +453,6 @@
   }
   .corner.tl { top: 12px; left: 12px; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
   .corner.tr { top: 12px; right: 12px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; }
-
-  @keyframes slideUp {
-    from { transform: translateY(24px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
 
   .topbar {
     display: grid;
