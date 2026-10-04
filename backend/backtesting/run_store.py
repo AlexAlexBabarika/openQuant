@@ -14,13 +14,14 @@ import os
 import shutil
 import tarfile
 import tempfile
+from hashlib import sha256
 from pathlib import Path
 
 import polars as pl
 
 from backend.backtesting.run_id import run_key
 from backend.backtesting.run_snapshot import AssembledSnapshot
-from backend.scripts.ast_guard import ast_hash
+from backend.scripts.ast_guard import ScriptValidationError, ast_hash
 
 _DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[1] / "datastore" / "_data"
 
@@ -103,6 +104,18 @@ class RunStore:
         if not (d / "meta.json").exists():
             raise FileNotFoundError(f"run {run_id} not found")
         meta = json.loads((d / "meta.json").read_text())
+        source = d / "strategy.py"
+        source_info = None
+        if source.is_file():
+            code = source.read_bytes()
+            try:
+                code_ast_hash = ast_hash(code.decode("utf-8"))
+            except (ScriptValidationError, UnicodeDecodeError):
+                code_ast_hash = None
+            source_info = {
+                "sha256": sha256(code).hexdigest(),
+                "ast_hash": code_ast_hash,
+            }
         result_body = json.loads((d / "result.json").read_text())
         bars_df = pl.read_parquet(d / "bars.parquet")
         if "symbol" in bars_df.columns:
@@ -125,6 +138,7 @@ class RunStore:
             "bars": bars,
             "log": log,
             **result_body,
+            "strategy_source": source_info,
         }
 
 
