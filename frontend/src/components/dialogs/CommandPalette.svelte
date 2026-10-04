@@ -37,7 +37,7 @@
   }
 </script>
 <Dialog.Root bind:open onOpenChangeComplete={closed}>
-  <Dialog.Content portalProps={{ disabled: typeof window === 'undefined' }} class="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl" onCloseAutoFocus={event => { if (pendingAction) event.preventDefault(); }}>
+  <Dialog.Content portalProps={{ disabled: typeof window === 'undefined' }} class="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
     <Dialog.Header>
       <Dialog.Title>Research commands</Dialog.Title>
       <Dialog.Description>Ctrl/⌘ K to open. Search tools, symbols, account scripts, and local runs. Opening a script does not execute it.</Dialog.Description>

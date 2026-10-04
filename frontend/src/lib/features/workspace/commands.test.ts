@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'svelte/server';
+import { readFileSync } from 'node:fs';
+import {
+  client,
+  clientModule,
+  componentDeclarations,
+} from '../chart/reactiveTestSupport';
 import CommandPalette from '../../../components/dialogs/CommandPalette.svelte';
 import {
   filterCommands,
@@ -25,6 +31,51 @@ const commands: ResearchCommand[] = [
   { id: 'drawing:ruler', title: 'Ruler', group: 'Drawing', action: vi.fn() },
 ];
 describe('research commands', () => {
+  it('allows native focus restoration and executes the command only after palette close completes', () => {
+    const palette = new URL(
+      '../../../components/dialogs/CommandPalette.svelte',
+      import.meta.url,
+    );
+    const source = readFileSync(palette, 'utf8');
+    expect(source.match(/<Dialog.Content[\s\S]*?>/)?.[0]).not.toContain(
+      'onCloseAutoFocus',
+    );
+    const module = clientModule<{
+      default: (
+        anchor: unknown,
+        props: unknown,
+      ) => {
+        choose: (action: () => void) => void;
+        complete: (open: boolean) => void;
+      };
+    }>(
+      palette,
+      {},
+      `<script lang="ts">
+      let open = $state(true);
+      ${componentDeclarations(palette, ['pendingAction', 'select', 'closed'])}
+      export function choose(action) { select(action); }
+      export function complete(isOpen) { closed(isOpen); }
+    </script>`,
+    );
+    let harness!: ReturnType<typeof module.default>;
+    const stop = client.effect_root(() => {
+      harness = module.default(null, {});
+    });
+    try {
+      const action = vi.fn();
+      harness.choose(action);
+      expect(action).not.toHaveBeenCalled();
+      harness.complete(true);
+      expect(action).not.toHaveBeenCalled();
+      harness.complete(false);
+      harness.complete(false);
+      expect(action).toHaveBeenCalledTimes(1);
+    } finally {
+      stop();
+    }
+  });
+
   it('searches names, categories, and metadata with multiple case-insensitive terms', () => {
     expect(filterCommands(commands, 'BASELINE spy').map(c => c.id)).toEqual([
       'run:1',
