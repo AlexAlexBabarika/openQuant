@@ -45,6 +45,24 @@
   });
 
   let stats = $derived(computeState && computeState.status !== 'success' ? null : data ?? null);
+  let statLines = $derived(
+    stats
+      ? [
+          `${formatPriceDelta(stats.priceDelta)} (${formatPct(stats.pctDelta)})`,
+          `${stats.barCount} bars${stats.spanLabel ? `, ${stats.spanLabel}` : ''}`,
+          `Vol ${formatVolume(stats.volumeSum)}`,
+        ]
+      : [],
+  );
+  let labelEl = $state<HTMLDivElement>();
+  let labelWidth = $state(120);
+
+  $effect(() => {
+    statLines;
+    if (!labelEl) return;
+    const next = Math.max(120, Math.ceil(labelEl.getBoundingClientRect().width));
+    if (Number.isFinite(next) && next !== labelWidth) labelWidth = next;
+  });
 
   /** Same hue as the box fill; stronger than `fill-opacity` on the rect (see below). */
   const accentOpacity = 0.88;
@@ -172,24 +190,24 @@
 
     {#if stats && drawable.style.showStats}
       <foreignObject
-        x={box.x2 - 60}
+        x={Math.max(
+          0,
+          Math.min(box.x2 - labelWidth / 2, coordMap.plotWidth - labelWidth),
+        )}
         y={up ? box.y1 + 8 : box.y1 - 56}
-        width="120"
+        width={labelWidth}
         height="48"
         pointer-events="none"
       >
         <div
-          class="rounded-md px-2 py-1 text-[10px] font-mono shadow-lg whitespace-nowrap text-center leading-tight"
+          bind:this={labelEl}
+          class="w-max rounded-md px-2 py-1 text-[10px] font-mono shadow-lg whitespace-nowrap text-center leading-tight"
           style:background-color={fill}
           style:color={contrastTextColour(fill)}
         >
-          <div>
-            {formatPriceDelta(stats.priceDelta)} ({formatPct(stats.pctDelta)})
-          </div>
-          <div>
-            {stats.barCount} bars{stats.spanLabel ? `, ${stats.spanLabel}` : ''}
-          </div>
-          <div>Vol {formatVolume(stats.volumeSum)}</div>
+          {#each statLines as line}
+            <div>{line}</div>
+          {/each}
         </div>
       </foreignObject>
     {/if}
