@@ -226,6 +226,7 @@ describe('private workspace evidence export', () => {
     expect(html).not.toContain(context.code);
     expect(html).not.toContain('$10,000');
     expect(html).not.toContain('synthetic example');
+    expect(html).toContain('Dataset SHA-256');
     const changedInputs = {
       ...context,
       name: 'Different draft',
@@ -253,6 +254,7 @@ describe('private workspace evidence export', () => {
         ...workspaceReport.dataset,
         label: 'Synthetic scenario',
         synthetic: true,
+        version: '1',
       },
       config: {
         strategy_id: 'boring-benchmark',
@@ -273,6 +275,9 @@ describe('private workspace evidence export', () => {
       props: { report, receivedAt: '2026-10-04T18:30:00.000Z' },
     }).body;
     expect(html).toContain('synthetic example');
+    expect(html).toContain('Dataset version');
+    expect(html).toMatch(/<dd[^>]*>1<\/dd>/);
+    expect(html).not.toContain('Dataset SHA-256');
     expect(html).toContain('$10,000');
     expect(html).not.toContain('Source SHA-256');
     expect(html).not.toContain('Engine / seed');

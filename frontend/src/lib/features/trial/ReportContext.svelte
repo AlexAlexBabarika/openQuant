@@ -13,7 +13,7 @@
     <summary>Run provenance · {isWorkspaceReport(report) ? 'provider snapshot and source' : 'synthetic example'}</summary>
     <dl>
       <div><dt>Strategy used</dt><dd>{report.strategy.name}</dd></div>
-      <div><dt>Dataset SHA-256</dt><dd>{report.dataset.version}</dd></div>
+      <div><dt>{isWorkspaceReport(report) ? 'Dataset SHA-256' : 'Dataset version'}</dt><dd>{report.dataset.version}</dd></div>
       {#if isWorkspaceReport(report)}
         <div><dt>Source SHA-256</dt><dd>{report.code_hash}</dd></div>
         <div><dt>Engine / seed</dt><dd>{report.engine_version} / {report.config.seed}</dd></div>
