@@ -741,7 +741,7 @@
 
 <Dialog.Root open={trialOpen} onOpenChange={setTrialOpen}>
 <div class="flex flex-col h-screen bg-background">
-  <DrawablesPersistence />
+  <DrawablesPersistence userId={$authState.user?.id ?? null} ready={sessionReady} />
   <TopHeader
     bind:symbol={chart.symbol}
     bind:period={chart.period}
@@ -771,6 +771,7 @@
       <Chart
         candles={chart.candles}
         candleRevision={chart.candleRevision}
+        annotationOwner={sessionReady ? ($authState.user ? `user:${$authState.user.id}` : 'guest') : 'pending'}
         symbol={chart.symbol}
         {chartType}
         {showArea}

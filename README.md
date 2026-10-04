@@ -125,6 +125,16 @@ and PostgreSQL at 1 CPU core, 1 GiB RAM, and 256 processes. Optimization sweeps
 are limited to two concurrent jobs. These conservative limits protect a typical
 desktop; lower `MAX_CONCURRENT_SWEEPS` to `1` on smaller systems.
 
+## Local Elements and account isolation
+
+Elements are saved in this browser separately for each signed-in OpenQuant account.
+Signing out restores guest Elements; existing unscoped annotations are retained
+only in guest storage and are never automatically assigned to an account. Saves
+are flushed when switching identities, and selection/in-flight Element work resets.
+This is workbench account isolation, not cloud sync or encrypted storage. Anyone
+with access to the browser profile can inspect local storage; clearing browser data
+removes these annotations.
+
 ## Data providers
 
 | Provider | Credentials | Internet | Notes |

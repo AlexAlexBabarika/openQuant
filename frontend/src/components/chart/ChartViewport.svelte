@@ -21,6 +21,7 @@
     symbol = '',
     candles = [] as OHLCVCandle[],
     candleRevision = undefined as number | undefined,
+    annotationOwner = 'guest',
     provider = 'yfinance',
     interval = '1d',
     seriesIdentity = '',
@@ -48,6 +49,7 @@
     symbol: string;
     candles: OHLCVCandle[];
     candleRevision?: number;
+    annotationOwner?: string;
     provider: string;
     interval: string;
     seriesIdentity?: string;
@@ -104,21 +106,23 @@
     onSetSeriesType={(id, t) => onSetComparisonSeriesType?.(id, t)}
   />
 
-  <ChartDrawables
-    bind:this={chartDrawables}
-    {activeTool}
-    onActiveToolChange={t => (activeTool = t)}
-    {coordMap}
-    {symbol}
-    {candles}
-    {candleRevision}
-    {provider}
-    {interval}
-    {seriesIdentity}
-    {toChartPoint}
-    containerEl={containerEl}
-    {onPlacementActiveChange}
-  />
+  {#key annotationOwner}
+    <ChartDrawables
+      bind:this={chartDrawables}
+      {activeTool}
+      onActiveToolChange={t => (activeTool = t)}
+      {coordMap}
+      {symbol}
+      {candles}
+      {candleRevision}
+      {provider}
+      {interval}
+      {seriesIdentity}
+      {toChartPoint}
+      containerEl={containerEl}
+      {onPlacementActiveChange}
+    />
+  {/key}
 </div>
 
 <style>

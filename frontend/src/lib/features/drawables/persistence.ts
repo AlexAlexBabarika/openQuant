@@ -9,6 +9,12 @@ import { getTool } from './registry';
 
 export const DRAWABLES_STORAGE_KEY = 'openQuant.drawables.v1';
 
+export function drawablesStorageKey(userId: string | null = null): string {
+  const owner =
+    userId === null ? 'guest' : `user.${encodeURIComponent(userId)}`;
+  return `openQuant.drawables.v2.${owner}`;
+}
+
 function hydrateEntry(entry: unknown): BundledDrawable | null {
   if (!entry || typeof entry !== 'object') return null;
   const e = entry as { schemaVersion?: number; type?: unknown };
@@ -29,10 +35,15 @@ function hydrateEntry(entry: unknown): BundledDrawable | null {
   return narrowBundledDrawable(fields);
 }
 
-export function loadAll(): BundledDrawable[] {
-  const parsed = safeLocalStorageGet<unknown>(DRAWABLES_STORAGE_KEY, {
+export function loadAll(userId: string | null = null): BundledDrawable[] {
+  let parsed = safeLocalStorageGet<unknown>(drawablesStorageKey(userId), {
     warnLabel: '[drawables] loadAll failed, using empty list',
   });
+  if (parsed === null && userId === null) {
+    parsed = safeLocalStorageGet<unknown>(DRAWABLES_STORAGE_KEY, {
+      warnLabel: '[drawables] legacy load failed, using empty list',
+    });
+  }
   if (!Array.isArray(parsed)) return [];
 
   return parsed.flatMap((entry: unknown): BundledDrawable[] => {
@@ -41,11 +52,14 @@ export function loadAll(): BundledDrawable[] {
   });
 }
 
-export function saveAll(items: readonly BundledDrawable[]): void {
+export function saveAll(
+  items: readonly BundledDrawable[],
+  userId: string | null = null,
+): void {
   const stamped = items.flatMap((d: BundledDrawable) => {
     const tool = getTool(d.type);
     if (!tool) return [];
     return [{ ...d, schemaVersion: tool.schemaVersion }];
   });
-  safeLocalStorageSet(DRAWABLES_STORAGE_KEY, stamped);
+  safeLocalStorageSet(drawablesStorageKey(userId), stamped);
 }

@@ -67,6 +67,7 @@
   let {
     candles = [] as OHLCVCandle[],
     candleRevision = undefined as number | undefined,
+    annotationOwner = 'guest',
     symbol = '',
     chartType = 'candlestick' as ChartType,
     showArea = true,
@@ -91,6 +92,7 @@
   }: {
     candles: OHLCVCandle[];
     candleRevision?: number;
+    annotationOwner?: string;
     symbol: string;
     chartType?: ChartType;
     showArea?: boolean;
@@ -754,6 +756,7 @@
   {symbol}
   {candles}
   {candleRevision}
+  {annotationOwner}
   {provider}
   {interval}
   seriesIdentity={chartType}
