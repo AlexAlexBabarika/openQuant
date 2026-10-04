@@ -7,6 +7,7 @@
   import MetricsDiff from './MetricsDiff.svelte';
   import TradesDiff from './TradesDiff.svelte';
   import EquityOverlay from './EquityOverlay.svelte';
+  import LineageView from './LineageView.svelte';
 
   let { open = $bindable(false), compare }: { open?: boolean; compare: CompareState } = $props();
 </script>
@@ -30,6 +31,7 @@
         <span>B: engine {compare.diff.status.b.recorded}{compare.diff.status.b.stale ? ' ⚠ stale' : ''}</span>
       </div>
       <p class="text-sm">Changed inputs: {compare.diff.inputs_diff.length ? compare.diff.inputs_diff.map(row => row.path).join(', ') : 'none recorded'}. Engine A → B: {compare.diff.status.a.recorded} → {compare.diff.status.b.recorded}.</p>
+      <LineageView lineage={compare.diff.lineage} />
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard scrolling for two-dimensional result tables) -->
       <div class="min-w-0 overflow-x-auto" tabindex="0" role="region" aria-label="Input, metric, and trade differences">
       <InputsDiff rows={compare.diff.inputs_diff} />

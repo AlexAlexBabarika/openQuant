@@ -119,7 +119,7 @@
         <div class="status">
           <p class="err" role="alert">{backtest.error}</p>
           {#if !embedded}
-            <p class="text-xs text-muted-foreground">A notebook reference does not guarantee that its stored result is available. Stored results require their original account.</p>
+            <p class="text-xs text-muted-foreground">A notebook reference does not guarantee that its stored result is available. Stored snapshots are server-local and not account-scoped.</p>
             <button type="button" class="ot-workbench-ghost" onclick={() => void backtest.load()}>Retry loading result</button>
           {/if}
         </div>

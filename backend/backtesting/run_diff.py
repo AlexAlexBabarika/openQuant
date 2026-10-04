@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from backend.backtesting.run_id import run_status
+from backend.backtesting.run_lineage import compare_lineage
 
 _TRADE_FIELDS = ("entry_price", "exit_price", "exit_time", "pnl", "pnl_pct", "quantity")
 
@@ -97,6 +98,7 @@ def _trades_diff(a: dict, b: dict) -> dict:
 
 def diff_runs(a: dict, b: dict) -> dict:
     return {
+        "lineage": compare_lineage(a, b),
         "inputs_diff": _inputs_diff(a, b),
         "metrics_diff": _metrics_diff(a, b),
         "equity_overlay": _equity_overlay(a, b),

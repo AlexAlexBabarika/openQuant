@@ -9,9 +9,21 @@ export class CompareState {
   error = $state<string | null>(null);
   #client: RunsClient;
   #sequence = 0;
+  #account: string | null | undefined;
 
   constructor(client: RunsClient = runsClient) {
     this.#client = client;
+  }
+
+  setAccount(account: string | null): boolean {
+    if (account === this.#account) return false;
+    this.#account = account;
+    ++this.#sequence;
+    this.a = this.b = null;
+    this.diff = null;
+    this.loading = false;
+    this.error = null;
+    return true;
   }
 
   async load(a: string, b: string): Promise<void> {

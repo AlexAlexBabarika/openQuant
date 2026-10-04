@@ -1,4 +1,5 @@
 import type { OHLCVCandle } from '$lib/core/types';
+import { isUsableCandle } from '$lib/core/candles';
 import {
   getStreamClient,
   type CandleSubscription,
@@ -18,6 +19,7 @@ export interface SubscribeMarketStreamOptions extends CandleSubscription {
   onCandle: (c: OHLCVCandle, isFinal: boolean) => void;
   /** Reconcile gap-fill bars that may arrive after newer live candles. */
   onSnapshot?: (candles: OHLCVCandle[]) => void;
+  onRejected?: (candles: OHLCVCandle[]) => void;
   /** Fired only when the live stream delivers a final (closed) candle. Snapshot replay does NOT trigger this. */
   onCandleClose?: (c: OHLCVCandle) => void;
   onStatus?: (s: StreamStatus) => void;
@@ -36,6 +38,7 @@ export function subscribeMarketStream(
     historyEndIso,
     onCandle,
     onSnapshot,
+    onRejected,
     onCandleClose,
     onStatus,
     ...sub
@@ -56,6 +59,10 @@ export function subscribeMarketStream(
     sub,
     {
       onSnapshot: msg => {
+        if (!msg.candles.every(isUsableCandle)) {
+          onRejected?.(msg.candles);
+          return;
+        }
         const candles = msg.candles.filter(
           c => Date.parse(c.timestamp) > cutoff,
         );
@@ -73,6 +80,10 @@ export function subscribeMarketStream(
         }
       },
       onCandle: msg => {
+        if (!isUsableCandle(msg.candle)) {
+          onRejected?.([msg.candle]);
+          return;
+        }
         const ts = Date.parse(msg.candle.timestamp);
         if (!Number.isFinite(ts) || ts < latest) return;
         latest = ts;

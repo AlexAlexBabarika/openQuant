@@ -456,7 +456,6 @@
     border: 0;
     padding: 0;
     cursor: pointer;
-    animation: fadeIn 180ms ease;
   }
 
   .panel {
@@ -483,19 +482,9 @@
     border-radius: 16px 16px 0 0;
     font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
     overflow: hidden;
-    animation: slideUp 280ms cubic-bezier(0.18, 0.9, 0.24, 1);
   }
 
   .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); }
-
-  @keyframes slideUp {
-    from { transform: translateY(24px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
 
   .topbar {
     display: flex;

@@ -27,7 +27,7 @@ describe('empty backtest results', () => {
     expect(cleared).not.toContain('Show full run');
   });
 
-  it('renders a stable load error with an explicit retry and stored-account explanation', async () => {
+  it('renders a stable load error with an explicit retry and server-snapshot explanation', async () => {
     const backtest = new BacktestState(async () => {
       throw new Error('Run not found');
     });
@@ -37,7 +37,8 @@ describe('empty backtest results', () => {
     }).body;
     expect(html).toContain('Run not found');
     expect(html).toContain('Retry loading result');
-    expect(html).toContain('original account');
+    expect(html).toContain('server-local and not account-scoped');
+    expect(html).not.toContain('original account');
     expect(html).not.toContain('Loading result…');
   });
 
