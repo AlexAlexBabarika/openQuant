@@ -169,6 +169,7 @@ export class TickerWorkspaceSync {
   private async hydrate(generation: number): Promise<void> {
     const current = this.options.read();
     const initialJson = JSON.stringify(statePayload(current));
+    let restoredPending = false;
     try {
       await this.writes;
       if (!this.isCurrent(generation)) return;
@@ -180,6 +181,7 @@ export class TickerWorkspaceSync {
         typeof pending.selectedGroup === 'string'
       ) {
         const restored = workspacePayloadToAppState(pending);
+        restoredPending = true;
         const payload = statePayload(restored);
         this.pendingJson = JSON.stringify(payload);
         safeLocalStorageSet(key, payload);
@@ -206,7 +208,14 @@ export class TickerWorkspaceSync {
       this.options.onHydrated();
       this.save(statePayload(this.options.read()));
     } catch (error) {
-      if (this.isCurrent(generation)) this.options.onError(error);
+      if (this.isCurrent(generation)) {
+        if (restoredPending) {
+          this.ready = true;
+          const payload = statePayload(this.options.read());
+          if (JSON.stringify(payload) !== this.pendingJson) this.save(payload);
+        }
+        this.options.onError(error);
+      }
     }
   }
 

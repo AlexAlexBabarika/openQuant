@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAccessToken, setAccessToken } from '$lib/core/api';
+import { TickerPriority, TickerStance } from './tickers';
 import {
   TickerWorkspaceSync,
   syncWorkspaceOnSignIn,
@@ -230,6 +231,131 @@ describe('ticker workspace hydration', () => {
 });
 
 describe('ticker workspace writes', () => {
+  it.each(['priority', 'deletion'])(
+    'retains %s edits after pending restoration fails',
+    async operation => {
+      const pending = pendingStorage();
+      const fetch = vi.fn().mockResolvedValueOnce(response('remote'));
+      vi.stubGlobal('fetch', fetch);
+      const old = fixture();
+      old.select('a');
+      await settle();
+      old.sync.save({
+        groups: [
+          {
+            name: 'unsent',
+            tickers: [
+              {
+                symbol: 'SPY',
+                priority: TickerPriority.High,
+                stance: TickerStance.Watch,
+                providers: {
+                  yfinance: true,
+                  binance: false,
+                  twelvedata: false,
+                },
+              },
+            ],
+          },
+        ],
+        selectedGroup: 'unsent',
+        selectedPriority: null,
+        selectedStance: null,
+      });
+      old.sync.destroy();
+      fetch.mockResolvedValueOnce(new Response('', { status: 503 }));
+      const fresh = fixture();
+      fresh.select('a');
+      await settle();
+      expect(fresh.onError).toHaveBeenCalledTimes(1);
+      expect(fresh.read().selectedGroupName).toBe('unsent');
+      const group = fresh.read().groups.find(g => g.name === 'unsent')!;
+      expect(group.tickers[0].priority).toBe(TickerPriority.High);
+      if (operation === 'deletion') group.tickers = [];
+      else group.tickers[0].priority = TickerPriority.Critical;
+      const payload = {
+        groups: fresh.read().groups,
+        selectedGroup: 'unsent',
+        selectedPriority: null,
+        selectedStance: null,
+      };
+      fetch.mockResolvedValue(response('unsent'));
+      fresh.sync.save(payload);
+      expect(pending()).toEqual(payload);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(
+        JSON.parse(fetch.mock.calls[fetch.mock.calls.length - 1][1].body),
+      ).toEqual(payload);
+      expect(pending()).toBeNull();
+      fresh.sync.destroy();
+    },
+  );
+
+  it('captures newer edits made while a pending restoration is still failing', async () => {
+    const pending = pendingStorage();
+    const held = deferred<Response>();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response('remote'))
+      .mockImplementationOnce(() => held.promise)
+      .mockResolvedValue(response('during-restore'));
+    vi.stubGlobal('fetch', fetch);
+    const old = fixture();
+    old.select('a');
+    await settle();
+    old.edit('unsent');
+    old.sync.destroy();
+    const fresh = fixture();
+    fresh.select('a');
+    await settle();
+    fresh.edit('during-restore');
+    held.resolve(new Response('', { status: 503 }));
+    await settle();
+    expect(pending().selectedGroup).toBe('during-restore');
+    fresh.sync.destroy();
+    const reloaded = fixture();
+    reloaded.select('a');
+    await settle();
+    expect(reloaded.read().selectedGroupName).toBe('during-restore');
+    expect(pending()).toBeNull();
+    reloaded.sync.destroy();
+  });
+
+  it('keeps a restored account editable when its write succeeds but the following fetch fails', async () => {
+    const pending = pendingStorage();
+    const fetch = vi.fn().mockResolvedValueOnce(response('remote'));
+    vi.stubGlobal('fetch', fetch);
+    const old = fixture();
+    old.select('a');
+    await settle();
+    old.edit('unsent');
+    old.sync.destroy();
+    fetch
+      .mockResolvedValueOnce(response('unsent'))
+      .mockResolvedValueOnce(new Response('', { status: 503 }));
+    const fresh = fixture();
+    fresh.select('a');
+    await settle();
+    expect(fresh.onError).toHaveBeenCalledTimes(1);
+    fresh.edit('after-failed-fetch');
+    expect(pending().selectedGroup).toBe('after-failed-fetch');
+    fresh.sync.destroy();
+  });
+
+  it('does not upload unhydrated guest state after a first account fetch failure', async () => {
+    const pending = pendingStorage();
+    const fetch = vi.fn(async () => new Response('', { status: 503 }));
+    vi.stubGlobal('fetch', fetch);
+    const f = fixture('guest');
+    f.select('a');
+    await settle();
+    f.edit('still-unhydrated');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(pending()).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    f.sync.destroy();
+  });
+
   it('does not clear another tab pending record on an unchanged save', async () => {
     const pending = pendingStorage();
     vi.stubGlobal(
