@@ -89,8 +89,8 @@
     --card-foreground: 0.141 0.005 285.823;
     --popover: 1 0 0;
     --popover-foreground: 0.141 0.005 285.823;
-    --primary: 0.648 0.2 131.684;
-    --primary-foreground: 0.141 0.005 285.823;
+    --primary: 0.453 0.124 130.933;
+    --primary-foreground: 0.985 0 0;
     --secondary: 0.967 0.001 286.375;
     --secondary-foreground: 0.21 0.006 285.885;
     --muted: 0.967 0.001 286.375;
@@ -117,7 +117,7 @@
     --sidebar-ring: 0.841 0.238 128.85;
 
     --up-color: 0.648 0.2 131.684;
-    /* Matches --primary */
+    /* Chart gain color is independent of action contrast. */
     --down-color: 0.577 0.245 27.325;
     /* Chart loss color is independent of action contrast. */
     --area-top-color: 0.648 0.2 131.684 / 50%;

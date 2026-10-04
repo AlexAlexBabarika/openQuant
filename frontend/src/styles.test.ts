@@ -95,6 +95,8 @@ beforeAll(async () => {
         ] as const
       ).flatMap(variant => buttonVariants({ variant }).split(' ')),
     ),
+    'bg-primary/10',
+    'text-primary',
   ];
   const compiled = await compileCss(source, { base, onDependency() {} });
   css = postcss.parse(
@@ -103,6 +105,19 @@ beforeAll(async () => {
 });
 
 describe.each([false, true])('resolved action colors (dark=%s)', dark => {
+  it('keeps selected-control text readable over translucent primary on every surface', () => {
+    const vars = tokens(dark);
+    for (const surface of ['background', 'card', 'popover']) {
+      for (const ratio of contrast(
+        utility('text-primary').color,
+        utility('bg-primary/10')['background-color'],
+        vars,
+        `oklch(var(--${surface}))`,
+      ))
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('keeps every shared action variant readable normally and on hover on each surface', () => {
     const vars = tokens(dark);
     for (const variant of [
@@ -221,6 +236,22 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it('preserves the dark-theme primary palette', () => {
+    const vars = tokens(true);
+    expect(converter('oklch')(`oklch(${vars['--primary']})`)).toMatchObject({
+      l: 0.648,
+      c: 0.2,
+      h: 131.684,
+    });
+    expect(
+      converter('oklch')(`oklch(${vars['--primary-foreground']})`),
+    ).toMatchObject({
+      l: 0.141,
+      c: 0.005,
+      h: 285.823,
+    });
+  });
+
   it.each([
     'components/chart/ChartOptionsMenu.svelte',
     'components/toolbar/ToolSettingsModal.svelte',
