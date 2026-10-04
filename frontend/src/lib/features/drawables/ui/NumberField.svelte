@@ -3,13 +3,13 @@
 
   let {
     label,
-    value = $bindable<number>(0),
+    value = $bindable<number | undefined>(0),
     min,
     max,
     step,
   }: {
     label: string;
-    value: number;
+    value: number | undefined;
     min?: number;
     max?: number;
     step?: number;
@@ -17,10 +17,6 @@
 
   const inputId = `num-${crypto.randomUUID()}`;
 
-  function updateValue(event: Event): void {
-    const n = (event.currentTarget as HTMLInputElement).valueAsNumber;
-    if (Number.isFinite(n)) value = n;
-  }
 </script>
 
 <Field {label} id={inputId}>
@@ -32,7 +28,6 @@
     {min}
     {max}
     {step}
-    value={value}
-    oninput={updateValue}
+    bind:value
   />
 </Field>

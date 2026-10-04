@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
-import { client, clientModule } from '$lib/features/chart/reactiveTestSupport';
 import NumberField from './NumberField.svelte';
 
 const url = new URL('./NumberField.svelte', import.meta.url);
@@ -24,40 +24,11 @@ describe('Element numeric fields', () => {
     expect(body).toContain('value="0.7"');
   });
 
-  it.each([NaN, Infinity, -Infinity, 0, 0.01, 1, 1.01])(
-    'only stages finite input %s, leaving bounds to native validity',
-    number => {
-      const component = clientModule<{
-        default: (
-          anchor: unknown,
-          props: unknown,
-        ) => {
-          updateValue: (event: Event) => void;
-          readValue: () => number;
-        };
-      }>(
-        url,
-        { './Field.svelte': {} },
-        `${readFileSync(url, 'utf8').split('</script>')[0]}
-        export { updateValue };
-        export function readValue() { return value; }
-      </script>`,
-      ).default;
-      let field!: ReturnType<typeof component>;
-      const stop = client.effect_root(() => {
-        field = component(
-          null,
-          client.proxy({ label: 'Value area %', value: 0.7 }),
-        );
-      });
-      try {
-        field.updateValue({
-          currentTarget: { valueAsNumber: number },
-        } as unknown as Event);
-        expect(field.readValue()).toBe(Number.isFinite(number) ? number : 0.7);
-      } finally {
-        stop();
-      }
-    },
-  );
+  it('uses native numeric binding so editing text is not rewritten mid-input', () => {
+    const source = readFileSync(url, 'utf8');
+    const generated = compile(source, { generate: 'client' }).js.code;
+    expect(source).toContain('bind:value');
+    expect(source).not.toContain('value={value}');
+    expect(generated).toContain('$.bind_value(input, value);');
+  });
 });
