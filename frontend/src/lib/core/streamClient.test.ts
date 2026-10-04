@@ -59,6 +59,40 @@ afterEach(() => {
 });
 
 describe('StreamClient subscription lifecycle', () => {
+  it.each(['candle', 'snapshot'] as const)(
+    'does not use a rejected %s timestamp for reconnect gap-fill',
+    type => {
+      const client = new StreamClient();
+      const onCandle = vi.fn();
+      const onSnapshot = vi.fn();
+      client.subscribeCandles(
+        sub,
+        { onCandle, onSnapshot },
+        { since: '2025-12-31T00:00:00Z' },
+      );
+      const old = FakeSocket.sockets[0];
+      old.open();
+      old.message({ type: 'candle', ...sub, candle, is_final: true });
+      const bad = { ...candle, timestamp: '2099-01-01T00:00:00Z', volume: -1 };
+      if (type === 'candle')
+        old.message({ type, ...sub, candle: bad, is_final: true });
+      else
+        old.message({
+          type,
+          ...sub,
+          candles: [bad, { ...candle, timestamp: '2100-01-01T00:00:00Z' }],
+        });
+      expect(type === 'candle' ? onCandle : onSnapshot).toHaveBeenCalled();
+      old.closed();
+      vi.advanceTimersByTime(500);
+      const current = FakeSocket.sockets[1];
+      current.open();
+      expect(current.sent()).toEqual([
+        { type: 'subscribe', ...sub, since: candle.timestamp },
+      ]);
+    },
+  );
+
   it('routes a rejected subscription only to its own candle or quote handlers', () => {
     const client = new StreamClient();
     const onError = vi.fn();
