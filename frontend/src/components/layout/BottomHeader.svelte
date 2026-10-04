@@ -1,9 +1,9 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import PanelRightClose from '@lucide/svelte/icons/panel-right-close';
   import GitCompare from '@lucide/svelte/icons/git-compare';
   import ChartOptionsMenu from '../chart/ChartOptionsMenu.svelte';
-  import BottomBarOptionsMenu from './BottomBarOptionsMenu.svelte';
   import type {
     MovingAverageConfig,
     BollingerBandsConfig,
@@ -28,6 +28,7 @@
     oncompare,
     onopenindicators,
     onopenanalytics,
+    drawingTools,
   }: {
     chartType: ChartType;
     showArea: boolean;
@@ -44,6 +45,7 @@
     oncompare?: () => void;
     onopenindicators?: () => void;
     onopenanalytics?: () => void;
+    drawingTools?: Snippet;
   } = $props();
 
   const atLimit = $derived(comparisonCount >= MAX_COMPARISONS);
@@ -53,6 +55,7 @@
   class="relative flex items-center justify-between px-2 py-1 border-t border-border bg-background h-10 shrink-0"
 >
   <div class="flex items-center gap-1">
+    {@render drawingTools?.()}
     <ChartOptionsMenu
       bind:chartType
       bind:showArea
@@ -82,13 +85,13 @@
     {/if}
 
     {#if onopenindicators || onopenanalytics}
-      <span class="ot-hairline-v"></span>
+      <span class="ot-hairline-v hidden md:block"></span>
     {/if}
 
     {#if onopenindicators}
       <button
         type="button"
-        class="ot-workbench-ghost"
+        class="ot-workbench-ghost hidden md:inline-flex"
         onclick={onopenindicators}
         title="Open indicators workbench"
       >
@@ -100,7 +103,7 @@
     {#if onopenanalytics}
       <button
         type="button"
-        class="ot-workbench-ghost"
+        class="ot-workbench-ghost hidden md:inline-flex"
         onclick={onopenanalytics}
         title="Open analytics workbench"
       >
@@ -111,11 +114,10 @@
   </div>
 
   <div class="flex items-center gap-1">
-    <BottomBarOptionsMenu />
     <button
       type="button"
       class="ot-workbench-ghost"
-      aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
+      aria-label={sidebarVisible ? 'Hide watchlist' : 'Show watchlist'}
       onclick={ontogglesidebar}
     >
       {#if sidebarVisible}
@@ -123,7 +125,7 @@
       {:else}
         <PanelRight class="h-3 w-3" />
       {/if}
-      <span>panel</span>
+      <span>watchlist</span>
     </button>
   </div>
 </div>

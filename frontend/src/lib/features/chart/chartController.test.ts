@@ -234,12 +234,41 @@ describe('chart request and streaming lifecycles', () => {
     expect(unsubscribe).toHaveBeenCalledTimes(1);
     expect(controller.connectionStatus).toBe('disconnected');
     expect(controller.liveBarCloseTs).toBeNull();
+    expect(controller.loadedContext).toMatchObject({
+      symbol: 'BTCUSDT',
+      source: 'binance',
+    });
+    expect(controller.dataContextCurrent).toBe(false);
+    expect(controller.candles[0].close).toBe(11);
     handlers.onCandle({ ...candle, close: 99 }, true);
     handlers.onCandleClose?.(candle);
     handlers.onStatus?.('connected');
     expect(controller.chartApi?.appendCandle).not.toHaveBeenCalled();
     expect(controller.connectionStatus).toBe('disconnected');
     expect(controller.liveBarCloseTs).toBeNull();
+  });
+
+  it('tracks the context of loaded bars, not pending or failed requests', async () => {
+    const { controller } = setup();
+    expect(controller.loadedContext).toBeNull();
+    expect(controller.dataContextCurrent).toBe(false);
+    await controller.loadMarketData();
+    expect(controller.dataContextCurrent).toBe(true);
+    const previous = controller.loadedContext;
+    const next = deferred<MarketOHLCVResponse>();
+    vi.mocked(fetchMarketOHLCV).mockReturnValueOnce(next.promise);
+    controller.symbol = 'ETHUSDT';
+    const pending = controller.loadMarketData();
+    expect(controller.loadedContext).toEqual(previous);
+    expect(controller.dataContextCurrent).toBe(false);
+    next.resolve({
+      ...response,
+      symbol: 'ETHUSDT',
+      candles: [{ ...candle, symbol: 'ETHUSDT' }],
+    });
+    await pending;
+    expect(controller.loadedContext?.symbol).toBe('ETHUSDT');
+    expect(controller.dataContextCurrent).toBe(true);
   });
 
   it('does not restart a deliberately stopped stream after refresh or a delayed load', async () => {

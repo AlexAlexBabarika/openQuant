@@ -159,12 +159,12 @@
 </button>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="sm:max-w-lg">
+  <Dialog.Content class="sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>Chart Options</Dialog.Title>
     </Dialog.Header>
 
-      <div class="flex flex-col gap-4">
+      <div class="flex min-w-0 flex-col gap-4">
         <fieldset>
           <legend class="text-sm font-medium text-card-foreground mb-2"
             >Theme</legend
@@ -196,7 +196,7 @@
         </fieldset>
 
         <!-- Row 1: Chart Type + Overlay -->
-        <div class="flex items-end justify-between gap-4">
+        <div class="flex flex-wrap items-end justify-between gap-4">
           <fieldset>
             <legend class="text-sm font-medium text-card-foreground mb-2"
               >Chart Type</legend
@@ -256,7 +256,7 @@
           </fieldset>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <span class="text-sm font-medium text-card-foreground min-w-[50px]">Background:</span>
           <ColourSwatch bind:colour={colours.chartBackground} label="Chart" />
           <ColourSwatch bind:colour={colours.gridLines} label="Grid" />
@@ -276,14 +276,14 @@
         {/if}
 
         {#if chartType === 'line'}
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Chart:</span>
             <ColourSwatch bind:colour={colours.lineColour} label="Line" />
           </div>
         {/if}
 
         {#if showArea}
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Area:</span>
             <ColourSwatch bind:colour={colours.areaTop} label="Area top" />
             <ColourSwatch bind:colour={colours.areaBottom} label="Area bottom" />
@@ -291,7 +291,7 @@
         {/if}
 
         {#if showVolume}
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Volume:</span>
             <ColourSwatch bind:colour={colours.volumeUp} label="Up volume" />
             <ColourSwatch bind:colour={colours.volumeDown} label="Down volume" />
@@ -311,7 +311,7 @@
               <div class="text-xs font-medium text-muted-foreground mb-1.5">
                 Simple Moving Average
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {smaConfig.enabled
@@ -451,7 +451,7 @@
               <div class="text-xs font-medium text-muted-foreground mb-1.5">
                 Exponential Moving Average
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {emaConfig.enabled

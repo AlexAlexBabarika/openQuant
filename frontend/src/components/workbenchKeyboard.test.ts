@@ -5,7 +5,12 @@ import ResultTabs, { resultTabForKey } from './backtest/ResultTabs.svelte';
 import TradesTab from './backtest/tabs/TradesTab.svelte';
 import ColourPicker, { sliderValueForKey } from './chart/ColourPicker.svelte';
 import IndicatorsPanel from './indicators/IndicatorsPanel.svelte';
-import StrategyPanel from './strategy/StrategyPanel.svelte';
+import ScriptOutputs from './indicators/ScriptOutputs.svelte';
+import StrategyPanel, {
+  editorShareForKey,
+} from './strategy/StrategyPanel.svelte';
+import BacktestPanel from './backtest/BacktestPanel.svelte';
+import StrategyTrial from '$lib/features/trial/StrategyTrial.svelte';
 import ToolboxPanel from './toolbar/ToolboxPanel.svelte';
 import {
   BacktestState,
@@ -46,6 +51,53 @@ function keyEvent(key: string) {
 }
 
 describe('workbench keyboard operations', () => {
+  it.each([false, true])(
+    'distinguishes draft guidance from projected indicator outputs (%s)',
+    projected => {
+      const html = render(ScriptOutputs, {
+        props: {
+          projected,
+          isRunning: false,
+          runError: null,
+          result: {
+            status: 'ok',
+            elapsed_ms: 1,
+            stdout: '',
+            stderr: '',
+            outputs: [
+              {
+                type: 'overlay',
+                title: 'SMA',
+                data: [],
+                color: null,
+                line_width: null,
+                line_style: null,
+              },
+            ],
+          },
+        },
+      }).body;
+      expect(html).toContain(
+        projected ? 'projected onto chart' : 'save and start to project',
+      );
+      if (projected) expect(html).not.toContain('save and start to project');
+    },
+  );
+  it.each([
+    ['ArrowLeft', 50, 45],
+    ['ArrowRight', 50, 55],
+    ['ArrowLeft', 25, 25],
+    ['ArrowRight', 75, 75],
+    ['Home', 50, 25],
+    ['End', 50, 75],
+  ] as const)(
+    'resizes the code/results split with %s',
+    (key, current, expected) => {
+      const event = keyEvent(key);
+      expect(editorShareForKey(event, current)).toBe(expected);
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+    },
+  );
   it.each([
     ['equity', 'ArrowLeft', 'stats'],
     ['stats', 'ArrowRight', 'equity'],
@@ -90,12 +142,92 @@ describe('workbench keyboard operations', () => {
       const event = keyEvent(key);
       expect(resultTabForKey(event, 'equity')).toBeNull();
       expect(sliderValueForKey(event, 42, 100)).toBeNull();
+      expect(editorShareForKey(event, 50)).toBeNull();
       expect(event.preventDefault).not.toHaveBeenCalled();
     },
   );
 });
 
 describe('rendered workbench semantics', () => {
+  it('keeps the Robustness run action outside the scrolling configuration and tied to its form', () => {
+    const html = render(StrategyTrial, {
+      props: {
+        embedded: true,
+        workspace: {
+          name: 'Draft',
+          code: 'def on_bar(ctx): pass',
+          symbol: 'AAPL',
+          provider: 'yfinance',
+          period: '1y',
+          interval: '1d',
+        },
+      },
+    }).body;
+    const nodes = elements(
+      html.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;'),
+    );
+    const form = nodes.find(node => attr(node, 'id') === 'robustness-run-form');
+    const submit = nodes.find(
+      node =>
+        node.name === 'button' && attr(node, 'form') === 'robustness-run-form',
+    );
+    expect(form?.name).toBe('form');
+    expect(attr(submit!, 'type')).toBe('submit');
+    expect(attr(submit!, 'disabled')).toBeUndefined();
+    expect(
+      form!.fragment.nodes.some(
+        node =>
+          node.type === 'RegularElement' &&
+          node.name === 'button' &&
+          attr(node, 'type') === 'submit',
+      ),
+    ).toBe(false);
+  });
+
+  it('embeds the real backtest without a nested dialog or a close action', async () => {
+    const backtest = new BacktestState(async () => sample);
+    await backtest.load();
+    const nodes = elements(
+      render(BacktestPanel, { props: { embedded: true, open: true, backtest } })
+        .body,
+    );
+    expect(nodes.some(node => attr(node, 'role') === 'dialog')).toBe(false);
+    expect(nodes.some(node => attr(node, 'aria-label') === 'Close')).toBe(
+      false,
+    );
+    expect(
+      nodes.find(node => attr(node, 'aria-label') === 'Backtest results')?.name,
+    ).toBe('section');
+    expect(nodes.filter(node => attr(node, 'role') === 'tab')).toHaveLength(5);
+  });
+
+  it('collapses empty strategy and indicator libraries without removing their reopen controls', () => {
+    const context = {
+      open: true,
+      symbol: 'AAPL',
+      provider: 'yfinance' as const,
+      period: '1y',
+      interval: '1d',
+    };
+    for (const html of [
+      render(StrategyPanel, {
+        props: { ...context, strategy: new StrategyState() },
+      }).body,
+      render(IndicatorsPanel, {
+        props: { ...context, indicators: new IndicatorState() },
+      }).body,
+    ]) {
+      const nodes = elements(html);
+      expect(
+        nodes.some(node => attr(node, 'aria-label')?.startsWith('Saved')),
+      ).toBe(false);
+      const library = nodes.find(node =>
+        attr(node, 'aria-controls')?.endsWith('-library'),
+      );
+      expect(library?.name).toBe('button');
+      expect(attr(library!, 'aria-expanded')).toBe('false');
+    }
+  });
   it('links every tab and panel and gives only the selected tab a tab stop', async () => {
     const backtest = new BacktestState(async () => sample);
     await backtest.load();
@@ -173,7 +305,7 @@ describe('rendered workbench semantics', () => {
     ]);
   });
 
-  it('keeps closed Toolbox content inert while its reopen handle remains reachable', () => {
+  it('unmounts closed Toolbox content while its reopen handle remains reachable', () => {
     const nodes = elements(
       render(ToolboxPanel, { props: { theme: 'dark' } }).body,
     );
@@ -181,12 +313,14 @@ describe('rendered workbench semantics', () => {
     const handle = nodes.find(
       node => attr(node, 'aria-label') === 'Open toolbox',
     );
-    expect(dialog).toBeDefined();
-    expect(attr(dialog!, 'inert')).toBe('');
-    expect(attr(dialog!, 'aria-hidden')).toBe('true');
+    expect(dialog).toBeUndefined();
     expect(handle).toBeDefined();
-    expect(attr(handle!, 'tabindex')).toBe('0');
+    expect(handle!.name).toBe('button');
+    expect(attr(handle!, 'type')).toBe('button');
     expect(attr(handle!, 'inert')).toBeUndefined();
+    expect(
+      nodes.some(node => attr(node, 'class')?.includes('fixed inset-0')),
+    ).toBe(false);
   });
 
   it('renders saved indicator and strategy actions as sibling native buttons', () => {

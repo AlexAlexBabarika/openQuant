@@ -88,7 +88,7 @@
       {@const SettingsCmp = tool.Settings}
       <Dialog.Header>
         <Dialog.Title class="text-lg font-semibold"
-          >{tool.label} settings</Dialog.Title
+          >{tool.label} · type-wide settings</Dialog.Title
         >
       </Dialog.Header>
       <Dialog.Description>

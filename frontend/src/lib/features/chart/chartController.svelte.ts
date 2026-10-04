@@ -131,6 +131,17 @@ export class ChartController {
     }
   }
 
+  get loadedContext(): Readonly<ChartContext> | null {
+    this.marketDataVersion;
+    return this.#loadedContext;
+  }
+
+  get dataContextCurrent(): boolean {
+    return (
+      this.loadedContext !== null && this.#contextMatches(this.loadedContext)
+    );
+  }
+
   loadMarketData = async (): Promise<void> => {
     const generation = ++this.#loadGeneration;
     const context = this.#context();
