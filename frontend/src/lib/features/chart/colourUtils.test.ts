@@ -1,5 +1,54 @@
 import { describe, it, expect } from 'vitest';
-import { cssColourToHsva, hsvaToHex, hsvaToRgba } from './colourUtils';
+import {
+  cssColourToHsva,
+  hsvaToHex,
+  hsvaToRgba,
+  contrastTextColour,
+} from './colourUtils';
+import { wcagContrast } from 'culori';
+import rulerRendererSource from '$lib/features/drawables/tools/ruler/Renderer.svelte?raw';
+import positionRendererSource from '$lib/features/drawables/tools/position/Renderer.svelte?raw';
+
+describe('opaque Element label contrast', () => {
+  it.each([
+    ['rgb(38, 166, 154)', '#000000'],
+    ['rgb(239, 83, 80)', '#000000'],
+    ['#26a69a', '#000000'],
+    ['#ef5350', '#000000'],
+    ['#777777', '#000000'],
+    ['#737373', '#ffffff'],
+    ['black', '#ffffff'],
+    ['white', '#000000'],
+    ['hsl(240, 100%, 20%)', '#ffffff'],
+  ])('chooses readable text on %s', (background, expected) => {
+    const foreground = contrastTextColour(background);
+    expect(foreground).toBe(expected);
+    expect(wcagContrast(background, foreground)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('falls back safely for an unsupported colour', () => {
+    expect(contrastTextColour('not-a-colour')).toBe('#ffffff');
+  });
+
+  it.each(['#26a69a80', 'rgba(38, 166, 154, 0)', 'rgba(38, 166, 154, 0.9)'])(
+    'retains legacy text for translucent custom style %s',
+    background => {
+      expect(contrastTextColour(background)).toBe('#ffffff');
+    },
+  );
+
+  it('applies contrast text to every numeric chip without dimming Ruler details', () => {
+    expect(
+      rulerRendererSource.match(/style:color=\{contrastTextColour/g),
+    ).toHaveLength(1);
+    expect(
+      positionRendererSource.match(/style:color=\{contrastTextColour/g),
+    ).toHaveLength(3);
+    expect(rulerRendererSource).not.toContain('style:opacity="0.9"');
+    expect(rulerRendererSource).not.toContain('text-white');
+    expect(positionRendererSource).not.toContain('text-white');
+  });
+});
 
 describe('cssColourToHsva', () => {
   it('parses #RRGGBB', () => {

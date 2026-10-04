@@ -12,6 +12,7 @@
     formatVolume,
   } from './compute';
   import DrawableSvgHitRect from '../../ui/DrawableSvgHitRect.svelte';
+  import { contrastTextColour } from '$lib/features/chart/colourUtils';
 
   let {
     drawable,
@@ -178,16 +179,17 @@
         pointer-events="none"
       >
         <div
-          class="rounded-md px-2 py-1 text-[10px] font-mono text-white shadow-lg whitespace-nowrap text-center leading-tight"
+          class="rounded-md px-2 py-1 text-[10px] font-mono shadow-lg whitespace-nowrap text-center leading-tight"
           style:background-color={fill}
+          style:color={contrastTextColour(fill)}
         >
           <div>
             {formatPriceDelta(stats.priceDelta)} ({formatPct(stats.pctDelta)})
           </div>
-          <div style:opacity="0.9">
+          <div>
             {stats.barCount} bars{stats.spanLabel ? `, ${stats.spanLabel}` : ''}
           </div>
-          <div style:opacity="0.9">Vol {formatVolume(stats.volumeSum)}</div>
+          <div>Vol {formatVolume(stats.volumeSum)}</div>
         </div>
       </foreignObject>
     {/if}

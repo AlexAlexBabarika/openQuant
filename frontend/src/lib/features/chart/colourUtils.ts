@@ -4,6 +4,7 @@ import {
   rgb as toRgb,
   formatHex,
   formatHex8,
+  wcagContrast,
 } from 'culori';
 
 export interface HSVA {
@@ -14,6 +15,15 @@ export interface HSVA {
 }
 
 const INVALID: HSVA = { h: 0, s: 0, v: 0, a: 1 };
+
+/** Opaque labels use stronger contrast; translucent custom styles keep legacy text. */
+export function contrastTextColour(background: string): string {
+  const colour = parse(background);
+  if (!colour || (colour.alpha ?? 1) < 1) return '#ffffff';
+  return wcagContrast(colour, '#000000') >= wcagContrast(colour, '#ffffff')
+    ? '#000000'
+    : '#ffffff';
+}
 
 /** Parse any CSS colour string (#RRGGBB, #RRGGBBAA, rgba(...), named, etc.) into HSVA. */
 export function cssColourToHsva(colour: string): HSVA {

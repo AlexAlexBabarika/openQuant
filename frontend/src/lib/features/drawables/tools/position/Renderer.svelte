@@ -4,6 +4,7 @@
   import type { PositionMetricsResponse } from './types';
   import DrawableSvgHitRect from '../../ui/DrawableSvgHitRect.svelte';
   import { POSITION_LONG_TYPE } from './constants';
+  import { contrastTextColour } from '$lib/features/chart/colourUtils';
 
   const HANDLE = 9;
   const MIN_TIME_SPAN = 1;
@@ -285,8 +286,9 @@
         pointer-events="none"
       >
         <div
-          class="rounded px-2 py-1 text-[10px] font-mono text-white shadow-lg text-center"
+          class="rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
           style:background-color={validTarget ? drawable.style.targetColor : drawable.style.stopColor}
+          style:color={contrastTextColour(validTarget ? drawable.style.targetColor : drawable.style.stopColor)}
         >
           {validTarget ? 'Target' : 'Invalid target'}: {fmtPrice(targetDist)} price ({fmt(targetPct, 3)}%)
         </div>
@@ -300,8 +302,9 @@
         pointer-events="none"
       >
         <div
-          class="rounded px-2 py-1 text-[10px] font-mono text-white shadow-lg text-center"
+          class="rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
           style:background-color={drawable.style.stopColor}
+          style:color={contrastTextColour(drawable.style.stopColor)}
         >
           {validStop ? 'Stop' : 'Invalid stop'}: {fmtPrice(stopDist)} price ({fmt(stopPct, 3)}%)
         </div>
@@ -315,8 +318,9 @@
         pointer-events="none"
       >
         <div
-          class="rounded px-2 py-1 text-[10px] font-mono text-white shadow-lg text-center"
+          class="rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
           style:background-color={statusLabel ? drawable.style.stopColor : drawable.style.targetColor}
+          style:color={contrastTextColour(statusLabel ? drawable.style.stopColor : drawable.style.targetColor)}
         >
           {#if statusLabel}{statusLabel}{:else}Risk/reward: {fmt(displayRiskReward, 2)}{/if}
         </div>
