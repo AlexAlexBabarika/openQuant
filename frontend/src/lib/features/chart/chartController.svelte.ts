@@ -52,6 +52,8 @@ export class ChartController {
   marketDataVersion = $state(0);
   initialLoadDone = $state(false);
   liveBarCloseTs = $state<number | null>(null);
+  snapshotReceivedAt = $state<number | null>(null);
+  streamReceivedAt = $state<number | null>(null);
 
   #wsClient: WSClient | null = null;
   #liveUnsubscribe: (() => void) | null = null;
@@ -120,6 +122,8 @@ export class ChartController {
       this.candles = [];
       this.loadedSymbol = '';
       this.#loadedContext = null;
+      this.snapshotReceivedAt = null;
+      this.streamReceivedAt = null;
       this.marketDataVersion++;
     }
     if (reload && this.source !== 'csv') {
@@ -170,6 +174,8 @@ export class ChartController {
       this.candles = data.candles ?? [];
       this.loadedSymbol = context.symbol;
       this.#loadedContext = context;
+      this.snapshotReceivedAt = Date.now();
+      this.streamReceivedAt = null;
       this.marketDataVersion += 1;
       this.#onSymbolFetched?.(
         context.symbol,
@@ -297,6 +303,7 @@ export class ChartController {
       historyEndIso,
       onSnapshot: snapshot => {
         if (!isCurrent()) return;
+        this.streamReceivedAt = Date.now();
         const merged = mergeCandleSnapshot(liveCandles, snapshot);
         if (merged.length === liveCandles.length) return;
         this.candles = merged;
@@ -304,6 +311,7 @@ export class ChartController {
       },
       onCandle: (c, _isFinal) => {
         if (!isCurrent()) return;
+        this.streamReceivedAt = Date.now();
         const last = liveCandles[liveCandles.length - 1];
         if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
           liveCandles[liveCandles.length - 1] = c;
@@ -344,6 +352,8 @@ export class ChartController {
       if (!this.#isCurrentLoad(generation, context)) return;
       this.loadedSymbol = sym;
       this.#loadedContext = context;
+      this.snapshotReceivedAt = Date.now();
+      this.streamReceivedAt = null;
       this.marketDataVersion += 1;
       this.#onSymbolFetched?.(sym, 'csv', 0);
       if (this.#streamEnabled) this.#startWsStream('csv', sym);
@@ -370,6 +380,7 @@ export class ChartController {
     const isCurrent = () =>
       generation === this.#streamGeneration && this.#contextMatches(context);
     this.candles = [];
+    this.streamReceivedAt = null;
     const streamCandles = this.candles;
     this.#wsClient = new WSClient({
       provider,
@@ -377,6 +388,7 @@ export class ChartController {
       maxReconnectAttempts: 0,
       onCandle: c => {
         if (!isCurrent()) return;
+        this.streamReceivedAt = Date.now();
         const last = streamCandles[streamCandles.length - 1];
         if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
           streamCandles[streamCandles.length - 1] = c;

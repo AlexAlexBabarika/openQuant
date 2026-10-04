@@ -105,6 +105,12 @@
   import AnalyticsPanel from './components/analytics/AnalyticsPanel.svelte';
   import BacktestPanel from './components/backtest/BacktestPanel.svelte';
   import RecentRunsPanel from './components/backtest/RecentRunsPanel.svelte';
+  import ResearchWorkspacesDialog from './components/dialogs/ResearchWorkspacesDialog.svelte';
+  import DataInspector from './components/dialogs/DataInspector.svelte';
+  import CommandPalette from './components/dialogs/CommandPalette.svelte';
+  import { isCommandShortcut, type ResearchCommand } from '$lib/features/workspace/commands';
+  import { listTools } from '$lib/features/drawables';
+  import { ResearchShelf, type DraftKind, type ResearchLayout, type ResearchWorkspace } from '$lib/features/workspace/researchShelf.svelte';
   import CompareView from './components/backtest/compare/CompareView.svelte';
   import StrategyPanel from './components/strategy/StrategyPanel.svelte';
   import { IndicatorState } from '$lib/features/indicators/indicatorState.svelte';
@@ -348,7 +354,160 @@
   let backtest = $state(new BacktestState());
   const strategy = new StrategyState();
 
+  const researchShelf = new ResearchShelf();
+  let researchWorkspacesOpen = $state(false);
+  let dataInspectorOpen = $state(false);
+  let strategyEditorShare = $state(50);
+  let indicatorSplitPct = $state(60);
+  let strategyTab = $state<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor');
+  let indicatorTab = $state<'editor' | 'docs'>('editor');
+  let commandsOpen = $state(false);
+
+  function closeResearchPanels(): void {
+    strategyOpen = false; indicatorsOpen = false; analyticsOpen = false;
+    backtestOpen = false; runsOpen = false; compareOpen = false; trialOpen = false;
+    researchWorkspacesOpen = false; dataInspectorOpen = false; watchlistOpen = false;
+  }
+
+  async function activateCommand(action: () => void, focusChart = false): Promise<void> {
+    closeResearchPanels();
+    await tick();
+    action();
+    if (focusChart) requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="Chart"][tabindex="0"]')?.focus());
+  }
+
+  function selectChartSymbol(symbol: string, providers: SymbolProviders | null): void {
+    chart.symbol = symbol;
+    chart.source = pickProviderForSymbol(chart.source, providers);
+    void chart.loadMarketData();
+    watchlistOpen = false;
+  }
+
+  const researchCommands = $derived.by<ResearchCommand[]>(() => {
+    const command = (id: string, title: string, action: () => void, group = 'Workspace', detail = ''): ResearchCommand => ({ id, title, group, detail, action: () => void activateCommand(action, group === 'Drawing' || group === 'Symbol') });
+    const commands = [
+      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; strategyTab = 'editor'; strategyOpen = true; }),
+      command('indicators', 'Open Indicators editor', () => { indicatorTab = 'editor'; indicatorsOpen = true; }),
+      command('analytics', 'Open Analytics', () => (analyticsOpen = true)),
+      command('runs', 'Open Experiment notebook', () => (runsOpen = true), 'Workspace', 'runs baseline notes tags compare'),
+      command('workspaces', 'Workspaces and draft recovery', () => (researchWorkspacesOpen = true)),
+      command('data', 'Inspect loaded market data', () => (dataInspectorOpen = true), 'Workspace', 'provenance coverage quality source'),
+      command('robustness', 'Open Robustness', () => (trialOpen = true)),
+      command('backtest', 'Open backtest results', () => { void backtest.load(); backtestOpen = true; }),
+      command('cursor', 'Select chart cursor', () => (activeTool = CURSOR), 'Drawing'),
+      ...listTools().map(tool => command(`drawing:${tool.type}`, tool.label, () => (activeTool = tool.type), 'Drawing')),
+    ];
+    const symbols = new Map(groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
+    for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
+    if ($authState.user) {
+      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, () => { strategy.select(script.id); portfolioRunId = null; strategyTab = 'editor'; strategyOpen = true; }, 'Strategy', 'saved script')));
+      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, () => { indicators.openScript(script.id); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
+    }
+    commands.push(...runsHistory.entries.map(run => command(`run:${run.run_id}`, run.label, () => openStoredRun(run.run_id), 'Run', `${run.kind} ${run.tags?.join(' ') ?? ''} ${run.baseline ? 'baseline' : ''}`)));
+    return commands;
+  });
+  let draftBoundary = { strategy: '', indicator: '' };
+  const fingerprint = (editor: StrategyState | IndicatorState) => JSON.stringify([editor.draftName, editor.draftCode]);
+  $effect(() => {
+    if (!sessionReady) return;
+    const account = $authState.user?.id ?? null;
+    untrack(() => {
+      persistDrafts();
+      researchShelf.setAccount(account);
+      draftBoundary = { strategy: fingerprint(strategy), indicator: fingerprint(indicators) };
+    });
+  });
+
+  function persistDrafts(): void {
+    if (!sessionReady) return;
+    for (const [kind, editor] of [['strategy', strategy], ['indicator', indicators]] as const) {
+      if (editor.dirty && fingerprint(editor) === draftBoundary[kind]) continue;
+      researchShelf.saveDraft(kind, editor.dirty ? {
+        name: editor.draftName, code: editor.draftCode, updatedAt: new Date().toISOString(),
+      } : null);
+    }
+  }
+
+  $effect(() => {
+    sessionReady; $authState.user?.id;
+    strategy.draftCode; strategy.draftName; strategy.dirty;
+    indicators.draftCode; indicators.draftName; indicators.dirty;
+    researchShelf.pending.strategy; researchShelf.pending.indicator;
+    const timer = setTimeout(() => untrack(persistDrafts), 500);
+    return () => clearTimeout(timer);
+  });
+  onMount(() => {
+    const flush = () => untrack(persistDrafts);
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  });
+
+  function recoverDraft(kind: DraftKind): void {
+    const draft = researchShelf.pending[kind];
+    if (!draft) return;
+    const editor = kind === 'strategy' ? strategy : indicators;
+    if (editor.dirty && !confirm(`Replace the current ${kind} editor with the recovered local draft?`)) return;
+    editor.newDraft(() => true);
+    editor.setName(draft.name); editor.setCode(draft.code); editor.dirty = true;
+    researchShelf.resolve(kind);
+    draftBoundary[kind] = '';
+    if (kind === 'strategy') strategyOpen = true;
+    else indicatorsOpen = true;
+    researchWorkspacesOpen = false;
+  }
+
+  function keepCurrentDraft(kind: DraftKind): void {
+    researchShelf.resolve(kind);
+    draftBoundary[kind] = '';
+    untrack(persistDrafts);
+  }
+
+  function localRecoveryTime(kind: DraftKind): string | null {
+    const editor = kind === 'strategy' ? strategy : indicators;
+    const draft = researchShelf.drafts[kind];
+    return !researchShelf.error && !researchShelf.pending[kind] && draft?.code === editor.draftCode && draft.name === editor.draftName ? draft.updatedAt : null;
+  }
+
+  function currentResearchLayout(): ResearchLayout {
+    const updatedAt = new Date().toISOString();
+    return {
+      symbol: chart.symbol, provider: chart.source, interval: chart.interval, period: chart.period,
+      chartType, showArea, showVolume, sma: { ...smaConfig }, ema: { ...emaConfig }, bbands: { ...bbandsConfig },
+      sidebar: desktopSidebarVisible, strategyOpen, indicatorsOpen,
+      strategyEditorShare, indicatorSplitPct, strategyTab, indicatorTab,
+      strategy: { name: strategy.draftName, code: strategy.draftCode, updatedAt },
+      indicator: { name: indicators.draftName, code: indicators.draftCode, updatedAt },
+    };
+  }
+
+  function restoreResearchWorkspace(workspace: ResearchWorkspace): boolean {
+    if (strategy.isRunning || indicators.isRunning) { researchShelf.error = 'Stop or finish execution before restoring a workspace.'; return false; }
+    if (!confirm(`Restore “${workspace.name}”? This replaces both editors and the chart layout, but does not run scripts.`)) return false;
+    const layout = workspace.layout;
+    indicators.stopAll();
+    chart.stopStream(); chart.autoRefresh = false;
+    chart.symbol = layout.symbol; chart.source = layout.provider; chart.interval = layout.interval; chart.period = layout.period;
+    chartType = layout.chartType; showArea = layout.showArea; showVolume = layout.showVolume;
+    smaConfig = { ...layout.sma }; emaConfig = { ...layout.ema }; bbandsConfig = { ...layout.bbands };
+    desktopSidebarVisible = layout.sidebar;
+    strategyEditorShare = layout.strategyEditorShare; indicatorSplitPct = layout.indicatorSplitPct;
+    strategyTab = layout.strategyTab; indicatorTab = layout.indicatorTab;
+    portfolioRunId = null;
+    for (const [kind, editor] of [['strategy', strategy], ['indicator', indicators]] as const) {
+      editor.newDraft(() => true); editor.setName(layout[kind].name); editor.setCode(layout[kind].code); editor.dirty = true;
+      researchShelf.resolve(kind); draftBoundary[kind] = '';
+    }
+    strategyOpen = layout.strategyOpen; indicatorsOpen = layout.indicatorsOpen;
+    if (chart.source !== 'csv') void chart.loadMarketData();
+    else chart.errorMessage = 'Workspace restored. Upload its CSV again; CSV bars are not part of the preset.';
+    return true;
+  }
+
   let runsOpen = $state(false);
+  $effect(() => {
+    const account = $authState.user?.id ?? null;
+    untrack(() => runsHistory.setAccount(account));
+  });
   let compareOpen = $state(false);
   let portfolioRunId = $state<string | null>(null);
 
@@ -360,6 +519,7 @@
       // first so re-opening the same run re-triggers the load effect.
       portfolioRunId = null;
       portfolioRunId = id;
+      strategyTab = 'portfolio';
       strategyOpen = true;
       return;
     }
@@ -385,6 +545,8 @@
     Backtesting: () => (backtestOpen = true),
     Strategy: () => (strategyOpen = true),
     Runs: () => (runsOpen = true),
+    Workspaces: () => (researchWorkspacesOpen = true),
+    Commands: () => (commandsOpen = true),
   };
 
   function handleToolboxTile(title: string) {
@@ -763,6 +925,8 @@
   });
 </script>
 
+<svelte:window onkeydown={event => { if (isCommandShortcut(event)) { event.preventDefault(); commandsOpen = !commandsOpen; } }} />
+
 <Dialog.Root open={trialOpen} onOpenChange={setTrialOpen}>
 <div class="flex flex-col h-dvh bg-background">
   <DrawablesPersistence />
@@ -778,9 +942,18 @@
     onstream={chart.startStream}
     oncsvupload={chart.handleCsvUpload}
     onstrategy={() => (strategyOpen = true)}
+    onworkspaces={() => (researchWorkspacesOpen = true)}
+    oninspectdata={() => (dataInspectorOpen = true)}
+    loadedProvider={chart.loadedContext?.source ?? null}
     errorMessage={chart.errorMessage}
     compact={narrow}
   />
+  {#if researchShelf.pending.strategy || researchShelf.pending.indicator || researchShelf.error}
+    <div class="flex flex-wrap items-center gap-2 border-b px-3 py-1 text-xs" role="status">
+      <span>{researchShelf.error ?? 'Recovered local drafts are available; your editors have not been replaced.'}</span>
+      <button type="button" class="ot-workbench-ghost" onclick={() => (researchWorkspacesOpen = true)}>Review recovery</button>
+    </div>
+  {/if}
   <ErrorMessage bind:message={chart.errorMessage} context={`${chart.symbol} · ${chart.source} · ${chart.period} / ${chart.interval}`} loadedContext={chart.candles.length && chart.loadedContext ? `${chart.loadedContext.symbol} · ${chart.loadedContext.source} · ${chart.loadedContext.period} / ${chart.loadedContext.interval}` : ''} onretry={chart.source !== 'csv' ? () => void chart.loadMarketData() : undefined} />
   {#snippet drawingToolsControl()}
     {#if narrow}
@@ -862,14 +1035,7 @@
         onaddticker={() => void openWatchlistDialog(dialogs.openAddSymbol)}
         onselectpriority={handleSelectPriority}
         onselectstance={handleSelectStance}
-        onselectticker={sym => {
-          chart.symbol = sym;
-          const providers = findTickerProviders(groups, sym);
-          const next = pickProviderForSymbol(chart.source, providers);
-          if (next !== chart.source) chart.source = next;
-          void chart.loadMarketData();
-          watchlistOpen = false;
-        }}
+        onselectticker={sym => selectChartSymbol(sym, findTickerProviders(groups, sym))}
         ondeleteticker={handleDeleteTicker}
         onsetpriority={handleSetPriority}
         onsetstance={handleSetStance}
@@ -913,6 +1079,9 @@
     onTileSelect={handleToolboxTile}
   />
   <IndicatorsPanel
+    bind:tab={indicatorTab}
+    bind:splitPct={indicatorSplitPct}
+    recoverySavedAt={localRecoveryTime('indicator')}
     bind:open={indicatorsOpen}
     symbol={chart.loadedSymbol || chart.symbol}
     provider={chart.source}
@@ -925,10 +1094,22 @@
     symbol={chart.loadedSymbol || chart.symbol}
     {analytics}
   />
-  <BacktestPanel bind:open={backtestOpen} {backtest} onCompareAfterRerun={compareAfterRerun} onOpenRuns={() => (runsOpen = true)} />
+  <BacktestPanel bind:open={backtestOpen} {backtest} onCompareAfterRerun={compareAfterRerun} onOpenRuns={() => (runsOpen = true)} onCompare={openCompare} />
   <RecentRunsPanel bind:open={runsOpen} onOpenRun={openStoredRun} onCompare={openCompare} />
+  <ResearchWorkspacesDialog bind:open={researchWorkspacesOpen} shelf={researchShelf} onSave={name => researchShelf.saveWorkspace(name, currentResearchLayout())} onRestore={restoreResearchWorkspace} onRecover={recoverDraft} onKeep={keepCurrentDraft} />
+  <DataInspector bind:open={dataInspectorOpen} {chart} />
+  <CommandPalette
+    bind:open={commandsOpen}
+    commands={researchCommands}
+    onSymbol={(symbol, providers) => void activateCommand(() => selectChartSymbol(symbol, providers), true)}
+    onLoadScripts={() => { if ($authState.user) { void strategy.load(); void indicators.refresh(); } }}
+    scriptStatus={!$authState.user ? 'Sign in to browse account scripts. Local commands and notebook references are available.' : strategy.loading || indicators.loading ? 'Loading saved scripts…' : [strategy.loadError, indicators.loadError].filter(Boolean).join(' · ')}
+  />
   <CompareView bind:open={compareOpen} compare={compareState} />
   <StrategyPanel
+    bind:tab={strategyTab}
+    bind:editorShare={strategyEditorShare}
+    recoverySavedAt={localRecoveryTime('strategy')}
     bind:open={strategyOpen}
     symbol={chart.loadedSymbol || chart.symbol}
     provider={chart.source}
@@ -936,6 +1117,7 @@
     interval={chart.interval}
     {strategy}
     onOpenRuns={() => (runsOpen = true)}
+    onCompare={openCompare}
     {portfolioRunId}
     onRobustness={() => { strategyOpen = false; setTrialOpen(true); }}
   />

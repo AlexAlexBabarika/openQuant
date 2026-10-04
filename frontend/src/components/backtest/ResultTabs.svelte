@@ -78,7 +78,7 @@
       {#if backtest.activeTab === 'equity'}
         <EquityTab {result} />
       {:else if backtest.activeTab === 'drawdown'}
-        <DrawdownTab {result} />
+        <DrawdownTab {result} {backtest} />
       {:else if backtest.activeTab === 'trades'}
         <TradesTab {result} {backtest} />
       {:else if backtest.activeTab === 'monthly'}

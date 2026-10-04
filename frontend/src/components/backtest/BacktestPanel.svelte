@@ -18,12 +18,14 @@
     backtest = new BacktestState(),
     onCompareAfterRerun,
     onOpenRuns,
+    onCompare,
     embedded = false,
   }: {
     open?: boolean;
     backtest?: BacktestState;
     onCompareAfterRerun?: (a: string, b: string, diff: RunDiff) => void;
     onOpenRuns?: () => void;
+    onCompare?: (a: string, b: string) => void;
     embedded?: boolean;
   } = $props();
 
@@ -37,12 +39,14 @@
 
   async function rerun(): Promise<void> {
     const source = backtest;
+    const accountVersion = runsHistory.accountVersion;
     const id = source.result?.meta.run_id;
     if (!id) return;
     const label = source.result?.meta.strategy_id ?? 'run';
     const resp = await rerunState.run(id);
     if (
       resp &&
+      accountVersion === runsHistory.accountVersion &&
       source === backtest &&
       id === backtest.result?.meta.run_id &&
       open
@@ -89,6 +93,9 @@
         <span class="ctx-sym">{meta?.strategy_id ?? '—'}</span>
         {#if meta?.run_id}
           <RunIdChip runId={meta.run_id} onCompare={onOpenRuns} />
+          {#if onCompare && runsHistory.baseline && runsHistory.baseline.run_id !== meta.run_id}
+            <button type="button" class="ot-workbench-ghost" onclick={() => onCompare?.(runsHistory.baseline!.run_id, meta.run_id)}>Compare with baseline</button>
+          {/if}
         {/if}
       </div>
 
@@ -115,6 +122,12 @@
         </p>
       {:else if backtest.result}
         <MetricsStrip metrics={backtest.result.metrics} />
+        {#if backtest.selection}
+          <div class="flex flex-wrap items-center gap-2 px-3 py-1 text-xs" role="status">
+            <span>{backtest.selection.label} · this run's price bars</span>
+            <button type="button" class="ot-workbench-ghost" onclick={() => backtest.clearSelection()}>Show full run</button>
+          </div>
+        {/if}
         <div class="chart-pane">
           <BacktestChart {backtest} />
         </div>

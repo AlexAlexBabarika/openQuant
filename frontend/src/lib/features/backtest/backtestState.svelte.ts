@@ -12,6 +12,12 @@
 import { loadResult } from './loadResult';
 import type { BacktestResult } from './types';
 import type { RunStatus } from '$lib/features/runs/runTypes';
+import {
+  tradeSelection,
+  drawdownSelection,
+  type ResultSelection,
+} from './resultSelection';
+import type { DrawdownEpisode } from './derive';
 
 export type ResultTab = 'equity' | 'drawdown' | 'trades' | 'monthly' | 'stats';
 
@@ -38,6 +44,19 @@ export class BacktestState {
   /** Index into `result.trades` currently hovered (chart marker or table row),
    * or null. The chart highlights this marker; the table highlights this row. */
   hoveredTrade = $state<number | null>(null);
+  selection = $state<ResultSelection | null>(null);
+
+  selectTrade(index: number): void {
+    this.selection = this.result ? tradeSelection(this.result, index) : null;
+  }
+  selectDrawdown(episode: DrawdownEpisode, index: number): void {
+    this.selection = this.result
+      ? drawdownSelection(this.result, episode, index)
+      : null;
+  }
+  clearSelection(): void {
+    this.selection = null;
+  }
 
   #loader: Loader;
 

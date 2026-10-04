@@ -70,6 +70,21 @@ function setup() {
 afterEach(() => vi.resetAllMocks());
 
 describe('chart request and streaming lifecycles', () => {
+  it('keeps browser receipt times associated with successful loaded data, including stale failures', async () => {
+    const { controller } = setup();
+    await controller.loadMarketData();
+    const received = controller.snapshotReceivedAt;
+    expect(received).toEqual(expect.any(Number));
+    expect(controller.streamReceivedAt).toBeNull();
+    const callbacks = vi.mocked(subscribeMarketStream).mock.calls[0][0];
+    callbacks.onCandle(candle, true);
+    expect(controller.streamReceivedAt).toEqual(expect.any(Number));
+    controller.symbol = 'OTHER';
+    vi.mocked(fetchMarketOHLCV).mockRejectedValueOnce(new Error('offline'));
+    await controller.loadMarketData();
+    expect(controller.snapshotReceivedAt).toBe(received);
+    expect(controller.loadedContext?.symbol).toBe('BTCUSDT');
+  });
   it.each([null, 'user-2'])(
     'rejects history and stream callbacks after changing account to %s',
     async nextUser => {
