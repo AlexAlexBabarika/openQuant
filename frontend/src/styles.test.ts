@@ -247,6 +247,20 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it('keeps the light error foreground readable on every surface', () => {
+    const vars = tokens(false);
+    for (const surface of ['background', 'card', 'popover']) {
+      const substrate = `oklch(var(--${surface}))`;
+      for (const ratio of contrast(
+        'oklch(var(--destructive))',
+        substrate,
+        vars,
+        substrate,
+      ))
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it.each([
     'components/strategy/StrategyPanel.svelte',
     'components/indicators/IndicatorsPanel.svelte',
@@ -276,6 +290,22 @@ describe('compiled global selectors', () => {
       background: 'oklch(var(--primary))',
     });
     expect(declarations('html:not(.dark) .tab', panel)).toEqual({});
+    expect(declarations('.ri-time', panel).color).toBe(
+      'oklch(var(--muted-foreground))',
+    );
+    expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
+      'oklch(var(--destructive))',
+    );
+    expect(declarations('html:not(.dark) .ri-del', panel).color).toBe('#000');
+    expect(declarations('html:not(.dark) .ri-del:hover', panel)).toMatchObject({
+      background: '#000',
+      color: '#fff',
+    });
+    if (filename.includes('IndicatorsPanel')) {
+      expect(
+        declarations('html:not(.dark) .ri-status.running', panel).background,
+      ).toBe('oklch(var(--primary))');
+    }
   });
 
   it('preserves the dark-theme primary palette', () => {
