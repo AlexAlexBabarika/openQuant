@@ -199,6 +199,19 @@ describe('persistent research task views', () => {
     expect(html).not.toContain('aria-modal="true"');
     expect(html).not.toContain('class="backdrop');
   });
+
+  it('keeps embedded Strategy content scrollable when stacked controls consume the viewport', () => {
+    const source = readFileSync(panel, 'utf8');
+    expect(source.match(/\.panel\.embedded\s*\{([^}]+)\}/)?.[1]).toContain(
+      'overflow-y: auto',
+    );
+    expect(source.match(/\.embedded \.body\s*\{([^}]+)\}/)?.[1]).toContain(
+      'min-height: min(600px, 75dvh)',
+    );
+    expect(source.match(/\.embedded \.body\s*\{([^}]+)\}/)?.[1]).toContain(
+      'flex-shrink: 0',
+    );
+  });
 });
 
 describe('completed strategy run context', () => {

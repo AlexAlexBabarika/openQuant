@@ -484,7 +484,9 @@
     overflow: hidden;
   }
 
-  .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); }
+  .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); overflow-y: auto; }
+  .embedded .topbar { flex-shrink: 0; }
+  .embedded .body { flex-shrink: 0; min-height: min(600px, 75dvh); }
 
   .topbar {
     display: flex;
