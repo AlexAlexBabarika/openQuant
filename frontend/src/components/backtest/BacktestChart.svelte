@@ -91,12 +91,26 @@
     return out;
   }
 
+  let pendingViewport = false;
+
+  function updateViewport(): void {
+    if (!chart || !containerEl) return;
+    pendingViewport = true;
+    if (!containerEl.clientWidth || !containerEl.clientHeight) return;
+    const selection = backtest.selection;
+    if (selection) chart.timeScale().setVisibleLogicalRange({ from: selection.from, to: selection.to });
+    else chart.timeScale().fitContent();
+    pendingViewport = false;
+  }
+
   function resize(): void {
     if (chart && containerEl) {
+      if (!containerEl.clientWidth || !containerEl.clientHeight) return;
       chart.applyOptions({
         width: containerEl.clientWidth,
         height: containerEl.clientHeight,
       });
+      if (pendingViewport) updateViewport();
     }
   }
 
@@ -139,7 +153,7 @@
       if (entryBar) timeToTrade.set(entryBar.t, i);
       if (exitBar) timeToTrade.set(exitBar.t, i);
     });
-    chart.timeScale().fitContent();
+    updateViewport();
   });
 
   // Rebuild markers when the result loads or the hovered trade changes.
@@ -156,11 +170,10 @@
   });
 
   $effect(() => {
-    const selection = backtest.selection;
+    backtest.selection;
     const result = backtest.result;
     if (!chart || !result) return;
-    if (selection) chart.timeScale().setVisibleLogicalRange({ from: selection.from, to: selection.to });
-    else chart.timeScale().fitContent();
+    updateViewport();
   });
 
   onDestroy(() => {

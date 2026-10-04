@@ -27,6 +27,15 @@
   let chart: IChartApi | null = null;
   let series: ISeriesApi<'Line'>[] = [];
   let resizeObserver: ResizeObserver | null = null;
+  let pendingFitContent = false;
+
+  function fitSeriesContent(): void {
+    if (!chart || !containerEl) return;
+    pendingFitContent = true;
+    if (!containerEl.clientWidth || !containerEl.clientHeight) return;
+    chart.timeScale().fitContent();
+    pendingFitContent = false;
+  }
 
   function rebuild(specs: LineSpec[]): void {
     if (!chart) return;
@@ -51,15 +60,17 @@
       s.setData(spec.data.map(p => ({ time: p.t as Time, value: p.value })));
       series.push(s);
     }
-    chart.timeScale().fitContent();
+    fitSeriesContent();
   }
 
   function resize(): void {
     if (chart && containerEl) {
+      if (!containerEl.clientWidth || !containerEl.clientHeight) return;
       chart.applyOptions({
         width: containerEl.clientWidth,
         height: containerEl.clientHeight,
       });
+      if (pendingFitContent) fitSeriesContent();
     }
   }
 
