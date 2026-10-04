@@ -90,6 +90,24 @@
   let validStop = $derived(isLong ? drawable.geometry.stopPrice < drawable.geometry.entryPrice : drawable.geometry.stopPrice > drawable.geometry.entryPrice);
   let statusLabel = $derived(!validDirection ? 'Invalid levels' : computeState?.status === 'pending' ? 'Calculating…' : computeState?.status === 'error' ? 'Calculation failed' : null);
 
+  let labelTexts = $derived([
+    `${validTarget ? 'Target' : 'Invalid target'}: ${fmtPrice(Math.abs(drawable.geometry.targetPrice - drawable.geometry.entryPrice))} price (${fmt(Math.abs(pctFromEntry(drawable.geometry.targetPrice, drawable.geometry.entryPrice)), 3)}%)`,
+    `${validStop ? 'Stop' : 'Invalid stop'}: ${fmtPrice(Math.abs(drawable.geometry.stopPrice - drawable.geometry.entryPrice))} price (${fmt(Math.abs(pctFromEntry(drawable.geometry.stopPrice, drawable.geometry.entryPrice)), 3)}%)`,
+    statusLabel ?? `Risk/reward: ${fmt(displayRiskReward, 2)}`,
+  ]);
+  let labelElements = $state<(HTMLDivElement | undefined)[]>([]);
+  let labelWidths = $state([140, 140, 144]);
+
+  $effect(() => {
+    labelTexts;
+    for (let i = 0; i < labelElements.length; i++) {
+      const element = labelElements[i];
+      if (!element) continue;
+      const width = Math.max(i === 2 ? 144 : 140, Math.ceil(element.getBoundingClientRect().width));
+      if (Number.isFinite(width) && width !== labelWidths[i]) labelWidths[i] = width;
+    }
+  });
+
   let dragKind = $state<null | 'target' | 'stop' | 't0' | 't1'>(null);
 
   $effect(() => {
@@ -125,6 +143,10 @@
 
   function patchGeo(patch: Partial<PositionGeo>): void {
     onGeometryChange({ ...drawable.geometry, ...patch });
+  }
+
+  function labelX(center: number, width: number): number {
+    return Math.max(0, Math.min(center - width / 2, coordMap.plotWidth - width));
   }
 
   function handleDown(
@@ -197,7 +219,6 @@
 {#if layout}
   {@const L = layout}
   {@const strokeW = selected ? 2 : 1}
-  {@const g = drawable.geometry}
   {@const targetLabelY =
     L.yT <= L.yE
       ? L.yRewTop - LABEL_GAP - CHIP_H_TARGET_STOP
@@ -206,11 +227,7 @@
     L.yS <= L.yE
       ? L.yRiskTop - LABEL_GAP - CHIP_H_TARGET_STOP
       : L.yRiskBot + LABEL_GAP}
-  {@const entry = g.entryPrice}
-  {@const targetPct = Math.abs(pctFromEntry(g.targetPrice, entry))}
-  {@const stopPct = Math.abs(pctFromEntry(g.stopPrice, entry))}
-  {@const targetDist = Math.abs(g.targetPrice - entry)}
-  {@const stopDist = Math.abs(g.stopPrice - entry)}
+  {@const labelCenterX = L.xLeft + L.width / 2}
   <g>
     <DrawableSvgHitRect
       x={L.xLeft - L.pad}
@@ -279,50 +296,56 @@
 
     {#if drawable.style.showMetrics}
       <foreignObject
-        x={L.xLeft + L.width / 2 - 70}
+        x={labelX(labelCenterX, labelWidths[0])}
         y={targetLabelY}
-        width="140"
+        width={labelWidths[0]}
         height={CHIP_H_TARGET_STOP}
         pointer-events="none"
       >
         <div
-          class="rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
+          bind:this={labelElements[0]}
+          class="w-max whitespace-nowrap rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
+          style:min-width="140px"
           style:background-color={validTarget ? drawable.style.targetColor : drawable.style.stopColor}
           style:color={contrastTextColour(validTarget ? drawable.style.targetColor : drawable.style.stopColor)}
         >
-          {validTarget ? 'Target' : 'Invalid target'}: {fmtPrice(targetDist)} price ({fmt(targetPct, 3)}%)
+          {labelTexts[0]}
         </div>
       </foreignObject>
 
       <foreignObject
-        x={L.xLeft + L.width / 2 - 70}
+        x={labelX(labelCenterX, labelWidths[1])}
         y={stopLabelY}
-        width="140"
+        width={labelWidths[1]}
         height={CHIP_H_TARGET_STOP}
         pointer-events="none"
       >
         <div
-          class="rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
+          bind:this={labelElements[1]}
+          class="w-max whitespace-nowrap rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
+          style:min-width="140px"
           style:background-color={drawable.style.stopColor}
           style:color={contrastTextColour(drawable.style.stopColor)}
         >
-          {validStop ? 'Stop' : 'Invalid stop'}: {fmtPrice(stopDist)} price ({fmt(stopPct, 3)}%)
+          {labelTexts[1]}
         </div>
       </foreignObject>
 
       <foreignObject
-        x={L.xLeft + L.width / 2 - 72}
+        x={labelX(labelCenterX, labelWidths[2])}
         y={L.yE - CHIP_H_RR / 2}
-        width="144"
+        width={labelWidths[2]}
         height={CHIP_H_RR}
         pointer-events="none"
       >
         <div
-          class="rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
+          bind:this={labelElements[2]}
+          class="w-max whitespace-nowrap rounded px-2 py-1 text-[10px] font-mono shadow-lg text-center"
+          style:min-width="144px"
           style:background-color={statusLabel ? drawable.style.stopColor : drawable.style.targetColor}
           style:color={contrastTextColour(statusLabel ? drawable.style.stopColor : drawable.style.targetColor)}
         >
-          {#if statusLabel}{statusLabel}{:else}Risk/reward: {fmt(displayRiskReward, 2)}{/if}
+          {labelTexts[2]}
         </div>
       </foreignObject>
     {/if}
