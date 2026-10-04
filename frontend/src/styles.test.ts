@@ -247,6 +247,37 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it.each([
+    'components/strategy/StrategyPanel.svelte',
+    'components/indicators/IndicatorsPanel.svelte',
+  ])('keeps %s tabs on semantic readable colors in both themes', filename => {
+    const path = `${base}${filename}`;
+    const panel = postcss.parse(
+      compileSvelte(readFileSync(path, 'utf8'), {
+        filename: path,
+        generate: 'server',
+      }).css!.code,
+    );
+    panel.walkRules(rule => {
+      rule.selectors = rule.selectors.map(selector =>
+        selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
+      );
+    });
+
+    expect(declarations('.tab', panel)).toMatchObject({
+      color: 'oklch(var(--muted-foreground))',
+      background: 'transparent',
+    });
+    expect(declarations('.tab:hover', panel).color).toBe(
+      'oklch(var(--foreground))',
+    );
+    expect(declarations('.tab.active', panel)).toMatchObject({
+      color: 'oklch(var(--primary-foreground))',
+      background: 'oklch(var(--primary))',
+    });
+    expect(declarations('html:not(.dark) .tab', panel)).toEqual({});
+  });
+
   it('preserves the dark-theme primary palette', () => {
     const vars = tokens(true);
     expect(converter('oklch')(`oklch(${vars['--primary']})`)).toMatchObject({

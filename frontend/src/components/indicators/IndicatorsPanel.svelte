@@ -960,9 +960,6 @@
     background: #ffffff;
     border-color: #000;
   }
-  :global(html:not(.dark)) .tab { color: #000; opacity: 0.5; }
-  :global(html:not(.dark)) .tab:hover { opacity: 1; }
-  :global(html:not(.dark)) .tab.active { opacity: 1; }
   :global(html:not(.dark)) .iconbtn {
     border-color: #000;
     color: #000;
