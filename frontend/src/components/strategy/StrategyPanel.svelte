@@ -705,7 +705,7 @@
   }
   .ri-time {
     font-size: 10px;
-    color: color-mix(in oklab, oklch(var(--foreground)) 40%, transparent);
+    color: oklch(var(--muted-foreground));
     letter-spacing: 0.04em;
   }
   .ri-del {
@@ -915,9 +915,6 @@
     background: #ffffff;
     border-color: #000;
   }
-  :global(html:not(.dark)) .tab { color: #000; opacity: 0.5; }
-  :global(html:not(.dark)) .tab:hover { opacity: 1; }
-  :global(html:not(.dark)) .tab.active { opacity: 1; }
   :global(html:not(.dark)) .iconbtn {
     border-color: #000;
     color: #000;
@@ -934,6 +931,16 @@
   :global(html:not(.dark)) .rail-head {
     border-bottom: 1px dashed #000;
     color: #000;
+  }
+  :global(html:not(.dark)) .rail-hint.err {
+    color: oklch(var(--destructive));
+  }
+  :global(html:not(.dark)) .ri-del {
+    color: #000;
+  }
+  :global(html:not(.dark)) .ri-del:hover {
+    background: #000;
+    color: #fff;
   }
   :global(html:not(.dark)) .rail-count {
     border-color: #000;

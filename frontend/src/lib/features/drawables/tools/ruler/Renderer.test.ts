@@ -64,4 +64,19 @@ describe('ruler compute presentation', () => {
     expect(html).toContain('Vol 1.00K');
     expect(html).not.toContain('10 bars');
   });
+
+  it('renders the complete adaptive distance and percentage label', () => {
+    const html = render(Renderer, {
+      props: {
+        ...props,
+        data: {
+          ...props.data!,
+          priceDelta: -2.7782258064516157e-8,
+          pctDelta: -2.27,
+        },
+      },
+    }).body;
+    expect(html).toContain('−2.77823e-8 (−2.27%)');
+    expect(html).toContain('w-max');
+  });
 });

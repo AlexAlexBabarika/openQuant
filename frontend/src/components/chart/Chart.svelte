@@ -18,6 +18,7 @@
     candleOHLCVtoVolumeData,
   } from '$lib/features/chart/chartAdapters';
   import { cssColourToHsva, hsvaToHex } from '$lib/features/chart/colourUtils';
+  import { formatMarketPrice, marketPriceFormat } from '$lib/features/market/priceFormat';
   import type {
     Comparison,
   } from '$lib/features/chart/comparisonController.svelte';
@@ -65,6 +66,8 @@
 
   let {
     candles = [] as OHLCVCandle[],
+    candleRevision = undefined as number | undefined,
+    annotationOwner = 'guest',
     symbol = '',
     chartType = 'candlestick' as ChartType,
     showArea = true,
@@ -88,6 +91,8 @@
     onSetComparisonSeriesType,
   }: {
     candles: OHLCVCandle[];
+    candleRevision?: number;
+    annotationOwner?: string;
     symbol: string;
     chartType?: ChartType;
     showArea?: boolean;
@@ -164,6 +169,7 @@
     entry: ComparisonSeriesEntry,
     candles: OHLCVCandle[],
   ): void {
+    entry.series.applyOptions({ priceFormat: marketPriceFormat(candles[candles.length - 1]?.close ?? 0) });
     if (entry.type === 'line') {
       (entry.series as ISeriesApi<'Line'>).setData(
         candles.map(candleOHLCVtoAreaData),
@@ -199,10 +205,6 @@
   let legendDate = $state('');
   let legendVolume = $state('');
   let showLegend = $state(false);
-
-  function formatPrice(price: number): string {
-    return (Math.round(price * 100) / 100).toFixed(2);
-  }
 
   const dateFormatter = new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
@@ -264,7 +266,7 @@
     }
 
     legendName = symbol || 'Unknown';
-    legendPrice = formatPrice(price);
+    legendPrice = formatMarketPrice(price);
     legendDate = formatDate(bar.time);
     legendVolume = volume !== undefined ? volume.toLocaleString() : '—';
     showLegend = true;
@@ -329,6 +331,7 @@
 
   function appendCandle(c: OHLCVCandle): void {
     if (!chart) return;
+    applyPriceFormat(c.close);
 
     if (candleSeries) {
       candleSeries.update(candleOHLCVtoCandlestickData(c));
@@ -352,6 +355,7 @@
 
   function setSeriesData(data: OHLCVCandle[]): void {
     if (!chart) return;
+    applyPriceFormat(data[data.length - 1]?.close ?? 0);
 
     if (areaSeries) {
       areaSeries.setData(
@@ -369,6 +373,17 @@
     }
     updateLegend(undefined);
     priceInvalidator?.settle();
+  }
+
+  function applyPriceFormat(reference: number): void {
+    const priceFormat = marketPriceFormat(reference);
+    for (const series of [candleSeries, lineSeries, areaSeries]) {
+      if (!series) continue;
+      const current = series.options().priceFormat;
+      if (current.type !== 'custom' || current.minMove !== priceFormat.minMove) {
+        series.applyOptions({ priceFormat });
+      }
+    }
   }
 
   function handleResize(): void {
@@ -740,6 +755,8 @@
   {coordMap}
   {symbol}
   {candles}
+  {candleRevision}
+  {annotationOwner}
   {provider}
   {interval}
   seriesIdentity={chartType}

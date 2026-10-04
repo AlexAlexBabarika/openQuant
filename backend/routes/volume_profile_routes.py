@@ -102,15 +102,14 @@ def get_volume_profile(
     provider = provider.strip().lower()
     symbol = symbol.strip()
     interval = interval.strip().lower()
-    candles = cache.get_cached(provider, symbol)
-    if candles is None:
+    source_entry = cache.get_cached_entry(provider, symbol)
+    if source_entry is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No cached candles for {provider}:{symbol}. Load market data first.",
         )
 
-    meta = cache.get_cached_meta(provider, symbol)
-    source_interval = meta[1] if meta else None
+    _, source_interval, candles = source_entry
     if source_interval is not None:
         source_interval = source_interval.strip().lower()
     if source_interval != interval and not (
@@ -124,7 +123,7 @@ def get_volume_profile(
     key = cache.make_profile_key(
         provider, symbol, start_ts, end_ts, row_size, va_pct, interval
     )
-    cached = cache.get_cached_profile(key)
+    cached = cache.get_cached_profile(key, source_entry=source_entry)
     if cached is not None:
         return cached
 
@@ -153,5 +152,5 @@ def get_volume_profile(
         first_candle_ts=min(_ts(c) for c in window),
         latest_candle_ts=max(_ts(c) for c in window),
     )
-    cache.set_cached_profile(key, response)
+    cache.set_cached_profile(key, response, source_entry=source_entry)
     return response

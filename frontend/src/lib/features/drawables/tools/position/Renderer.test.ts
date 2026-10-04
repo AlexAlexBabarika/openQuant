@@ -54,6 +54,42 @@ function props(over: Partial<Props> = {}): Props {
 }
 
 describe('position renderer current geometry and status', () => {
+  it.each([
+    ['position-long', -1],
+    ['position-short', 1],
+  ] as const)(
+    'keeps complete invalid-level labels unwrapped for %s',
+    (type, direction) => {
+      const p = props();
+      p.drawable.type = type;
+      p.drawable.geometry.targetPrice = 100 + direction * 5.394249;
+      p.drawable.geometry.stopPrice = 100 - direction * 4.458576;
+      const html = render(Renderer, { props: p }).body;
+      expect(html).toContain('Invalid target: 5.394249 price (5.394%)');
+      expect(html).toContain('Invalid stop: 4.458576 price (4.459%)');
+      expect(html).toContain('Invalid levels');
+      expect(html.match(/whitespace-nowrap/g)).toHaveLength(3);
+      expect(html.match(/w-max/g)).toHaveLength(3);
+    },
+  );
+
+  it.each([
+    [10, 20, 0, 0],
+    [790, 800, 660, 656],
+  ])(
+    'clamps labels for time range %s–%s to the plot',
+    (startTime, endTime, levelX, ratioX) => {
+      const p = props();
+      p.drawable.geometry.startTime = startTime;
+      p.drawable.geometry.endTime = endTime;
+      const html = render(Renderer, { props: p }).body;
+      const positions = [...html.matchAll(/<foreignObject x="([^"]+)"/g)].map(
+        match => Number(match[1]),
+      );
+      expect(positions).toEqual([levelX, levelX, ratioX]);
+    },
+  );
+
   it('forwards the current compute state through the real SVG scene', () => {
     const p = props();
     const html = render(DrawablesSvgScene, {

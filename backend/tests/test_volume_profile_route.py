@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 from fastapi import FastAPI
@@ -12,6 +14,7 @@ from backend.market import cache
 from backend.market.models import OHLCVCandle
 from backend.market.volume_profile import bin_from_candle_distribution
 from backend.routes.volume_profile_routes import router
+from backend.routes import volume_profile_routes
 
 app = FastAPI()
 app.include_router(router)
@@ -131,7 +134,11 @@ def test_interval_is_validated_before_derived_hit(derived_hit):
     cache.set_cached("yahoo", "TEST", candles, interval="1h")
     if derived_hit:
         key = cache.make_profile_key("yahoo", "TEST", 0, None, 1.0, 0.7, "1d")
-        cache.set_cached_profile(key, bin_from_candle_distribution(candles, 1, 0.7))
+        cache.set_cached_profile(
+            key,
+            bin_from_candle_distribution(candles, 1, 0.7),
+            source_entry=cache.get_cached_entry("yahoo", "TEST"),
+        )
     response = client.get("/data/volume-profile", params=_params())
     assert response.status_code == 409
     assert "interval" in response.json()["detail"].lower()
@@ -174,7 +181,7 @@ def test_source_publication_invalidates_fixed_and_latest_profiles(provider, end_
     publish([_candle(base, 1, 2, 1, 2, 120)])
     unrelated_key = cache.make_profile_key("yahoo", "OTHER", 0, None, 1, 0.7, "1d")
     unrelated_result = object()
-    cache.set_cached_profile(unrelated_key, unrelated_result)
+    cache.set_cached_profile(unrelated_key, unrelated_result, source_entry=None)
     params = _params(provider=provider, **({"endTs": end_ts} if end_ts else {}))
     first = client.get("/data/volume-profile", params=params)
     assert first.status_code == 200
@@ -184,7 +191,9 @@ def test_source_publication_invalidates_fixed_and_latest_profiles(provider, end_
     assert second.status_code == 200
     assert _volume(second.json()) == pytest.approx(240)
     assert second.json()["poc"] == 2
-    assert cache.get_cached_profile(unrelated_key) is unrelated_result
+    assert (
+        cache.get_cached_profile(unrelated_key, source_entry=None) is unrelated_result
+    )
 
 
 def test_interval_replacement_cannot_reuse_previous_generation():
@@ -247,3 +256,56 @@ def test_no_volume_response_serializes_nullable_levels():
     assert response.json()["poc"] is None
     assert response.json()["vah"] is None
     assert response.json()["val"] is None
+
+
+@pytest.mark.parametrize("same_list", [False, True])
+@pytest.mark.parametrize("provider", ["yahoo", "csv"])
+@pytest.mark.parametrize("end_ts", [None, 1735689600])
+@pytest.mark.parametrize("newer_profile_cached", [False, True])
+def test_older_compute_cannot_repopulate_newer_profile_cache(
+    monkeypatch, same_list, provider, end_ts, newer_profile_cached
+):
+    base = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    candles = [_candle(base, 1, 2, 1, 2, 120)]
+    started, release = Event(), Event()
+    compute = volume_profile_routes.bin_from_candle_distribution
+
+    def delayed(window, **kwargs):
+        if window[0].volume == 120:
+            started.set()
+            assert release.wait(5), "Old computation was not released"
+        return compute(window, **kwargs)
+
+    monkeypatch.setattr(volume_profile_routes, "bin_from_candle_distribution", delayed)
+
+    def publish(data):
+        if provider == "csv":
+            cache.set_cached_csv("TEST", data)
+        else:
+            cache.set_cached(provider, "TEST", data, interval="1d")
+
+    publish(candles)
+    params = _params(provider=provider, **({"endTs": end_ts} if end_ts else {}))
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        old = pool.submit(client.get, "/data/volume-profile", params=params)
+        try:
+            assert started.wait(5), "Old computation did not start"
+            replacement = _candle(base, 1, 2, 1, 2, 240)
+            if same_list:
+                candles[0] = replacement
+                publish(candles)
+            else:
+                publish([replacement])
+            if newer_profile_cached:
+                current = client.get("/data/volume-profile", params=params)
+                assert current.status_code == 200
+                assert _volume(current.json()) == pytest.approx(240)
+        finally:
+            release.set()
+        previous = old.result(timeout=5)
+        assert previous.status_code == 200
+        assert _volume(previous.json()) == pytest.approx(120)
+    for _ in range(2):
+        settled = client.get("/data/volume-profile", params=params)
+        assert settled.status_code == 200
+        assert _volume(settled.json()) == pytest.approx(240)

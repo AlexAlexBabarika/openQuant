@@ -18,6 +18,17 @@ import {
 
 export type ChartApiLike = { appendCandle: (c: OHLCVCandle) => void };
 
+function sameCandleValues(a: OHLCVCandle, b: OHLCVCandle): boolean {
+  return (
+    a.timestamp === b.timestamp &&
+    a.open === b.open &&
+    a.high === b.high &&
+    a.low === b.low &&
+    a.close === b.close &&
+    a.volume === b.volume
+  );
+}
+
 interface ChartContext {
   userId: string | null;
   symbol: string;
@@ -48,6 +59,8 @@ export class ChartController {
   errorMessage = $state<string | null>(null);
   connectionStatus = $state<ConnectionStatus>('disconnected');
   candles = $state<OHLCVCandle[]>([]);
+  /** Monotonic token for controller-owned history and in-place stream edits. */
+  candleRevision = $state(0);
   chartApi = $state<ChartApiLike | null>(null);
   isLoading = $state(false);
   marketDataVersion = $state(0);
@@ -127,6 +140,7 @@ export class ChartController {
     this.isLoading = false;
     if (this.source === 'twelvedata' || this.source === 'csv') {
       this.candles = [];
+      this.candleRevision++;
       this.loadedSymbol = '';
       this.#loadedContext = null;
       this.snapshotReceivedAt = null;
@@ -181,6 +195,7 @@ export class ChartController {
       if (!this.#isCurrentLoad(generation, context)) return;
       if (!this.#usableCandles(data.candles ?? [], context, true)) return;
       this.candles = data.candles ?? [];
+      this.candleRevision++;
       this.loadedSymbol = context.symbol;
       this.#loadedContext = context;
       this.snapshotReceivedAt = Date.now();
@@ -312,6 +327,7 @@ export class ChartController {
       ? existing[existing.length - 1].timestamp
       : undefined;
     this.candles = existing.slice();
+    this.candleRevision++;
     let liveCandles = this.candles;
 
     const mapStatus = (s: StreamStatus): ConnectionStatus =>
@@ -338,6 +354,7 @@ export class ChartController {
         const merged = mergeCandleSnapshot(liveCandles, snapshot);
         if (merged.length === liveCandles.length) return;
         this.candles = merged;
+        this.candleRevision++;
         liveCandles = this.candles;
       },
       onCandle: (c, _isFinal) => {
@@ -345,11 +362,13 @@ export class ChartController {
         if (!this.#usableCandles([c], context)) return;
         this.streamReceivedAt = Date.now();
         const last = liveCandles[liveCandles.length - 1];
+        const changed = !last || !sameCandleValues(last, c);
         if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
           liveCandles[liveCandles.length - 1] = c;
         } else {
           liveCandles.push(c);
         }
+        if (changed) this.candleRevision++;
         this.chartApi?.appendCandle(c);
       },
       onCandleClose: c => {
@@ -414,6 +433,7 @@ export class ChartController {
     const isCurrent = () =>
       generation === this.#streamGeneration && this.#contextMatches(context);
     this.candles = [];
+    this.candleRevision++;
     this.streamReceivedAt = null;
     const streamCandles = this.candles;
     this.#wsClient = new WSClient({
@@ -425,11 +445,13 @@ export class ChartController {
         if (!this.#usableCandles([c], context)) return;
         this.streamReceivedAt = Date.now();
         const last = streamCandles[streamCandles.length - 1];
+        const changed = !last || !sameCandleValues(last, c);
         if (last && Date.parse(last.timestamp) === Date.parse(c.timestamp)) {
           streamCandles[streamCandles.length - 1] = c;
         } else {
           streamCandles.push(c);
         }
+        if (changed) this.candleRevision++;
         this.chartApi?.appendCandle(c);
       },
       onStatus: s => {

@@ -122,7 +122,7 @@
 
 <div
   class="relative rounded-md overflow-hidden cursor-crosshair touch-none"
-  style="width: {GRAD_W}px; height: {GRAD_H}px; background: {hueColour};"
+  style="width: 100%; max-width: {GRAD_W}px; height: {GRAD_H}px; background: {hueColour};"
   role="presentation"
   onpointerdown={grad.down}
   onpointermove={grad.move}
@@ -138,7 +138,7 @@
 
 <div
   class="relative mt-3 rounded cursor-pointer touch-none"
-  style="width: {GRAD_W}px; height: {STRIP_H}px; background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
+  style="width: 100%; max-width: {GRAD_W}px; height: {STRIP_H}px; background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
   role="slider"
   tabindex="0"
   aria-label="Hue"
@@ -159,7 +159,7 @@
 
 <div
   class="relative mt-2 rounded cursor-pointer touch-none"
-  style="width: {GRAD_W}px; height: {STRIP_H}px;"
+  style="width: 100%; max-width: {GRAD_W}px; height: {STRIP_H}px;"
   role="slider"
   tabindex="0"
   aria-label="Alpha"
@@ -217,7 +217,7 @@
     type="text"
     value={hexInput}
     oninput={handleHexInput}
-    class="flex-1 rounded border border-border bg-background px-2 py-1 text-sm text-foreground font-mono"
+    class="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-sm text-foreground font-mono"
     spellcheck="false"
     aria-label="Hex colour value"
   />

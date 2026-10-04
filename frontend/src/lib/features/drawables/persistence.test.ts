@@ -1,6 +1,11 @@
 // frontend/src/lib/drawables/persistence.test.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { loadAll, saveAll, DRAWABLES_STORAGE_KEY } from './persistence';
+import {
+  loadAll,
+  saveAll,
+  DRAWABLES_STORAGE_KEY,
+  drawablesStorageKey,
+} from './persistence';
 import { registerTool, _resetRegistry } from './registry';
 import type { RulerDrawable } from './tools/ruler/tool';
 import type { DrawableTool, Drawable } from './types';
@@ -57,6 +62,44 @@ function rulerDrawable(id: string): RulerDrawable {
 }
 
 describe('persistence', () => {
+  it('isolates guest and account namespaces without collisions', () => {
+    registerTool(tool('ruler', 1));
+    saveAll([rulerDrawable('guest')]);
+    saveAll([rulerDrawable('a')], 'user/a');
+    saveAll([rulerDrawable('b')], 'guest');
+    expect(loadAll().map(d => d.id)).toEqual(['guest']);
+    expect(loadAll('user/a').map(d => d.id)).toEqual(['a']);
+    expect(loadAll('guest').map(d => d.id)).toEqual(['b']);
+    expect(loadAll('user/b')).toEqual([]);
+    expect(drawablesStorageKey('user/a')).not.toBe(
+      drawablesStorageKey('user%2Fa'),
+    );
+  });
+
+  it('retains legacy annotations only in guest storage without overwriting them', () => {
+    registerTool(tool('ruler', 1));
+    const legacy = JSON.stringify([
+      { ...rulerDrawable('legacy'), schemaVersion: 1 },
+    ]);
+    localStorage.setItem(DRAWABLES_STORAGE_KEY, legacy);
+    expect(loadAll('a')).toEqual([]);
+    expect(loadAll().map(d => d.id)).toEqual(['legacy']);
+    saveAll(loadAll());
+    saveAll([rulerDrawable('private')], 'a');
+    expect(loadAll().map(d => d.id)).toEqual(['legacy']);
+    expect(localStorage.getItem(DRAWABLES_STORAGE_KEY)).toBe(legacy);
+    saveAll([]);
+    expect(loadAll()).toEqual([]);
+  });
+
+  it('does not fall back to guest data for a malformed account record', () => {
+    registerTool(tool('ruler', 1));
+    saveAll([rulerDrawable('guest')]);
+    localStorage.setItem(drawablesStorageKey('a'), 'invalid');
+    expect(loadAll('a')).toEqual([]);
+    expect(loadAll().map(d => d.id)).toEqual(['guest']);
+  });
+
   beforeEach(() => {
     _resetRegistry();
     localStorage.clear();
@@ -74,7 +117,7 @@ describe('persistence', () => {
   it('saves items stamped with each tool schemaVersion', () => {
     registerTool(tool('ruler', 3));
     saveAll([rulerDrawable('a')]);
-    const raw = JSON.parse(localStorage.getItem(DRAWABLES_STORAGE_KEY)!);
+    const raw = JSON.parse(localStorage.getItem(drawablesStorageKey())!);
     expect(raw[0].schemaVersion).toBe(3);
   });
 
@@ -89,14 +132,14 @@ describe('persistence', () => {
     registerTool(tool('ruler', 1));
     saveAll([rulerDrawable('a')]);
     const raw = JSON.parse(
-      localStorage.getItem(DRAWABLES_STORAGE_KEY)!,
+      localStorage.getItem(drawablesStorageKey())!,
     ) as unknown[];
     raw.push({
       ...rulerDrawable('b'),
       id: 'b',
       type: 'ghost',
     });
-    localStorage.setItem(DRAWABLES_STORAGE_KEY, JSON.stringify(raw));
+    localStorage.setItem(drawablesStorageKey(), JSON.stringify(raw));
     expect(loadAll().map(d => d.id)).toEqual(['a']);
   });
 

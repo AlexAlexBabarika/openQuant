@@ -11,7 +11,12 @@ export { BUNDLED_TOOLS, BUNDLED_TOOLS_BY_TYPE } from './toolCatalog';
 export { deepCloneDrawableSnapshot } from './clone';
 export type { BundledDrawable } from './bundledDrawable';
 export { drawables, createDrawablesStore } from './store.svelte';
-export { loadAll, saveAll, DRAWABLES_STORAGE_KEY } from './persistence';
+export {
+  loadAll,
+  saveAll,
+  DRAWABLES_STORAGE_KEY,
+  drawablesStorageKey,
+} from './persistence';
 export {
   registerTool,
   getTool,

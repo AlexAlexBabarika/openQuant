@@ -146,6 +146,21 @@ describe('ruler computeStats', () => {
     expect(formatPriceDelta(-1.5)).toBe('−1.50');
   });
 
+  it.each([
+    [0, '+0.00'],
+    [1234.56, '+1234.56'],
+    [-1234.56, '−1234.56'],
+    [0.00123456, '+0.00123456'],
+    [-0.00000123, '−0.00000123'],
+    [3.419354838709673e-8, '+3.41935e-8'],
+    [-2.671370967741943e-8, '−2.67137e-8'],
+    [NaN, '—'],
+    [Infinity, '—'],
+    [-Infinity, '—'],
+  ])('preserves signed absolute price distance %s as %s', (value, expected) => {
+    expect(formatPriceDelta(value)).toBe(expected);
+  });
+
   it('formats pct with sign', () => {
     expect(formatPct(2.5)).toBe('+2.50%');
     expect(formatPct(-2.5)).toBe('−2.50%');
