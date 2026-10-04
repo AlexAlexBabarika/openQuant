@@ -25,6 +25,7 @@
     FlaggedStance,
   } from '$lib/features/market/tickers';
   import type { TickerQuote } from '$lib/features/market/tickerQuotes';
+  import { formatMarketPrice } from '$lib/features/market/priceFormat';
   import type { TickerNote } from '$lib/features/notes/notes';
 
   let {
@@ -83,18 +84,10 @@
     selectedPriority !== null || selectedStance !== null,
   );
 
-  function formatPrice(value: number | null | undefined): string {
-    if (value == null || !Number.isFinite(value)) return '—';
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
   function formatQuote(q: TickerQuote | undefined): string {
     if (!q || q.status === 'loading') return '…';
     if (q.status === 'error') return '—';
-    return formatPrice(q.close);
+    return formatMarketPrice(q.close, true);
   }
 
   const loadedSymbolKey = $derived((symbol ?? '').trim().toUpperCase());
@@ -304,7 +297,7 @@
         <div
           class="text-sm font-mono tabular-nums text-foreground leading-snug"
         >
-          {formatPrice(closePrice)}
+          {formatMarketPrice(closePrice, true)}
         </div>
         {#if hasSidebarTags && currentTicker}
           <div

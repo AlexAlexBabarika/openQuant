@@ -115,6 +115,29 @@ function setup() {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('skips history hashing without compute tools and resumes with fresh candles', () => {
+    const { props, signature, requests } = setup();
+    props.items = [];
+    client.flush();
+    signature.mockClear();
+    props.candles[0].close = 3;
+    props.candles.push({
+      ...props.candles[0],
+      timestamp: '2026-01-01T00:01:00Z',
+    });
+    client.flush();
+    expect(signature).not.toHaveBeenCalled();
+    props.items = [{ ...item('c'), type: 'horizontal-line' }];
+    client.flush();
+    expect(signature).not.toHaveBeenCalled();
+    props.items[0].type = 'ruler';
+    client.flush();
+    expect(signature).toHaveBeenCalledOnce();
+    expect(requests[requests.length - 1]?.id).toBe('c');
+    expect(signature.mock.calls[0][0]).toHaveLength(2);
+    expect(signature.mock.calls[0][0][0].close).toBe(3);
+  });
+
   it('clears result/status and cancels work if the same id no longer has a compute tool', async () => {
     const { props, requests, data, states } = setup();
     requests[0].request.resolve('old');

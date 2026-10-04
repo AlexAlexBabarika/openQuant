@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   bundledDrawablesFingerprint,
   candleBatchSignature,
-  fnv1a32Hex,
 } from './candleFingerprint';
 import type { OHLCVCandle } from '$lib/core/types';
 
@@ -18,20 +17,8 @@ const base = (overrides: Partial<OHLCVCandle> = {}): OHLCVCandle => ({
 });
 
 describe('candleBatchSignature', () => {
-  it('preserves the full-series digest without joined-history allocation', () => {
-    const candles = [
-      base(),
-      base({ close: 2, timestamp: '2024-01-01T00:01:00Z' }),
-    ];
-    const legacy = candles
-      .map(
-        c =>
-          `${c.timestamp}\x1f${c.open}\x1f${c.high}\x1f${c.low}\x1f${c.close}\x1f${c.volume}`,
-      )
-      .join('\x1e');
-    expect(candleBatchSignature(candles)).toBe(
-      `${candles.length}:${fnv1a32Hex(legacy)}`,
-    );
+  it('fingerprints empty history without work', () => {
+    expect(candleBatchSignature([])).toBe('0');
   });
   it('is stable for same data with different array identity', () => {
     const a = [base()];
@@ -39,10 +26,37 @@ describe('candleBatchSignature', () => {
     expect(candleBatchSignature(a)).toBe(candleBatchSignature(b));
   });
 
-  it('changes when any bar field changes', () => {
-    const a = candleBatchSignature([base()]);
-    const b = candleBatchSignature([base({ close: 1.51 })]);
-    expect(a).not.toBe(b);
+  it.each(['open', 'high', 'low', 'close', 'volume'] as const)(
+    'detects interior %s edits including values hidden by display rounding',
+    field => {
+      const candles = [base(), base(), base()];
+      const before = candleBatchSignature(candles);
+      candles[1][field] += 1e-10;
+      expect(candleBatchSignature(candles)).not.toBe(before);
+    },
+  );
+
+  it('includes timestamps, length and row ordering', () => {
+    const a = base();
+    const b = base({ timestamp: '2024-01-01T00:01:00Z' });
+    const signature = candleBatchSignature([a, b]);
+    expect(candleBatchSignature([b, a])).not.toBe(signature);
+    expect(candleBatchSignature([a, b, a])).not.toBe(signature);
+    expect(
+      candleBatchSignature([a, { ...b, timestamp: a.timestamp }]),
+    ).not.toBe(signature);
+  });
+
+  it('normalizes negative zero and remains deterministic for non-finite data', () => {
+    expect(candleBatchSignature([base({ low: -0 })])).toBe(
+      candleBatchSignature([base({ low: 0 })]),
+    );
+    expect(candleBatchSignature([base({ volume: NaN })])).toBe(
+      candleBatchSignature([base({ volume: NaN })]),
+    );
+    expect(candleBatchSignature([base({ volume: Infinity })])).not.toBe(
+      candleBatchSignature([base({ volume: -Infinity })]),
+    );
   });
 });
 

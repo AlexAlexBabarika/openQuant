@@ -26,10 +26,13 @@
     computedStates?: Map<string, DrawableComputeState>;
   } = $props();
 
+  const needsCandles = $derived(items.some(d => Boolean(getTool(d.type)?.compute)));
   const candleSig = $derived(
-    measureDrawablesSync('drawables:candle-signature', () =>
-      candleBatchSignature(candles),
-    ),
+    needsCandles
+      ? measureDrawablesSync('drawables:candle-signature', () =>
+          candleBatchSignature(candles),
+        )
+      : '0',
   );
   const jobs = new Map<string, { key: string; controller: AbortController }>();
   let destroyed = false;
