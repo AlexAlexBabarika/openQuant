@@ -66,13 +66,18 @@ function contrast(
   background: string,
   vars: Record<string, string>,
   surface: string,
+  opacity = 1,
 ) {
   // Test both channel clipping and CSS Color 4's perceptual sRGB gamut mapping.
   return [(color: Rgb) => clampRgb(color), toGamut('rgb', 'oklch')].map(map => {
     const rgb = (value: string) =>
       converter('rgb')(map(resolveColor(value, vars)))!;
     const bg = composite(rgb(background), rgb(surface));
-    return wcagContrast(composite(rgb(foreground), bg), bg);
+    const text = rgb(foreground);
+    return wcagContrast(
+      composite({ ...text, alpha: (text.alpha ?? 1) * opacity }, bg),
+      bg,
+    );
   });
 }
 
@@ -247,6 +252,62 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it.each([false, true])(
+    'keeps console statuses, output levels and empty hints readable (dark=%s)',
+    dark => {
+      const filename = `${base}components/indicators/ScriptOutputs.svelte`;
+      const panel = postcss.parse(
+        compileSvelte(readFileSync(filename, 'utf8'), {
+          filename,
+          generate: 'server',
+        }).css!.code,
+      );
+      panel.walkRules(rule => {
+        rule.selectors = rule.selectors.map(selector =>
+          selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
+        );
+      });
+      const state = (selector: string) => ({
+        ...declarations(selector, panel),
+        ...(dark ? {} : declarations(`html:not(.dark) ${selector}`, panel)),
+      });
+      const vars = tokens(dark);
+      for (const [surface, selectors] of [
+        ['.status', ['.tone-ok', '.tone-err', '.tone-warn', '.tone-muted']],
+        [
+          '.console',
+          [
+            '.empty',
+            '.empty-line.muted',
+            '.text-line.tone-info',
+            '.text-line.tone-warn',
+            '.text-line.tone-error',
+          ],
+        ],
+      ] as const) {
+        const substrate = state(surface).background;
+        for (const selector of selectors) {
+          const text = state(selector);
+          const opacity =
+            Number(text.opacity ?? 1) *
+            (selector === '.empty-line.muted'
+              ? Number(state('.empty').opacity ?? 1)
+              : 1);
+          for (const ratio of contrast(
+            text.color,
+            substrate,
+            vars,
+            substrate,
+            opacity,
+          ))
+            expect(ratio, `${selector} dark=${dark}`).toBeGreaterThanOrEqual(
+              4.5,
+            );
+        }
+      }
+    },
+  );
+
   it('keeps the light error foreground readable on every surface', () => {
     const vars = tokens(false);
     for (const surface of ['background', 'card', 'popover']) {
