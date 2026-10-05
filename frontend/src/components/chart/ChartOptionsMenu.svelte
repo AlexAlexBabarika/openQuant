@@ -15,11 +15,13 @@
   import ColourSwatch from './ColourSwatch.svelte';
   import type {
     ChartColours,
+    ChartColourKey,
     ChartTemplate,
     ChartType,
   } from '$lib/features/chart/chartColours';
   import {
     defaultChartColours,
+    setChartColour,
     loadTemplates,
     saveTemplate,
     deleteTemplate,
@@ -61,6 +63,10 @@
   } = $props();
 
   let open = $state(false);
+
+  function setColour(key: ChartColourKey, value: string) {
+    colours = setChartColour(colours, key, value);
+  }
 
   let templates = $state<ChartTemplate[]>([]);
   let selectedTemplateName = $state('');
@@ -258,43 +264,43 @@
 
         <div class="flex flex-wrap items-center gap-3">
           <span class="text-sm font-medium text-card-foreground min-w-[50px]">Background:</span>
-          <ColourSwatch bind:colour={colours.chartBackground} label="Chart" />
-          <ColourSwatch bind:colour={colours.gridLines} label="Grid" />
-          <ColourSwatch bind:colour={colours.textColour} label="Text" />
+          <ColourSwatch bind:colour={() => colours.chartBackground, value => setColour('chartBackground', value)} label="Chart" />
+          <ColourSwatch bind:colour={() => colours.gridLines, value => setColour('gridLines', value)} label="Grid" />
+          <ColourSwatch bind:colour={() => colours.textColour, value => setColour('textColour', value)} label="Text" />
         </div>
 
         {#if chartType === 'candlestick'}
           <div class="flex items-center gap-3 flex-wrap">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Chart:</span>
-            <ColourSwatch bind:colour={colours.candleUpBody} label="Up body" />
-            <ColourSwatch bind:colour={colours.candleDownBody} label="Down body" />
-            <ColourSwatch bind:colour={colours.candleUpWick} label="Up wick" />
-            <ColourSwatch bind:colour={colours.candleDownWick} label="Down wick" />
-            <ColourSwatch bind:colour={colours.candleUpBorder} label="Up border" />
-            <ColourSwatch bind:colour={colours.candleDownBorder} label="Down border" />
+            <ColourSwatch bind:colour={() => colours.candleUpBody, value => setColour('candleUpBody', value)} label="Up body" />
+            <ColourSwatch bind:colour={() => colours.candleDownBody, value => setColour('candleDownBody', value)} label="Down body" />
+            <ColourSwatch bind:colour={() => colours.candleUpWick, value => setColour('candleUpWick', value)} label="Up wick" />
+            <ColourSwatch bind:colour={() => colours.candleDownWick, value => setColour('candleDownWick', value)} label="Down wick" />
+            <ColourSwatch bind:colour={() => colours.candleUpBorder, value => setColour('candleUpBorder', value)} label="Up border" />
+            <ColourSwatch bind:colour={() => colours.candleDownBorder, value => setColour('candleDownBorder', value)} label="Down border" />
           </div>
         {/if}
 
         {#if chartType === 'line'}
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Chart:</span>
-            <ColourSwatch bind:colour={colours.lineColour} label="Line" />
+            <ColourSwatch bind:colour={() => colours.lineColour, value => setColour('lineColour', value)} label="Line" />
           </div>
         {/if}
 
         {#if showArea}
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Area:</span>
-            <ColourSwatch bind:colour={colours.areaTop} label="Area top" />
-            <ColourSwatch bind:colour={colours.areaBottom} label="Area bottom" />
+            <ColourSwatch bind:colour={() => colours.areaTop, value => setColour('areaTop', value)} label="Area top" />
+            <ColourSwatch bind:colour={() => colours.areaBottom, value => setColour('areaBottom', value)} label="Area bottom" />
           </div>
         {/if}
 
         {#if showVolume}
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-card-foreground min-w-[50px]">Volume:</span>
-            <ColourSwatch bind:colour={colours.volumeUp} label="Up volume" />
-            <ColourSwatch bind:colour={colours.volumeDown} label="Down volume" />
+            <ColourSwatch bind:colour={() => colours.volumeUp, value => setColour('volumeUp', value)} label="Up volume" />
+            <ColourSwatch bind:colour={() => colours.volumeDown, value => setColour('volumeDown', value)} label="Down volume" />
           </div>
         {/if}
 
@@ -361,7 +367,7 @@
                       class="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground font-mono"
                     />
                   </label>
-                  <ColourSwatch bind:colour={colours.smaLine} label="Line" />
+                  <ColourSwatch bind:colour={() => colours.smaLine, value => setColour('smaLine', value)} label="Line" />
                 {/if}
               </div>
             </div>
@@ -439,9 +445,9 @@
                       class="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground font-mono"
                     />
                   </label>
-                  <ColourSwatch bind:colour={colours.bbandsUpper} label="Upper" />
-                  <ColourSwatch bind:colour={colours.bbandsMiddle} label="Mid" />
-                  <ColourSwatch bind:colour={colours.bbandsLower} label="Lower" />
+                  <ColourSwatch bind:colour={() => colours.bbandsUpper, value => setColour('bbandsUpper', value)} label="Upper" />
+                  <ColourSwatch bind:colour={() => colours.bbandsMiddle, value => setColour('bbandsMiddle', value)} label="Mid" />
+                  <ColourSwatch bind:colour={() => colours.bbandsLower, value => setColour('bbandsLower', value)} label="Lower" />
                 {/if}
               </div>
             </div>
@@ -501,7 +507,7 @@
                       class="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground font-mono"
                     />
                   </label>
-                  <ColourSwatch bind:colour={colours.emaLine} label="Line" />
+                  <ColourSwatch bind:colour={() => colours.emaLine, value => setColour('emaLine', value)} label="Line" />
                 {/if}
               </div>
             </div>
@@ -525,7 +531,7 @@
                 <Select.Trigger class="min-w-[160px]">
                   {selectedTemplateName || 'Select template'}
                 </Select.Trigger>
-                <Select.Content>
+                <Select.Content class="z-[90]">
                   {#each templates as tpl (tpl.name)}
                     <Select.Item value={tpl.name}>{tpl.name}</Select.Item>
                   {/each}

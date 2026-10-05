@@ -1,14 +1,13 @@
 <script lang="ts">
   import TimeSeriesChart from '../TimeSeriesChart.svelte';
   import { topDrawdowns, underwaterSeries } from '$lib/features/backtest/derive';
-  import { getCssVarColor } from '$lib/features/chart/chart';
   import { formatPct, formatUnixDate, formatInt } from '$lib/features/backtest/format';
   import type { BacktestResult } from '$lib/features/backtest/types';
   import type { BacktestState } from '$lib/features/backtest/backtestState.svelte';
 
   let { result, backtest }: { result: BacktestResult; backtest: BacktestState } = $props();
 
-  const down = getCssVarColor('--down-color', '#ef5350');
+  const down = '--down-color';
   const underwater = $derived(underwaterSeries(result.equity));
   const top = $derived(topDrawdowns(result.equity, 10));
 </script>
@@ -99,11 +98,4 @@
     color: oklch(var(--down-color));
   }
 
-  :global(html:not(.dark)) .table-wrap {
-    border-top-color: #000;
-  }
-  :global(html:not(.dark)) th {
-    background: #ffffff;
-    border-bottom-color: #000;
-  }
 </style>

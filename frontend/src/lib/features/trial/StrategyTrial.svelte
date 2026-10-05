@@ -455,7 +455,7 @@
 <AuthDialog bind:open={authDialogOpen} />
 
 <style>
-  .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 12px/1.6 var(--font-mono); }
+  .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 14px/20px var(--font-family-lato); }
   .standalone { height: 100dvh; min-height: 0; }
   .embedded { height: 100%; min-height: 0; }
   .workbench { min-height: 0; overflow: hidden; }
@@ -463,7 +463,7 @@
   .brand, .wordmark { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .wordmark { font-weight: 600; }
   .divider, .muted, .scope, .live-status, small, dt { color: oklch(var(--muted-foreground)); }
-  h1, h2, h3, h4 { margin: 0; font: 600 12px/1.5 var(--font-mono); }
+  h1, h2, h3, h4 { margin: 0; font: 700 14px/20px var(--font-family-lato); }
   h1 { font-size: 13px; }
   h2 { margin-bottom: 8px; }
   h3 { margin-bottom: 12px; }
@@ -477,7 +477,7 @@
   .run-controls span { font-size: 10px; }
   form { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
   label, legend { font-size: 11px; font-weight: 600; }
-  input, select, textarea { width: 100%; min-height: 36px; border: 1px solid oklch(var(--border)); border-radius: 3px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
+  input, select, textarea { width: 100%; min-height: 36px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
   textarea { resize: vertical; }
   fieldset { display: flex; flex-direction: column; gap: 8px; padding: 14px 0 0; margin: 0 0 8px; border: 0; border-top: 1px solid oklch(var(--border)); }
   legend { padding: 0 6px 0 0; }
@@ -491,15 +491,15 @@
   .live-status { font-size: 11px; }
   .notice { border: 1px solid oklch(var(--border)); background: oklch(var(--muted)); padding: 12px; margin-bottom: 16px; }
   .notice p { margin-bottom: 8px; }
-  .error { color: oklch(var(--destructive)); }
+  .error { color: oklch(var(--down-color)); }
   .result-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  .result-heading h2 { font-size: 14px; }
+  .result-heading h2 { font-size: 20px; line-height: 28px; }
   .result-heading p { margin: 0; }
   .metric-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid oklch(var(--border)); margin-bottom: 18px; }
   .metric-strip > div { display: flex; flex-direction: column; gap: 4px; padding: 12px; background: oklch(var(--muted) / .4); }
   .metric-strip > div + div { border-left: 1px solid oklch(var(--border)); }
   .metric-strip span, .metric-strip small { font-size: 10px; color: oklch(var(--muted-foreground)); }
-  .metric-strip strong { font-size: 20px; font-weight: 400; font-variant-numeric: tabular-nums; }
+  .metric-strip strong { font-family: var(--font-mono); font-size: 20px; font-weight: 400; font-variant-numeric: tabular-nums; }
   .trial-shell :global(.result-tabs) { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid oklch(var(--border)); }
   .trial-shell :global(.result-tab) { background: transparent; color: oklch(var(--muted-foreground)); border: 0; border-bottom: 2px solid transparent; padding: 10px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
   .trial-shell :global(.result-tab[data-state="active"]) { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--primary)); }

@@ -1,14 +1,14 @@
 <script lang="ts">
   import TimeSeriesChart from '../TimeSeriesChart.svelte';
   import { benchmarkCurve, underwaterSeries } from '$lib/features/backtest/derive';
-  import { getCssVarColor } from '$lib/features/chart/chart';
+  import { LineStyle } from 'lightweight-charts';
   import type { BacktestResult } from '$lib/features/backtest/types';
 
   let { result }: { result: BacktestResult } = $props();
 
-  const primary = getCssVarColor('--primary', '#7cb342');
-  const muted = getCssVarColor('--muted-foreground', '#8a8a8a');
-  const down = getCssVarColor('--down-color', '#ef5350');
+  const primary = '--chart-1';
+  const muted = '--chart-2';
+  const down = '--down-color';
 
   const start = $derived(result.equity[0]?.value ?? 0);
   const equityLine = $derived(
@@ -20,14 +20,14 @@
 
 <div class="equity">
   <div class="legend">
-    <span class="key"><i class="swatch" style="background:{primary}"></i>Strategy</span>
-    <span class="key"><i class="swatch" style="background:{muted}"></i>Buy &amp; hold</span>
+    <span class="key"><i class="swatch" style="background:oklch(var({primary}))"></i>Strategy</span>
+    <span class="key"><i class="swatch benchmark" style="border-color:oklch(var({muted}))"></i>Buy &amp; hold</span>
   </div>
   <div class="main">
     <TimeSeriesChart
       lines={[
         { data: equityLine, color: primary, lineWidth: 2 },
-        { data: benchLine, color: muted, lineWidth: 1 },
+        { data: benchLine, color: muted, lineWidth: 1, lineStyle: LineStyle.Dashed },
       ]}
     />
   </div>
@@ -49,7 +49,7 @@
     display: flex;
     gap: 18px;
     padding: 8px 14px;
-    font-size: 11px;
+    font-size: 12px;
     color: oklch(var(--muted-foreground));
   }
   .key {
@@ -61,6 +61,11 @@
     width: 12px;
     height: 3px;
     border-radius: 2px;
+  }
+  .benchmark {
+    background: none;
+    border-top: 2px dashed;
+    height: 0;
   }
   .main,
   .sub {

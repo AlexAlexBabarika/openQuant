@@ -39,15 +39,15 @@
   .group {
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 6px;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 4%);
+    background: oklch(var(--card));
     overflow: hidden;
   }
   .group-title {
     margin: 0;
     padding: 8px 12px;
-    font-size: 9.5px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
@@ -68,6 +68,7 @@
     color: oklch(var(--muted-foreground));
   }
   dd {
+    font-family: var(--font-mono);
     margin: 0;
     font-weight: 600;
     color: oklch(var(--foreground));
@@ -80,11 +81,4 @@
     color: oklch(var(--down-color));
   }
 
-  :global(html:not(.dark)) .group {
-    background: #ffffff;
-    border-color: #000;
-  }
-  :global(html:not(.dark)) .group-title {
-    border-bottom-color: #000;
-  }
 </style>

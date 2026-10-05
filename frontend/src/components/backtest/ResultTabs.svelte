@@ -147,7 +147,4 @@
     .tab:focus-visible, .pane:focus-visible { outline-color: Highlight; }
   }
 
-  :global(html:not(.dark)) .tabbar {
-    border-bottom-color: #000;
-  }
 </style>

@@ -16,6 +16,8 @@
     addInMarketSeries,
     getCssVarColor,
     invalidateCssVarCache,
+    syncChartTheme,
+    observeChartTheme,
   } from '$lib/features/chart/chart';
   import type { BacktestState } from '$lib/features/backtest/backtestState.svelte';
   import type { BacktestResult } from '$lib/features/backtest/types';
@@ -30,6 +32,7 @@
   let inMarketSeries: ISeriesApi<'Histogram'> | null = null;
   let markers: ISeriesMarkersPluginApi<Time> | null = null;
   let resizeObserver: ResizeObserver | null = null;
+  let stopThemeObserver: (() => void) | undefined;
 
   // Bar-close time (unix seconds) -> trade index, for both entry and exit bars.
   // Lets a crosshair landing on a marker's bar highlight the matching row.
@@ -47,11 +50,10 @@
 
   function inMarketData(
     result: BacktestResult,
-    color: string,
   ): HistogramData[] {
     return result.equity
       .filter(p => Math.abs(p.holdings) > HOLDINGS_EPS)
-      .map(p => ({ time: p.t as Time, value: 1, color }));
+      .map(p => ({ time: p.t as Time, value: 1 }));
   }
 
   function buildMarkers(
@@ -121,8 +123,18 @@
     candleSeries = addCandlestickSeries(chart);
     inMarketSeries = addInMarketSeries(
       chart,
-      'rgba(56, 142, 233, 0.16)',
+      getCssVarColor('--in-market-color'),
     );
+    stopThemeObserver = observeChartTheme(() => {
+      if (!chart) return;
+      syncChartTheme({ chart, candleSeries });
+      inMarketSeries?.applyOptions({ color: getCssVarColor('--in-market-color') });
+      const result = backtest.result;
+      if (result && markers) markers.setMarkers(buildMarkers(
+        result, backtest.hoveredTrade,
+        backtest.selection?.kind === 'trade' ? backtest.selection.index : null,
+      ));
+    });
 
     chart.subscribeCrosshairMove(param => {
       const idx =
@@ -145,7 +157,7 @@
     const result = backtest.result;
     if (!result || !chart || !candleSeries || !inMarketSeries) return;
     candleSeries.setData(candleData(result));
-    inMarketSeries.setData(inMarketData(result, 'rgba(56, 142, 233, 0.16)'));
+    inMarketSeries.setData(inMarketData(result));
     timeToTrade = new Map();
     result.trades.forEach((tr, i) => {
       const entryBar = result.bars[tr.entry_index];
@@ -177,6 +189,7 @@
   });
 
   onDestroy(() => {
+    stopThemeObserver?.();
     resizeObserver?.disconnect();
     resizeObserver = null;
     markers?.detach();

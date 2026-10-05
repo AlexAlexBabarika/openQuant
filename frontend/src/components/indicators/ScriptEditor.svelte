@@ -78,40 +78,39 @@
       },
       '.cm-scroller': {
         fontFamily: 'inherit',
-        lineHeight: '1.55',
+        lineHeight: '21px',
         padding: '14px 0 60px',
       },
       '.cm-content': {
-        caretColor: 'oklch(var(--primary))',
+        caretColor: 'oklch(var(--ring))',
         padding: '0',
       },
       '.cm-cursor, .cm-dropCursor': {
-        borderLeft: '2px solid oklch(var(--primary))',
+        borderLeft: '2px solid oklch(var(--ring))',
       },
-      '&.cm-focused': { outline: 'none' },
+      '&.cm-focused': { outline: '2px solid oklch(var(--ring))', outlineOffset: '-2px' },
       '&.cm-focused .cm-selectionBackground, ::selection, .cm-selectionBackground':
         {
           background:
-            'color-mix(in oklab, oklch(var(--primary)) 22%, transparent) !important',
+            'oklch(var(--accent)) !important',
         },
       '.cm-gutters': {
-        background: 'transparent',
-        color: '#000',
+        background: 'oklch(var(--background))',
+        color: 'oklch(var(--muted-foreground))',
         border: 'none',
-        borderRight: '1px dashed #000',
+        borderRight: '1px solid oklch(var(--border))',
         paddingRight: '10px',
         paddingLeft: '14px',
         fontVariantNumeric: 'tabular-nums',
         userSelect: 'none',
-        fontWeight: '700',
+        fontWeight: '400',
       },
       '.cm-activeLineGutter': {
-        background: '#000',
-        color: '#fff',
+        background: 'oklch(var(--accent))',
+        color: 'oklch(var(--foreground))',
       },
       '.cm-activeLine': {
-        background: 'transparent',
-        boxShadow: 'inset 2px 0 0 #000',
+        background: 'oklch(var(--accent) / 0.4)',
       },
       '.cm-lineNumbers .cm-gutterElement': { padding: '0 8px 0 0' },
       '.cm-matchingBracket': {
@@ -190,7 +189,6 @@
 </script>
 
 <div class="editor-shell">
-  <div class="editor-grid" aria-hidden="true"></div>
   <div bind:this={host} class="editor-host"></div>
 </div>
 
@@ -200,102 +198,29 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
-    /* Light theme: pure white. Dark theme override below. */
-    background: #ffffff;
-  }
-  :global(html.dark) .editor-shell {
-    background: color-mix(in oklab, oklch(var(--background)) 92%, black 8%);
-  }
-  /* Engineering-paper dot grid — only in dark mode. Light mode is clean white. */
-  .editor-grid {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    display: none;
-  }
-  :global(html.dark) .editor-grid {
-    display: block;
-    background-image: radial-gradient(
-      color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) 1px,
-      transparent 1px
-    );
-    background-size: 22px 22px;
-    background-position: 14px 14px;
-    opacity: 0.45;
-    mask-image: linear-gradient(180deg, black 0, black 70%, transparent);
+    background: oklch(var(--card));
   }
   .editor-host {
     position: absolute;
     inset: 0;
   }
-  .editor-host :global(.cm-editor) {
-    height: 100%;
-  }
-
-  /* Dark-mode chrome — restore the soft greys that read well on dark bg. */
-  :global(html.dark) .editor-host :global(.cm-gutters) {
-    color: color-mix(in oklab, oklch(var(--foreground)) 28%, transparent);
-    border-right: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-weight: 400;
-  }
-  :global(html.dark) .editor-host :global(.cm-activeLineGutter) {
-    background: transparent;
-    color: oklch(var(--foreground));
-  }
-  :global(html.dark) .editor-host :global(.cm-activeLine) {
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-    box-shadow: none;
-  }
-
-  /* Light palette (default) — colorful syntax on pure white. */
+  .editor-host :global(.cm-editor) { height: 100%; }
   .editor-host :global(.cm-content),
-  .editor-host :global(.cm-line) {
-    color: #1f2328;
-  }
-  .editor-host :global(.tok-kw)      { color: #cf222e; font-style: italic; }
-  .editor-host :global(.tok-name)    { color: #1f2328; }
-  .editor-host :global(.tok-fn)      { color: #6639ba; font-weight: 600; }
-  .editor-host :global(.tok-const)   { color: #953800; }
-  .editor-host :global(.tok-type)    { color: #953800; }
-  .editor-host :global(.tok-op)      { color: #0550ae; }
-  .editor-host :global(.tok-comment) { color: #57606a; font-style: italic; }
-  .editor-host :global(.tok-strong)  { font-weight: 700; }
-  .editor-host :global(.tok-em)      { font-style: italic; }
-  .editor-host :global(.tok-link)    { color: #0969da; text-decoration: underline; }
-  .editor-host :global(.tok-heading) { color: #0969da; font-weight: 700; }
-  .editor-host :global(.tok-atom)    { color: #953800; font-weight: 600; }
-  .editor-host :global(.tok-string)  { color: #0a3069; }
-  .editor-host :global(.tok-invalid) { color: #cf222e; text-decoration: underline wavy; }
-
-  /* Dark palette — Tokyo-Night-ish, kept from previous design. */
-  :global(html.dark) .editor-host :global(.cm-content),
-  :global(html.dark) .editor-host :global(.cm-line) {
-    color: #e8e6f0;
-  }
-  :global(html.dark) .editor-host :global(.tok-kw)      { color: #c792ea; font-style: italic; font-weight: 400; text-decoration: none; background: transparent; }
-  :global(html.dark) .editor-host :global(.tok-name)    { color: #e8e6f0; font-weight: 400; }
-  :global(html.dark) .editor-host :global(.tok-fn)      { color: #82aaff; font-weight: 400; }
-  :global(html.dark) .editor-host :global(.tok-const)   { color: #f78c6c; font-weight: 400; }
-  :global(html.dark) .editor-host :global(.tok-type)    { color: #ffcb6b; font-weight: 400; }
-  :global(html.dark) .editor-host :global(.tok-op)      { color: #89ddff; }
-  :global(html.dark) .editor-host :global(.tok-comment) {
-    color: #637085;
-    font-style: italic;
-    text-decoration: none;
-  }
-  :global(html.dark) .editor-host :global(.tok-link)    { color: #82aaff; text-decoration: underline; }
-  :global(html.dark) .editor-host :global(.tok-heading) { color: #82aaff; font-weight: bold; }
-  :global(html.dark) .editor-host :global(.tok-atom)    { color: #f78c6c; font-weight: 400; font-style: normal; }
-  :global(html.dark) .editor-host :global(.tok-string)  {
-    color: #c3e88d;
-    font-style: normal;
-    background: transparent;
-    padding: 0;
-  }
-  :global(html.dark) .editor-host :global(.tok-invalid) {
-    color: #ff5370;
-    background: transparent;
-    text-decoration: none;
-  }
+  .editor-host :global(.cm-line),
+  .editor-host :global(.tok-name) { color: oklch(var(--foreground)); }
+  .editor-host :global(.tok-kw),
+  .editor-host :global(.tok-fn) { color: oklch(var(--chart-2)); }
+  .editor-host :global(.tok-const),
+  .editor-host :global(.tok-type),
+  .editor-host :global(.tok-atom) { color: oklch(var(--risk)); }
+  .editor-host :global(.tok-op),
+  .editor-host :global(.tok-link),
+  .editor-host :global(.tok-heading) { color: oklch(var(--ring)); }
+  .editor-host :global(.tok-comment) { color: oklch(var(--muted-foreground)); font-style: italic; }
+  .editor-host :global(.tok-strong),
+  .editor-host :global(.tok-heading) { font-weight: 700; }
+  .editor-host :global(.tok-em) { font-style: italic; }
+  .editor-host :global(.tok-link) { text-decoration: underline; }
+  .editor-host :global(.tok-string) { color: oklch(var(--up-color)); }
+  .editor-host :global(.tok-invalid) { color: oklch(var(--down-color)); text-decoration: underline wavy; }
 </style>

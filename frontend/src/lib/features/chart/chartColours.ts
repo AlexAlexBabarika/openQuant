@@ -47,13 +47,17 @@ export interface ChartColours {
   chartBackground: string;
   gridLines: string;
   textColour: string;
+  /** Only new/reset defaults follow the theme; legacy colours stay explicit. */
+  themeDefaultKeys?: ChartColourKey[];
 }
+
+export type ChartColourKey = Exclude<keyof ChartColours, 'themeDefaultKeys'>;
 
 const STORAGE_KEY = 'openquant:chartColours';
 
 const CHART_COLOUR_KEYS = Object.keys(
   DEFAULT_CHART_COLOURS,
-) as (keyof ChartColours)[];
+) as ChartColourKey[];
 
 export function loadChartColoursFromStorage(): ChartColours | null {
   const data = safeLocalStorageGet<Record<string, unknown>>(STORAGE_KEY);
@@ -64,7 +68,12 @@ export function loadChartColoursFromStorage(): ChartColours | null {
     if (typeof v === 'string' && v.trim()) partial[key] = v.trim();
   }
   if (Object.keys(partial).length === 0) return null;
-  return { ...defaultChartColours(), ...partial };
+  const defaults = defaultChartColours();
+  const storedDefaultKeys = data.themeDefaultKeys;
+  const themeDefaultKeys = Array.isArray(storedDefaultKeys)
+    ? CHART_COLOUR_KEYS.filter(key => storedDefaultKeys.includes(key))
+    : CHART_COLOUR_KEYS.filter(key => !partial[key]);
+  return refreshThemeColours({ ...defaults, ...partial, themeDefaultKeys });
 }
 
 export function persistChartColours(colours: ChartColours): void {
@@ -109,6 +118,10 @@ export function loadTemplates(): ChartTemplate[] {
 }
 
 export function saveTemplate(template: ChartTemplate): void {
+  template = {
+    ...template,
+    colours: { ...template.colours, themeDefaultKeys: [] },
+  };
   const templates = loadTemplates();
   const idx = templates.findIndex(t => t.name === template.name);
   if (idx >= 0) templates[idx] = template;
@@ -122,27 +135,32 @@ export function deleteTemplate(name: string): void {
 }
 
 export function defaultChartColours(): ChartColours {
-  const up = resolveColour(undefined, 'candleUpBody');
-  const down = resolveColour(undefined, 'candleDownBody');
+  const colours = { ...DEFAULT_CHART_COLOURS };
+  for (const key of CHART_COLOUR_KEYS) {
+    colours[key] =
+      key === 'gridLines'
+        ? resolveGridLineColour()
+        : resolveColour(undefined, key);
+  }
+  return { ...colours, themeDefaultKeys: [...CHART_COLOUR_KEYS] };
+}
+
+export function refreshThemeColours(colours: ChartColours): ChartColours {
+  if (!colours.themeDefaultKeys?.length) return colours;
+  const defaults = defaultChartColours();
+  const next = { ...colours };
+  for (const key of colours.themeDefaultKeys) next[key] = defaults[key];
+  return next;
+}
+
+export function setChartColour(
+  colours: ChartColours,
+  key: ChartColourKey,
+  value: string,
+): ChartColours {
   return {
-    candleUpBody: up,
-    candleDownBody: down,
-    candleUpWick: up,
-    candleDownWick: down,
-    candleUpBorder: up,
-    candleDownBorder: down,
-    lineColour: resolveColour(undefined, 'lineColour'),
-    areaTop: resolveColour(undefined, 'areaTop'),
-    areaBottom: resolveColour(undefined, 'areaBottom'),
-    volumeUp: DEFAULT_CHART_COLOURS.volumeUp,
-    volumeDown: DEFAULT_CHART_COLOURS.volumeDown,
-    smaLine: DEFAULT_CHART_COLOURS.smaLine,
-    emaLine: DEFAULT_CHART_COLOURS.emaLine,
-    bbandsUpper: DEFAULT_CHART_COLOURS.bbandsUpper,
-    bbandsMiddle: DEFAULT_CHART_COLOURS.bbandsMiddle,
-    bbandsLower: DEFAULT_CHART_COLOURS.bbandsLower,
-    chartBackground: resolveColour(undefined, 'chartBackground'),
-    gridLines: resolveGridLineColour(),
-    textColour: resolveColour(undefined, 'textColour'),
+    ...colours,
+    [key]: value,
+    themeDefaultKeys: colours.themeDefaultKeys?.filter(k => k !== key),
   };
 }

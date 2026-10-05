@@ -25,12 +25,14 @@
   import type { ChartColours } from '$lib/features/chart/chartColours';
   import {
     defaultChartColours,
+    refreshThemeColours,
     loadChartColoursFromStorage,
     persistChartColours,
     loadChartSettingsFromStorage,
     persistChartSettings,
   } from '$lib/features/chart/chartColours';
   import { loadTheme, persistTheme, applyTheme, type Theme } from '$lib/features/theme/theme';
+  import { invalidateCssVarCache } from '$lib/features/chart/chart';
   import type {
     TickerGroup,
     FlaggedPriority,
@@ -257,6 +259,8 @@
   function setTheme(next: Theme) {
     if (next === theme) return;
     applyTheme(next);
+    invalidateCssVarCache();
+    colours = refreshThemeColours(colours);
     theme = next;
     persistTheme(next);
   }

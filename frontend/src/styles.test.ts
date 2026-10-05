@@ -7,6 +7,7 @@ import postcss, { type Root } from 'postcss';
 import {
   clampRgb,
   converter,
+  formatHex,
   interpolate,
   parse,
   toGamut,
@@ -14,6 +15,7 @@ import {
   type Rgb,
 } from 'culori';
 import { buttonVariants } from '$lib/components/ui/button';
+import { cn } from '$lib/core/utils';
 
 const base = fileURLToPath(new URL('./', import.meta.url));
 const source = readFileSync(`${base}styles.css`, 'utf8');
@@ -35,14 +37,22 @@ function tokens(dark: boolean) {
 }
 
 function resolveColor(value: string, vars: Record<string, string>): Rgb {
-  const resolved = value.replace(/var\((--[\w-]+)\)/g, (_, key) => vars[key]);
+  const resolveVars = (value: string): string =>
+    value.replace(/var\((--[\w-]+)\)/g, (_, key) => resolveVars(vars[key]));
+  const resolved = resolveVars(value);
   const mix = resolved.match(
-    /^color-mix\(in oklab, (.+) ([\d.]+)%, (transparent|black)(?: [\d.]+%)?\)$/,
+    /^color-mix\(in oklab, (.+) ([\d.]+)%, (.+?)(?: ([\d.]+)%)?\)$/,
   );
-  if (mix?.[3] === 'black')
+  if (mix && mix[3] !== 'transparent') {
+    const firstWeight = Number(mix[2]);
+    const secondWeight = mix[4] ? Number(mix[4]) : 100 - firstWeight;
     return converter('rgb')(
-      interpolate([mix[1], 'black'], 'oklab')(1 - Number(mix[2]) / 100),
+      interpolate(
+        [mix[1], mix[3]],
+        'oklab',
+      )(secondWeight / (firstWeight + secondWeight)),
     )!;
+  }
   const color = converter('rgb')(parse(mix ? mix[1] : resolved)!);
   if (!color) throw new Error(`Unsupported test color: ${resolved}`);
   return {
@@ -110,6 +120,27 @@ beforeAll(async () => {
 });
 
 describe.each([false, true])('resolved action colors (dark=%s)', dark => {
+  it('keeps editor text, gutters/comments and semantic syntax readable on the canvas', () => {
+    const vars = tokens(dark);
+    for (const token of [
+      'foreground',
+      'muted-foreground',
+      'chart-2',
+      'risk',
+      'ring',
+      'up-color',
+      'down-color',
+    ]) {
+      for (const ratio of contrast(
+        `oklch(var(--${token}))`,
+        'oklch(var(--card))',
+        vars,
+        'oklch(var(--card))',
+      ))
+        expect(ratio, token).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('keeps enabled inactive-tab text readable on the muted surface', () => {
     const vars = tokens(dark);
     for (const ratio of contrast(
@@ -205,7 +236,7 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
     }
   });
 
-  it('keeps workbench RUN/STREAM and both STOP patterns readable without changing chart colors', () => {
+  it('keeps workbench RUN/STREAM and both STOP patterns readable with distinct chart semantics', () => {
     const vars = tokens(dark);
     const primary = declarations('.ot-workbench-primary');
     const hover = declarations('.ot-workbench-primary:hover:not(:disabled)');
@@ -238,20 +269,50 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
     ))
       expect(ratio).toBeGreaterThanOrEqual(4.5);
     expect(converter('oklch')(`oklch(${vars['--up-color']})`)?.h).toBeCloseTo(
-      131.684,
+      dark ? 177.9453 : 178.1891,
     );
     expect(converter('oklch')(`oklch(${vars['--down-color']})`)?.h).toBeCloseTo(
-      27.325,
+      dark ? 25.882 : 26.8637,
     );
     expect(converter('oklch')(`oklch(${vars['--down-color']})`)).toMatchObject({
-      l: 0.577,
-      c: 0.245,
-      h: 27.325,
+      l: dark ? 0.742377 : 0.53315,
+      c: dark ? 0.124532 : 0.162163,
+      h: dark ? 25.882 : 26.8637,
     });
   });
 });
 
 describe('compiled global selectors', () => {
+  it('keeps the portalled template selector above the Chart Options modal', async () => {
+    const menu = readFileSync(
+      `${base}components/chart/ChartOptionsMenu.svelte`,
+      'utf8',
+    );
+    const popupClasses = menu.match(/<Select\.Content\s+class="([^"]+)"/)![1];
+    const popupLayer = cn('z-50', popupClasses);
+    expect(popupLayer).not.toContain('z-50');
+    const modalLayers = ['dialog-content', 'dialog-overlay'].map(
+      name =>
+        readFileSync(
+          `${base}lib/components/ui/dialog/${name}.svelte`,
+          'utf8',
+        ).match(/z-\[\d+\]/)![0],
+    );
+    const compiled = await compileCss(source, { base, onDependency() {} });
+    const layerCss = postcss.parse(
+      optimize(compiled.build([popupLayer, ...modalLayers]), { minify: false })
+        .code,
+    );
+    const layer = (className: string) =>
+      Number(
+        declarations(`.${className.replace(/[\[\]]/g, '\\$&')}`, layerCss)[
+          'z-index'
+        ],
+      );
+    for (const modal of modalLayers)
+      expect(layer(popupLayer)).toBeGreaterThan(layer(modal));
+  });
+
   it.each([false, true])(
     'keeps console statuses, output levels and empty hints readable (dark=%s)',
     dark => {
@@ -354,35 +415,36 @@ describe('compiled global selectors', () => {
     expect(declarations('.ri-time', panel).color).toBe(
       'oklch(var(--muted-foreground))',
     );
-    expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
-      'oklch(var(--destructive))',
-    );
-    expect(declarations('html:not(.dark) .ri-del', panel).color).toBe('#000');
-    expect(declarations('html:not(.dark) .ri-del:hover', panel)).toMatchObject({
-      background: '#000',
-      color: '#fff',
-    });
     if (filename.includes('IndicatorsPanel')) {
+      expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
+        'oklch(var(--destructive))',
+      );
+      expect(declarations('html:not(.dark) .ri-del', panel).color).toBe('#000');
+      expect(
+        declarations('html:not(.dark) .ri-del:hover', panel),
+      ).toMatchObject({ background: '#000', color: '#fff' });
       expect(
         declarations('html:not(.dark) .ri-status.running', panel).background,
       ).toBe('oklch(var(--primary))');
+    } else {
+      expect(declarations('.rail-hint.err', panel).color).toBe(
+        'oklch(var(--down-color))',
+      );
+      expect(declarations('.ri-del', panel).color).toBe(
+        'oklch(var(--muted-foreground))',
+      );
     }
   });
 
-  it('preserves the dark-theme primary palette', () => {
+  it('uses the approved dark brand palette independently of return colors', () => {
     const vars = tokens(true);
-    expect(converter('oklch')(`oklch(${vars['--primary']})`)).toMatchObject({
-      l: 0.648,
-      c: 0.2,
-      h: 131.684,
-    });
+    expect(formatHex(resolveColor('oklch(var(--primary))', vars))).toBe(
+      '#a3d65c',
+    );
     expect(
-      converter('oklch')(`oklch(${vars['--primary-foreground']})`),
-    ).toMatchObject({
-      l: 0.141,
-      c: 0.005,
-      h: 285.823,
-    });
+      formatHex(resolveColor('oklch(var(--primary-foreground))', vars)),
+    ).toBe('#10161e');
+    expect(vars['--primary']).not.toBe(vars['--up-color']);
   });
 
   it.each([
@@ -410,24 +472,23 @@ describe('compiled global selectors', () => {
     },
   );
 
-  it('ships native light-only selectors and the declared pill/ghost treatment', () => {
+  it('ships native selectors and shared semantic pill/ghost treatment', () => {
     css.walkRules(rule => {
       expect(
         rule.selectors.every(selector => !selector.includes(':global(')),
       ).toBe(true);
     });
-    const pill = declarations('html:not(.dark) .ot-ctx-pill');
-    const ghost = declarations('html:not(.dark) .ot-workbench-ghost');
-    const hover = declarations(
-      'html:not(.dark) .ot-workbench-ghost:hover:not(:disabled)',
-    );
+    const pill = declarations('.ot-ctx-pill');
+    const ghost = declarations('.ot-workbench-ghost');
+    const hover = declarations('.ot-workbench-ghost:hover:not(:disabled)');
     expect(pill).toMatchObject({
-      color: '#000',
-      background: '#fff',
-      'border-color': '#000',
+      color: 'oklch(var(--muted-foreground))',
+      background: 'oklch(var(--card))',
     });
-    expect(ghost).toMatchObject({ color: '#000', 'border-color': '#000' });
-    expect(hover).toMatchObject({ color: '#fff', background: '#000' });
+    expect(ghost).toMatchObject({ color: 'oklch(var(--foreground))' });
+    expect(hover.background).toBe(
+      'color-mix(in oklab, oklch(var(--foreground)) 6%, transparent)',
+    );
     expect(declarations('.ot-ctx-pill').color).toBe(
       'oklch(var(--muted-foreground))',
     );
