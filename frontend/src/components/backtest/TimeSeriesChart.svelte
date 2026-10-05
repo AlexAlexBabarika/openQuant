@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
+  import { LineStyle, type IChartApi, type ISeriesApi, type Time } from 'lightweight-charts';
   import {
     createChartContainer,
     addLineSeries,
     invalidateCssVarCache,
+    getCssVarColor,
+    syncChartTheme,
+    observeChartTheme,
   } from '$lib/features/chart/chart';
   import type { TimeValue } from '$lib/features/backtest/derive';
 
@@ -12,6 +15,7 @@
     data: TimeValue[];
     color: string;
     lineWidth?: number;
+    lineStyle?: LineStyle;
   }
 
   let {
@@ -24,9 +28,10 @@
   } = $props();
 
   let containerEl = $state<HTMLDivElement | null>(null);
-  let chart: IChartApi | null = null;
+  let chart = $state.raw<IChartApi | null>(null);
   let series: ISeriesApi<'Line'>[] = [];
   let resizeObserver: ResizeObserver | null = null;
+  let stopThemeObserver: (() => void) | undefined;
   let pendingFitContent = false;
 
   function fitSeriesContent(): void {
@@ -42,9 +47,10 @@
     for (const s of series) chart.removeSeries(s);
     series = [];
     for (const spec of specs) {
-      const s = addLineSeries(chart, spec.color);
+      const s = addLineSeries(chart, resolveLineColour(spec.color));
       s.applyOptions({
         lineWidth: (spec.lineWidth ?? 2) as 1 | 2 | 3 | 4,
+        lineStyle: spec.lineStyle ?? LineStyle.Solid,
         priceLineVisible: false,
         lastValueVisible: false,
         ...(percent
@@ -63,6 +69,10 @@
     fitSeriesContent();
   }
 
+  function resolveLineColour(color: string): string {
+    return color.startsWith('--') ? getCssVarColor(color) : color;
+  }
+
   function resize(): void {
     if (chart && containerEl) {
       if (!containerEl.clientWidth || !containerEl.clientHeight) return;
@@ -78,6 +88,11 @@
     if (!containerEl) return;
     invalidateCssVarCache();
     chart = createChartContainer(containerEl);
+    stopThemeObserver = observeChartTheme(() => {
+      if (!chart) return;
+      syncChartTheme({ chart });
+      series.forEach((s, i) => s.applyOptions({ color: resolveLineColour(lines[i].color) }));
+    });
     resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(containerEl);
   });
@@ -87,6 +102,7 @@
   });
 
   onDestroy(() => {
+    stopThemeObserver?.();
     resizeObserver?.disconnect();
     resizeObserver = null;
     chart?.remove();

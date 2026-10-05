@@ -195,18 +195,14 @@
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
-    background:
-      radial-gradient(
-        1200px 600px at 20% -200px,
-        color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
-        transparent 60%
-      ),
-      color-mix(in oklab, oklch(var(--popover)) 96%, black 4%);
+    background: oklch(var(--card));
     border-top: 1px solid
       color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     box-shadow: 0 -30px 60px -20px rgba(0, 0, 0, 0.5);
     border-radius: 16px 16px 0 0;
-    font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--font-family-lato);
+    font-size: 14px;
+    line-height: 20px;
     overflow: hidden;
     animation: slideUp 280ms cubic-bezier(0.18, 0.9, 0.24, 1);
   }
@@ -339,21 +335,6 @@
     color: #ff9c9c;
   }
 
-  :global(html:not(.dark)) .panel {
-    background: #ffffff;
-    border-top: 1px solid #000;
-  }
-  :global(html:not(.dark)) .topbar {
-    background: #ffffff;
-    border-bottom: 1px dashed #000;
-  }
-  :global(html:not(.dark)) .tabs-pane {
-    border-top-color: #000;
-  }
-  :global(html:not(.dark)) .iconbtn {
-    border-color: #000;
-    color: #000;
-  }
 
   @media (max-width: 900px) {
     .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }

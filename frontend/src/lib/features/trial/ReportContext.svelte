@@ -26,11 +26,11 @@
 </section>
 
 <style>
-  .report-context { border-left: 2px solid oklch(var(--border)); padding: 8px 12px; margin-bottom: 16px; font-size: 11px; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
+  .report-context { border-left: 2px solid oklch(var(--border)); padding: 8px 12px; margin-bottom: 16px; font-size: 12px; line-height: 16px; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
   p + p, details { margin-top: 6px; }
   strong, summary { color: oklch(var(--foreground)); }
   summary { cursor: pointer; }
-  summary:focus-visible { outline: 2px solid oklch(var(--primary)); outline-offset: 2px; }
+  summary:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 3px; }
   dl { display: grid; gap: 8px; margin-top: 12px; }
   dl > div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 3fr); gap: 12px; }
   dd { color: oklch(var(--foreground)); font-family: var(--font-mono); }

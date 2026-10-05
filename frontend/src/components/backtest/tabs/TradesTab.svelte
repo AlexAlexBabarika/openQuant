@@ -212,8 +212,4 @@
     color: oklch(var(--down-color));
   }
 
-  :global(html:not(.dark)) th {
-    background: #ffffff;
-    border-bottom-color: #000;
-  }
 </style>

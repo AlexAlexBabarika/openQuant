@@ -10,7 +10,7 @@ import {
 import type { IChartApi, ISeriesApi, LineData } from 'lightweight-charts';
 import { isoToChartTime } from './chartAdapters';
 import { formatRgb, parse } from 'culori';
-import type { ChartColours } from './chartColours';
+import type { ChartColours, ChartColourKey } from './chartColours';
 import {
   DEFAULT_BORDER,
   DEFAULT_CHART_COLOURS,
@@ -24,6 +24,20 @@ const cssVarCache = new Map<string, string>();
 /** Call when theme changes so memoised CSS-var lookups re-resolve. */
 export function invalidateCssVarCache(): void {
   cssVarCache.clear();
+}
+
+export function observeChartTheme(update: () => void): () => void {
+  const root = document.documentElement;
+  let dark = root.classList.contains('dark');
+  const observer = new MutationObserver(() => {
+    const next = root.classList.contains('dark');
+    if (next === dark) return;
+    dark = next;
+    invalidateCssVarCache();
+    update();
+  });
+  observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+  return () => observer.disconnect();
 }
 
 export function getCssVarColor(
@@ -109,22 +123,31 @@ function resolveCssVarColor(variableName: string, fallback: string): string {
   return fallback;
 }
 
-const COLOUR_CSS_VARS: Partial<Record<keyof ChartColours, string>> = {
-  chartBackground: '--background',
+const COLOUR_CSS_VARS: Partial<Record<ChartColourKey, string>> = {
+  chartBackground: '--chart-background',
   textColour: '--foreground',
-  lineColour: '--foreground',
+  lineColour: '--chart-1',
   candleUpBody: '--up-color',
   candleUpWick: '--up-color',
   candleDownBody: '--down-color',
   candleDownWick: '--down-color',
   areaTop: '--area-top-color',
   areaBottom: '--area-bottom-color',
+  candleUpBorder: '--up-color',
+  candleDownBorder: '--down-color',
+  volumeUp: '--volume-up-color',
+  volumeDown: '--volume-down-color',
+  smaLine: '--ring',
+  emaLine: '--risk',
+  bbandsUpper: '--chart-2',
+  bbandsMiddle: '--chart-3',
+  bbandsLower: '--chart-2',
 };
 
 /** Precedence: user-supplied colour → CSS var (if mapped) → hardcoded default. */
 export function resolveColour(
   colours: ChartColours | undefined,
-  key: keyof ChartColours,
+  key: ChartColourKey,
 ): string {
   const user = colours?.[key];
   if (user) return user;
@@ -133,10 +156,9 @@ export function resolveColour(
   return DEFAULT_CHART_COLOURS[key];
 }
 
-/** `gridLines` derives from `--border` (faded to 12.5% alpha), not a direct CSS var. */
 export function resolveGridLineColour(colours?: ChartColours): string {
   if (colours?.gridLines) return colours.gridLines;
-  return computeGridLineColor(getCssVarColor('--border', DEFAULT_BORDER));
+  return getCssVarColor('--chart-grid', computeGridLineColor(DEFAULT_BORDER));
 }
 
 const DEFAULT_MONO_FONT =
@@ -169,6 +191,7 @@ export function createChartContainer(
       },
       textColor: resolveColour(colours, 'textColour'),
       fontFamily: getMonoFontFamily(),
+      fontSize: 12,
     },
     grid: {
       vertLines: { color: gridLineColor },

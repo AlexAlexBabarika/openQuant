@@ -36,15 +36,16 @@
     flex-direction: column;
     gap: 4px;
     padding: 12px 14px;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 4%);
+    background: oklch(var(--card));
   }
   .label {
-    font-size: 9.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
     color: oklch(var(--muted-foreground));
   }
   .value {
+    font-family: var(--font-mono);
     font-size: 19px;
     font-weight: 700;
     color: oklch(var(--foreground));
@@ -70,11 +71,4 @@
   @container (max-width: 800px) { .strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } .cell { padding: 10px; } .value { font-size: 16px; } }
   @container (max-width: 440px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-  :global(html:not(.dark)) .strip {
-    background: #000;
-    border-bottom-color: #000;
-  }
-  :global(html:not(.dark)) .cell {
-    background: #ffffff;
-  }
 </style>

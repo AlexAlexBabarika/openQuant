@@ -82,100 +82,81 @@
 
 @layer base {
   :root {
-    --radius: 0.65rem;
-    --background: 1 0 0;
-    --foreground: 0.141 0.005 285.823;
-    --card: 1 0 0;
-    --card-foreground: 0.141 0.005 285.823;
-    --popover: 1 0 0;
-    --popover-foreground: 0.141 0.005 285.823;
-    --primary: 0.453 0.124 130.933;
-    --primary-foreground: 0.985 0 0;
-    --secondary: 0.967 0.001 286.375;
-    --secondary-foreground: 0.21 0.006 285.885;
-    --muted: 0.967 0.001 286.375;
-    --muted-foreground: 0.488 0.016 285.938;
-    --accent: 0.967 0.001 286.375;
-    --accent-foreground: 0.21 0.006 285.885;
-    --destructive: 0.51 0.21 27.325;
-    --destructive-foreground: 0.985 0 0;
-    --border: 0.92 0.004 286.32;
-    --input: 0.92 0.004 286.32;
-    --ring: 0.841 0.238 128.85;
-    --chart-1: 0.871 0.15 154.449;
-    --chart-2: 0.723 0.219 149.579;
-    --chart-3: 0.627 0.194 149.214;
-    --chart-4: 0.527 0.154 150.069;
-    --chart-5: 0.448 0.119 151.328;
-    --sidebar: 0.985 0 0;
-    --sidebar-foreground: 0.141 0.005 285.823;
-    --sidebar-primary: 0.648 0.2 131.684;
-    --sidebar-primary-foreground: 0.141 0.005 285.823;
-    --sidebar-accent: 0.967 0.001 286.375;
-    --sidebar-accent-foreground: 0.21 0.006 285.885;
-    --sidebar-border: 0.92 0.004 286.32;
-    --sidebar-ring: 0.841 0.238 128.85;
+    color-scheme: light;
+    --background: 0.972191 0.003423 247.8583; /* #F4F6F8 */
+    --card: 1 0 0; /* #FFFFFF */
+    --foreground: 0.261752 0.030029 256.8554; /* #1B2533 */
+    --muted-foreground: 0.482663 0.038518 252.7259; /* #4F6074 */
+    --border: 0.863696 0.016362 253.9149; /* #CBD3DD */
+    --input: 0.623487 0.029861 250.0131; /* #7A8999 */
+    --primary: 0.482958 0.109009 132.9835; /* #456B24 */
+    --primary-foreground: 1 0 0; /* #FFFFFF */
+    --ring: 0.505987 0.168284 260.3775; /* #245FC3 */
+    --accent: 0.949752 0.015422 257.1972; /* #E8EFF9 */
+    --up-color: 0.509303 0.087596 178.1891; /* #167666 */
+    --down-color: 0.53315 0.162163 26.8637; /* #B83B35 */
+    --chart-2: 0.494654 0.139816 311.0948; /* #7B469B */
+    --chart-3: 0.482663 0.038518 252.7259; /* #4F6074 */
 
-    --up-color: 0.648 0.2 131.684;
-    /* Chart gain color is independent of action contrast. */
-    --down-color: 0.577 0.245 27.325;
-    /* Chart loss color is independent of action contrast. */
-    --area-top-color: 0.648 0.2 131.684 / 50%;
-    --area-bottom-color: 0.648 0.2 131.684 / 5%;
+    --radius: 0.375rem;
+    --card-foreground: var(--foreground);
+    --popover: var(--card);
+    --popover-foreground: var(--foreground);
+    --secondary: var(--background);
+    --secondary-foreground: var(--foreground);
+    --muted: var(--background);
+    --accent-foreground: var(--foreground);
+    --destructive: 0.51 0.21 27.325;
+    --destructive-foreground: 1 0 0;
+    --sidebar: var(--card);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+    --chart-background: var(--card);
+    --chart-1: var(--up-color);
+    --chart-4: var(--down-color);
+    --chart-5: var(--risk);
+    --area-top-color: var(--up-color) / 16%;
+    --area-bottom-color: var(--up-color) / 2%;
+    --volume-up-color: var(--up-color) / 24%;
+    --volume-down-color: var(--down-color) / 24%;
+    --in-market-color: var(--ring) / 16%;
+    --control-height: 32px;
+    --control-touch-height: 44px;
+    --chart-grid: #e4e9ef;
+    --risk: 0.497536 0.105747 62.890023;
   }
 
   .dark {
-    --background: 0.141 0.005 285.823;
-    --foreground: 0.985 0 0;
-    --card: 0.21 0.006 285.885;
-    --card-foreground: 0.985 0 0;
-    --popover: 0.21 0.006 285.885;
-    --popover-foreground: 0.985 0 0;
-    --primary: 0.648 0.2 131.684;
-    --primary-foreground: 0.141 0.005 285.823;
-    --secondary: 0.274 0.006 286.033;
-    --secondary-foreground: 0.985 0 0;
-    --muted: 0.274 0.006 286.033;
-    --muted-foreground: 0.705 0.015 286.067;
-    --accent: 0.274 0.006 286.033;
-    --accent-foreground: 0.985 0 0;
+    color-scheme: dark;
+    --background: 0.197976 0.018626 255.7404; /* #10161E */
+    --card: 0.243792 0.023184 251.4306; /* #18212B */
+    --foreground: 0.943129 0.013156 251.5615; /* #E6EDF5 */
+    --muted-foreground: 0.731769 0.032933 252.7588; /* #9AAABD */
+    --border: 0.365351 0.028254 248.6061; /* #33404D */
+    --input: 0.561971 0.037753 251.2179; /* #65778B */
+    --primary: 0.81521 0.161156 128.5003; /* #A3D65C */
+    --primary-foreground: 0.197976 0.018626 255.7404; /* #10161E */
+    --ring: 0.787913 0.107587 259.8087; /* #91BBFF */
+    --accent: 0.335941 0.051372 254.5407; /* #243851 */
+    --up-color: 0.75061 0.110741 177.9453; /* #50C5AE */
+    --down-color: 0.742377 0.124532 25.882; /* #F08B82 */
+    --chart-2: 0.794782 0.096579 309.8411; /* #CFABEB */
+    --chart-3: 0.784721 0.023365 254.4228; /* #AFBAC8 */
+    --chart-grid: #263342;
+    --risk: 0.845343 0.08626 73.076679;
     --destructive: 0.51 0.21 27.325;
-    --destructive-foreground: 0.985 0 0;
-    --border: 1 0 0 / 10%;
-    --input: 1 0 0 / 15%;
-    --ring: 0.405 0.101 131.063;
-    --chart-1: 0.871 0.15 154.449;
-    --chart-2: 0.723 0.219 149.579;
-    --chart-3: 0.627 0.194 149.214;
-    --chart-4: 0.527 0.154 150.069;
-    --chart-5: 0.448 0.119 151.328;
-    --sidebar: 0.21 0.006 285.885;
-    --sidebar-foreground: 0.985 0 0;
-    --sidebar-primary: 0.768 0.233 130.85;
-    --sidebar-primary-foreground: 0.141 0.005 285.823;
-    --sidebar-accent: 0.274 0.006 286.033;
-    --sidebar-accent-foreground: 0.985 0 0;
-    --sidebar-border: 1 0 0 / 10%;
-    --sidebar-ring: 0.405 0.101 131.063;
-
-    --up-color: 0.648 0.2 131.684;
-    /* Matches --primary */
-    --down-color: 0.577 0.245 27.325;
-    /* Chart loss color is independent of action contrast. */
-    --area-top-color: 0.326 0.1261 291.57 / 50%;
-    --area-bottom-color: 0.326 0.1261 291.57 / 5%;
   }
 }
-
 @layer components {
-  /* Mono-lowercase chrome — applied to tab labels, ghost buttons,
-     pickers, anywhere a workbench-y feel is wanted on a non-primary
-     element. */
   .ot-mono-chrome {
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
+    font-family: var(--font-family-lato);
+    font-size: 13px;
+    line-height: 18px;
   }
 
   /* Dashed-border ctx pill. Matches the existing `CTX  AAPL · yfinance · 1d`
@@ -185,16 +166,15 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    min-height: var(--control-height);
     padding: 4px 10px;
-    border: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 9999px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    border: 1px solid oklch(var(--border));
+    border-radius: 4px;
+    background: oklch(var(--card));
     color: oklch(var(--muted-foreground));
     font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    line-height: 1;
+    font-size: 12px;
+    line-height: 16px;
     transition:
       color 120ms ease,
       border-color 120ms ease,
@@ -205,10 +185,11 @@
     border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
   }
   .ot-ctx-pill .ot-ctx-label {
-    font-size: 9.5px;
-    letter-spacing: 0.18em;
+    font-family: var(--font-family-lato);
+    font-size: 12px;
+    letter-spacing: normal;
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--muted-foreground));
   }
   .ot-ctx-pill .ot-ctx-value {
     color: oklch(var(--foreground));
@@ -222,29 +203,34 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 28px;
+    min-height: var(--control-height);
     padding: 0 12px;
     border-radius: 4px;
     border: 1px solid oklch(var(--primary));
     background: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
-    font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-family: var(--font-family-lato);
+    font-size: 13px;
+    line-height: 18px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
     cursor: pointer;
     transition:
-      box-shadow 160ms ease,
-      transform 160ms ease;
+      background-color 100ms linear,
+      border-color 100ms linear;
   }
   .ot-workbench-primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px
-      color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
-    transform: translateY(-1px);
+    background: color-mix(
+      in oklab,
+      oklch(var(--primary)) 94%,
+      oklch(var(--primary-foreground))
+    );
   }
   .ot-workbench-primary:active:not(:disabled) {
-    transform: translateY(0);
+    background: color-mix(
+      in oklab,
+      oklch(var(--primary)) 90%,
+      oklch(var(--primary-foreground))
+    );
   }
   .ot-workbench-primary:disabled {
     opacity: 0.45;
@@ -257,19 +243,20 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 28px;
+    min-height: var(--control-height);
     padding: 0 10px;
     border-radius: 4px;
-    border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--input));
     background: transparent;
     color: oklch(var(--foreground));
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
+    font-family: var(--font-family-lato);
+    font-size: 13px;
+    line-height: 18px;
     cursor: pointer;
-    transition: all 120ms ease;
+    transition:
+      background-color 100ms linear,
+      border-color 100ms linear,
+      color 100ms linear;
   }
   .ot-workbench-ghost:hover:not(:disabled) {
     border-color: color-mix(
@@ -351,32 +338,6 @@
   }
 }
 
-/* ----------------------------------------------------------------
-   Light theme — strip the dark-mix grey washes from these utilities
-   and use the indicators-panel light treatment (pure #000 borders).
-   ---------------------------------------------------------------- */
-html:not(.dark) .ot-ctx-pill {
-  background: #ffffff;
-  border-color: #000;
-  color: #000;
-}
-html:not(.dark) .ot-ctx-pill .ot-ctx-label,
-html:not(.dark) .ot-ctx-pill .ot-ctx-value {
-  color: #000;
-}
-html:not(.dark) .ot-workbench-ghost {
-  border-color: #000;
-  color: #000;
-}
-html:not(.dark) .ot-workbench-ghost:hover:not(:disabled) {
-  background: #000;
-  color: #fff;
-}
-html:not(.dark) .ot-hairline-v {
-  background: #000;
-  opacity: 0.15;
-}
-
 /* Outrank the scoped panel STOP rule without changing panel ownership. */
 html .ot-workbench-primary.stop,
 html .btn.primary.stop[class] {
@@ -386,15 +347,40 @@ html .btn.primary.stop[class] {
 }
 html .ot-workbench-primary.stop:hover:not(:disabled),
 html .btn.primary.stop[class]:hover:not(:disabled) {
-  box-shadow: 0 6px 18px -6px
-    color-mix(in oklab, oklch(var(--destructive)) 60%, transparent);
+  background: color-mix(in oklab, oklch(var(--destructive)) 94%, white);
+  box-shadow: none;
+  transform: none;
 }
 
 .ot-workbench-primary:focus-visible,
 .ot-workbench-ghost:focus-visible,
 .ot-ctx-pill:focus-visible {
-  outline: 2px solid oklch(var(--foreground));
-  outline-offset: 2px;
+  outline: 2px solid oklch(var(--ring));
+  outline-offset: 3px;
+}
+
+:where(button, input, select, textarea, summary, a, [tabindex]):focus-visible {
+  outline: 2px solid oklch(var(--ring));
+  outline-offset: 3px;
+}
+
+@media (pointer: coarse) {
+  .ot-workbench-primary,
+  .ot-workbench-ghost,
+  .ot-ctx-pill {
+    min-height: var(--control-touch-height);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {
@@ -404,6 +390,8 @@ html .btn.primary.stop[class]:hover:not(:disabled) {
 body {
   @apply m-0 bg-background text-foreground min-h-screen;
   font-family: var(--font-family-lato);
+  font-size: 14px;
+  line-height: 20px;
 }
 
 #app {
