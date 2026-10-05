@@ -15,6 +15,7 @@ import {
   type Rgb,
 } from 'culori';
 import { buttonVariants } from '$lib/components/ui/button';
+import { cn } from '$lib/core/utils';
 
 const base = fileURLToPath(new URL('./', import.meta.url));
 const source = readFileSync(`${base}styles.css`, 'utf8');
@@ -282,6 +283,36 @@ describe.each([false, true])('resolved action colors (dark=%s)', dark => {
 });
 
 describe('compiled global selectors', () => {
+  it('keeps the portalled template selector above the Chart Options modal', async () => {
+    const menu = readFileSync(
+      `${base}components/chart/ChartOptionsMenu.svelte`,
+      'utf8',
+    );
+    const popupClasses = menu.match(/<Select\.Content\s+class="([^"]+)"/)![1];
+    const popupLayer = cn('z-50', popupClasses);
+    expect(popupLayer).not.toContain('z-50');
+    const modalLayers = ['dialog-content', 'dialog-overlay'].map(
+      name =>
+        readFileSync(
+          `${base}lib/components/ui/dialog/${name}.svelte`,
+          'utf8',
+        ).match(/z-\[\d+\]/)![0],
+    );
+    const compiled = await compileCss(source, { base, onDependency() {} });
+    const layerCss = postcss.parse(
+      optimize(compiled.build([popupLayer, ...modalLayers]), { minify: false })
+        .code,
+    );
+    const layer = (className: string) =>
+      Number(
+        declarations(`.${className.replace(/[\[\]]/g, '\\$&')}`, layerCss)[
+          'z-index'
+        ],
+      );
+    for (const modal of modalLayers)
+      expect(layer(popupLayer)).toBeGreaterThan(layer(modal));
+  });
+
   it.each([false, true])(
     'keeps console statuses, output levels and empty hints readable (dark=%s)',
     dark => {

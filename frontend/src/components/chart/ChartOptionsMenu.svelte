@@ -531,7 +531,7 @@
                 <Select.Trigger class="min-w-[160px]">
                   {selectedTemplateName || 'Select template'}
                 </Select.Trigger>
-                <Select.Content>
+                <Select.Content class="z-[90]">
                   {#each templates as tpl (tpl.name)}
                     <Select.Item value={tpl.name}>{tpl.name}</Select.Item>
                   {/each}
