@@ -296,9 +296,9 @@
     transition: all 120ms ease;
   }
   .iconbtn.close:hover {
-    border-color: color-mix(in oklab, #ff7373 60%, transparent);
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 12%, transparent);
+    border-color: oklch(var(--down-color));
+    color: oklch(var(--down-color));
+    background: oklch(var(--down-color) / 0.1);
   }
 
   .body {
@@ -332,7 +332,7 @@
     letter-spacing: 0.06em;
   }
   .err {
-    color: #ff9c9c;
+    color: oklch(var(--down-color));
   }
 
 

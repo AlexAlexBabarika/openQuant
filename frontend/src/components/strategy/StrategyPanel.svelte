@@ -526,7 +526,7 @@
     font-size: 11px;
     letter-spacing: 0.04em;
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--background));
   }
   .ctx-label {
     font-size: 9.5px;
@@ -565,9 +565,9 @@
     background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
   }
   .iconbtn.close:hover {
-    border-color: color-mix(in oklab, #ff7373 60%, transparent);
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 12%, transparent);
+    border-color: oklch(var(--down-color));
+    color: oklch(var(--down-color));
+    background: oklch(var(--down-color) / 0.1);
   }
 
   .tabs {
@@ -577,7 +577,7 @@
     padding: 2px;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--background));
   }
   .tab {
     appearance: none;
@@ -680,7 +680,7 @@
     color: oklch(var(--muted-foreground));
   }
   .rail-hint .dim { color: oklch(var(--muted-foreground)); }
-  .rail-hint.err { color: #ff7373; }
+  .rail-hint.err { color: oklch(var(--down-color)); }
 
   .rail-item {
     position: relative;
@@ -736,7 +736,7 @@
     justify-content: center;
     width: 22px; height: 22px;
     margin-left: 4px;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--muted-foreground));
     border-radius: 3px;
     cursor: pointer;
     opacity: 0;
@@ -744,8 +744,8 @@
   }
   .rail-item:hover .ri-del { opacity: 1; }
   .ri-del:hover {
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 14%, transparent);
+    color: oklch(var(--down-color));
+    background: oklch(var(--down-color) / 0.1);
   }
 
   .rail-foot {
@@ -845,7 +845,7 @@
   }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn.ghost:hover:not(:disabled) {
-    border-color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    border-color: oklch(var(--muted-foreground));
     background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
   }
   .btn.primary {

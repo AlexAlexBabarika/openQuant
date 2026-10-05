@@ -491,7 +491,7 @@
   .live-status { font-size: 11px; }
   .notice { border: 1px solid oklch(var(--border)); background: oklch(var(--muted)); padding: 12px; margin-bottom: 16px; }
   .notice p { margin-bottom: 8px; }
-  .error { color: oklch(var(--destructive)); }
+  .error { color: oklch(var(--down-color)); }
   .result-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
   .result-heading h2 { font-size: 20px; line-height: 28px; }
   .result-heading p { margin: 0; }
