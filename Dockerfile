@@ -1,5 +1,5 @@
 # Multi-stage build: Node for frontend, Python for backend
-FROM node:20.20.2-slim AS frontend-build
+FROM node:26.10.0-slim AS frontend-build
 WORKDIR /app
 
 # Vite resolves @shared -> ../shared relative to frontend/ — must exist at build time
@@ -11,7 +11,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.12.15-slim
+FROM python:3.14.7-slim
 RUN apt-get update \
     && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
