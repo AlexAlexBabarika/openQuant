@@ -15,6 +15,8 @@ from fastapi.testclient import TestClient
 
 import backend.routes.backtest_routes as backtest_routes
 from backend.app import app
+from backend.backtesting.run_store import RunStore
+from backend.tests._run_auth_fixtures import auth_headers
 
 CODE = (
     "params = {'qty': Int(1, 4, step=1)}\n"
@@ -25,7 +27,8 @@ CODE = (
 
 
 @pytest.fixture(autouse=True)
-def _stub_frame(monkeypatch) -> None:
+def _stub_frame(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(backtest_routes, "_RUN_STORE", RunStore(tmp_path))
     n = 60
     start = datetime(2020, 1, 1, tzinfo=timezone.utc)
     ts = [start + timedelta(days=i) for i in range(n)]
@@ -50,14 +53,14 @@ def _stub_frame(monkeypatch) -> None:
 client = TestClient(app)
 
 
-def _run(payload_overrides: dict | None = None) -> dict:
+def _run(payload_overrides: dict | None = None, *, headers: dict | None = None) -> dict:
     payload = {
         "code": CODE,
         "symbol": "TEST",
         "provider": "yfinance",
     }
     payload.update(payload_overrides or {})
-    r = client.post("/backtests/run", json=payload)
+    r = client.post("/backtests/run", json=payload, headers=headers)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -105,10 +108,17 @@ def test_run_persists_snapshot_and_returns_run_id(tmp_path, monkeypatch):
     store = RunStore(tmp_path)
     monkeypatch.setattr(backtest_routes, "_RUN_STORE", store, raising=False)
 
-    body = _run()
+    body = _run(headers=auth_headers("a"))
     assert body["status"] == "ok", body.get("stderr")
     rid = body["run_id"]
-    assert store.exists(rid)
+    assert RunStore(tmp_path).for_owner("a").exists(rid)
+    assert store.list_ids() == []
+    assert store.for_owner("b").list_ids() == []
+    assert body["persistence"] == {
+        "stored": True,
+        "reason": "authenticated",
+        "run_id": rid,
+    }
     # meta.run_id must be the content-addressed id (not the engine uuid), so the
     # frontend — which reads meta.run_id — loads the run that was actually stored.
     assert body["meta"]["run_id"] == rid
@@ -124,3 +134,63 @@ def test_run_error_does_not_persist_or_return_run_id(tmp_path, monkeypatch):
     assert body["status"] == "error"
     assert "run_id" not in body
     assert store.list_ids() == []
+
+
+def test_guest_run_does_not_persist_or_offer_a_saved_run_reference(tmp_path):
+    body = _run()
+    assert body["status"] == "ok"
+    assert "run_id" not in body
+    assert "run_id" not in body["meta"]
+    assert body["persistence"] == {"stored": False, "reason": "guest", "run_id": None}
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "authorization", ["Bearer invalid", "Basic invalid", "Bearer", ""]
+)
+def test_invalid_authorization_never_downgrades_to_guest(monkeypatch, authorization):
+    async def unexpected_data_load(*args):
+        pytest.fail("invalid authorization reached provider loading")
+
+    monkeypatch.setattr(backtest_routes, "_load_frame", unexpected_data_load)
+    response = client.post(
+        "/backtests/run",
+        json={"code": CODE, "symbol": "TEST", "provider": "yfinance"},
+        headers={"Authorization": authorization},
+    )
+    assert response.status_code == 401
+
+
+def test_expired_authorization_is_401():
+    response = client.post(
+        "/backtests/run",
+        json={"code": CODE, "symbol": "TEST", "provider": "yfinance"},
+        headers=auth_headers("a", expired=True),
+    )
+    assert response.status_code == 401
+
+
+def test_same_run_id_can_be_saved_by_two_accounts_without_global_artifact(tmp_path):
+    a = _run(headers=auth_headers("a"))
+    b = _run(headers=auth_headers("b"))
+    assert a["run_id"] == b["run_id"]
+    store = RunStore(tmp_path)
+    assert store.for_owner("a").exists(a["run_id"])
+    assert store.for_owner("b").exists(b["run_id"])
+    assert store.list_ids() == []
+
+
+def test_authenticated_run_failure_explicitly_reports_unsaved(tmp_path):
+    body = _run(
+        {"code": "def on_bar(ctx):\n    raise ValueError('boom')\n"},
+        headers=auth_headers("a"),
+    )
+    assert body["status"] == "error"
+    assert "run_id" not in body
+    assert "run_id" not in body["meta"]
+    assert body["persistence"] == {
+        "stored": False,
+        "reason": "run_failed",
+        "run_id": None,
+    }
+    assert list(tmp_path.iterdir()) == []
