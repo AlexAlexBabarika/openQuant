@@ -77,6 +77,8 @@ def test_explicit_backup_is_isolated_durable_and_does_not_claim_references(
     assert a.get("/backtests/runs/legacy-reference").status_code == 404
     other = metadata([entry(run_id="different", notes="B only")])
     assert b.put(URL, json=other).json() == other
+    monkeypatch.setattr(rr, "_RUN_STORE", RunStore(store.root))
+    a, b = client("a"), client("b")
     assert a.get(URL).json() == payload
     assert b.get(URL).json() == other
     assert not (store.root / "notebook-metadata.json").exists()

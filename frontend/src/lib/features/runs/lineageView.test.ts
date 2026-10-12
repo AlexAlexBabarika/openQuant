@@ -37,12 +37,12 @@ const lineage: RunLineage = {
 };
 
 describe('experiment lineage', () => {
-  it('distinguishes account-scoped notebook metadata from shared server snapshots', () => {
+  it('distinguishes browser notebook metadata from account-private server-local snapshots', () => {
     const html = render(RecentRunsPanel, {
       props: { open: true, onOpenRun: () => {}, onCompare: () => {} },
     }).body;
     expect(html).toContain('separated by account');
-    expect(html).toContain('server-local and not account-scoped');
+    expect(html).toContain('account-private and server-local');
     expect(html).not.toContain('original account');
   });
   it('renders changed, unavailable and explicitly empty metadata distinctly', () => {

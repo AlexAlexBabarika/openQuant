@@ -354,10 +354,13 @@ describe('StrategyState', () => {
     const state = new StrategyState(client);
     state.setCode('params = {}\n\ndef on_bar(ctx):\n    ctx.buy(1)\n');
     const bt = await state.runBacktest(CTX);
-    expect(client.runBacktest).toHaveBeenCalledWith({
-      code: state.draftCode,
-      ...CTX,
-    });
+    expect(client.runBacktest).toHaveBeenCalledWith(
+      {
+        code: state.draftCode,
+        ...CTX,
+      },
+      expect.any(Function),
+    );
     expect(bt).toBe(state.backtest);
     expect(state.backtest?.result).not.toBeNull();
     expect(state.isRunning).toBe(false);

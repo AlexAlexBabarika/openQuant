@@ -5,6 +5,7 @@
  * tests stub the network, mirroring `SweepState`.
  */
 import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
+import type { DataQualityReport } from '$lib/features/runs/dataQuality';
 import {
   httpStrategyClient,
   type BacktestRunParams,
@@ -53,6 +54,7 @@ export class StrategyState {
   backtest = $state<BacktestState | null>(null);
   isRunning = $state(false);
   runError = $state<string | null>(null);
+  dataQuality = $state<DataQualityReport | null>(null);
 
   #client: StrategyClient;
   #draftVersion = $state(0);
@@ -74,6 +76,10 @@ export class StrategyState {
     this.saveError = null;
     if (this.activeId) this.dirty = true;
     this.activeId = null;
+    this.backtest = null;
+    this.dataQuality = null;
+    this.isRunning = false;
+    this.runError = null;
   }
 
   constructor(client: StrategyClient = httpStrategyClient) {
@@ -239,10 +245,19 @@ export class StrategyState {
    */
   async runBacktest(ctx: RunContext): Promise<BacktestState> {
     const code = this.draftCode;
+    const account = this.#accountVersion;
+    this.dataQuality = null;
     this.isRunning = true;
     this.runError = null;
     const bt = new BacktestState(async () => {
-      const res = await this.#client.runBacktest({ code, ...ctx });
+      const res = await this.#client.runBacktest({ code, ...ctx }, quality => {
+        if (account === this.#accountVersion && this.backtest === bt)
+          this.dataQuality = quality;
+      });
+      if (account !== this.#accountVersion)
+        throw new Error('Account changed. Run again.');
+      if (this.backtest === bt)
+        this.dataQuality = res.meta.data_quality ?? this.dataQuality;
       if (res.status !== 'ok') {
         throw new Error(res.stderr.trim() || `Backtest ${res.status}`);
       }

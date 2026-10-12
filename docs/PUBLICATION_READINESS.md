@@ -133,8 +133,9 @@ termination, proxy headers, firewall rules and deployment topology are untested.
    of these. The project's code license does not grant market-data rights.
 2. **Per-account/private artifacts:** review authorization and ownership for all
    persisted artifacts, exports, caches and logs. Research snapshots are
-   currently **server-local/shared**, as the notebook UI documents; this slice
-   does not make them account-private or change backend authorization.
+   **account-private/server-local** through authenticated saved-run endpoints;
+   guests do not persist and legacy unassigned snapshots remain untouched.
+   This is not a hosted multi-tenant isolation or privacy/retention acceptance.
 3. **Sandbox/resources/abuse:** maintainers must review hostile-code boundaries,
    effective quotas, denial-of-service containment, rate limiting and incident
    response, including every execution entry point. No boolean proves isolation.
@@ -213,12 +214,15 @@ and signing secrets through their approved backup mechanism, too.
    copies. Do not run volume deletion against the source deployment.
 
 **Excluded from server backups:** browser-local notebook names/tags/notes and
-baseline choices, saved workspace layouts, recoverable drafts and Elements/
-annotations. Account-scoped browser records remain local to that browser;
-local storage is neither encrypted storage nor cloud sync. A server restore
-does not restore them. Keep guest/legacy data separate and never silently adopt
-it into an account. Use only existing explicit export/recovery mechanisms where
-available; do not promise a comprehensive browser backup that does not exist.
+baseline choices that were not explicitly saved through the account notebook
+API, saved workspace layouts, robustness recovery, recoverable drafts and
+Elements/annotations. Explicit server notebook metadata and account-private run
+snapshots are included only when their server data directory is backed up.
+Browser records remain local; storage is neither encrypted storage nor cloud
+sync. A server restore does not overwrite browser notes. Use the explicit
+[research restore/legacy migration procedure](../README.md#explicit-research-restore-and-legacy-migration);
+preserve unreadable backups and never silently adopt guest/legacy artifacts.
+No comprehensive browser backup or completed restore drill is claimed here.
 
 ## Local research versus a prospective paid service
 
@@ -231,7 +235,7 @@ A future paid boundary could charge for **operated** compute capacity, explicit
 durable sync/retention, collaboration and support, once actually implemented
 with ownership, isolation, quotas, licensing and recovery obligations. These
 capabilities are not implemented today: browser notebooks are not cloud-synced,
-and shared server snapshots are not a private managed research service. Selling
+and account-private server-local snapshots are not a managed research service. Selling
 hosting now would assume responsibilities that this configuration checker cannot
 fulfil. Keep that boundary explicit rather than describing local features as
 an already activated paid product.

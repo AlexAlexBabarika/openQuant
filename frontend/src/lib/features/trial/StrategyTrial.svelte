@@ -15,6 +15,8 @@
   import { Tabs } from 'bits-ui';
   import { isWorkspaceReport, parseParameterOverrides, runWorkspaceChecks, workspaceFingerprint, type EvidenceReport, type WorkspaceContext, type WorkspaceSettings } from './workspace';
   import ResearchReview from './ResearchReview.svelte';
+  import DataQualityEvidence from '../../../components/backtest/DataQualityEvidence.svelte';
+  import type { DataQualityReport } from '$lib/features/runs/dataQuality';
   import { createReviewFence, emptyReview, loadLatestReview, restoredReviewIsStale, reviewInputFingerprint, saveLatestReview, selectSavedReview, validWorkspaceReport, type RecoveryResult, type ReviewStorage, type SavedReview } from './recovery';
   import type { ResearchReview as Review } from '../trial-report/types';
 
@@ -39,6 +41,7 @@
   let configurationExpanded = $state(false);
   let authDialogOpen = $state(false);
   let runError = $state('');
+  let dataQuality = $state<DataQualityReport | null>(null);
   let report = $state.raw<EvidenceReport | null>(null);
   let receivedAt = $state('');
   let reportAccount = untrack(() => $authState.user?.id ?? null);
@@ -99,6 +102,7 @@
     reportAccount = account;
     untrack(() => {
       reviewFence.invalidate();
+      dataQuality = null;
       receipt = null;
       restored = false;
       storageMessage = '';
@@ -154,6 +158,7 @@
   function chooseMode(next: 'workspace' | 'examples'): void {
     if (next === mode) return;
     cancelRun();
+    dataQuality = null;
     mode = next;
     report = null;
     receipt = null;
@@ -288,8 +293,11 @@
     running = true;
     runError = '';
     statusMessage = `Running ${context.name} on ${context.symbol} · ${context.provider}…`;
+    dataQuality = null;
     try {
-      const result = await runWorkspaceChecks(context, settings, controller.signal);
+      const result = await runWorkspaceChecks(context, settings, controller.signal, quality => {
+        if (!controller.signal.aborted && !disposed && sequence === runSequence && fence.current()) dataQuality = quality;
+      });
       if (controller.signal.aborted || disposed || sequence !== runSequence || !fence.current()) return;
       if (!validWorkspaceReport(result)) {
         throw new Error('The workspace report uses an unsupported format.');
@@ -437,9 +445,10 @@
 
     <main class="results" aria-label="Robustness results" aria-busy={running}>
       <p class="live-status" role="status" aria-live="polite">{statusMessage}</p>
+      {#if mode === 'workspace' && (running || runError || dataQuality)}<DataQualityEvidence report={dataQuality} pending={running} />{/if}
       {#if mode === 'workspace'}
         <div class="notice">
-          <p>Latest report/review: account-scoped browser storage only, not encrypted or cloud-synced. Guest/examples are never adopted. This does not change server-local/shared research snapshot access.</p>
+          <p>Latest report/review: account-scoped browser storage only, not encrypted or cloud-synced. Guest/examples are never adopted. Stored run snapshots are separate, account-private and server-local; notebook metadata restore does not restore robustness reports.</p>
           {#if recovery.saved && recovery.saved.report.report_id !== report?.report_id}
             <p>Saved report: {recovery.saved.report.strategy.name} · {recovery.saved.report.dataset.label}. Original browser receipt: {recovery.saved.received_at}.</p>
             <button type="button" class="ot-workbench-ghost" disabled={running} onclick={restorePrevious}>Restore previous report · keep current draft</button>

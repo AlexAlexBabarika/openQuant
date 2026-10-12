@@ -28,6 +28,7 @@ class RunInputs:
     costs: Costs | None = None
     universe: Universe | None = None
     constraints: Constraints | None = None
+    date_range: dict | None = None
 
 
 def _cost_model_dict(model: object) -> dict:
@@ -83,9 +84,12 @@ def constraints_to_dict(constraints: Constraints | None) -> dict | None:
 def config_to_dict(
     inputs: RunInputs, event_times: list[datetime] | None = None
 ) -> dict:
-    return {
+    config = {
         "costs": costs_to_dict(inputs.costs),
         "starting_cash": inputs.starting_cash,
         "universe": universe_to_dict(inputs.universe, event_times),
         "constraints": constraints_to_dict(inputs.constraints),
     }
+    if inputs.date_range is not None:
+        config["date_range"] = inputs.date_range
+    return config

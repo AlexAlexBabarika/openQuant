@@ -232,6 +232,22 @@ export class RunsHistory {
     return serializeNotebookMetadata(this.entries);
   }
 
+  replaceMetadata(json: string, accountVersion: number): void {
+    if (accountVersion !== this.accountVersion)
+      throw new Error(
+        'Notebook account changed. Restore again for the current account.',
+      );
+    this.exportMetadata();
+    const entries = parseNotebookMetadata(json);
+    if (!this.#storage)
+      throw new Error(
+        'Browser storage unavailable. Current notes are unchanged.',
+      );
+    this.#storage.setItem(this.#key, JSON.stringify(entries));
+    this.entries = entries;
+    this.storageError = null;
+  }
+
   importMetadata(
     json: string,
     accountVersion = this.accountVersion,

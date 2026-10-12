@@ -28,6 +28,7 @@ class RobustnessRequest(TrialModel):
     slippage_bps: CostBps = 5.0
     holdout_fraction: float = Field(default=0.3, ge=0.1, le=0.5, allow_inf_nan=False)
     sensitivity_parameter: str | None = Field(default=None, max_length=100)
+    preview_data_version: str | None = Field(default=None, max_length=512)
 
 
 class WorkspaceStrategy(TrialModel):
@@ -122,6 +123,7 @@ class WorkspaceRegimes(TrialModel):
 
 
 class WorkspaceReport(TrialModel):
+    data_quality: dict | None = None
     schema_version: Literal[1] = 1
     source: Literal["workspace"] = "workspace"
     report_id: str

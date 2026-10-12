@@ -2,6 +2,7 @@
   import type { ResearchReview } from '../trial-report/types';
   import { isWorkspaceReport, type EvidenceReport } from './workspace';
   import RunMetrics from './RunMetrics.svelte';
+  import DataQualityEvidence from '../../../components/backtest/DataQualityEvidence.svelte';
   import { formatDate, formatPercent } from './evidence';
 
   let { report, review, disabled = false, onreview }: {
@@ -18,6 +19,7 @@
 
 <section aria-labelledby={`${id}-heading`}>
   <h3 id={`${id}-heading`}>Staged research review · not a confidence score</h3>
+  {#if isWorkspaceReport(report)}<DataQualityEvidence report={report.data_quality} />{/if}
   <ol>
     <li><strong>Context and assumptions.</strong> Review the original receipt, data dates, source/engine/data identities and assumptions below. A content identity does not establish data quality.</li>
     <li><strong>Baseline and configured costs.</strong> Frictionless return {formatPercent(report.baseline.total_return, true)}; configured-cost return {formatPercent(report.realistic.total_return, true)}. Costs may change decisions and fills.</li>

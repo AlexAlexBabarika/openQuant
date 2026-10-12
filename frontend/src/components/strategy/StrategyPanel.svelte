@@ -23,6 +23,7 @@
   import SweepPanel from '../sweep/SweepPanel.svelte';
   import PortfolioPanel from './PortfolioPanel.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
+  import DataQualityEvidence from '../backtest/DataQualityEvidence.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
   import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
   import { runsHistory } from '$lib/features/runs/runsHistory.svelte';
@@ -149,7 +150,7 @@
     const market = { symbol, provider, period, interval };
     const bt = await strat.runBacktest(market);
     if (strat.backtest === bt && !bt.error) {
-      if (bt.result && accountVersion === runsHistory.accountVersion) runsHistory.record({
+      if (bt.result?.meta.run_id && accountVersion === runsHistory.accountVersion) runsHistory.record({
         run_id: bt.result.meta.run_id, kind: 'single', label: runName,
         created_at: bt.result.meta.finished_at,
       });
@@ -372,6 +373,7 @@
               {#if strat.runError}
                 <ErrorBanner message={strat.runError} />
               {/if}
+              {#if strat.isRunning || strat.runError || strat.dataQuality}<DataQualityEvidence report={strat.dataQuality} pending={strat.isRunning} />{/if}
 
               <button
                 type="button"

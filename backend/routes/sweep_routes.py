@@ -90,7 +90,11 @@ class WalkForwardRequest(SweepRequest):
 
 
 async def _load_frame(
-    body: _DataRequest, user: AuthUserInfo | None = None
+    body: _DataRequest,
+    user: AuthUserInfo | None = None,
+    *,
+    preserve_order: bool = False,
+    cache_only: bool = False,
 ) -> tuple[pl.DataFrame, str]:
     """Fetch (or cache-hit) candles and return (frame, data_version)."""
     sym = body.symbol.strip()
@@ -113,6 +117,11 @@ async def _load_frame(
         body.provider.value, sym, period=body.period, interval=body.interval
     )
     if not candles:
+        if cache_only:
+            raise HTTPException(
+                404,
+                "Quality preview unavailable: load this chart dataset first. Execution will inspect its loaded snapshot.",
+            )
         try:
             candles = await run_in_threadpool(
                 _fetch_candles_blocking,
@@ -144,10 +153,14 @@ async def _load_frame(
     if not candles:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No data for '{sym}'")
 
-    frame = _candles_to_df(candles)
+    frame = _candles_to_df(candles, preserve_order=preserve_order)
     digest = hashlib.sha256(frame.write_json().encode()).hexdigest()
     data_version = f"{body.provider.value}:{sym}:{body.period}:{body.interval}:{digest}"
     return frame, data_version
+
+
+async def _load_research_frame(body, user=None, *, cache_only: bool = False):
+    return await _load_frame(body, user, preserve_order=True, cache_only=cache_only)
 
 
 @router.post("/schema")

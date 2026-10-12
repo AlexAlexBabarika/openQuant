@@ -20,13 +20,14 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.backtesting.run_config import RunInputs
+from backend.backtesting.data_quality import inspect_frame
 from backend.backtesting.run_snapshot import assemble_snapshot
 from backend.backtesting.run_store import RunStore
 from backend.backtesting.sandbox import parse_strategy_schema, run_strategy
 from backend.core.auth_deps import get_current_user
 from backend.models.auth_models import AuthUserInfo
 from backend.models.market_data_models import MarketDataProviderEnum
-from backend.routes.sweep_routes import _load_frame
+from backend.routes.sweep_routes import _load_research_frame as _load_frame
 from backend.scripts.ast_guard import ScriptValidationError
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,57 @@ class BacktestRunRequest(BaseModel):
     starting_cash: float = Field(100_000.0, gt=0, allow_inf_nan=False)
     seed: int = 0
     params: dict = Field(default_factory=dict)
+    preview_data_version: str | None = Field(default=None, max_length=512)
+
+
+class QualityPreviewRequest(BaseModel):
+    symbol: str = Field(min_length=1, pattern=r"\S")
+    provider: MarketDataProviderEnum
+    period: str = "1y"
+    interval: str = "1d"
+
+
+def execution_quality(body, frame, data_version: str) -> dict:
+    quality = inspect_frame(
+        frame,
+        provider=body.provider.value,
+        interval=body.interval,
+        data_version=data_version,
+    )
+    if getattr(body, "preview_data_version", None) not in (None, data_version):
+        raise HTTPException(
+            409,
+            {
+                "message": "Dataset changed since quality preview. Preview again before running.",
+                "data_quality": quality,
+            },
+        )
+    if quality["errors"]:
+        raise HTTPException(
+            422,
+            {
+                "message": "Data quality errors block execution.",
+                "data_quality": quality,
+            },
+        )
+    return quality
+
+
+@router.post("/quality-preview")
+async def quality_preview(
+    body: QualityPreviewRequest, user: AuthUserInfo | None = Depends(optional_run_user)
+) -> dict:
+    frame, data_version = await _load_frame(body, user, cache_only=True)
+    return {
+        "data_quality": inspect_frame(
+            frame,
+            provider=body.provider.value,
+            interval=body.interval,
+            data_version=data_version,
+        ),
+        "data_version": data_version,
+        "limitation": "Cache-only preview of canonical provider bars after upstream normalization; not provider certification. Execution re-inspects its loaded snapshot and rejects changed preview identity. Calendar, adjustment and freshness are unknown.",
+    }
 
 
 @router.post("/run")
@@ -78,6 +130,7 @@ async def run(
     params = {**defaults, **body.params}
 
     frame, data_version = await _load_frame(body, user)
+    quality = execution_quality(body, frame, data_version)
     result = await run_in_threadpool(
         run_strategy,
         body.code,
@@ -88,6 +141,8 @@ async def run(
         params=params,
     )
     blob = dataclasses.asdict(result)
+    blob["meta"]["data_quality"] = quality
+    blob["meta"]["data_version"] = data_version
     persistence: RunPersistence = {
         "stored": False,
         "reason": "guest" if user is None else "run_failed",
@@ -101,6 +156,10 @@ async def run(
             data_version=data_version,
             seed=body.seed,
             starting_cash=body.starting_cash,
+            date_range={
+                "start": quality["provenance"]["start"],
+                "end": quality["provenance"]["end"],
+            },
         )
         run_id = await run_in_threadpool(
             _RUN_STORE.for_owner(user.id).write, assemble_snapshot(blob, inputs)

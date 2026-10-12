@@ -9,7 +9,7 @@ from backend.backtesting.run_lineage import compare_lineage
 
 _CONTEXT_FIELDS = (
     ("meta.data_quality", "Recorded data quality", "Dataset & quality"),
-    ("config.date_range", "Requested date range", "Date range & holdout"),
+    ("config.date_range", "Recorded date range", "Date range & holdout"),
     ("config.holdout", "Recorded holdout", "Date range & holdout"),
 )
 _METRICS = {

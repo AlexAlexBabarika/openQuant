@@ -1,5 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { authState } from '$lib/features/auth/auth';
+  import { runsClient } from '$lib/features/runs/runsClient';
   import * as Dialog from '$lib/components/ui/dialog';
   import { runsHistory } from '$lib/features/runs/runsHistory.svelte';
   import { truncateRunId } from '$lib/features/runs/format';
@@ -23,6 +25,8 @@
   let transferMessage = $state<string | null>(null);
   let transferError = $state(false);
   let transferGeneration = 0;
+  let backupConfirmed = $state(false);
+  let restorePreview = $state<{json: string; local: string; owner: number} | null>(null);
   const entries = $derived(runsHistory.entries.filter(e =>
     `${e.label} ${(e.tags ?? []).join(' ')} ${e.notes ?? ''}`.toLowerCase().includes(query.toLowerCase())));
   $effect(() => {
@@ -47,6 +51,49 @@
     importing = false;
     transferMessage = null;
     transferError = false;
+    backupConfirmed = false;
+    restorePreview = null;
+  }
+
+  async function serverMetadata(save: boolean): Promise<void> {
+    if (!$authState.user || importing || (save && !backupConfirmed)) return;
+    const owner = runsHistory.accountVersion;
+    const generation = ++transferGeneration;
+    const current = () => owner === runsHistory.accountVersion && generation === transferGeneration && open;
+    importing = true;
+    restorePreview = null;
+    transferMessage = null;
+    transferError = false;
+    try {
+      const local = runsHistory.exportMetadata();
+      const json = await runsClient.notebookMetadata(save ? local : undefined);
+      if (!current()) return;
+      if (save) transferMessage = 'Account-private server-local notebook metadata saved. Concurrent saves replace the whole document; no sync or version history.';
+      else {
+        restorePreview = { json, local, owner };
+        transferMessage = 'Server metadata loaded. Browser notes unchanged. Export current notes before explicitly replacing them below.';
+      }
+    } catch (error) {
+      if (!current()) return;
+      transferError = true;
+      transferMessage = error instanceof Error ? error.message : 'Notebook server request failed. Current notes are unchanged.';
+    } finally {
+      if (current()) { importing = false; backupConfirmed = false; }
+    }
+  }
+
+  function replaceFromServer(): void {
+    if (!restorePreview || !$authState.user) return;
+    try {
+      if (restorePreview.local !== runsHistory.exportMetadata()) throw new Error('Browser notes changed while loading. Restore again; notes have not been overwritten.');
+      runsHistory.replaceMetadata(restorePreview.json, restorePreview.owner);
+      transferMessage = 'Browser notebook replaced by your explicit choice. References grant no snapshot access.';
+      transferError = false;
+    } catch (error) {
+      transferError = true;
+      transferMessage = error instanceof Error ? error.message : 'Restore failed. Current notes are unchanged.';
+    }
+    restorePreview = null;
   }
 
   function chooseImport(event: Event): void {
@@ -121,7 +168,7 @@
   <Dialog.Content portalProps={{ disabled: typeof window === 'undefined' }} class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
     <Dialog.Header>
       <Dialog.Title>Experiment notebook</Dialog.Title>
-      <Dialog.Description>Run references, names, tags, notes, and human research decisions stay in this browser, separated by account. Stored snapshots are server-local and not account-scoped.</Dialog.Description>
+      <Dialog.Description>Notebook notes stay in this browser, separated by account, unless explicitly saved below. Stored snapshots are account-private and server-local. Guest runs are not stored; legacy references grant no account access.</Dialog.Description>
     </Dialog.Header>
     {#if runsHistory.storageError}<p role="status">{runsHistory.storageError}</p>{/if}
     {#if runsHistory.guestReferenceCount}
@@ -138,6 +185,13 @@
           <button type="submit" class="ot-workbench-ghost justify-self-start" disabled={!importFile || importing}>{importing ? 'Reading metadata…' : 'Import missing references'}</button>
         </form>
         {#if transferMessage}<p role={transferError ? 'alert' : 'status'}>{transferMessage}</p>{/if}
+        <p class="text-muted-foreground">Server backup contains metadata only, not snapshots or source. No cloud sync, encryption or automatic guest adoption. Whole-document save replaces a readable backup; unreadable backups are preserved.</p>
+        {#if $authState.user}
+          <label><input type="checkbox" bind:checked={backupConfirmed} disabled={importing} /> I choose to replace this account’s server metadata backup.</label>
+          <button type="button" class="ot-workbench-ghost" disabled={importing || !backupConfirmed} onclick={() => serverMetadata(true)}>Save notebook to server</button>
+          <button type="button" class="ot-workbench-ghost" disabled={importing} onclick={() => serverMetadata(false)}>Load server notebook for restore</button>
+          {#if restorePreview}<button type="button" class="ot-workbench-ghost" onclick={replaceFromServer}>Replace browser notes with loaded server notebook</button>{/if}
+        {:else}<p class="text-muted-foreground">Sign in to explicitly save or restore server metadata. Guest references are never adopted automatically.</p>{/if}
       </div>
     </details>
     <label class="grid gap-1 text-sm">Search experiments<input class="rounded border bg-background p-2" bind:value={query} /></label>

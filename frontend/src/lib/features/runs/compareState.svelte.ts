@@ -7,11 +7,11 @@ export class CompareState {
   diff = $state<RunDiff | null>(null);
   loading = $state(false);
   error = $state<string | null>(null);
-  #client: RunsClient;
+  #client: Omit<RunsClient, 'notebookMetadata'>;
   #sequence = 0;
   #account: string | null | undefined;
 
-  constructor(client: RunsClient = runsClient) {
+  constructor(client: Omit<RunsClient, 'notebookMetadata'> = runsClient) {
     this.#client = client;
   }
 

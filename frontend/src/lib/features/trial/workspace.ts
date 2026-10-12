@@ -1,4 +1,8 @@
-import { apiJson } from '$lib/core/api';
+import {
+  runWithQuality,
+  type DataQualityReport,
+  type QualityObserver,
+} from '$lib/features/runs/dataQuality';
 import type { MarketDataProviderValue } from '$lib/features/market/marketDataProviders';
 import type {
   CostStress,
@@ -68,6 +72,7 @@ export type WorkspaceReport = Omit<
   cost_stress?: CostStress | null;
   walk_forward?: WorkspaceWalkForward | null;
   regimes?: WorkspaceRegimes | null;
+  data_quality?: DataQualityReport | null;
   strategy: Omit<TrialReport['strategy'], 'id'> & { id: 'workspace' };
   dataset: Omit<TrialReport['dataset'], 'synthetic'> & { synthetic: false };
   config: WorkspaceSettings & { strategy_id: 'workspace'; seed: number };
@@ -120,14 +125,12 @@ export function runWorkspaceChecks(
   context: WorkspaceContext,
   settings: WorkspaceSettings,
   signal: AbortSignal,
+  observe?: QualityObserver,
 ): Promise<WorkspaceReport> {
-  return apiJson<WorkspaceReport>(
+  return runWithQuality<WorkspaceReport>(
     '/backtests/robustness',
-    {
-      method: 'POST',
-      signal,
-      body: JSON.stringify({ ...context, ...settings, seed: 0 }),
-    },
-    true,
+    { ...context, ...settings, seed: 0 },
+    signal,
+    observe,
   );
 }

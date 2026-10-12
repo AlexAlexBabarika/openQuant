@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
+import {
+  validWorkspaceReport,
+  loadLatestReview,
+  saveLatestReview,
+  latestReviewKey,
+  type SavedReview,
+} from './recovery';
 import { clearAccessToken, setAccessToken } from '$lib/core/api';
 import StrategyTrial from './StrategyTrial.svelte';
 import ReportContext from './ReportContext.svelte';
@@ -159,8 +166,10 @@ describe('workspace robustness inputs and boundary', () => {
     for (const form of forms) expect(body).toContain(`form="${form}"`);
   });
   it('uses the current editor/context with authenticated POST, never a code-bearing URL', async () => {
-    const fetch = vi.fn(
-      async () => new Response(JSON.stringify(fixture()), { status: 200 }),
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith('quality-preview')
+        ? new Response('', { status: 404 })
+        : new Response(JSON.stringify(fixture()), { status: 200 }),
     );
     vi.stubGlobal('fetch', fetch);
     setAccessToken('test-access-token');
@@ -171,7 +180,13 @@ describe('workspace robustness inputs and boundary', () => {
       controller.signal,
     );
     expect(isWorkspaceReport(report)).toBe(true);
-    const [url, options] = fetch.mock.calls[0] as unknown as [
+    const [previewUrl, previewOptions] = fetch.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(previewUrl).toBe('/backtests/quality-preview');
+    expect(previewOptions.body).not.toContain(context.code);
+    const [url, options] = fetch.mock.calls[1] as unknown as [
       string,
       RequestInit,
     ];
@@ -415,6 +430,125 @@ describe('private workspace evidence export', () => {
 });
 
 describe('walk-forward and regime research review', () => {
+  it('round-trips new evidence through strict browser recovery and source-free escaped HTML', () => {
+    const report = chronologyFixture();
+    report.data_quality = {
+      errors: [],
+      warnings: [
+        {
+          code: 'calendar_unknown',
+          message: '<warning>',
+          column: null,
+          count: 1,
+          rows: [],
+        },
+      ],
+      provenance: {
+        provider: 'yfinance',
+        interval: '1d',
+        data_version: 'v1',
+        row_count: 120,
+        start: '2025-01-01T00:00:00Z',
+        end: '2025-04-30T00:00:00Z',
+        timestamp_timezone: 'UTC',
+        timestamp_unit: 'us',
+        nominal_interval_seconds: 86400,
+        calendar: 'unknown',
+        adjustment: 'unknown',
+        staleness: 'not_assessed',
+        example_limit: 5,
+      },
+    };
+    expect(validWorkspaceReport(report)).toBe(true);
+    const saved: SavedReview = {
+      version: 1,
+      account: 'a',
+      received_at: '2026-10-12T00:00:00Z',
+      input_fingerprint: 'a'.repeat(64),
+      context: {
+        name: context.name,
+        symbol: context.symbol,
+        provider: context.provider,
+        period: context.period,
+        interval: context.interval,
+      },
+      report,
+    };
+    const data = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        data.set(key, value);
+      },
+    };
+    expect(saveLatestReview(storage, saved, () => 'a')).toBe('saved');
+    const loaded = loadLatestReview(storage, 'a');
+    expect(loaded.saved?.report).toEqual(report);
+    expect(loadLatestReview(storage, 'b').saved).toBeNull();
+    expect(data.get(latestReviewKey('a'))).not.toContain(context.code);
+    const html = generateTrialReportHtml(report);
+    expect(html).toContain('Fold 3');
+    expect(html).toContain('Validation strategy');
+    expect(html).toContain('rising');
+    expect(html).toContain('&lt;warning&gt;');
+    expect(html).toContain('No fitting, optimization or parameter selection');
+    expect(html).not.toContain(context.code);
+    expect(html).not.toMatch(/<script\b|<warning>/);
+  });
+
+  it('preserves old absent/null fields but rejects malformed or source-bearing new evidence', () => {
+    expect(validWorkspaceReport(fixture())).toBe(true);
+    expect(
+      validWorkspaceReport({
+        ...fixture(),
+        walk_forward: null,
+        regimes: null,
+        data_quality: null,
+      }),
+    ).toBe(true);
+    const report = chronologyFixture();
+    expect(validWorkspaceReport(report)).toBe(true);
+    expect(
+      validWorkspaceReport({
+        ...report,
+        walk_forward: { ...report.walk_forward, folds: [] },
+      }),
+    ).toBe(false);
+    expect(
+      validWorkspaceReport({
+        ...report,
+        regimes: { ...report.regimes, source: context.code },
+      }),
+    ).toBe(false);
+    expect(
+      validWorkspaceReport({
+        ...report,
+        regimes: { ...report.regimes, threshold: 0.2 },
+      }),
+    ).toBe(false);
+    expect(
+      validWorkspaceReport({
+        ...report,
+        regimes: {
+          ...report.regimes,
+          observations: [
+            { fold_id: 1, label: 'rising', market_return: Infinity },
+          ],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      validWorkspaceReport({
+        ...report,
+        data_quality: {
+          errors: [],
+          warnings: [],
+          provenance: { source: context.code },
+        },
+      }),
+    ).toBe(false);
+  });
+
   it('renders original fold dates, bars and separate funded outcomes with retrospective limitations', () => {
     const html = renderReview(chronologyFixture());
     for (const label of [
@@ -440,7 +574,7 @@ describe('walk-forward and regime research review', () => {
       'Continue research · not approval to trade',
     ])
       expect(html).toContain(label);
-    expect(html.match(/<details\b/g)).toHaveLength(3);
+    expect(html.match(/<details\b/g)).toHaveLength(4);
     expect(html.match(/<caption\b[^>]*>Fold/g)).toHaveLength(3);
   });
 

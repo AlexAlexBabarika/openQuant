@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import {
@@ -46,8 +47,16 @@ const historyModule = clientModule<{ RunsHistory: typeof RunsHistory }>(
   { './notebookMetadata': metadata },
 );
 
-function setup(store = storage()) {
+function setup(
+  store = storage(),
+  server = vi.fn(async (_json?: string) =>
+    metadata.serializeNotebookMetadata([entry('server')]),
+  ),
+) {
   const history = new historyModule.RunsHistory(store);
+  const authState = writable<{ user: { id: string } | null }>({
+    user: { id: 'a' },
+  });
   const url = new URL('./RecentRunsPanel.svelte', import.meta.url);
   const script = readFileSync(url, 'utf8').split('</script>')[0];
   const module = clientModule<{
@@ -60,6 +69,9 @@ function setup(store = storage()) {
       exportNow: () => void;
       setOpen: (value: boolean) => void;
       save: (data: FormData, id: string) => void;
+      server: (save: boolean) => Promise<void>;
+      confirmBackup: () => void;
+      replace: () => void;
       read: () => {
         importing: boolean;
         message: string | null;
@@ -74,6 +86,10 @@ function setup(store = storage()) {
       '$lib/features/runs/runsHistory.svelte': { runsHistory: history },
       '$lib/features/runs/format': { truncateRunId },
       '$lib/features/runs/notebookMetadata': metadata,
+      '$lib/features/auth/auth': { authState },
+      '$lib/features/runs/runsClient': {
+        runsClient: { notebookMetadata: server },
+      },
     },
     `${script}
     export function choose(file: File) { chooseImport({ currentTarget: { files: [file] } } as unknown as Event); }
@@ -81,6 +97,9 @@ function setup(store = storage()) {
     export function exportNow() { exportMetadata(); }
     export function setOpen(value: boolean) { open = value; }
     export function save(data: FormData, id: string) { saveEntry({ currentTarget: data, preventDefault() {} } as unknown as SubmitEvent, id); }
+    export function server(save: boolean) { return serverMetadata(save); }
+    export function confirmBackup() { backupConfirmed = true; }
+    export function replace() { replaceFromServer(); }
     export function read() { return { importing, message: transferMessage, error: transferError, hasFile: importFile !== null }; }
   </script>`,
   );
@@ -94,7 +113,7 @@ function setup(store = storage()) {
   });
   cleanups.push(stop);
   client.flush();
-  return { panel, history, stop, store };
+  return { panel, history, stop, store, server, authState };
 }
 
 const file = (json: string) => ({
@@ -103,6 +122,102 @@ const file = (json: string) => ({
 });
 
 describe('notebook transfer client lifecycle', () => {
+  it('saves only after replacement confirmation and never adopts guest references', async () => {
+    const { panel, history, server } = setup();
+    history.record(entry('guest'));
+    history.setAccount('a');
+    client.flush();
+    await panel.server(true);
+    expect(server).not.toHaveBeenCalled();
+    expect(history.entries).toEqual([]);
+    panel.confirmBackup();
+    await panel.server(true);
+    expect(server).toHaveBeenCalledWith(metadata.serializeNotebookMetadata([]));
+    expect(history.entries).toEqual([]);
+    history.setAccount(null);
+    expect(history.entries[0].run_id).toBe('guest');
+  });
+
+  it('loads a server document without overwriting local notes until explicit replacement', async () => {
+    const { panel, history } = setup();
+    history.setAccount('a');
+    history.record(entry('local'));
+    client.flush();
+    await panel.server(false);
+    expect(history.entries[0].run_id).toBe('local');
+    panel.replace();
+    expect(history.entries[0].run_id).toBe('server');
+    expect(panel.read().error).toBe(false);
+  });
+
+  it('refuses restore if browser notes changed after the preview', async () => {
+    const { panel, history } = setup();
+    history.setAccount('a');
+    history.record(entry('local'));
+    client.flush();
+    await panel.server(false);
+    history.annotate('local', 'Edited', '', 'Keep these notes');
+    panel.replace();
+    expect(history.entries[0].notes).toBe('Keep these notes');
+    expect(panel.read().error).toBe(true);
+  });
+
+  it.each([true, false])(
+    'fences stale server save/restore responses across A/B/A without effects flushing: save=%s',
+    async save => {
+      const result = deferred<string>();
+      const server = vi.fn(() => result.promise);
+      const { panel, history } = setup(storage(), server);
+      history.setAccount('a');
+      history.record(entry('a-local'));
+      client.flush();
+      panel.confirmBackup();
+      const pending = panel.server(save);
+      history.setAccount('b');
+      history.setAccount('a');
+      result.resolve(
+        metadata.serializeNotebookMetadata([entry('stale-server')]),
+      );
+      await pending;
+      panel.replace();
+      expect(history.entries[0].run_id).toBe('a-local');
+      expect(panel.read().message).toBeNull();
+    },
+  );
+
+  it('requires an authenticated account for server actions', async () => {
+    const { panel, authState, server } = setup();
+    authState.set({ user: null });
+    client.flush();
+    panel.confirmBackup();
+    await panel.server(true);
+    await panel.server(false);
+    expect(server).not.toHaveBeenCalled();
+  });
+
+  it('preserves current notes on unreadable server backup and on quota failure', async () => {
+    const server = vi.fn(async (): Promise<string> => {
+      throw new Error('Existing server backup unreadable; preserved');
+    });
+    const { panel, history, store } = setup(storage(), server);
+    history.setAccount('a');
+    history.record(entry('local'));
+    client.flush();
+    await panel.server(false);
+    expect(panel.read().error).toBe(true);
+    expect(history.entries[0].run_id).toBe('local');
+    server.mockImplementation(async () =>
+      metadata.serializeNotebookMetadata([entry('server')]),
+    );
+    await panel.server(false);
+    vi.spyOn(store, 'setItem').mockImplementation(() => {
+      throw new Error('Quota');
+    });
+    panel.replace();
+    expect(history.entries[0].run_id).toBe('local');
+    expect(panel.read().error).toBe(true);
+  });
+
   it('waits for explicit submission, prevents duplicate reads, and reports only persisted imports', async () => {
     const { panel, history, store } = setup();
     const read = deferred<string>();
@@ -372,7 +487,7 @@ describe('notebook SSR form semantics', () => {
     for (const label of Object.values(metadata.RESEARCH_DECISIONS))
       expect(html).toContain(label);
     expect(html).toContain('not certification');
-    expect(html).toContain('not account-scoped');
+    expect(html).toContain('account-private');
     expect(html).toContain('6 MiB');
     expect(html).toContain('Unencrypted');
     expect(html).toContain('no cloud sync');

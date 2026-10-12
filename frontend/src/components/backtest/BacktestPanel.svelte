@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DataQualityEvidence from './DataQualityEvidence.svelte';
   import { onDestroy, untrack } from 'svelte';
   import { Dialog } from 'bits-ui';
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
@@ -95,7 +96,7 @@
         {#if meta?.run_id}
           <RunIdChip runId={meta.run_id} onCompare={onOpenRuns} />
           {#if onCompare && runsHistory.baseline && runsHistory.baseline.run_id !== meta.run_id}
-            <button type="button" class="ot-workbench-ghost" onclick={() => onCompare?.(runsHistory.baseline!.run_id, meta.run_id)}>Compare with baseline</button>
+            <button type="button" class="ot-workbench-ghost" onclick={() => onCompare?.(runsHistory.baseline!.run_id, meta.run_id!)}>Compare with baseline</button>
           {/if}
         {/if}
       </div>
@@ -104,6 +105,9 @@
         <X class="h-3.5 w-3.5" />
       </button>{/if}
     </header>
+
+    <DataQualityEvidence report={meta?.data_quality} />
+    {#if !meta?.run_id}<p class="text-xs text-muted-foreground">No saved-run reference. Guest and failed runs are not stored; current results remain in memory only.</p>{/if}
 
     <StaleBanner
       status={backtest.status}
@@ -119,7 +123,7 @@
         <div class="status">
           <p class="err" role="alert">{backtest.error}</p>
           {#if !embedded}
-            <p class="text-xs text-muted-foreground">A notebook reference does not guarantee that its stored result is available. Stored snapshots are server-local and not account-scoped.</p>
+            <p class="text-xs text-muted-foreground">A notebook reference does not guarantee a stored result. Snapshots are account-private and server-local. Guest runs are not stored; legacy references grant no access.</p>
             <button type="button" class="ot-workbench-ghost" onclick={() => void backtest.load()}>Retry loading result</button>
           {/if}
         </div>

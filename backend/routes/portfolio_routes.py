@@ -17,7 +17,7 @@ import logging
 from datetime import datetime, timezone
 
 import polars as pl
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -34,6 +34,8 @@ from backend.datastore.errors import DataNotFound
 from backend.datastore.layout import StoreLayout
 from backend.datastore.store import HistoricalStore
 from backend.models.market_data_models import MarketDataProviderEnum
+from backend.models.auth_models import AuthUserInfo
+from backend.routes.backtest_routes import optional_run_user, RunPersistence
 from backend.scripts.ast_guard import ScriptValidationError
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,17 @@ _RUN_STORE = RunStore.default()
 
 
 def _persist_portfolio(
-    blob, *, code, params, data_version, seed, starting_cash, universe, constraints
+    blob,
+    *,
+    owner_id,
+    code,
+    params,
+    data_version,
+    seed,
+    starting_cash,
+    universe,
+    constraints,
+    date_range,
 ) -> str:
     inputs = RunInputs(
         code=code,
@@ -65,8 +77,9 @@ def _persist_portfolio(
         starting_cash=starting_cash,
         universe=universe,
         constraints=constraints,
+        date_range=date_range,
     )
-    return _RUN_STORE.write(assemble_snapshot(blob, inputs))
+    return _RUN_STORE.for_owner(owner_id).write(assemble_snapshot(blob, inputs))
 
 
 class ConstraintsModel(BaseModel):
@@ -132,7 +145,9 @@ def _clip(
 
 
 @router.post("/run")
-async def run(body: PortfolioRunRequest) -> dict:
+async def run(
+    body: PortfolioRunRequest, user: AuthUserInfo | None = Depends(optional_run_user)
+) -> dict:
     try:
         schema = parse_portfolio_strategy_schema(body.code)
     except ScriptValidationError as e:
@@ -195,9 +210,17 @@ async def run(body: PortfolioRunRequest) -> dict:
         data_version=data_version,
     )
     blob = dataclasses.asdict(result)
-    if result.status == "ok":
-        run_id = _persist_portfolio(
+    blob["meta"].pop("run_id", None)
+    persistence: RunPersistence = {
+        "stored": False,
+        "reason": "guest" if user is None else "run_failed",
+        "run_id": None,
+    }
+    if result.status == "ok" and user is not None:
+        run_id = await run_in_threadpool(
+            _persist_portfolio,
             blob,
+            owner_id=user.id,
             code=body.code,
             params=params,
             data_version=data_version,
@@ -205,10 +228,26 @@ async def run(body: PortfolioRunRequest) -> dict:
             starting_cash=body.starting_cash,
             universe=universe,
             constraints=body.constraints.to_constraints() if body.constraints else None,
+            date_range={
+                "start": min(
+                    stamp
+                    for f in frames.values()
+                    for stamp in f["timestamp"]
+                    if isinstance(stamp, datetime)
+                ).isoformat(),
+                "end": max(
+                    stamp
+                    for f in frames.values()
+                    for stamp in f["timestamp"]
+                    if isinstance(stamp, datetime)
+                ).isoformat(),
+            },
         )
         blob["run_id"] = run_id
         # Expose the content-addressed id as meta.run_id too, so it matches the
         # stored snapshot (and what GET /backtests/runs/{id} returns) rather than
         # the engine's throwaway uuid.
         blob["meta"]["run_id"] = run_id
+        persistence = {"stored": True, "reason": "authenticated", "run_id": run_id}
+    blob["persistence"] = persistence
     return blob

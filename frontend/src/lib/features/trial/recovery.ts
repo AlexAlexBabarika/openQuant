@@ -5,6 +5,7 @@ import type {
   WorkspaceSettings,
 } from './workspace';
 import { workspaceFingerprint } from './workspace';
+import { validDataQuality } from '$lib/features/runs/dataQuality';
 
 export const MAX_REVIEW_REASON = 2000;
 export const MAX_SAVED_REPORT = 3_000_000;
@@ -94,6 +95,80 @@ function run(value: unknown): value is RunSummary {
   );
 }
 
+function walkForward(value: unknown): boolean {
+  if (
+    !object(value) ||
+    !only(value, ['status', 'folds', 'assumption', 'limitation']) ||
+    !['measured', 'inadequate-sample'].includes(String(value.status)) ||
+    !text(value.assumption) ||
+    !text(value.limitation) ||
+    !Array.isArray(value.folds) ||
+    value.folds.length !== 3
+  )
+    return false;
+  return value.folds.every(
+    (fold, index) =>
+      object(fold) &&
+      only(fold, [
+        'id',
+        'status',
+        'train_start',
+        'train_end',
+        'training_bars',
+        'validation_start',
+        'validation_end',
+        'validation_bars',
+        'strategy',
+        'benchmark',
+      ]) &&
+      fold.id === index + 1 &&
+      fold.status === value.status &&
+      [
+        fold.train_start,
+        fold.train_end,
+        fold.validation_start,
+        fold.validation_end,
+      ].every(date) &&
+      count(fold.training_bars) &&
+      count(fold.validation_bars) &&
+      (fold.status === 'measured'
+        ? run(fold.strategy) && run(fold.benchmark)
+        : fold.strategy === null && fold.benchmark === null),
+  );
+}
+
+function regimes(value: unknown): boolean {
+  if (
+    !object(value) ||
+    !only(value, [
+      'status',
+      'method',
+      'threshold',
+      'observations',
+      'assumption',
+      'limitation',
+    ]) ||
+    !['measured', 'inadequate-sample', 'unsupported-data'].includes(
+      String(value.status),
+    ) ||
+    value.method !== 'validation-close-return-v1' ||
+    value.threshold !== 0.05 ||
+    !text(value.assumption) ||
+    !text(value.limitation) ||
+    !Array.isArray(value.observations) ||
+    value.observations.length !== (value.status === 'measured' ? 3 : 0)
+  )
+    return false;
+  return value.observations.every(
+    (obs, index) =>
+      object(obs) &&
+      only(obs, ['fold_id', 'label', 'market_return']) &&
+      obs.fold_id === index + 1 &&
+      ['rising', 'falling', 'sideways'].includes(String(obs.label)) &&
+      finite(obs.market_return),
+  );
+}
+
 export function validReview(value: unknown): value is ResearchReview {
   return (
     object(value) &&
@@ -128,7 +203,16 @@ export function validWorkspaceReport(value: unknown): value is WorkspaceReport {
       'limitations',
       'cost_stress',
       'research_review',
+      'walk_forward',
+      'regimes',
+      'data_quality',
     ])
+  )
+    return false;
+  if (
+    (value.walk_forward != null && !walkForward(value.walk_forward)) ||
+    (value.regimes != null && !regimes(value.regimes)) ||
+    (value.data_quality != null && !validDataQuality(value.data_quality))
   )
     return false;
   if (

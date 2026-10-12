@@ -52,7 +52,7 @@ describe('empty backtest results', () => {
     }).body;
     expect(html).toContain('Run not found');
     expect(html).toContain('Retry loading result');
-    expect(html).toContain('server-local and not account-scoped');
+    expect(html).toContain('account-private and server-local');
     expect(html).not.toContain('original account');
     expect(html).not.toContain('Loading result…');
   });

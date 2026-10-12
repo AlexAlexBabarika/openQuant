@@ -64,7 +64,10 @@ export interface BacktestTrade {
 }
 
 export interface RunMeta {
-  run_id: string;
+  run_id?: string;
+  data_quality?:
+    | import('$lib/features/runs/dataQuality').DataQualityReport
+    | null;
   seed: number;
   starting_cash: number;
   started_at: string; // ISO-8601

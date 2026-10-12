@@ -7,6 +7,10 @@
 import { apiFetch, apiJson, readErrorMessage } from '$lib/core/api';
 import type { MarketDataProviderValue } from '$lib/features/market/marketDataProviders';
 import type { BacktestResult } from '$lib/features/backtest/types';
+import {
+  runWithQuality,
+  type QualityObserver,
+} from '$lib/features/runs/dataQuality';
 
 export type StrategyInfo = {
   id: string;
@@ -74,11 +78,13 @@ export type BacktestRunResponse = BacktestResult & {
 
 export function runBacktest(
   params: BacktestRunParams,
+  observe?: QualityObserver,
 ): Promise<BacktestRunResponse> {
-  return apiJson<BacktestRunResponse>(
+  return runWithQuality<BacktestRunResponse>(
     '/backtests/run',
-    { method: 'POST', body: JSON.stringify(params) },
-    true,
+    params,
+    undefined,
+    observe,
   );
 }
 
@@ -90,7 +96,10 @@ export type StrategyClient = {
     patch: { name?: string; code?: string },
   ): Promise<StrategyInfo>;
   remove(id: string): Promise<void>;
-  runBacktest(params: BacktestRunParams): Promise<BacktestRunResponse>;
+  runBacktest(
+    params: BacktestRunParams,
+    observe?: QualityObserver,
+  ): Promise<BacktestRunResponse>;
 };
 
 export const httpStrategyClient: StrategyClient = {
