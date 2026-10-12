@@ -29,6 +29,8 @@ from backend.backtesting.version import ENGINE_VERSION
 from backend.models.robustness_models import (
     RobustnessRequest,
     WorkspaceConfig,
+    WorkspaceCostStress,
+    WorkspaceCostStressPoint,
     WorkspaceDataset,
     WorkspaceParameter,
     WorkspaceReport,
@@ -46,7 +48,7 @@ from backend.trial.report import summarize
 
 MAX_BARS = 10_000
 MIN_SEGMENT_BARS = 20
-SUITE_VERSION = "1"
+SUITE_VERSION = "2"
 TIMEOUT_S = 30.0
 
 
@@ -189,6 +191,31 @@ def _build_report(
 
     baseline = evaluate(frame, Costs.frictionless(), params)
     realistic = evaluate(frame, costs, params)
+    zero_cost = body.commission_bps == 0 and body.slippage_bps == 0
+    stress_points = [
+        WorkspaceCostStressPoint(
+            multiplier=1,
+            commission_bps=body.commission_bps,
+            slippage_bps=body.slippage_bps,
+            summary=realistic,
+        )
+    ]
+    for multiplier in (2, 3):
+        stress_costs = Costs(
+            FixedBpsSlippage(body.slippage_bps * multiplier),
+            BpsCommission(body.commission_bps * multiplier),
+            FixedBpsHalfSpread(0),
+        )
+        stress_points.append(
+            WorkspaceCostStressPoint(
+                multiplier=multiplier,
+                commission_bps=body.commission_bps * multiplier,
+                slippage_bps=body.slippage_bps * multiplier,
+                summary=realistic
+                if zero_cost
+                else evaluate(frame, stress_costs, params),
+            )
+        )
     benchmark = evaluate(frame, costs, {}, True)
     test = frame.slice(split)
     holdout = Holdout(
@@ -245,6 +272,7 @@ def _build_report(
         ),
         code_hash=code_hash,
         engine_version=ENGINE_VERSION,
+        suite_version=SUITE_VERSION,
         strategy=WorkspaceStrategy(
             name=body.name,
             description="Current Strategy editor source on the selected market-data snapshot.",
@@ -263,6 +291,15 @@ def _build_report(
         config=config,
         baseline=baseline,
         realistic=realistic,
+        cost_stress=WorkspaceCostStress(
+            status="zero-cost" if zero_cost else "measured",
+            points=stress_points,
+            limitation=(
+                "Configured commission and slippage are both zero. Multiplying zero adds no stress; all rows reuse the configured result and provide no cost resilience evidence."
+                if zero_cost
+                else "Only commission and slippage are multiplied on the full-period snapshot, not holdout. Different costs may change fills, sizing and decisions; returns need not worsen monotonically. No liquidity, market impact or funding stress is modeled."
+            ),
+        ),
         benchmark=benchmark,
         holdout=holdout,
         sensitivity=sensitivity,
@@ -280,6 +317,16 @@ def _build_report(
                 title="Chronological holdout versus buy-and-hold",
                 detail=f"Strategy minus benchmark holdout return: {holdout_delta:+.2f} percentage points on independently funded accounts.",
             ),
+            *[
+                Finding(
+                    id=f"cost-stress-{point.multiplier}x",
+                    severity="warning" if point.summary.total_return < 0 else "info",
+                    title=f"{point.multiplier}× execution cost stress",
+                    detail=f"Full-period return {point.summary.total_return * 100:+.2f}%; max drawdown {point.summary.max_drawdown * 100:.2f}%; costs {point.summary.total_cost:g} quote-currency units; {point.summary.trade_count} completed round trips. Return minus configured-cost run: {(point.summary.total_return - realistic.total_return) * 100:+.2f} percentage points. Commission {point.commission_bps:g} bps / slippage {point.slippage_bps:g} bps.",
+                )
+                for point in stress_points[1:]
+                if not zero_cost
+            ],
         ],
         assumptions=[
             f"Every account starts separately with {body.starting_cash:g} currency units and seed {body.seed}; holdout starts flat with no prior cash, position, indicator history or module state.",
@@ -287,6 +334,7 @@ def _build_report(
             "Signals use revealed bars; market orders fill on the next bar's open. Slippage is adverse bps of open; commission is bps of effective fill notional. Additional spread is zero.",
             "Buy-and-hold submits one order for 95% of initial cash divided by the first close, filled at the next open. Price gaps and fees change the final allocation.",
             "All checks reuse the same sorted OHLCV snapshot. Full-period and holdout equity are not stitched; open positions are marked at the last close, not liquidated. Last-bar orders remain unfilled.",
+            "Cost stress uses configured, 2× and 3× commission/slippage (at most 150 bps each). The 1× row reuses the realistic result. All rows use identical full-period bars, source, resolved parameters, seed, funding and fresh strategy state. Zero-cost rows reuse the realistic result without adding evidence.",
         ],
         limitations=[
             "Cash, equity and costs use the instrument's quote-currency units; no currency conversion is performed.",

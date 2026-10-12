@@ -6,8 +6,9 @@ import polars as pl
 import pytest
 from pydantic import ValidationError
 
+from backend.backtesting import robustness
 from backend.backtesting.robustness import prepare_frame, run_robustness
-from backend.models.robustness_models import RobustnessRequest
+from backend.models.robustness_models import RobustnessRequest, WorkspaceReport
 
 CODE = """params = {"qty": Int(1, 3)}
 def on_bar(ctx):
@@ -114,6 +115,77 @@ def on_bar(ctx):
     assert report.selected_parameter is None
     assert report.sensitivity == []
     assert report.holdout.strategy.total_return > 0
+    assert report.cost_stress.status == "zero-cost"
+    assert all(point.summary == report.realistic for point in report.cost_stress.points)
+    assert "no cost resilience evidence" in report.cost_stress.limitation
+
+
+def test_stress_exact_inputs_and_reuses_configured_run(frame, monkeypatch):
+    calls = []
+    original = robustness.run_backtest
+
+    def capture(**kwargs):
+        calls.append(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(robustness, "run_backtest", capture)
+    body = request(seed=123, commission_bps=50, slippage_bps=50)
+    report = robustness._build_report(body, frame, 56, "snapshot")
+    stress = report.cost_stress
+    assert stress.status == "measured"
+    assert [p.multiplier for p in stress.points] == [1, 2, 3]
+    assert [p.commission_bps for p in stress.points] == [50, 100, 150]
+    assert stress.points[0].summary is report.realistic
+    # Baseline, realistic, then exactly two extra full-period stress runs.
+    assert len(calls) == 10
+    for call, point in zip(calls[1:4], stress.points):
+        assert call["frame"] is frame
+        assert call["params"] == {"qty": 2}
+        assert call["seed"] == 123
+        assert call["data_version"] == "snapshot"
+        assert call["starting_cash"] == 10_000
+        expected = robustness.summarize(original(**call))
+        assert point.summary == expected
+    assert report.suite_version == "2"
+    assert "need not worsen monotonically" in stress.limitation
+
+
+def test_extreme_costs_can_change_fills_not_monotonic_returns(frame):
+    code = """def on_bar(ctx):
+    if ctx.bars.index == 0:
+        ctx.buy(1)
+    elif ctx.bars.index == 3 and ctx.cash < 9900:
+        ctx.sell(ctx.position.quantity)
+"""
+    falling = frame.with_columns(
+        *[(200 - pl.col(col)).alias(col) for col in ("open", "close")],
+        (201 - pl.col("low")).alias("high"),
+        (199 - pl.col("high")).alias("low"),
+    )
+    report = run_robustness(
+        request(code=code, params={}, commission_bps=50, slippage_bps=50),
+        falling,
+        "snapshot",
+    )
+    points = report.cost_stress.points
+    assert points[2].summary.total_return > points[0].summary.total_return
+    assert points[2].summary.trade_count == 1
+    assert points[0].summary.trade_count == 0
+    assert points[0].summary.total_cost > 0
+
+
+def test_old_schema_and_suite_content_identity(frame, report, monkeypatch):
+    old = report.model_dump()
+    del old["cost_stress"]
+    del old["suite_version"]
+    restored = WorkspaceReport.model_validate(old)
+    assert restored.cost_stress is None
+    assert restored.suite_version is None
+    monkeypatch.setattr(robustness, "SUITE_VERSION", "next")
+    updated = robustness._build_report(request(), frame, 56, "stub-v1")
+    assert updated.report_id != report.report_id
+    assert updated.realistic == report.realistic
+    assert updated.cost_stress == report.cost_stress
 
 
 def test_choice_and_float_neighbors(frame):

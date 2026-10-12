@@ -171,10 +171,12 @@ describe('rendered workbench semantics', () => {
     const nodes = elements(
       html.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;'),
     );
-    const form = nodes.find(node => attr(node, 'id') === 'robustness-run-form');
+    const form = nodes.find(
+      node => node.name === 'form' && attr(node, 'id')?.endsWith('-run-form'),
+    );
     const submit = nodes.find(
       node =>
-        node.name === 'button' && attr(node, 'form') === 'robustness-run-form',
+        node.name === 'button' && attr(node, 'form') === attr(form!, 'id'),
     );
     expect(form?.name).toBe('form');
     expect(attr(submit!, 'type')).toBe('submit');
