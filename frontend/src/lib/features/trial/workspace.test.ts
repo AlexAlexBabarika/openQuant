@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import { clearAccessToken, setAccessToken } from '$lib/core/api';
 import StrategyTrial from './StrategyTrial.svelte';
 import ReportContext from './ReportContext.svelte';
+import ResearchReview from './ResearchReview.svelte';
 import type { TrialReport } from '../trial-report/types';
 import ReportActions from '../trial-report/ReportActions.svelte';
 import {
@@ -84,6 +85,55 @@ function fixture(): WorkspaceReport {
     assumptions: ['Fresh strategy state'],
     limitations: ['No proof of unseen dates'],
   };
+}
+
+function chronologyFixture(): WorkspaceReport {
+  const report = fixture();
+  report.suite_version = '3';
+  report.walk_forward = {
+    status: 'measured',
+    assumption:
+      'Fixed resolved parameters; fresh validation funding. No fitting.',
+    limitation:
+      'Windows overlap the single holdout; not independent confirmations.',
+    folds: [1, 2, 3].map(id => ({
+      id: id as 1 | 2 | 3,
+      status: 'measured',
+      train_start: '2025-01-01T00:00:00Z',
+      train_end: `2025-0${id + 1}-28T00:00:00Z`,
+      training_bars: 60 + (id - 1) * 20,
+      validation_start: `2025-0${id + 2}-01T00:00:00Z`,
+      validation_end: `2025-0${id + 2}-20T00:00:00Z`,
+      validation_bars: 20,
+      strategy: { ...report.realistic, total_return: id * 0.02 },
+      benchmark: { ...report.benchmark, total_return: -0.01 },
+    })),
+  };
+  report.regimes = {
+    status: 'measured',
+    method: 'validation-close-return-v1',
+    threshold: 0.05,
+    observations: [
+      { fold_id: 1, label: 'rising', market_return: 0.1 },
+      { fold_id: 2, label: 'falling', market_return: -0.1 },
+      { fold_id: 3, label: 'sideways', market_return: 0.02 },
+    ],
+    assumption:
+      'Observed first-to-last close return at fixed +/-5% thresholds.',
+    limitation:
+      'Retrospective labels use future closes; not forecasts. Sideways is not low volatility.',
+  };
+  return report;
+}
+
+function renderReview(report: WorkspaceReport) {
+  return render(ResearchReview, {
+    props: {
+      report,
+      review: { decision: 'unreviewed', reason: '' },
+      onreview: () => {},
+    },
+  }).body;
 }
 
 afterEach(() => {
@@ -361,5 +411,98 @@ describe('private workspace evidence export', () => {
     expect(html).toContain('&lt;svg onload=unsafe()&gt;');
     expect(html).not.toContain('<script>unsafe()');
     expect(html).not.toContain('<img src=x');
+  });
+});
+
+describe('walk-forward and regime research review', () => {
+  it('renders original fold dates, bars and separate funded outcomes with retrospective limitations', () => {
+    const html = renderReview(chronologyFixture());
+    for (const label of [
+      'Walk-forward chronology · fixed parameters',
+      'Training context:',
+      '60 bars',
+      '80 bars',
+      '100 bars',
+      '20 bars',
+      'datetime="2025-03-01T00:00:00Z"',
+      'datetime="2025-05-20T00:00:00Z"',
+      'No fitting or parameter selection.',
+      'independently funded, configured costs, fixed parameters',
+      'not independent confirmations',
+      'Fold 1 · rising: close-to-close market return +10.00%',
+      'Fold 2 · falling: close-to-close market return -10.00%',
+      'Fold 3 · sideways: close-to-close market return +2.00%',
+      'Strategy +2.00% versus buy-and-hold -1.00%',
+      'Strategy +4.00% versus buy-and-hold -1.00%',
+      'Strategy +6.00% versus buy-and-hold -1.00%',
+      'Retrospective labels use future closes; not forecasts.',
+      'not a confidence score',
+      'Continue research · not approval to trade',
+    ])
+      expect(html).toContain(label);
+    expect(html.match(/<details\b/g)).toHaveLength(3);
+    expect(html.match(/<caption\b[^>]*>Fold/g)).toHaveLength(3);
+  });
+
+  it('shows inadequate chronology without numeric fold or regime evidence', () => {
+    const report = chronologyFixture();
+    report.walk_forward!.status = 'inadequate-sample';
+    for (const fold of report.walk_forward!.folds) {
+      fold.status = 'inadequate-sample';
+      fold.validation_bars = 13;
+      fold.strategy = null;
+      fold.benchmark = null;
+    }
+    report.regimes!.status = 'inadequate-sample';
+    report.regimes!.observations = [];
+    const html = renderReview(report);
+    expect(html).toContain('No fold was executed.');
+    expect(html).toContain('13 bars');
+    expect(html).toContain('No measured strategy or benchmark summary');
+    expect(html).toContain('no daily regime outcomes were measured');
+    expect(html).not.toMatch(/<caption\b[^>]*>Fold/);
+    expect(html).not.toContain('close-to-close market return');
+  });
+
+  it('does not infer daily regimes on unsupported data, while keeping available fold results', () => {
+    const report = chronologyFixture();
+    report.regimes!.status = 'unsupported-data';
+    report.regimes!.observations = [];
+    const html = renderReview(report);
+    expect(html).toContain(
+      'No intraday sessions or regime outcomes were inferred.',
+    );
+    expect(html).toMatch(/<caption\b[^>]*>Fold 1 validation/);
+    expect(html).not.toContain('Fold 1 · rising');
+  });
+
+  it('renders missing and null older report fields as unavailable, not as passing evidence', () => {
+    for (const report of [
+      fixture(),
+      { ...fixture(), walk_forward: null, regimes: null },
+    ]) {
+      const html = renderReview(report);
+      expect(html).toContain(
+        'Walk-forward evidence unavailable in this older report',
+      );
+      expect(html).toContain(
+        'Regime evidence unavailable in this older report',
+      );
+      expect(html).toContain('Missing checks are not resilience evidence.');
+      expect(html).not.toMatch(/<caption\b[^>]*>Fold/);
+    }
+  });
+
+  it('escapes report text and marks a missing referenced fold summary explicitly', () => {
+    const report = chronologyFixture();
+    report.walk_forward!.assumption = '<script>unsafe()</script>';
+    report.walk_forward!.folds[0].strategy = null;
+    const html = renderReview(report);
+    expect(html).toMatch(
+      /&lt;script(?:&gt;|>)unsafe\(\)&lt;\/script(?:&gt;|>)/,
+    );
+    expect(html).not.toContain('<script>unsafe()');
+    expect(html).toContain('Matching fold summary unavailable.');
+    expect(html).not.toContain('Strategy +2.00% versus buy-and-hold -1.00%');
   });
 });
