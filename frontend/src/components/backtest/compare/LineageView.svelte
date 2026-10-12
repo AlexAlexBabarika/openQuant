@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { RunLineage, LineageCell } from '$lib/features/runs/runTypes';
+  import { categories } from './presentation';
 
   let { lineage }: { lineage?: RunLineage } = $props();
   const changed = $derived(lineage?.rows.filter(row => row.status === 'changed').length ?? 0);
   const unavailable = $derived(lineage?.rows.filter(row => row.status === 'unavailable').length ?? 0);
   const changedLabels = $derived(lineage?.rows.filter(row => row.status === 'changed').map(row => row.label).join(', '));
+  const groups = $derived(categories(lineage?.rows ?? [], 'Recorded context'));
 </script>
 
 {#snippet value(cell: LineageCell)}
@@ -35,13 +37,16 @@
           <caption class="sr-only">Recorded inputs and their availability for runs A and B</caption>
           <thead><tr class="border-b border-border"><th scope="col" class="p-2">Input</th><th scope="col" class="p-2">A</th><th scope="col" class="p-2">B</th><th scope="col" class="p-2">Comparison</th></tr></thead>
           <tbody>
-            {#each lineage.rows as row (row.path)}
+            {#each groups as group (group.label)}
+              <tr class="border-b border-border bg-muted/30"><th colspan="4" scope="colgroup" class="p-2 text-left font-semibold">{group.label}</th></tr>
+              {#each group.rows as row (row.path)}
               <tr class="border-b border-border/50 align-top">
                 <th scope="row" class="p-2 font-normal">{row.label}</th>
                 <td class="max-w-64 p-2">{@render value(row.a)}</td>
                 <td class="max-w-64 p-2">{@render value(row.b)}</td>
                 <td class="p-2">{row.status === 'unavailable' ? 'Not comparable' : row.status === 'changed' ? 'Changed' : 'Same recorded value'}</td>
               </tr>
+              {/each}
             {/each}
           </tbody>
         </table>
