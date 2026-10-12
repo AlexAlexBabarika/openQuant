@@ -6,6 +6,7 @@ import {
 } from '$lib/features/chart/reactiveTestSupport';
 import * as fingerprint from '$lib/features/chart/candleFingerprint';
 import { withRulerCandleIndex } from '$lib/features/drawables/tools/ruler/compute';
+import { createDrawableComputeScheduler } from '$lib/features/drawables/computeScheduler';
 import type {
   DrawableComputeState,
   ComputeCtx,
@@ -24,13 +25,13 @@ const item = (id: string) => ({
   style: { showStats: true },
 });
 
-function setup(candleRevision?: number) {
+function setup(candleRevision?: number, types = ['ruler', 'ruler']) {
   const props = client.proxy({
     symbol: 'AAA',
     provider: 'binance',
     interval: '1m',
     candleRevision,
-    items: [item('a'), item('b')],
+    items: types.map((type, i) => ({ ...item(i === 0 ? 'a' : 'b'), type })),
     candles: [
       {
         symbol: 'AAA',
@@ -48,13 +49,25 @@ function setup(candleRevision?: number) {
   const requests: {
     id: string;
     signal: AbortSignal;
+    volume: number;
+    endTime: number;
+    context: string;
     request: ReturnType<typeof deferred<unknown>>;
   }[] = [];
-  const compute = vi.fn((d: { id: string }, ctx: ComputeCtx) => {
-    const request = deferred<unknown>();
-    requests.push({ id: d.id, signal: ctx.signal, request });
-    return request.promise;
-  });
+  const compute = vi.fn(
+    (d: { id: string; geometry: { endTime: number } }, ctx: ComputeCtx) => {
+      const request = deferred<unknown>();
+      requests.push({
+        id: d.id,
+        signal: ctx.signal,
+        request,
+        volume: ctx.candles[0]?.volume,
+        endTime: d.geometry.endTime,
+        context: `${ctx.symbol}/${ctx.provider}/${ctx.interval}`,
+      });
+      return request.promise;
+    },
+  );
   const signature = vi.fn(fingerprint.candleBatchSignature);
   const component = clientModule<{
     default: (anchor: unknown, props: unknown) => void;
@@ -72,6 +85,9 @@ function setup(candleRevision?: number) {
             : undefined,
     },
     '$lib/features/drawables/tools/ruler/compute': { withRulerCandleIndex },
+    '$lib/features/drawables/computeScheduler': {
+      createDrawableComputeScheduler,
+    },
     '$lib/core/dev/drawablesProfile': {
       measureDrawablesSync: (_label: string, fn: () => unknown) => fn(),
     },
@@ -124,6 +140,125 @@ function setup(candleRevision?: number) {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('coalesces a publication burst to one latest request per Element without abort churn', async () => {
+    const { props, requests, data, states } = setup(0);
+    for (let revision = 1; revision <= 100; revision++) {
+      props.candles = [{ ...props.candles[0], volume: revision }];
+      props.candleRevision = revision;
+      client.flush();
+      expect(requests).toHaveLength(2);
+      expect(states().get('a')?.status).toBe('pending');
+    }
+    const latestKey = states().get('a')?.workKey;
+    expect(requests.every(r => !r.signal.aborted)).toBe(true);
+    requests[0].request.resolve('obsolete');
+    requests[1].request.reject(new Error('obsolete error'));
+    await Promise.resolve();
+    expect(requests).toHaveLength(4);
+    expect(requests.slice(2).map(r => r.volume)).toEqual([100, 100]);
+    expect(data().size).toBe(0);
+    expect(states().get('a')).toEqual({
+      status: 'pending',
+      workKey: latestKey,
+    });
+    expect(states().get('b')?.status).toBe('pending');
+    requests[2].request.resolve('latest');
+    requests[3].request.reject(new Error('current error'));
+    await Promise.resolve();
+    expect(data().get('a')).toBe('latest');
+    expect(states().get('a')).toEqual({
+      status: 'success',
+      workKey: latestKey,
+    });
+    expect(states().get('b')).toMatchObject({
+      status: 'error',
+      error: 'current error',
+    });
+  });
+
+  it.each([
+    'geometry',
+    'params',
+    'style',
+    'symbol',
+    'provider',
+    'interval',
+  ] as const)(
+    'cancels obsolete %s work and waits for abort settlement before launching only the latest',
+    async field => {
+      const { props, requests, data, states } = setup(0, ['ruler']);
+      props.candleRevision = 1;
+      client.flush();
+      if (field === 'geometry') props.items[0].geometry.endTime = 2;
+      else if (field === 'params') props.items[0].params = { changed: 1 };
+      else if (field === 'style') props.items[0].style.showStats = false;
+      else props[field] = 'changed';
+      client.flush();
+      props.candles = [{ ...props.candles[0], volume: 999 }];
+      props.candleRevision = 2;
+      client.flush();
+      expect(requests).toHaveLength(1);
+      expect(requests[0].signal.aborted).toBe(true);
+      const key = states().get('a')?.workKey;
+      requests[0].request.reject(new DOMException('Aborted', 'AbortError'));
+      await Promise.resolve();
+      expect(requests).toHaveLength(2);
+      expect(requests[1].volume).toBe(999);
+      expect(data().has('a')).toBe(false);
+      expect(states().get('a')).toEqual({ status: 'pending', workKey: key });
+      requests[1].request.resolve('fresh');
+      await Promise.resolve();
+      expect(data().get('a')).toBe('fresh');
+    },
+  );
+
+  it('does not defer synchronous geometry-only work behind another Element request', () => {
+    const { props, compute, data, states, requests } = setup(0, ['ruler']);
+    compute.mockImplementation(() => 'sync' as never);
+    props.items.push({ ...item('b'), type: 'position-long' });
+    client.flush();
+    expect(data().get('b')).toBe('sync');
+    expect(states().get('b')?.status).toBe('success');
+    props.items[1].geometry.endTime = 2;
+    client.flush();
+    expect(compute).toHaveBeenCalledTimes(3);
+    props.candleRevision = 1;
+    client.flush();
+    expect(compute).toHaveBeenCalledTimes(3);
+    expect(requests).toHaveLength(1);
+    expect(data().get('b')).toBe('sync');
+  });
+
+  it('drops deleted pending work, fences reused IDs, and isolates a remounted component', async () => {
+    const first = setup(0, ['ruler']);
+    first.props.candleRevision = 1;
+    client.flush();
+    first.props.items = [];
+    client.flush();
+    expect(first.requests[0].signal.aborted).toBe(true);
+    expect(first.states().size).toBe(0);
+    first.props.items = [item('a')];
+    client.flush();
+    expect(first.requests).toHaveLength(1);
+    first.requests[0].request.resolve('deleted');
+    await Promise.resolve();
+    expect(first.requests).toHaveLength(2);
+    expect(first.data().size).toBe(0);
+    first.props.candleRevision = 2;
+    client.flush();
+    first.stop();
+    const second = setup(2, ['ruler']);
+    first.requests[1].request.resolve('destroyed');
+    await Promise.resolve();
+    expect(first.requests).toHaveLength(2);
+    expect(first.data().size).toBe(0);
+    expect(first.states().size).toBe(0);
+    expect(second.states().get('a')?.status).toBe('pending');
+    second.requests[0].request.resolve('remounted');
+    await Promise.resolve();
+    expect(second.data().get('a')).toBe('remounted');
+  });
+
   it('uses owned revisions without scanning history, including same-reference edits', async () => {
     const { props, requests, signature, data } = setup(0);
     expect(signature).not.toHaveBeenCalled();
@@ -132,27 +267,37 @@ describe('drawable compute state and dirty keys', () => {
     props.candles[0].volume = 777;
     props.candleRevision = 1;
     client.flush();
-    expect(requests).toHaveLength(4);
+    expect(requests).toHaveLength(3);
     expect(data().has('a')).toBe(false);
-    expect(requests[0].signal.aborted).toBe(true);
+    expect(requests[1].signal.aborted).toBe(false);
     props.candles = [{ ...props.candles[0], high: 500 }];
     props.candleRevision = 2;
     client.flush();
-    expect(requests).toHaveLength(6);
+    expect(requests).toHaveLength(3);
     expect(signature).not.toHaveBeenCalled();
     requests[2].request.resolve('obsolete');
     await Promise.resolve();
+    expect(requests).toHaveLength(4);
     expect(data().has('a')).toBe(false);
     props.candleRevision = undefined;
     client.flush();
     expect(signature).toHaveBeenCalledTimes(1);
-    expect(requests).toHaveLength(8);
+    expect(requests).toHaveLength(4);
+    requests[3].request.resolve('old revision');
+    requests[1].request.resolve('old b');
+    await Promise.resolve();
+    expect(requests).toHaveLength(6);
+    requests[4].request.resolve('latest a');
+    requests[5].request.resolve('latest b');
+    await Promise.resolve();
+    expect(data().get('a')).toBe('latest a');
+    expect(data().get('b')).toBe('latest b');
   });
 
   it('keeps geometry-only work/results across candle changes without hashing history', async () => {
-    const { props, requests, signature, data } = setup();
-    props.items = [{ ...item('position'), type: 'position-long' }];
-    client.flush();
+    const { props, requests, signature, data } = setup(undefined, [
+      'position-long',
+    ]);
     const pending = requests[requests.length - 1];
     const requestCount = requests.length;
     signature.mockClear();
@@ -166,31 +311,33 @@ describe('drawable compute state and dirty keys', () => {
     client.flush();
     expect(signature).not.toHaveBeenCalled();
     expect(requests).toHaveLength(requestCount);
-    expect(data().get('position')).toBe('metrics');
+    expect(data().get('a')).toBe('metrics');
     props.items[0].geometry.endTime = 2;
     client.flush();
     expect(requests).toHaveLength(requestCount + 1);
-    expect(data().has('position')).toBe(false);
+    expect(data().has('a')).toBe(false);
     props.interval = '1h';
     client.flush();
-    expect(requests).toHaveLength(requestCount + 2);
+    expect(requests).toHaveLength(requestCount + 1);
     expect(requests[requestCount].signal.aborted).toBe(true);
     requests[requestCount].request.resolve('obsolete');
     await Promise.resolve();
-    expect(data().has('position')).toBe(false);
+    expect(requests).toHaveLength(requestCount + 2);
+    expect(data().has('a')).toBe(false);
   });
 
   it('only recalculates candle-dependent tools in a mixed scene', async () => {
-    const { props, requests, data } = setup();
-    props.items[0].type = 'position-long';
-    client.flush();
-    requests[2].request.resolve('position-metrics');
+    const { props, requests, data } = setup(undefined, [
+      'position-long',
+      'ruler',
+    ]);
+    requests[0].request.resolve('position-metrics');
     requests[1].request.resolve('ruler-volume');
     await Promise.resolve();
     props.candles[0].volume = 777;
     client.flush();
-    expect(requests.map(r => r.id)).toEqual(['a', 'b', 'a', 'b']);
-    expect(requests[2].signal.aborted).toBe(false);
+    expect(requests.map(r => r.id)).toEqual(['a', 'b', 'b']);
+    expect(requests[0].signal.aborted).toBe(false);
     expect(data().get('a')).toBe('position-metrics');
     expect(data().has('b')).toBe(false);
   });
@@ -225,7 +372,7 @@ describe('drawable compute state and dirty keys', () => {
     props.items[0].type = 'horizontal-line';
     props.items[1].type = 'horizontal-line';
     client.flush();
-    expect(requests.every(r => r.signal.aborted)).toBe(true);
+    expect(requests[1].signal.aborted).toBe(true);
     requests[1].request.resolve('obsolete');
     await Promise.resolve();
     expect(data().size).toBe(0);
@@ -244,7 +391,7 @@ describe('drawable compute state and dirty keys', () => {
     props.items[0].geometry.endTime = 2;
     client.flush();
     expect(requests).toHaveLength(3);
-    expect(requests[0].signal.aborted).toBe(true);
+    expect(requests[2].signal.aborted).toBe(false);
     expect(data().has('a')).toBe(false);
     expect(states().get('a')).toEqual({
       status: 'pending',
@@ -265,9 +412,13 @@ describe('drawable compute state and dirty keys', () => {
     expect(states().get('a')?.status).toBe('pending');
     props.items[0].geometry.endTime = 4;
     client.flush();
-    requests[4].request.resolve('latest');
-    await Promise.resolve();
+    expect(requests).toHaveLength(4);
+    expect(requests[3].signal.aborted).toBe(true);
     requests[3].request.resolve('obsolete');
+    await Promise.resolve();
+    expect(data().has('a')).toBe(false);
+    expect(requests).toHaveLength(5);
+    requests[4].request.resolve('latest');
     await Promise.resolve();
     expect(data().get('a')).toBe('latest');
     expect(states().get('a')?.status).toBe('success');
@@ -295,10 +446,12 @@ describe('drawable compute state and dirty keys', () => {
     props.candles[0].close = 3;
     props.candles[0].volume = 500;
     client.flush();
-    expect(requests.map(r => r.id)).toEqual(['a', 'b', 'a', 'a', 'b']);
+    expect(requests.map(r => r.id)).toEqual(['a', 'b', 'a', 'b']);
     expect(data().size).toBe(0);
-    requests[3].request.resolve('live');
-    requests[4].request.resolve('live-b');
+    requests[2].request.resolve('obsolete-style');
+    requests[3].request.resolve('live-b');
+    await Promise.resolve();
+    requests[4].request.resolve('live');
     await Promise.resolve();
     props.candles.push({
       ...props.candles[0],

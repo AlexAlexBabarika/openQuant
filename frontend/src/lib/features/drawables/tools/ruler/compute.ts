@@ -20,6 +20,7 @@ export interface RulerStats {
 interface CandleIndex {
   times: number[];
   volumes: number[];
+  volumePrefix: number[] | null;
 }
 
 const indexCache = new WeakMap<
@@ -35,9 +36,26 @@ function buildIndex(candles: readonly OHLCVCandle[]): CandleIndex {
     .map(c => ({ time: Date.parse(c.timestamp) / 1000, volume: c.volume }))
     .filter(row => Number.isFinite(row.time))
     .sort((a, b) => a.time - b.time);
+  const volumePrefix = [0];
+  let total = 0;
+  let safePrefix = true;
+  for (const row of rows) {
+    total += row.volume;
+    // Exact nonnegative integer sums avoid prefix subtraction losing small ranges.
+    if (
+      !Number.isSafeInteger(row.volume) ||
+      row.volume < 0 ||
+      !Number.isSafeInteger(total)
+    ) {
+      safePrefix = false;
+      break;
+    }
+    volumePrefix.push(total);
+  }
   return {
     times: rows.map(row => row.time),
     volumes: rows.map(row => row.volume),
+    volumePrefix: safePrefix ? volumePrefix : null,
   };
 }
 
@@ -94,7 +112,11 @@ export function computeStats(
 
   let barCount = 0;
   let volumeSum = 0;
-  if (sharedIndex?.candles === candles) {
+  if (
+    sharedIndex?.candles === candles &&
+    !Number.isNaN(tMin) &&
+    !Number.isNaN(tMax)
+  ) {
     const signature = sharedIndex.signature;
     const cached = indexCache.get(candles);
     const index =
@@ -103,7 +125,11 @@ export function computeStats(
     const from = bound(index.times, tMin, false);
     const to = bound(index.times, tMax, true);
     barCount = to - from;
-    for (let i = from; i < to; i++) volumeSum += index.volumes[i];
+    if (index.volumePrefix) {
+      volumeSum = index.volumePrefix[to] - index.volumePrefix[from];
+    } else {
+      for (let i = from; i < to; i++) volumeSum += index.volumes[i];
+    }
   } else {
     for (const c of candles) {
       const t = Date.parse(c.timestamp) / 1000;

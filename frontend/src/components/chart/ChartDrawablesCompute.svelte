@@ -6,6 +6,7 @@
   import type { DrawableComputeState } from '$lib/features/drawables/types';
   import { getTool } from '$lib/features/drawables';
   import { withRulerCandleIndex } from '$lib/features/drawables/tools/ruler/compute';
+  import { createDrawableComputeScheduler } from '$lib/features/drawables/computeScheduler';
   import { measureDrawablesSync } from '$lib/core/dev/drawablesProfile';
 
   let {
@@ -29,10 +30,12 @@
     computedStates?: Map<string, DrawableComputeState>;
   } = $props();
 
-  const needsCandles = $derived(items.some(d => {
-    const tool = getTool(d.type);
-    return tool?.compute && tool.computeUsesCandles !== false;
-  }));
+  const needsCandles = $derived(
+    items.some(d => {
+      const tool = getTool(d.type);
+      return tool?.compute && tool.computeUsesCandles !== false;
+    }),
+  );
   const candleSig = $derived(
     needsCandles
       ? candleRevision !== undefined
@@ -42,8 +45,38 @@
           )
       : '0',
   );
-  const jobs = new Map<string, { key: string; controller: AbortController }>();
-  let destroyed = false;
+  let batch:
+    | {
+        data: Map<string, unknown>;
+        states: Map<string, DrawableComputeState>;
+        changed: boolean;
+      }
+    | undefined;
+  function publish(id: string, state?: DrawableComputeState, value?: unknown) {
+    const data = batch?.data ?? new Map(computedData);
+    const states = batch?.states ?? new Map(computedStates);
+    if (state?.status === 'success') data.set(id, value);
+    else data.delete(id);
+    if (state) states.set(id, state);
+    else states.delete(id);
+    if (batch) batch.changed = true;
+    else {
+      computedData = data;
+      computedStates = states;
+    }
+  }
+  const scheduler = createDrawableComputeScheduler({
+    pending: (id, key) => publish(id, { status: 'pending', workKey: key }),
+    success: (id, key, value) =>
+      publish(id, { status: 'success', workKey: key }, value),
+    error: (id, key, error) =>
+      publish(id, {
+        status: 'error',
+        workKey: key,
+        error: error instanceof Error ? error.message : 'Calculation failed',
+      }),
+    removed: id => publish(id),
+  });
 
   $effect(() => {
     const cs = candles;
@@ -53,111 +86,72 @@
     const iv = interval;
     const keyed = measureDrawablesSync('drawables:workKey', () =>
       items.map(d => {
-        const dataKey = getTool(d.type)?.computeUsesCandles === false ? '0' : sig;
+        const dataKey =
+          getTool(d.type)?.computeUsesCandles === false ? '0' : sig;
+        const cancelKey = JSON.stringify([
+          sym,
+          prov,
+          iv,
+          d.type,
+          d.geometry,
+          d.params,
+          d.style,
+        ]);
         return {
           drawable: d,
-          key: JSON.stringify([
-            sym, prov, iv, dataKey, d.type, d.geometry, d.params, d.style,
-          ]),
+          cancelKey,
+          key: JSON.stringify([cancelKey, dataKey]),
         };
       }),
     );
 
     untrack(() => {
       measureDrawablesSync('drawables:compute-pass', () => {
-        const nextData = new Map(computedData);
-        const nextStates = new Map(computedStates);
-        const liveIds = new Set(keyed.map(({ drawable }) => drawable.id));
-        let changed = false;
-        for (const [id, job] of jobs) {
-          if (liveIds.has(id)) continue;
-          job.controller.abort();
-          jobs.delete(id);
-          nextData.delete(id);
-          nextStates.delete(id);
-          changed = true;
-        }
-
-        withRulerCandleIndex(cs, sig, () => {
-          for (const { drawable: d, key } of keyed) {
-            const tool = getTool(d.type);
-            if (!tool?.compute) {
-              const previous = jobs.get(d.id);
-              if (previous) {
-                previous.controller.abort();
-                jobs.delete(d.id);
-                nextData.delete(d.id);
-                nextStates.delete(d.id);
-                changed = true;
-              }
-              continue;
-            }
-            if (jobs.get(d.id)?.key === key) continue;
-            jobs.get(d.id)?.controller.abort();
-            const controller = new AbortController();
-            const job = { key, controller };
-            jobs.set(d.id, job);
-            nextData.delete(d.id);
-            nextStates.set(d.id, { status: 'pending', workKey: key });
-            changed = true;
-
-            const settle = (value: unknown, error?: unknown) => {
-              if (
-                destroyed || controller.signal.aborted || jobs.get(d.id) !== job
-              ) return;
-              const state: DrawableComputeState =
-                error === undefined
-                  ? { status: 'success', workKey: key }
-                  : {
-                      status: 'error',
-                      workKey: key,
-                      error: error instanceof Error ? error.message : 'Calculation failed',
-                    };
-              computedStates = new Map(computedStates).set(d.id, state);
-              const data = new Map(computedData);
-              if (error === undefined) data.set(d.id, value);
-              else data.delete(d.id);
-              computedData = data;
-            };
-
-            try {
-              const result = tool.compute(d, {
-                candles: cs,
-                provider: prov,
-                symbol: sym,
-                interval: iv,
-                signal: controller.signal,
-              });
-              if (result instanceof Promise) {
-                result.then(
-                  value => settle(value),
-                  error => settle(undefined, error ?? new Error('Calculation failed')),
-                );
-              } else {
-                nextData.set(d.id, result);
-                nextStates.set(d.id, { status: 'success', workKey: key });
-              }
-            } catch (error) {
-              nextStates.set(d.id, {
-                status: 'error',
-                workKey: key,
-                error: error instanceof Error ? error.message : 'Calculation failed',
+        batch = {
+          data: new Map(computedData),
+          states: new Map(computedStates),
+          changed: false,
+        };
+        try {
+          scheduler.retain(
+            new Set(
+              keyed
+                .filter(({ drawable }) => getTool(drawable.type)?.compute)
+                .map(({ drawable }) => drawable.id),
+            ),
+          );
+          withRulerCandleIndex(cs, sig, () => {
+            for (const { drawable: d, key, cancelKey } of keyed) {
+              const tool = getTool(d.type);
+              if (!tool?.compute) continue;
+              const compute = tool.compute;
+              scheduler.submit(d.id, {
+                key,
+                cancelKey,
+                run: signal =>
+                  compute(d, {
+                    candles: cs,
+                    provider: prov,
+                    symbol: sym,
+                    interval: iv,
+                    signal,
+                  }),
               });
             }
+          });
+          if (batch.changed) {
+            computedData = batch.data;
+            computedStates = batch.states;
           }
-        });
-        if (changed) {
-          computedData = nextData;
-          computedStates = nextStates;
+        } finally {
+          batch = undefined;
         }
       });
     });
   });
 
   onDestroy(() => {
-    destroyed = true;
-    for (const { controller } of jobs.values()) controller.abort();
-    jobs.clear();
+    scheduler.destroy();
     computedData = new Map();
     computedStates = new Map();
   });
