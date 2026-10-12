@@ -314,6 +314,20 @@ describe('persistent research task views', () => {
     expect(css).toContain('overflow-wrap: anywhere');
   });
 
+  it('reserves usable embedded editor height without compressing its controls on short screens', () => {
+    const source = readFileSync(panel, 'utf8');
+    const panes = source.match(/\.embedded \.editing-panes\s*\{([^}]+)\}/)?.[1];
+    expect(panes).toContain('min-height: 240px');
+    expect(panes).toContain('flex-shrink: 0');
+    const controls = source.match(
+      /\.embedded \.work-head, \.embedded \.editor-views\s*\{([^}]+)\}/,
+    )?.[1];
+    expect(controls).toContain('flex-shrink: 0');
+    expect(source.match(/\.panel\.embedded\s*\{([^}]+)\}/)?.[1]).toContain(
+      'overflow-y: auto',
+    );
+  });
+
   it('never puts expandable Strategy feedback inside the narrow action row', () => {
     const fragment = parse(readFileSync(panel, 'utf8'), {
       modern: true,

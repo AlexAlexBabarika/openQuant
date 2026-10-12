@@ -634,6 +634,8 @@
   .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
   .editing-panes.resizing { user-select: none; }
+  .embedded .editing-panes { min-height: 240px; flex-shrink: 0; }
+  .embedded .work-head, .embedded .editor-views { flex-shrink: 0; }
   .editing-panes.single { grid-template-columns: minmax(0, 1fr); }
   .editing-panes.single .inactive, .editing-panes.single .editor-splitter { display: none; }
   .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
