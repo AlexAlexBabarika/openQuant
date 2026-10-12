@@ -10,6 +10,12 @@ export class RerunFailedError extends Error {}
 
 type FetchImpl = typeof apiFetch;
 
+async function savedResearchError(response: Response): Promise<string> {
+  if (response.status === 401)
+    return 'Sign in again to access account-private saved research. Guest and legacy references are not automatically adopted.';
+  return readErrorMessage(response);
+}
+
 export function makeRunsClient(fetchImpl: FetchImpl) {
   async function notebookMetadata(json?: string): Promise<string> {
     const res = await fetchImpl(
@@ -22,14 +28,14 @@ export function makeRunsClient(fetchImpl: FetchImpl) {
           },
       true,
     );
-    if (!res.ok) throw new Error(await readErrorMessage(res));
+    if (!res.ok) throw new Error(await savedResearchError(res));
     return serializeNotebookMetadata(parseNotebookMetadata(await res.text()));
   }
   async function getRun(id: string): Promise<unknown> {
     const res = await fetchImpl(`/backtests/runs/${id}`, {}, true);
     if (res.status === 404)
       throw new RunNotFoundError(await readErrorMessage(res));
-    if (!res.ok) throw new Error(await readErrorMessage(res));
+    if (!res.ok) throw new Error(await savedResearchError(res));
     return res.json();
   }
 
@@ -37,7 +43,7 @@ export function makeRunsClient(fetchImpl: FetchImpl) {
     const res = await fetchImpl(`/backtests/runs/${a}/compare/${b}`, {}, true);
     if (res.status === 404)
       throw new RunNotFoundError(await readErrorMessage(res));
-    if (!res.ok) throw new Error(await readErrorMessage(res));
+    if (!res.ok) throw new Error(await savedResearchError(res));
     return (await res.json()) as RunDiff;
   }
 
@@ -51,7 +57,7 @@ export function makeRunsClient(fetchImpl: FetchImpl) {
       throw new RunNotFoundError(await readErrorMessage(res));
     if (res.status === 422)
       throw new RerunFailedError(await readErrorMessage(res));
-    if (!res.ok) throw new Error(await readErrorMessage(res));
+    if (!res.ok) throw new Error(await savedResearchError(res));
     return (await res.json()) as RerunResponse;
   }
 
