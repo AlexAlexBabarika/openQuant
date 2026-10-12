@@ -394,13 +394,13 @@
                 <Play class="h-3.5 w-3.5" />
                 <span>{strat.isRunning ? 'running…' : 'backtest'}</span>
               </button>
-              <Popover.Root bind:open={actionsOpen}>
-                <Popover.Trigger class="btn ghost mobile-actions" aria-label="More strategy actions">More</Popover.Trigger>
+              <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
+                <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
                 <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-[60] flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-lg">
                   <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => strat.newDraft())}>New strategy</button>
                   {#if onRobustness}<button type="button" class="btn ghost min-h-11" disabled={strat.isRunning || !symbol} onclick={() => void selectAction(onRobustness)}>Robustness</button>{/if}
                 </Popover.Content></Popover.Portal>
-              </Popover.Root>
+              </Popover.Root></div>
             </div>
           </div>
 
@@ -843,7 +843,7 @@
     align-items: center;
     gap: 8px;
   }
-  .btn.mobile-actions { display: none; }
+  .mobile-actions { display: none; }
 
   .btn {
     display: inline-flex;
@@ -902,17 +902,23 @@
     .actions { flex-wrap: wrap; }
   }
   @media (max-width: 760px) {
-    .embedded .topbar { flex-wrap: nowrap; padding: 4px 8px; }
+    .embedded .topbar { flex-wrap: nowrap; padding: 0 8px; }
     .embedded .tab { min-height: 36px; padding: 4px 9px; }
     .embedded .topbar > .ot-workbench-ghost { min-height: 44px; }
-    .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 6px 12px; }
+    .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 12px; }
     .actions { flex-wrap: nowrap; gap: 6px; }
     .actions .btn { min-height: 44px; font-size: 13px; }
     .wide-action { display: none; }
-    .btn.mobile-actions { display: inline-flex; }
-    .editor-views { gap: 4px; padding: 4px 8px; }
+    .mobile-actions { display: flex; }
+    .editor-views { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
     .editor-views .ot-workbench-ghost { min-height: 44px; }
-    .editor-views span { flex-basis: 100%; }
+    .editor-views .compact-view { grid-row: 1 / span 2; }
+    .editor-views .compact-view:first-of-type { grid-column: 1; }
+    .editor-views .compact-view:nth-of-type(2) { grid-column: 2; }
+    .editor-views button:not(.compact-view) { grid-column: 1 / -1; }
+    .editor-views > span { grid-column: 3; font-size: 11px; line-height: 14px; }
+    .editor-views > span:first-child { grid-row: 1; align-self: end; }
+    .editor-views > span[role="status"] { grid-row: 2; align-self: start; }
   }
 
   .work { min-width: 0; }

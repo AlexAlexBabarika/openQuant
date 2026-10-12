@@ -12,6 +12,7 @@ import { selectEntry, trialSearch } from '../entry';
 import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
 import TopHeader from './layout/TopHeader.svelte';
 import StrategyPanel from './strategy/StrategyPanel.svelte';
+import IntervalPicker from './layout/IntervalPicker.svelte';
 
 const app = new URL('../App.svelte', import.meta.url);
 const panel = new URL('./strategy/StrategyPanel.svelte', import.meta.url);
@@ -79,6 +80,12 @@ describe('persistent research task views', () => {
     expect(html).toContain('Bar interval 1d; choose interval');
     expect(html).toContain('Data settings');
     expect(html).toContain('No data loaded');
+    expect(html.match(/role="status"/g)).toHaveLength(1);
+    const picker = render(IntervalPicker, {
+      props: { compact: true, value: '1d' },
+    }).body;
+    expect(picker).toContain('min-h-11');
+    expect(picker).not.toContain('w-6');
   });
 
   it.each(['', '&trial=1'])(

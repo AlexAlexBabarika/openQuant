@@ -63,7 +63,7 @@
 
   <DropdownMenu.Root>
     <DropdownMenu.Trigger
-      class="inline-flex items-center justify-center h-7 w-6 rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground transition-colors outline-none {compact ? 'min-h-11 gap-2 border border-input px-3 text-sm font-mono' : ''}"
+      class="inline-flex items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground transition-colors outline-none {compact ? 'min-h-11 gap-2 border border-input px-3 text-sm font-mono' : 'h-7 w-6'}"
       aria-label={compact ? `Bar interval ${value}; choose interval` : 'All intervals'}
     >
       {#if compact}<span>{value}</span>{/if}
