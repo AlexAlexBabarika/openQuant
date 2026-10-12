@@ -1,4 +1,7 @@
 from hashlib import sha256
+from concurrent.futures import ThreadPoolExecutor
+
+import pytest
 
 from backend.backtesting.engine import run_backtest
 from backend.backtesting.run_config import RunInputs
@@ -84,3 +87,52 @@ def test_read_missing_raises(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         RunStore(tmp_path).read("deadbeef")
+
+
+def test_owner_namespaces_leave_legacy_and_other_accounts_untouched(tmp_path):
+    legacy = RunStore(tmp_path)
+    snap = _snap()
+    rid = legacy.write(snap)
+    a = legacy.for_owner("a")
+    b = legacy.for_owner("b")
+    assert a.list_ids() == b.list_ids() == []
+    with pytest.raises(FileNotFoundError):
+        a.read(rid)
+    a.write(snap)
+    assert b.exists(rid) is False
+    b.write(snap)
+    assert RunStore(tmp_path).for_owner("a").list_ids() == [rid]
+    assert RunStore(tmp_path).for_owner("b").list_ids() == [rid]
+    assert legacy.exists(rid)
+    assert a.path(rid) != b.path(rid) != legacy.path(rid)
+
+
+@pytest.mark.parametrize(
+    "run_id", ["../outside", "..", "/absolute", "a" * 63, "A" * 64]
+)
+def test_invalid_run_paths_are_not_accessible(tmp_path, run_id):
+    store = RunStore(tmp_path).for_owner("a")
+    assert store.exists(run_id) is False
+    with pytest.raises(FileNotFoundError):
+        store.read(run_id)
+
+
+def test_owner_ids_cannot_escape_namespace(tmp_path):
+    store = RunStore(tmp_path).for_owner("../../outside")
+    assert store.root.parent == tmp_path / "owners"
+    with pytest.raises(ValueError):
+        RunStore(tmp_path).for_owner("")
+
+
+def test_concurrent_identical_snapshot_writes_are_idempotent(tmp_path):
+    snap = _snap()
+
+    def write(_):
+        return RunStore(tmp_path).for_owner("a").write(snap)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        assert list(pool.map(write, range(16))) == [snap.run_id] * 16
+    store = RunStore(tmp_path).for_owner("a")
+    assert store.list_ids() == [snap.run_id]
+    assert store.read(snap.run_id)["metrics"] == snap.metrics
+    assert [p.name for p in store.root.iterdir()] == [snap.run_id]
