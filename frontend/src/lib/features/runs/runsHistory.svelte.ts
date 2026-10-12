@@ -1,3 +1,12 @@
+import {
+  isResearchDecision,
+  MAX_NOTEBOOK_REFERENCES,
+  MAX_TAG_LENGTH,
+  parseNotebookMetadata,
+  serializeNotebookMetadata,
+  type ResearchDecision,
+} from './notebookMetadata';
+
 export interface RunHistoryEntry {
   run_id: string;
   kind: 'single' | 'portfolio';
@@ -6,9 +15,10 @@ export interface RunHistoryEntry {
   tags?: string[];
   notes?: string;
   baseline?: boolean;
+  decision?: ResearchDecision;
 }
 
-export const MAX_RUNS = 50;
+export const MAX_RUNS = MAX_NOTEBOOK_REFERENCES;
 export const HISTORY_KEY = 'openquant.runs.history';
 
 function safeStorage(s?: Storage): Storage | null {
@@ -25,7 +35,7 @@ export class RunsHistory {
   storageError = $state<string | null>(null);
   #storage: Storage | null;
   #key = HISTORY_KEY;
-  #accountVersion = 0;
+  #accountVersion = $state(0);
   #readFailed = false;
   #guestEntries: RunHistoryEntry[] = [];
 
@@ -42,10 +52,26 @@ export class RunsHistory {
     this.entries = [];
     this.#readFailed = false;
     this.#guestEntries = [];
+    if (!this.#storage) {
+      this.storageError =
+        'Browser storage is unavailable. Notebook changes last only until this page closes.';
+      return;
+    }
     try {
       const raw = this.#storage?.getItem(this.#key);
       const parsed: unknown = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(parsed)) throw new Error('Invalid notebook history');
+      if (
+        parsed.some(
+          e =>
+            !e ||
+            typeof e.run_id !== 'string' ||
+            typeof e.label !== 'string' ||
+            typeof e.created_at !== 'string' ||
+            (e.kind !== 'single' && e.kind !== 'portfolio'),
+        )
+      )
+        throw new Error('Invalid notebook reference');
       let pinned = false;
       this.entries = parsed
         .filter(
@@ -68,6 +94,9 @@ export class RunsHistory {
               : [],
             notes: typeof e.notes === 'string' ? e.notes.slice(0, 10000) : '',
             baseline,
+            decision: isResearchDecision(e.decision)
+              ? e.decision
+              : 'unreviewed',
           };
         });
       if (this.#key !== HISTORY_KEY && this.#storage) {
@@ -130,7 +159,13 @@ export class RunsHistory {
     this.#persist();
   }
 
-  annotate(id: string, label: string, tags: string, notes: string): void {
+  annotate(
+    id: string,
+    label: string,
+    tags: string,
+    notes: string,
+    decision?: ResearchDecision,
+  ): void {
     this.entries = this.entries.map(e =>
       e.run_id === id
         ? {
@@ -140,11 +175,14 @@ export class RunsHistory {
               ...new Set(
                 tags
                   .split(',')
-                  .map(t => t.trim())
+                  .map(t => t.trim().slice(0, MAX_TAG_LENGTH))
                   .filter(Boolean),
               ),
             ].slice(0, 12),
             notes: notes.slice(0, 10000),
+            decision: isResearchDecision(decision)
+              ? decision
+              : (e.decision ?? 'unreviewed'),
           }
         : e,
     );
@@ -170,8 +208,9 @@ export class RunsHistory {
             tags: previous.tags,
             notes: previous.notes,
             baseline: previous.baseline,
+            decision: previous.decision ?? 'unreviewed',
           }
-        : entry,
+        : { ...entry, decision: entry.decision ?? 'unreviewed' },
       ...this.entries.filter(e => e.run_id !== entry.run_id),
     ].slice(0, MAX_RUNS);
     if (baseline && !next.some(e => e.run_id === baseline.run_id))
@@ -183,6 +222,62 @@ export class RunsHistory {
   remove(run_id: string): void {
     this.entries = this.entries.filter(e => e.run_id !== run_id);
     this.#persist();
+  }
+
+  exportMetadata(): string {
+    if (this.#readFailed)
+      throw new Error(
+        'Notebook storage could not be read. Export would omit unreadable data; repair storage first.',
+      );
+    return serializeNotebookMetadata(this.entries);
+  }
+
+  importMetadata(
+    json: string,
+    accountVersion = this.accountVersion,
+  ): {
+    imported: number;
+    duplicates: number;
+    capacitySkipped: number;
+  } {
+    if (accountVersion !== this.accountVersion)
+      throw new Error(
+        'Notebook owner changed. Select the file again for the current owner.',
+      );
+    const incoming = parseNotebookMetadata(json);
+    if (this.#readFailed)
+      throw new Error(
+        'Notebook storage could not be read. Existing data was not overwritten; repair storage before importing.',
+      );
+    const missing = incoming.filter(
+      entry => !this.entries.some(current => current.run_id === entry.run_id),
+    );
+    let pinned = this.baseline !== null;
+    const additions = missing
+      .slice(0, Math.max(0, MAX_RUNS - this.entries.length))
+      .map(entry => {
+        const baseline = !pinned && entry.baseline === true;
+        pinned ||= baseline;
+        return { ...entry, baseline };
+      });
+    if (additions.length) {
+      const next = [...this.entries, ...additions];
+      try {
+        if (!this.#storage) throw new Error('Storage unavailable');
+        this.#storage.setItem(this.#key, JSON.stringify(next));
+      } catch {
+        this.storageError =
+          'Browser storage is unavailable. Import was not saved; current notebook entries are unchanged.';
+        throw new Error(this.storageError);
+      }
+      this.entries = next;
+      this.storageError = null;
+    }
+    return {
+      imported: additions.length,
+      duplicates: incoming.length - missing.length,
+      capacitySkipped: missing.length - additions.length,
+    };
   }
 }
 
