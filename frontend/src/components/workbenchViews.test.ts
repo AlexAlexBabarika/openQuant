@@ -12,9 +12,14 @@ import { selectEntry, trialSearch } from '../entry';
 import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
 import TopHeader from './layout/TopHeader.svelte';
 import StrategyPanel from './strategy/StrategyPanel.svelte';
+import IntervalPicker from './layout/IntervalPicker.svelte';
 
 const app = new URL('../App.svelte', import.meta.url);
 const panel = new URL('./strategy/StrategyPanel.svelte', import.meta.url);
+const intervalPicker = new URL(
+  './layout/IntervalPicker.svelte',
+  import.meta.url,
+);
 
 describe('persistent research task views', () => {
   it.each(['chart', 'strategy', 'robustness'] as const)(
@@ -46,6 +51,42 @@ describe('persistent research task views', () => {
       expect(html).toContain('Inspect data');
     },
   );
+
+  it('isolates interval favorite activation from menu item selection', () => {
+    const source = readFileSync(intervalPicker, 'utf8');
+    expect(source).toContain('onpointerup={e => e.stopPropagation()}');
+    expect(source).toContain(
+      "if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()",
+    );
+    expect(source).toContain("compact ? 'h-11 w-11' : 'h-5 w-5'");
+  });
+
+  it('keeps the selected interval and data settings available in compact mode', () => {
+    const html = render(TopHeader, {
+      props: {
+        compact: true,
+        symbol: 'MSFT',
+        period: '1y',
+        interval: '1d',
+        source: 'yfinance',
+        autoRefresh: false,
+        connectionStatus: 'disconnected',
+        isLoading: false,
+        onload: vi.fn(),
+        onstream: vi.fn(),
+        oncsvupload: vi.fn(),
+      },
+    }).body;
+    expect(html).toContain('Bar interval 1d; choose interval');
+    expect(html).toContain('Data settings');
+    expect(html).toContain('No data loaded');
+    expect(html.match(/role="status"/g)).toHaveLength(1);
+    const picker = render(IntervalPicker, {
+      props: { compact: true, value: '1d' },
+    }).body;
+    expect(picker).toContain('min-h-11');
+    expect(picker).not.toContain('w-6');
+  });
 
   it.each(['', '&trial=1'])(
     'restores task history from initial query %s and preserves other URL parameters',
@@ -195,7 +236,12 @@ describe('persistent research task views', () => {
     expect(html).toContain('role="region"');
     expect(html).toContain('aria-label="Strategy workbench"');
     expect(html).toMatch(/aria-pressed="false"[^>]*>Split view/);
-    expect(html).toContain('Return to chart');
+    expect(html).not.toContain('Return to chart');
+    expect(html).not.toContain('aria-label="Active market context"');
+    expect(html).toContain('aria-label="More strategy actions"');
+    expect(html).toContain('New strategy');
+    expect(html).toContain('backtest');
+    expect(html).toContain('Local starter draft');
     expect(html).not.toContain('aria-modal="true"');
     expect(html).not.toContain('class="backdrop');
   });

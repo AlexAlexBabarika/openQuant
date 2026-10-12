@@ -99,6 +99,7 @@
   let activeSourceLabel = $derived(
     MARKET_DATA_PROVIDERS.find(p => p.value === source)?.label ?? source,
   );
+  let statusText = $derived(isLoading ? 'Loading…' : errorMessage ? 'Data error' : streamActive ? `Stream · ${connectionStatus}` : loadedProvider ? `Historical · ${loadedProvider}` : 'No data loaded');
 </script>
 
 {#snippet dataControls()}
@@ -159,15 +160,14 @@
 </div>
 <div class="context-row" aria-label="Chart data context">
   <span class="ot-ctx-pill"><span class="ot-ctx-label">SYM</span><span class="ot-ctx-value">{symbol || '—'}</span></span>
-  <div class="context-group" aria-label="Bar interval"><span class="context-label">Interval</span><IntervalPicker bind:value={interval} /></div>
+  <div class="context-group" aria-label="Bar interval"><span class="context-label">Interval</span><IntervalPicker bind:value={interval} {compact} /></div>
   {#if compact}<Popover.Root bind:open={dataSettingsOpen}>
-    <Popover.Trigger class="ot-workbench-ghost">Data settings</Popover.Trigger>
+    <Popover.Trigger class="ot-workbench-ghost min-h-11 flex-col gap-0.5" aria-label="Data settings"><span>Data settings</span><span class="request-status" role="status">{statusText}</span></Popover.Trigger>
     <Popover.Portal><Popover.Content sideOffset={6} align="end" collisionPadding={8} class="z-[60] w-[320px] max-w-[calc(100vw-16px)] rounded border border-border bg-popover p-3 text-popover-foreground shadow-lg">
       <div class="data-controls">{@render dataControls()}</div>
     </Popover.Content></Popover.Portal>
   </Popover.Root>
-  {:else}<div class="data-controls">{@render dataControls()}</div>{/if}
-  <span class="request-status" role="status">{isLoading ? 'Loading…' : errorMessage ? 'Data error' : streamActive ? `Stream · ${connectionStatus}` : loadedProvider ? `Historical · ${loadedProvider}` : 'No data loaded'}</span>
+  {:else}<div class="data-controls">{@render dataControls()}</div><span class="request-status" role="status">{statusText}</span>{/if}
 </div>
 </header>
 
@@ -196,6 +196,5 @@
     .context-row { gap: 6px; padding: 6px 8px; }
     .data-controls { flex-wrap: wrap; }
     .context-label { display: none; }
-    .request-status { flex-basis: 100%; }
   }
 </style>

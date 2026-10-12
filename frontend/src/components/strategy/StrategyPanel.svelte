@@ -8,10 +8,10 @@
 </script>
 
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { authState } from '$lib/features/auth/auth';
   import AuthDialog from '../dialogs/AuthDialog.svelte';
-  import { Dialog } from 'bits-ui';
+  import { Dialog, Popover } from 'bits-ui';
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Plus from '@lucide/svelte/icons/plus';
   import Play from '@lucide/svelte/icons/play';
@@ -73,6 +73,7 @@
   let libraryOpen = $state(untrack(() => strat.scripts.length > 0));
   let editorView = $state<'editor' | 'results'>('editor');
   let splitEnabled = $state(false);
+  let actionsOpen = $state(false);
   let panesEl = $state<HTMLDivElement | null>(null);
   let resizing = $state(false);
   let completedSource = $state<string | null>(null);
@@ -80,6 +81,11 @@
   let completedName = $state('');
   let completedMarket = $state<{ symbol: string; provider: MarketDataProviderValue; period: string; interval: string } | null>(null);
   let completedResult = $state<StrategyState['backtest']>(null);
+  async function selectAction(action: () => void) {
+    actionsOpen = false;
+    await tick();
+    action();
+  }
   const resultChanged = $derived(completedResult === strat.backtest && completedSource !== null && (completedSource !== strat.draftCode || completedContext !== `${symbol}|${provider}|${period}|${interval}`));
 
   function resizeEditor(event: PointerEvent) {
@@ -204,11 +210,11 @@
     }}
   >
     <header class="topbar">
-      <div class="brand">
+      {#if !embedded}<div class="brand">
         <span class="brand-mark">∿</span>
         <span class="brand-title">strategy</span>
         <span class="brand-sub">/ workbench</span>
-      </div>
+      </div>{/if}
 
       <nav class="tabs" aria-label="Strategy views">
         <button
@@ -238,7 +244,7 @@
       </nav>
       {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
 
-      <div class="ctx" aria-label="Active market context">
+      {#if !embedded}<div class="ctx" aria-label="Active market context">
         <span class="ctx-label">CTX</span>
         <span class="ctx-pair">
           <span class="ctx-sym">{symbol || '—'}</span>
@@ -251,9 +257,10 @@
         </span>
       </div>
 
-      <button type="button" class="iconbtn close" onclick={close} aria-label={embedded ? 'Return to chart' : 'Close'}>
+      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
         <X class="h-3.5 w-3.5" />
       </button>
+      {/if}
     </header>
 
     <div
@@ -357,8 +364,8 @@
             </div>
 
             <div class="actions">
-              <button type="button" class="btn ghost" onclick={() => strat.newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
-              {#if onRobustness}<button type="button" class="btn ghost" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
+              <button type="button" class="btn ghost wide-action" onclick={() => strat.newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
+              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
               {#if strat.saveError}
                 <ErrorBanner message={strat.saveError} />
               {/if}
@@ -387,6 +394,13 @@
                 <Play class="h-3.5 w-3.5" />
                 <span>{strat.isRunning ? 'running…' : 'backtest'}</span>
               </button>
+              <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
+                <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
+                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-[60] flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-lg">
+                  <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => strat.newDraft())}>New strategy</button>
+                  {#if onRobustness}<button type="button" class="btn ghost min-h-11" disabled={strat.isRunning || !symbol} onclick={() => void selectAction(onRobustness)}>Robustness</button>{/if}
+                </Popover.Content></Popover.Portal>
+              </Popover.Root></div>
             </div>
           </div>
 
@@ -481,7 +495,10 @@
   }
 
   .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); overflow-y: auto; }
-  .embedded .topbar { flex-shrink: 0; }
+  .embedded .topbar { flex-shrink: 0; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
+  .embedded .tabs { min-width: 0; overflow-x: auto; }
+  .embedded .tabs .tab { flex: none; }
+  .embedded .topbar > .ot-workbench-ghost { flex: none; }
   .embedded .body { flex-shrink: 0; min-height: min(600px, 75dvh); }
 
   .topbar {
@@ -826,6 +843,7 @@
     align-items: center;
     gap: 8px;
   }
+  .mobile-actions { display: none; }
 
   .btn {
     display: inline-flex;
@@ -882,6 +900,25 @@
     .ctx { flex-wrap: wrap; }
     .work-head { flex-wrap: wrap; padding: 8px 12px; }
     .actions { flex-wrap: wrap; }
+  }
+  @media (max-width: 760px) {
+    .embedded .topbar { flex-wrap: nowrap; padding: 0 8px; }
+    .embedded .tab { min-height: 36px; padding: 4px 9px; }
+    .embedded .topbar > .ot-workbench-ghost { min-height: 44px; }
+    .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 12px; }
+    .actions { flex-wrap: nowrap; gap: 6px; }
+    .actions .btn { min-height: 44px; font-size: 13px; }
+    .wide-action { display: none; }
+    .mobile-actions { display: flex; }
+    .editor-views { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
+    .editor-views .ot-workbench-ghost { min-height: 44px; }
+    .editor-views .compact-view { grid-row: 1 / span 2; }
+    .editor-views .compact-view:first-of-type { grid-column: 1; }
+    .editor-views .compact-view:nth-of-type(2) { grid-column: 2; }
+    .editor-views button:not(.compact-view) { grid-column: 1 / -1; }
+    .editor-views > span { grid-column: 3; font-size: 11px; line-height: 14px; }
+    .editor-views > span:first-child { grid-row: 1; align-self: end; }
+    .editor-views > span[role="status"] { grid-row: 2; align-self: start; }
   }
 
   .work { min-width: 0; }

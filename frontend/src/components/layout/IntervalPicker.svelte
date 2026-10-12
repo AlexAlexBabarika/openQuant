@@ -11,8 +11,10 @@
 
   let {
     value = $bindable(),
+    compact = false,
   }: {
     value: string;
+    compact?: boolean;
   } = $props();
 
   let favourites = $state<string[]>(loadIntervalFavourites());
@@ -46,7 +48,7 @@
 </script>
 
 <div class="flex items-center gap-0.5">
-  {#each sortedFavourites as fav (fav)}
+  {#each compact ? [] : sortedFavourites as fav (fav)}
     <button
       type="button"
       title={findLongLabel(fav)}
@@ -61,9 +63,10 @@
 
   <DropdownMenu.Root>
     <DropdownMenu.Trigger
-      class="inline-flex items-center justify-center h-7 w-6 rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground transition-colors outline-none"
-      aria-label="All intervals"
+      class="inline-flex items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground transition-colors outline-none {compact ? 'min-h-11 gap-2 border border-input px-3 text-sm font-mono' : 'h-7 w-6'}"
+      aria-label={compact ? `Bar interval ${value}; choose interval` : 'All intervals'}
     >
+      {#if compact}<span>{value}</span>{/if}
       <ChevronDown class="h-3.5 w-3.5" />
     </DropdownMenu.Trigger>
     <DropdownMenu.Portal>
@@ -86,7 +89,7 @@
             {@const isActive = value === opt.value}
             <DropdownMenu.Item
               onSelect={() => selectValue(opt.value)}
-              class="group/item flex w-full items-center gap-2 px-3 py-1.5 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {isActive
+              class="group/item flex w-full items-center gap-2 px-3 {compact ? 'py-0' : 'py-1.5'} text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {isActive
                 ? 'bg-accent/60 text-accent-foreground'
                 : ''}"
             >
@@ -94,11 +97,13 @@
               <button
                 type="button"
                 aria-label={isFav ? 'Remove favourite' : 'Add favourite'}
-                class="inline-flex items-center justify-center h-5 w-5 rounded transition-opacity {isFav
+                class="inline-flex items-center justify-center {compact ? 'h-11 w-11' : 'h-5 w-5'} rounded transition-opacity {isFav || compact
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/item:opacity-60 group-data-[highlighted]/item:opacity-60'} hover:!opacity-100"
                 onclick={e => toggleFavourite(opt.value, e)}
                 onpointerdown={e => e.stopPropagation()}
+                onpointerup={e => e.stopPropagation()}
+                onkeydown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
               >
                 <Star
                   class="h-3.5 w-3.5 {isFav
