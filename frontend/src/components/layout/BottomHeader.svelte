@@ -52,7 +52,7 @@
 </script>
 
 <div
-  class="relative flex items-center justify-between px-2 py-1 border-t border-border bg-background min-h-10 shrink-0"
+  class="chart-controls relative flex items-center justify-between px-2 py-1 border-t border-border bg-background min-h-10 shrink-0"
 >
   <div class="flex items-center gap-1">
     {@render drawingTools?.()}
@@ -129,3 +129,9 @@
     </button>
   </div>
 </div>
+
+<style>
+  @media (max-width: 760px) {
+    .chart-controls :global(.ot-workbench-ghost) { min-height: 44px; padding-inline: 8px; }
+  }
+</style>

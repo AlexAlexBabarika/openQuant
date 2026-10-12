@@ -11,8 +11,10 @@
 
   let {
     value = $bindable(),
+    compact = false,
   }: {
     value: string;
+    compact?: boolean;
   } = $props();
 
   let favourites = $state<string[]>(loadIntervalFavourites());
@@ -46,7 +48,7 @@
 </script>
 
 <div class="flex items-center gap-0.5">
-  {#each sortedFavourites as fav (fav)}
+  {#each compact ? [] : sortedFavourites as fav (fav)}
     <button
       type="button"
       title={findLongLabel(fav)}
@@ -61,9 +63,10 @@
 
   <DropdownMenu.Root>
     <DropdownMenu.Trigger
-      class="inline-flex items-center justify-center h-7 w-6 rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground transition-colors outline-none"
-      aria-label="All intervals"
+      class="inline-flex items-center justify-center h-7 w-6 rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground transition-colors outline-none {compact ? 'min-h-11 gap-2 border border-input px-3 text-sm font-mono' : ''}"
+      aria-label={compact ? `Bar interval ${value}; choose interval` : 'All intervals'}
     >
+      {#if compact}<span>{value}</span>{/if}
       <ChevronDown class="h-3.5 w-3.5" />
     </DropdownMenu.Trigger>
     <DropdownMenu.Portal>

@@ -159,7 +159,7 @@
 </div>
 <div class="context-row" aria-label="Chart data context">
   <span class="ot-ctx-pill"><span class="ot-ctx-label">SYM</span><span class="ot-ctx-value">{symbol || '—'}</span></span>
-  <div class="context-group" aria-label="Bar interval"><span class="context-label">Interval</span><IntervalPicker bind:value={interval} /></div>
+  <div class="context-group" aria-label="Bar interval"><span class="context-label">Interval</span><IntervalPicker bind:value={interval} {compact} /></div>
   {#if compact}<Popover.Root bind:open={dataSettingsOpen}>
     <Popover.Trigger class="ot-workbench-ghost">Data settings</Popover.Trigger>
     <Popover.Portal><Popover.Content sideOffset={6} align="end" collisionPadding={8} class="z-[60] w-[320px] max-w-[calc(100vw-16px)] rounded border border-border bg-popover p-3 text-popover-foreground shadow-lg">
