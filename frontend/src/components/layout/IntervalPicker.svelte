@@ -89,7 +89,7 @@
             {@const isActive = value === opt.value}
             <DropdownMenu.Item
               onSelect={() => selectValue(opt.value)}
-              class="group/item flex w-full items-center gap-2 px-3 py-1.5 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {isActive
+              class="group/item flex w-full items-center gap-2 px-3 {compact ? 'py-0' : 'py-1.5'} text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {isActive
                 ? 'bg-accent/60 text-accent-foreground'
                 : ''}"
             >
@@ -97,11 +97,13 @@
               <button
                 type="button"
                 aria-label={isFav ? 'Remove favourite' : 'Add favourite'}
-                class="inline-flex items-center justify-center h-5 w-5 rounded transition-opacity {isFav
+                class="inline-flex items-center justify-center {compact ? 'h-11 w-11' : 'h-5 w-5'} rounded transition-opacity {isFav || compact
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/item:opacity-60 group-data-[highlighted]/item:opacity-60'} hover:!opacity-100"
                 onclick={e => toggleFavourite(opt.value, e)}
                 onpointerdown={e => e.stopPropagation()}
+                onpointerup={e => e.stopPropagation()}
+                onkeydown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
               >
                 <Star
                   class="h-3.5 w-3.5 {isFav

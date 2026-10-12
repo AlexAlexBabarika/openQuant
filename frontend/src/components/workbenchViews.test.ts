@@ -15,6 +15,10 @@ import StrategyPanel from './strategy/StrategyPanel.svelte';
 
 const app = new URL('../App.svelte', import.meta.url);
 const panel = new URL('./strategy/StrategyPanel.svelte', import.meta.url);
+const intervalPicker = new URL(
+  './layout/IntervalPicker.svelte',
+  import.meta.url,
+);
 
 describe('persistent research task views', () => {
   it.each(['chart', 'strategy', 'robustness'] as const)(
@@ -46,6 +50,15 @@ describe('persistent research task views', () => {
       expect(html).toContain('Inspect data');
     },
   );
+
+  it('isolates interval favorite activation from menu item selection', () => {
+    const source = readFileSync(intervalPicker, 'utf8');
+    expect(source).toContain('onpointerup={e => e.stopPropagation()}');
+    expect(source).toContain(
+      "if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()",
+    );
+    expect(source).toContain("compact ? 'h-11 w-11' : 'h-5 w-5'");
+  });
 
   it('keeps the selected interval and data settings available in compact mode', () => {
     const html = render(TopHeader, {
