@@ -367,14 +367,6 @@
             <div class="actions">
               <button type="button" class="btn ghost wide-action" onclick={() => strat.newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
               {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
-              {#if strat.saveError}
-                <ErrorBanner message={strat.saveError} />
-              {/if}
-              {#if strat.runError}
-                <ErrorBanner message={strat.runError} />
-              {/if}
-              {#if strat.isRunning || strat.runError || strat.dataQuality}<DataQualityEvidence report={strat.dataQuality} pending={strat.isRunning} />{/if}
-
               <button
                 type="button"
                 class="btn ghost"
@@ -405,6 +397,15 @@
               </Popover.Root></div>
             </div>
           </div>
+
+          {#if strat.saveError || strat.isRunning || strat.runError || strat.dataQuality}
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable evidence must be keyboard reachable.) -->
+            <div class="research-feedback" role="region" aria-label="Strategy feedback" tabindex="0">
+              {#if strat.saveError}<ErrorBanner message={strat.saveError} />{/if}
+              {#if strat.runError}<ErrorBanner message={strat.runError} />{/if}
+              {#if strat.isRunning || strat.runError || strat.dataQuality}<DataQualityEvidence report={strat.dataQuality} pending={strat.isRunning} />{/if}
+            </div>
+          {/if}
 
           <div class="editor-views" class:single={!splitEnabled} aria-label="Editor and results views">
             <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
@@ -846,6 +847,15 @@
     gap: 8px;
   }
   .mobile-actions { display: none; }
+
+  .research-feedback {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-height: min(30dvh, 16rem);
+    overflow: auto;
+    overflow-wrap: anywhere;
+    padding: 6px 12px;
+  }
 
   .btn {
     display: inline-flex;
