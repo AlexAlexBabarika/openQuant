@@ -71,17 +71,32 @@ class WorkspaceSensitivity(TrialModel):
     max_drawdown: float = Field(allow_inf_nan=False)
 
 
+class WorkspaceCostStressPoint(TrialModel):
+    multiplier: Literal[1, 2, 3]
+    commission_bps: float = Field(ge=0, le=150, allow_inf_nan=False)
+    slippage_bps: float = Field(ge=0, le=150, allow_inf_nan=False)
+    summary: RunSummary
+
+
+class WorkspaceCostStress(TrialModel):
+    status: Literal["measured", "zero-cost"]
+    points: list[WorkspaceCostStressPoint] = Field(min_length=3, max_length=3)
+    limitation: str
+
+
 class WorkspaceReport(TrialModel):
     schema_version: Literal[1] = 1
     source: Literal["workspace"] = "workspace"
     report_id: str
     code_hash: str
     engine_version: str
+    suite_version: str | None = None
     strategy: WorkspaceStrategy
     dataset: WorkspaceDataset
     config: WorkspaceConfig
     baseline: RunSummary
     realistic: RunSummary
+    cost_stress: WorkspaceCostStress | None = None
     benchmark: RunSummary
     holdout: Holdout
     sensitivity: list[WorkspaceSensitivity]

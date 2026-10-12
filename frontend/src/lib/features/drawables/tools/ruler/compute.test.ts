@@ -21,6 +21,117 @@ function candle(tsIso: string, volume: number): OHLCVCandle {
 }
 
 describe('ruler computeStats', () => {
+  it('invalidates a shared prefix for every same-array candle revision', () => {
+    const candles = [
+      candle('2024-01-01T00:00:00Z', 10),
+      candle('2024-01-01T01:00:00Z', 20),
+      candle('2024-01-01T03:00:00Z', 30),
+    ];
+    const t0 = Date.parse(candles[0].timestamp) / 1000;
+    const geo = {
+      startTime: t0,
+      endTime: t0 + 3600,
+      startPrice: 1,
+      endPrice: 2,
+    };
+    const run = (revision: number) =>
+      withRulerCandleIndex(candles, `revision:${revision}`, () =>
+        computeStats(geo, candles),
+      );
+    expect(run(0)).toMatchObject({ barCount: 2, volumeSum: 30 });
+    candles[1].volume = 70;
+    expect(run(1)).toMatchObject({ barCount: 2, volumeSum: 80 });
+    candles[2].timestamp = candles[0].timestamp;
+    expect(run(2)).toMatchObject({ barCount: 3, volumeSum: 110 });
+    candles.splice(1, 1);
+    expect(run(3)).toMatchObject({ barCount: 2, volumeSum: 40 });
+    candles[0].timestamp = 'invalid';
+    expect(run(4)).toMatchObject({ barCount: 1, volumeSum: 30 });
+  });
+
+  it.each([
+    [1e20, 1, 2],
+    [Number.MAX_SAFE_INTEGER, 1, 2],
+    [0.1, 0.2, 0.3],
+    [1e20, -1e20, 2],
+    [NaN, 1, 2],
+    [Infinity, 1, 2],
+    [-Infinity, 1, 2],
+  ])(
+    'retains direct-scan numeric behavior for unsafe prefix volumes %j',
+    (...volumes) => {
+      const candles = volumes.map((volume, i) =>
+        candle(`2024-01-01T0${i}:00:00Z`, volume),
+      );
+      const t0 = Date.parse(candles[0].timestamp) / 1000;
+      for (const [start, end] of [
+        [0, 7200],
+        [3600, 7200],
+        [3600, 3600],
+        [1, 3599],
+      ]) {
+        const geo = {
+          startTime: t0 + start,
+          endTime: t0 + end,
+          startPrice: 1,
+          endPrice: 2,
+        };
+        expect(
+          withRulerCandleIndex(candles, 'fixed', () =>
+            computeStats(geo, candles),
+          ),
+        ).toEqual(computeStats(geo, candles));
+      }
+    },
+  );
+
+  it('matches direct scans for many overlapping sparse, reversed, and duplicate ranges', () => {
+    const candles = Array.from({ length: 1000 }, (_, i) =>
+      candle(new Date((1000 + ((i * 97) % 300)) * 60000).toISOString(), i),
+    );
+    const parse = vi.spyOn(Date, 'parse');
+    try {
+      const signature = candleBatchSignature(candles);
+      const geometries = Array.from({ length: 100 }, (_, i) => ({
+        startTime: (999 + i) * 60,
+        endTime: (1299 - i) * 60,
+        startPrice: 5,
+        endPrice: 10,
+      }));
+      const expected = geometries.map(geo => computeStats(geo, candles));
+      parse.mockClear();
+      expect(
+        withRulerCandleIndex(candles, signature, () =>
+          geometries.map(geo => computeStats(geo, candles)),
+        ),
+      ).toEqual(expected);
+      expect(parse).toHaveBeenCalledTimes(candles.length);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
+  it('restores nested shared contexts and handles empty or nonfinite endpoints', () => {
+    const candles = [candle('2024-01-01T00:00:00Z', 10)];
+    const other = [candle('2024-01-01T00:00:00Z', 90)];
+    const geo = { startTime: 0, endTime: Infinity, startPrice: 1, endPrice: 2 };
+    withRulerCandleIndex(candles, '0', () => {
+      expect(computeStats(geo, candles).volumeSum).toBe(10);
+      expect(
+        withRulerCandleIndex(other, '0', () => computeStats(geo, other))
+          .volumeSum,
+      ).toBe(90);
+      expect(computeStats(geo, candles).volumeSum).toBe(10);
+      expect(computeStats({ ...geo, startTime: NaN }, candles)).toMatchObject({
+        barCount: 0,
+        volumeSum: 0,
+      });
+    });
+    expect(
+      withRulerCandleIndex([], 'empty', () => computeStats(geo, [])),
+    ).toMatchObject({ barCount: 0, volumeSum: 0 });
+  });
+
   it('does not build an index for compute passes without a ruler', () => {
     const candles = [candle('2024-01-01T00:00:00Z', 10)];
     const parse = vi.spyOn(Date, 'parse');

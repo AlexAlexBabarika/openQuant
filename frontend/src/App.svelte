@@ -17,6 +17,7 @@
   import { ChartController } from '$lib/features/chart/chartController.svelte';
   import { ComparisonController } from '$lib/features/chart/comparisonController.svelte';
   import SymbolSearchDialog from './components/dialogs/SymbolSearchDialog.svelte';
+  import GuidedExampleDialog from './components/dialogs/GuidedExampleDialog.svelte';
   import { authState, fetchSession } from '$lib/features/auth/auth';
   import {
     pickProviderForSymbol,
@@ -380,7 +381,33 @@
   let strategyTab = $state<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor');
   let indicatorTab = $state<'editor' | 'docs'>('editor');
   let commandsOpen = $state(false);
+  let guidedExampleOpen = $state(false);
+  let guidedExampleReturnFocus = $state<HTMLElement | null>(null);
+  let commandsReturnFocus: HTMLElement | null = null;
   let workspaceLayout: ResearchLayout | null = null;
+
+  function focusedElement(): HTMLElement | null {
+    return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+
+  function openGuidedExample(returnFocus = focusedElement()): void {
+    guidedExampleReturnFocus = returnFocus;
+    guidedExampleOpen = true;
+  }
+
+  function openResearchCommands(): void {
+    if (guidedExampleOpen || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+    commandsReturnFocus = focusedElement();
+    commandsOpen = true;
+  }
+
+  function handleCommandKey(event: KeyboardEvent): void {
+    if (event.defaultPrevented || !isCommandShortcut(event)) return;
+    if (!commandsOpen && (guidedExampleOpen || document.querySelector('[role="dialog"], [role="alertdialog"]'))) return;
+    event.preventDefault();
+    if (commandsOpen) commandsOpen = false;
+    else openResearchCommands();
+  }
 
   function openResearchWorkspaces(): void {
     if (!researchWorkspacesOpen) workspaceLayout = currentResearchLayout();
@@ -421,6 +448,7 @@
       { id: 'workspaces', title: 'Workspaces and draft recovery', group: 'Workspace', action: openResearchWorkspaces },
       command('data', 'Inspect loaded market data', () => (dataInspectorOpen = true), 'Workspace', 'provenance coverage quality source'),
       command('robustness', 'Open Robustness', () => setTrialOpen(true)),
+      { id: 'guided-example', title: 'Open Guided example', group: 'Workspace', detail: 'first ten minutes synthetic onboarding', action: () => openGuidedExample(commandsReturnFocus) },
       command('backtest', 'Open backtest results', () => { void backtest.load(); backtestOpen = true; }),
       command('cursor', 'Select chart cursor', () => (activeTool = CURSOR), 'Drawing'),
       ...listTools().map(tool => command(`drawing:${tool.type}`, tool.label, () => (activeTool = tool.type), 'Drawing')),
@@ -533,13 +561,13 @@
   }
 
   let runsOpen = $state(false);
-  $effect(() => {
-    const account = $authState.user?.id ?? null;
-    untrack(() => {
-      runsHistory.setAccount(account);
-      if (compareState.setAccount(account)) compareOpen = false;
-    });
-  });
+  function subscribeNotebookAccount(): () => void {
+    return authState.subscribe(state => untrack(() => {
+      runsHistory.setAccount(state.user?.id ?? null);
+      if (compareState.setAccount(state.user?.id ?? null)) compareOpen = false;
+    }));
+  }
+  onMount(subscribeNotebookAccount);
   let compareOpen = $state(false);
   let portfolioRunId = $state<string | null>(null);
 
@@ -578,7 +606,7 @@
     Strategy: openStrategy,
     Runs: () => (runsOpen = true),
     Workspaces: openResearchWorkspaces,
-    Commands: () => (commandsOpen = true),
+    Commands: openResearchCommands,
   };
 
   function handleToolboxTile(title: string) {
@@ -957,7 +985,7 @@
   });
 </script>
 
-<svelte:window onkeydown={event => { if (isCommandShortcut(event)) { event.preventDefault(); commandsOpen = !commandsOpen; } }} />
+<svelte:window onkeydown={handleCommandKey} />
 
 <div class="flex flex-col h-dvh bg-background">
   <DrawablesPersistence userId={$authState.user?.id ?? null} ready={sessionReady} />
@@ -975,6 +1003,7 @@
     onstrategy={openStrategy}
     onchart={openChart}
     onrobustness={() => setTrialOpen(true)}
+    onguidedexample={() => openGuidedExample()}
     {activeView}
     onworkspaces={openResearchWorkspaces}
     oninspectdata={() => (dataInspectorOpen = true)}
@@ -1158,6 +1187,7 @@
   />
   <BacktestPanel bind:open={backtestOpen} {backtest} onCompareAfterRerun={compareAfterRerun} onOpenRuns={() => (runsOpen = true)} onCompare={openCompare} />
   <RecentRunsPanel bind:open={runsOpen} onOpenRun={openStoredRun} onCompare={openCompare} />
+  <GuidedExampleDialog bind:open={guidedExampleOpen} returnFocus={guidedExampleReturnFocus} />
   <ResearchWorkspacesDialog bind:open={researchWorkspacesOpen} shelf={researchShelf} onSave={saveResearchWorkspace} onRestore={restoreResearchWorkspace} onRecover={recoverDraft} onKeep={keepCurrentDraft} />
   <DataInspector bind:open={dataInspectorOpen} {chart} />
   <CommandPalette

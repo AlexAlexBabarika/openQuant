@@ -34,6 +34,7 @@
     onrobustness = () => {},
     activeView = 'chart',
     onworkspaces = () => {},
+    onguidedexample = () => {},
     oninspectdata = () => {},
     loadedProvider = null,
     errorMessage = null,
@@ -54,6 +55,7 @@
     onrobustness?: () => void;
     activeView?: 'chart' | 'strategy' | 'robustness';
     onworkspaces?: () => void;
+    onguidedexample?: () => void;
     oninspectdata?: () => void;
     loadedProvider?: string | null;
     errorMessage?: string | null;
@@ -140,6 +142,7 @@
     <button type="button" class="task-link" aria-current={activeView === 'robustness' ? 'page' : undefined} onclick={onrobustness}>Robustness</button>
   </nav>
   <button type="button" class="workspace-link ot-workbench-ghost" onclick={onworkspaces}>Workspaces</button>
+  <button type="button" class="ot-workbench-ghost" onclick={onguidedexample} aria-haspopup="dialog">Guided example</button>
 
   <div class="account-zone">
     {#if currentUser}

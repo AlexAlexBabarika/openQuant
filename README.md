@@ -45,6 +45,11 @@ Use OpenQuant to:
 
 ## Continuing research
 
+- **Guided example** in the header or **Ctrl/⌘ K** palette offers an opt-in four-step introduction. Opening it does not run anything or replace the current chart/draft. **Load and run synthetic example** uses deterministic built-in data, not a provider snapshot; closing discards only the guide session. Synthetic outcomes are not strategy recommendations.
+- **Elements** keep one active calculation and one replaceable newest candle work item per Element. Geometry/context changes invalidate obsolete output; the newest request waits for active work to settle even if abort is ignored. This bound is not a 10 Hz/frame-smoothness or memory-leak acceptance claim; indefinitely unsettled requests remain pending.
+- Workspace **Robustness** now presents a staged review of configured-cost performance, genuine full-period 2×/3× cost stress, chronological holdout and neighboring parameters. Zero configured costs explicitly provide no cost-resilience evidence; older/example reports without stress evidence show it as unavailable. A human **Unreviewed / Revise / Reject / Continue research** conclusion is not a confidence score, trade approval, or independent out-of-sample evidence.
+- The latest workspace robustness report/review can be explicitly restored from bounded account-local browser recovery. Restore keeps the original receipt/context, does not apply draft/settings or run checks, and marks mismatched/unavailable input identity stale. It does not revalidate live provider data. Unreadable/blocked/quota storage preserves prior bytes; sign-out/account changes fence obsolete work. Recovery is unencrypted local storage, not cloud sync.
+- **Runs** adds a non-certifying research decision plus explicit metadata-only JSON export/import (version 1, at most 50 references and 6 MiB). Backups include run references, names/tags/notes/decision/baseline only—not result snapshots, bars, strategy source or account ownership IDs. Imports never silently copy guests or evict existing entries; duplicate references and existing baselines are retained. Snapshots remain server-local/shared, not account-private; metadata backups alone cannot restore missing results.
 - Open **Runs** in the toolbox to name experiments, add comma-separated tags and notes, and pin a single-symbol baseline. **Compare with baseline** beside a result uses the existing stored-run comparison; portfolio runs can be reopened but are not comparable to single-symbol baselines.
 - Comparisons include **What changed?** for stored source fingerprints, resolved parameters, costs, dataset context, engine, seed and portfolio configuration where recorded. Missing inputs are explicitly unavailable. Replay uses stored bars and the current engine; provider state and runtime/dependency versions are not preserved. Recorded non-default costs are not replayed by the current rerun path. A run ID, notebook label or hash alone does not guarantee reproducibility.
 - **Workspaces** offers local Strategy/Indicator draft recovery and up to ten named presets. Presets include data context, overlays, panel visibility, editor split sizes, and copies of both editor drafts. Restore requires confirmation, does not execute scripts, and does not include CSV data. Re-upload CSV files when needed.
@@ -52,6 +57,20 @@ Use OpenQuant to:
 - **Inspect data** in the data controls shows loaded versus selected context, actual coverage, browser receipt times, and observed timestamp/OHLCV anomalies. Long intervals are not proof of missing bars; exchange calendars and adjustment policies remain unknown unless supplied by the source.
 - In result **Trades** and **Drawdown** tabs, **Focus** selects that period on the result's own price chart. **Show full run** clears the selection without changing calculations.
 - Press **Ctrl/⌘ K**, or choose **Commands** in the toolbox, to search research surfaces, drawing tools, symbols, saved account scripts, and notebook runs. Use arrow keys and Enter to select, Escape to dismiss. Opening a saved script does not run it and asks before discarding unsaved editor changes.
+
+## Publication boundary
+
+Run the read-only operator checker in the target app's environment:
+
+```bash
+.venv/bin/python -m backend.scripts.publication_preflight --mode local
+.venv/bin/python -m backend.scripts.publication_preflight --mode hosted \
+  --public-origin https://research.example.com --format json
+```
+
+It inspects its process environment; it does not automatically load `.env`, contact providers, start services, modify configuration, or execute a backup/restore. Local exit `0` only clears automated checks; every hosted result exits `1` and remains **not approved**, including clear configuration. Invalid CLI/Compose metadata exits `2`. See [PUBLICATION_READINESS.md](docs/PUBLICATION_READINESS.md) for normalized Compose metadata, stable output, and the isolated restore runbook.
+
+Private maintainer review is needed before hosting. Provider redistribution rights, private artifacts, sandbox/resource/abuse controls, restore drills, privacy/retention and operating responsibility remain human gates. This slice does not activate billing, managed hosting or cloud sync, prove data rights/real-provider acceptance, or execute a restore drill.
 
 ## Quick start
 

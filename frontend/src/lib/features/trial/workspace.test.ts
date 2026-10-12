@@ -92,6 +92,22 @@ afterEach(() => {
 });
 
 describe('workspace robustness inputs and boundary', () => {
+  it('namespaces controls when workspace and guided synthetic trials coexist', () => {
+    const Pair = ((payload: unknown) => {
+      const child = StrategyTrial as unknown as (
+        payload: unknown,
+        props: unknown,
+      ) => void;
+      child(payload, { embedded: true, workspace: context });
+      child(payload, { embedded: true });
+    }) as unknown as typeof StrategyTrial;
+    const { body } = render(Pair);
+    const ids = Array.from(body.matchAll(/\bid="([^"]+)"/g), match => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    const forms = ids.filter(id => id.endsWith('-run-form'));
+    expect(forms).toHaveLength(2);
+    for (const form of forms) expect(body).toContain(`form="${form}"`);
+  });
   it('uses the current editor/context with authenticated POST, never a code-bearing URL', async () => {
     const fetch = vi.fn(
       async () => new Response(JSON.stringify(fixture()), { status: 200 }),
@@ -203,6 +219,23 @@ describe('workspace robustness inputs and boundary', () => {
     expect(html).not.toContain('Example strategy');
     expect(html).not.toContain('EXAMPLE DATA');
     expect(html).not.toContain('value="workspace" selected disabled');
+  });
+
+  it('namespaces label, help and submit targets with a Svelte instance id', () => {
+    const html = render(StrategyTrial, {
+      props: { workspace: context, embedded: true },
+    }).body;
+    const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), match => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const match of html.matchAll(
+      /\b(?:for|form|aria-controls|aria-describedby)="([^"]+)"/g,
+    )) {
+      for (const target of match[1].split(' ')) expect(ids).toContain(target);
+    }
+    const form = html.match(/<form id="([^"]+)"/)?.[1];
+    expect(form).toMatch(/-run-form$/);
+    expect(form).not.toBe('robustness-run-form');
+    expect(html).toContain(`form="${form}"`);
   });
 });
 

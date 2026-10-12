@@ -14,6 +14,9 @@
   import Activity from '@lucide/svelte/icons/activity';
   import { Tabs } from 'bits-ui';
   import { isWorkspaceReport, parseParameterOverrides, runWorkspaceChecks, workspaceFingerprint, type EvidenceReport, type WorkspaceContext, type WorkspaceSettings } from './workspace';
+  import ResearchReview from './ResearchReview.svelte';
+  import { createReviewFence, emptyReview, loadLatestReview, restoredReviewIsStale, reviewInputFingerprint, saveLatestReview, selectSavedReview, validWorkspaceReport, type RecoveryResult, type ReviewStorage, type SavedReview } from './recovery';
+  import type { ResearchReview as Review } from '../trial-report/types';
 
   let { workspaceHref = '/', embedded = false, workspace, onopenstrategy, onreturnworkspace }: {
     workspaceHref?: string;
@@ -22,6 +25,7 @@
     workspace?: WorkspaceContext;
     onopenstrategy?: () => void;
   } = $props();
+  const id = $props.id();
 
   const knownCases = ['backtest-billionaire', 'overcaffeinated-trader', 'boring-benchmark'];
 
@@ -50,6 +54,14 @@
   let runSequence = 0;
   let initialSharedConfig: TrialConfig | null = null;
   let disposed = false;
+  let storage: ReviewStorage | null = null;
+  let recovery = $state.raw<RecoveryResult>({ status: 'ready', saved: null });
+  let receipt = $state.raw<SavedReview | null>(null);
+  let restored = $state(false);
+  let storageMessage = $state('');
+  let currentInputFingerprint = $state<string | null>(null);
+  const currentAccount = () => $authState.user?.id == null ? null : String($authState.user.id);
+  const reviewFence = createReviewFence(currentAccount);
 
   let costsValid = $derived(validCost(commission) && validCost(slippage));
   let workspaceSettings = $derived.by((): WorkspaceSettings | null => {
@@ -61,7 +73,7 @@
     } catch { return null; }
   });
   let inputsChanged = $derived(report !== null && (isWorkspaceReport(report) ?
-    mode !== 'workspace' || !workspace || !workspaceSettings || completedFingerprint !== workspaceFingerprint(workspace, workspaceSettings) :
+    mode !== 'workspace' || !workspace || !workspaceSettings || (restored && receipt ? restoredReviewIsStale(receipt, currentInputFingerprint) : completedFingerprint !== workspaceFingerprint(workspace, workspaceSettings)) :
     mode !== 'examples' || report.config.strategy_id !== selectedId ||
     report.config.commission_bps !== commission ||
     report.config.slippage_bps !== slippage
@@ -70,10 +82,27 @@
   let canRun = $derived(mode === 'workspace' ? !!workspaceSettings && !!workspace?.code.trim() && !!workspace?.symbol.trim() : costsValid && !!selectedStrategy);
 
   $effect(() => {
-    const account = $authState.user?.id ?? null;
+    const context = workspace;
+    const settings = workspaceSettings;
+    let active = true;
+    currentInputFingerprint = null;
+    if (context && settings) {
+      void reviewInputFingerprint({ ...context }, { ...settings }).then(value => {
+        if (active) currentInputFingerprint = value;
+      }).catch(() => { /* Unavailable identity keeps restored output conservatively stale. */ });
+    }
+    return () => { active = false; };
+  });
+
+  function syncReportAccount(account: string | null): void {
     if (account === reportAccount) return;
     reportAccount = account;
     untrack(() => {
+      reviewFence.invalidate();
+      receipt = null;
+      restored = false;
+      storageMessage = '';
+      reloadRecovery();
       if (mode === 'workspace') cancelRun();
       if (report && isWorkspaceReport(report)) {
         report = null;
@@ -83,18 +112,61 @@
         statusMessage = 'Account changed. Run checks for the current workspace.';
       }
     });
-  });
+  }
+
+  function reloadRecovery(): void {
+    if (mode !== 'workspace' || !workspace) { recovery = { status: 'ready', saved: null }; return; }
+    recovery = storage ? loadLatestReview(storage, currentAccount()) : { status: 'unavailable', saved: null };
+  }
+
+  function persistReceipt(saved: SavedReview): void {
+    if (!storage) { storageMessage = 'Browser storage is unavailable. Report remains in memory only.'; return; }
+    const result = saveLatestReview(storage, saved, currentAccount);
+    storageMessage = result === 'saved' ? 'Latest report and review saved in this account’s browser storage.' :
+      result === 'unreadable' ? 'Existing saved report is unreadable. It was preserved; this report remains in memory only.' :
+      result === 'too-large' ? 'Report exceeds the bounded browser recovery limit. Previous storage was preserved; download a snapshot instead.' :
+      result === 'obsolete' ? '' : 'Browser storage could not save this report (blocked or quota full). Previous storage was preserved; download a snapshot instead.';
+    reloadRecovery();
+  }
+
+  function updateReview(review: Review): void {
+    if (!report || running || (isWorkspaceReport(report) && reportAccount !== $authState.user?.id)) return;
+    report = { ...report, research_review: review };
+    if (receipt && isWorkspaceReport(report)) {
+      receipt = { ...receipt, report };
+      persistReceipt(receipt);
+    }
+  }
+
+  function restorePrevious(): void {
+    const saved = selectSavedReview(recovery.saved, currentAccount());
+    if (!saved || mode !== 'workspace') return;
+    cancelRun();
+    receipt = saved;
+    report = saved.report;
+    receivedAt = saved.received_at;
+    completedFingerprint = '';
+    restored = true;
+    runError = '';
+    statusMessage = 'Previous report restored by your choice. Original receipt/context retained; current draft and configuration unchanged. No checks were run.';
+  }
 
   function chooseMode(next: 'workspace' | 'examples'): void {
     if (next === mode) return;
     cancelRun();
     mode = next;
     report = null;
+    receipt = null;
+    restored = false;
+    receivedAt = '';
+    storageMessage = '';
+    reloadRecovery();
     runError = '';
     statusMessage = 'Source selected. Run checks to measure this setup.';
   }
 
   function cancelRun(): void {
+    reviewFence.invalidate();
     runSequence += 1;
     runController?.abort();
     runController = null;
@@ -183,6 +255,8 @@
         throw new Error('The report did not match this example configuration.');
       }
       report = result;
+      receipt = null;
+      restored = false;
       receivedAt = new Date().toISOString();
       statusMessage = `Results ready for ${result.strategy.name}.`;
     } catch (error) {
@@ -204,6 +278,7 @@
       return;
     }
     cancelRun();
+    const fence = reviewFence.capture();
     const sequence = runSequence;
     const context = { ...workspace };
     const settings = { ...workspaceSettings };
@@ -215,16 +290,26 @@
     statusMessage = `Running ${context.name} on ${context.symbol} · ${context.provider}…`;
     try {
       const result = await runWorkspaceChecks(context, settings, controller.signal);
-      if (controller.signal.aborted || disposed || sequence !== runSequence) return;
-      if (result.schema_version !== 1 || result.source !== 'workspace' || result.dataset.synthetic !== false) {
+      if (controller.signal.aborted || disposed || sequence !== runSequence || !fence.current()) return;
+      if (!validWorkspaceReport(result)) {
         throw new Error('The workspace report uses an unsupported format.');
       }
-      report = result;
+      const inputFingerprint = await reviewInputFingerprint(context, settings).catch(() => null);
+      if (controller.signal.aborted || disposed || sequence !== runSequence || !fence.current()) return;
+      report = { ...result, research_review: emptyReview() };
       receivedAt = new Date().toISOString();
       completedFingerprint = fingerprint;
+      restored = false;
+      receipt = inputFingerprint === null ? null : {
+        version: 1, account: fence.account!, received_at: receivedAt, input_fingerprint: inputFingerprint,
+        context: { name: context.name, symbol: context.symbol, provider: context.provider, period: context.period, interval: context.interval },
+        report,
+      };
+      if (receipt) persistReceipt(receipt);
+      else storageMessage = 'Input identity could not be recorded. Results remain in memory; recovery was not saved.';
       statusMessage = `Results ready for ${result.strategy.name} · ${result.dataset.label}.`;
     } catch (error) {
-      if (controller.signal.aborted || disposed || sequence !== runSequence) return;
+      if (controller.signal.aborted || disposed || sequence !== runSequence || !fence.current()) return;
       runError = error instanceof Error ? error.message : 'Workspace checks could not be completed.';
       statusMessage = 'The checks did not finish. You can retry.';
     } finally {
@@ -236,10 +321,16 @@
   }
 
   onMount(() => {
+    if (workspace) {
+      try { storage = window.localStorage; } catch { storage = null; }
+    }
+    const unsubscribe = authState.subscribe(state => syncReportAccount(state.user?.id ?? null));
     initialSharedConfig = readTrialShareConfig(window.location.search);
     if (initialSharedConfig) mode = 'examples';
+    reloadRecovery();
     void loadCatalog();
     return () => {
+      unsubscribe();
       disposed = true;
       catalogController?.abort();
       cancelRun();
@@ -267,14 +358,14 @@
 
   <div class="workbench">
     <aside class="configuration" aria-label="Robustness configuration">
-      <button type="button" class="config-toggle ot-workbench-ghost" aria-expanded={configurationExpanded} aria-controls="robustness-configuration-fields" onclick={() => (configurationExpanded = !configurationExpanded)}>Configuration · {mode === 'workspace' ? workspace?.symbol || 'No symbol' : 'Example data'}</button>
-      <div id="robustness-configuration-fields" class="config-scroll" class:expanded={configurationExpanded}>
+      <button type="button" class="config-toggle ot-workbench-ghost" aria-expanded={configurationExpanded} aria-controls={`${id}-configuration-fields`} onclick={() => (configurationExpanded = !configurationExpanded)}>Configuration · {mode === 'workspace' ? workspace?.symbol || 'No symbol' : 'Example data'}</button>
+      <div id={`${id}-configuration-fields`} class="config-scroll" class:expanded={configurationExpanded}>
       <h2>Configuration</h2>
-      <p class="muted">Compare execution costs, buy-and-hold, an out-of-sample period and neighboring parameter values.</p>
-      <form id="robustness-run-form" onsubmit={event => { event.preventDefault(); void runTrial(); }}>
+      <p class="muted">Review execution costs, buy-and-hold, a chronological holdout and neighboring parameter values. These are research checks, not a confidence score.</p>
+      <form id={`${id}-run-form`} onsubmit={event => { event.preventDefault(); void runTrial(); }}>
         {#if workspace}
-          <label for="robustness-source">Strategy source</label>
-          <select id="robustness-source" value={mode} onchange={event => chooseMode(event.currentTarget.value as 'workspace' | 'examples')}>
+          <label for={`${id}-source`}>Strategy source</label>
+          <select id={`${id}-source`} value={mode} onchange={event => chooseMode(event.currentTarget.value as 'workspace' | 'examples')}>
             <option value="workspace">Current workspace strategy</option>
             <option value="examples">Built-in examples</option>
           </select>
@@ -283,25 +374,25 @@
           <h3>{workspace.name}</h3>
           <p class="muted">{workspace.symbol || 'Select a chart symbol'} · {workspace.provider} · {workspace.period} / {workspace.interval}. Uses the current editor source, including unsaved changes.</p>
           <button class="ot-workbench-ghost" type="button" onclick={onopenstrategy}>Edit strategy</button>
-          <label for="robustness-cash">Starting cash (currency units)</label>
-          <input id="robustness-cash" type="number" min="0.01" max="1000000000000" step="any" required bind:value={startingCash} />
-          <label for="robustness-holdout">Chronological holdout (%)</label>
-          <input id="robustness-holdout" type="number" min="10" max="50" step="any" required bind:value={holdoutPercent} />
-          <label for="robustness-params">Parameter overrides (JSON)</label>
-          <textarea id="robustness-params" rows="3" bind:value={parameterOverrides} spellcheck="false" aria-describedby="robustness-param-help"></textarea>
-          <p id="robustness-param-help" class="muted">For example: {`{"fast": 10, "slow": 30}`}. Empty object uses each declared parameter's first grid value. Overrides must match the declared grid; no automatic tuning.</p>
-          <label for="robustness-parameter">Sensitivity parameter (optional)</label>
-          <input id="robustness-parameter" type="text" maxlength="100" bind:value={sensitivityParameter} placeholder="First declared parameter by default" />
+          <label for={`${id}-cash`}>Starting cash (currency units)</label>
+          <input id={`${id}-cash`} type="number" min="0.01" max="1000000000000" step="any" required bind:value={startingCash} />
+          <label for={`${id}-holdout`}>Chronological holdout (%)</label>
+          <input id={`${id}-holdout`} type="number" min="10" max="50" step="any" required bind:value={holdoutPercent} />
+          <label for={`${id}-params`}>Parameter overrides (JSON)</label>
+          <textarea id={`${id}-params`} rows="3" bind:value={parameterOverrides} spellcheck="false" aria-describedby={`${id}-param-help`}></textarea>
+          <p id={`${id}-param-help`} class="muted">For example: {`{"fast": 10, "slow": 30}`}. Empty object uses each declared parameter's first grid value. Overrides must match the declared grid; no automatic tuning.</p>
+          <label for={`${id}-parameter`}>Sensitivity parameter (optional)</label>
+          <input id={`${id}-parameter`} type="text" maxlength="100" bind:value={sensitivityParameter} placeholder="First declared parameter by default" />
           {#if !workspaceSettings}<p class="error">Enter valid cash, a 10–50% holdout and a JSON object of numeric or string parameter values.</p>{/if}
         {:else}
-        <label for="trial-strategy">Example strategy</label>
-        <select id="trial-strategy" value={selectedId} disabled={catalogLoading || !strategies.length}
+        <label for={`${id}-strategy`}>Example strategy</label>
+        <select id={`${id}-strategy`} value={selectedId} disabled={catalogLoading || !strategies.length}
           onchange={event => chooseCase(event.currentTarget.value as TrialConfig['strategy_id'])}
-          aria-describedby="strategy-description">
+          aria-describedby={`${id}-strategy-description`}>
           {#if !strategies.length}<option value={selectedId}>{catalogLoading ? 'Loading strategies…' : 'No strategies available'}</option>{/if}
           {#each strategies as strategy (strategy.id)}<option value={strategy.id}>{strategy.name}</option>{/each}
         </select>
-        <p id="strategy-description" class="muted">{selectedStrategy?.description ?? 'Built-in examples only; no submitted code is executed.'}</p>
+        <p id={`${id}-strategy-description`} class="muted">{selectedStrategy?.description ?? 'Built-in examples only; no submitted code is executed.'}</p>
         {#if catalogError}
           <p class="error" role="alert">{catalogError}</p>
           <button class="ot-workbench-ghost" type="button" onclick={() => loadCatalog()}>Retry catalog</button>
@@ -313,13 +404,13 @@
 
         <fieldset>
           <legend>Execution costs</legend>
-          <label for="trial-commission">Commission (bps)</label>
-          <input id="trial-commission" type="number" min="0" max="50" step="any" required
-            bind:value={commission} aria-describedby="trial-cost-help" />
-          <label for="trial-slippage">Slippage (bps)</label>
-          <input id="trial-slippage" type="number" min="0" max="50" step="any" required
-            bind:value={slippage} aria-describedby="trial-cost-help" />
-          <p id="trial-cost-help" class="muted">0–50 bps per fill. 1 bp = 0.01%.{#if !costsValid} <strong class="error">Enter finite costs within this range.</strong>{/if}</p>
+          <label for={`${id}-commission`}>Commission (bps)</label>
+          <input id={`${id}-commission`} type="number" min="0" max="50" step="any" required
+            bind:value={commission} aria-describedby={`${id}-cost-help`} />
+          <label for={`${id}-slippage`}>Slippage (bps)</label>
+          <input id={`${id}-slippage`} type="number" min="0" max="50" step="any" required
+            bind:value={slippage} aria-describedby={`${id}-cost-help`} />
+          <p id={`${id}-cost-help`} class="muted">0–50 bps per fill. 1 bp = 0.01%.{#if !costsValid} <strong class="error">Enter finite costs within this range.</strong>{/if}</p>
         </fieldset>
       </form>
 
@@ -338,7 +429,7 @@
       </div>
       </div>
       <div class="run-controls">
-        <button class="run-button ot-workbench-primary" type="submit" form="robustness-run-form" disabled={!canRun || running}>{running ? 'Running…' : mode === 'workspace' && !$authState.user ? 'Sign in to run checks' : 'Run checks'}</button>
+        <button class="run-button ot-workbench-primary" type="submit" form={`${id}-run-form`} disabled={!canRun || running}>{running ? 'Running…' : mode === 'workspace' && !$authState.user ? 'Sign in to run checks' : 'Run checks'}</button>
         {#if running}<button class="ot-workbench-ghost" type="button" onclick={() => { cancelRun(); statusMessage = 'Stopped waiting for this result. A workspace suite may continue up to its 30-second server limit.'; }}>Stop waiting</button>{/if}
         <span class="muted">{mode === 'workspace' ? 'Current editor draft · no live orders' : 'Synthetic examples · not chart data'}</span>
       </div>
@@ -346,6 +437,18 @@
 
     <main class="results" aria-label="Robustness results" aria-busy={running}>
       <p class="live-status" role="status" aria-live="polite">{statusMessage}</p>
+      {#if mode === 'workspace'}
+        <div class="notice">
+          <p>Latest report/review: account-scoped browser storage only, not encrypted or cloud-synced. Guest/examples are never adopted. This does not change server-local/shared research snapshot access.</p>
+          {#if recovery.saved && recovery.saved.report.report_id !== report?.report_id}
+            <p>Saved report: {recovery.saved.report.strategy.name} · {recovery.saved.report.dataset.label}. Original browser receipt: {recovery.saved.received_at}.</p>
+            <button type="button" class="ot-workbench-ghost" disabled={running} onclick={restorePrevious}>Restore previous report · keep current draft</button>
+          {:else if recovery.status !== 'ready'}
+            <p>{recovery.status === 'unreadable' ? 'Existing saved report is unreadable and will not be overwritten.' : 'Browser report recovery is unavailable.'}</p>
+          {/if}
+          {#if storageMessage}<p role="status">{storageMessage}</p>{/if}
+        </div>
+      {/if}
       {#if runError}
         <div class="notice error" role="alert">
           <p>{runError}{#if report} The last completed report remains below.{/if}</p>
@@ -353,6 +456,7 @@
         </div>
       {/if}
       {#if report}
+        {#if restored}<p class="notice"><strong>Restored report · original receipt {receivedAt}.</strong> Current draft and settings were not replaced. {inputsChanged ? 'Stale: current inputs differ or cannot be verified.' : 'Inputs match the original receipt; market data may since have changed. This is not a fresh run.'}</p>{/if}
         {#if inputsChanged || running}
           <p class="notice">{running ? 'Checks are running. Showing the last completed report.' : 'Configuration changed. Run checks to update the results.'}
             Results below: <strong>{report.strategy.name}</strong>, {report.config.commission_bps} bps commission / {report.config.slippage_bps} bps slippage.</p>
@@ -362,6 +466,7 @@
           <span class="badge">{isWorkspaceReport(report) ? 'PROVIDER SNAPSHOT' : 'SYNTHETIC'}</span>
         </div>
         <ReportContext {report} {receivedAt} />
+        <ResearchReview {report} review={report.research_review ?? emptyReview()} disabled={running} onreview={updateReview} />
 
         <div class="metric-strip">
           <div><span>Return · with costs</span><strong>{formatPercent(report.realistic.total_return, true)}</strong><small>Zero-cost: {formatPercent(report.baseline.total_return, true)}</small><small>Buy &amp; hold + costs: {formatPercent(report.benchmark.total_return, true)}</small></div>
@@ -370,8 +475,8 @@
           <div><span>Holdout vs benchmark</span><strong>{formatPercent(report.holdout.strategy.total_return - report.holdout.benchmark.total_return, true).replace('%', ' pp')}</strong><small>Return difference · percentage points</small></div>
         </div>
 
-        <section class="findings" aria-labelledby="findings-heading">
-          <h3 id="findings-heading">Measured findings</h3>
+        <section class="findings" aria-labelledby={`${id}-findings-heading`}>
+          <h3 id={`${id}-findings-heading`}>Measured findings</h3>
           {#each report.findings as finding (finding.id)}
             <article class:warning={finding.severity === 'warning'}><h4>{finding.title}</h4><p>{finding.detail}</p></article>
           {:else}<p class="muted">No findings were supplied for this run.</p>{/each}
@@ -429,6 +534,7 @@
               {#if isWorkspaceReport(report)}
                 <div><dt>Source SHA-256</dt><dd>{report.code_hash}</dd></div>
                 <div><dt>Engine / seed</dt><dd>{report.engine_version} / {report.config.seed}</dd></div>
+                <div><dt>Review suite</dt><dd>{report.suite_version ?? 'Unavailable in older report'}</dd></div>
                 <div><dt>Resolved parameters</dt><dd>{JSON.stringify(report.config.params)}</dd></div>
               {/if}
               <div><dt>Dates (UTC)</dt><dd>{formatDate(report.dataset.start)} — {formatDate(report.dataset.end)}</dd></div>
