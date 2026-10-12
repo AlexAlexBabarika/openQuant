@@ -78,20 +78,13 @@
     removed: id => publish(id),
   });
 
-  $effect(() => {
-    const cs = candles;
-    const sig = candleSig;
-    const sym = symbol;
-    const prov = provider;
-    const iv = interval;
-    const keyed = measureDrawablesSync('drawables:workKey', () =>
+  const keyed = $derived(
+    measureDrawablesSync('drawables:workKey', () =>
       items.map(d => {
-        const dataKey =
-          getTool(d.type)?.computeUsesCandles === false ? '0' : sig;
         const cancelKey = JSON.stringify([
-          sym,
-          prov,
-          iv,
+          symbol,
+          provider,
+          interval,
           d.type,
           d.geometry,
           d.params,
@@ -100,10 +93,18 @@
         return {
           drawable: d,
           cancelKey,
-          key: JSON.stringify([cancelKey, dataKey]),
         };
       }),
-    );
+    ),
+  );
+
+  $effect(() => {
+    const cs = candles;
+    const sig = candleSig;
+    const sym = symbol;
+    const prov = provider;
+    const iv = interval;
+    const work = keyed;
 
     untrack(() => {
       measureDrawablesSync('drawables:compute-pass', () => {
@@ -115,16 +116,18 @@
         try {
           scheduler.retain(
             new Set(
-              keyed
+              work
                 .filter(({ drawable }) => getTool(drawable.type)?.compute)
                 .map(({ drawable }) => drawable.id),
             ),
           );
           withRulerCandleIndex(cs, sig, () => {
-            for (const { drawable: d, key, cancelKey } of keyed) {
+            for (const { drawable: d, cancelKey } of work) {
               const tool = getTool(d.type);
               if (!tool?.compute) continue;
               const compute = tool.compute;
+              const dataKey = tool.computeUsesCandles === false ? '0' : sig;
+              const key = JSON.stringify([cancelKey, dataKey]);
               scheduler.submit(d.id, {
                 key,
                 cancelKey,
