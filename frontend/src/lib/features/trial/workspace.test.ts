@@ -92,6 +92,22 @@ afterEach(() => {
 });
 
 describe('workspace robustness inputs and boundary', () => {
+  it('namespaces controls when workspace and guided synthetic trials coexist', () => {
+    const Pair = ((payload: unknown) => {
+      const child = StrategyTrial as unknown as (
+        payload: unknown,
+        props: unknown,
+      ) => void;
+      child(payload, { embedded: true, workspace: context });
+      child(payload, { embedded: true });
+    }) as unknown as typeof StrategyTrial;
+    const { body } = render(Pair);
+    const ids = Array.from(body.matchAll(/\bid="([^"]+)"/g), match => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    const forms = ids.filter(id => id.endsWith('-run-form'));
+    expect(forms).toHaveLength(2);
+    for (const form of forms) expect(body).toContain(`form="${form}"`);
+  });
   it('uses the current editor/context with authenticated POST, never a code-bearing URL', async () => {
     const fetch = vi.fn(
       async () => new Response(JSON.stringify(fixture()), { status: 200 }),

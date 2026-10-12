@@ -94,8 +94,7 @@
     return () => { active = false; };
   });
 
-  $effect(() => {
-    const account = $authState.user?.id ?? null;
+  function syncReportAccount(account: string | null): void {
     if (account === reportAccount) return;
     reportAccount = account;
     untrack(() => {
@@ -113,7 +112,7 @@
         statusMessage = 'Account changed. Run checks for the current workspace.';
       }
     });
-  });
+  }
 
   function reloadRecovery(): void {
     if (mode !== 'workspace' || !workspace) { recovery = { status: 'ready', saved: null }; return; }
@@ -322,12 +321,16 @@
   }
 
   onMount(() => {
-    try { storage = window.localStorage; } catch { storage = null; }
+    if (workspace) {
+      try { storage = window.localStorage; } catch { storage = null; }
+    }
+    const unsubscribe = authState.subscribe(state => syncReportAccount(state.user?.id ?? null));
     initialSharedConfig = readTrialShareConfig(window.location.search);
     if (initialSharedConfig) mode = 'examples';
     reloadRecovery();
     void loadCatalog();
     return () => {
+      unsubscribe();
       disposed = true;
       catalogController?.abort();
       cancelRun();

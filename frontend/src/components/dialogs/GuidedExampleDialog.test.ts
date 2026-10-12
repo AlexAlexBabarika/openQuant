@@ -10,8 +10,12 @@ import {
 } from '$lib/features/chart/reactiveTestSupport';
 import * as evidence from '$lib/features/trial/evidence';
 import * as workspace from '$lib/features/trial/workspace';
+import * as recovery from '$lib/features/trial/recovery';
 import { readTrialShareConfig } from '$lib/features/trial-report/sharing';
-import type { TrialStrategy } from '$lib/features/trial-report/types';
+import type {
+  ResearchReview,
+  TrialStrategy,
+} from '$lib/features/trial-report/types';
 import GuidedExampleDialog from './GuidedExampleDialog.svelte';
 
 // SSR exercises the complete guide markup; modal DOM/focus containment is the
@@ -108,10 +112,20 @@ function jsonResponse(value: unknown): Response {
   return { ok: true, json: async () => value } as Response;
 }
 
-function mountExamples(
+function mountTrial(
   apiFetch: ReturnType<typeof vi.fn>,
   user: { id: string } | null = null,
+  context?: workspace.WorkspaceContext,
+  storage?: recovery.ReviewStorage,
+  fingerprint = recovery.reviewInputFingerprint,
 ) {
+  const storageAccess = vi.fn(() => storage ?? globalThis.localStorage);
+  vi.stubGlobal('window', {
+    location: { search: '' },
+    get localStorage() {
+      return storageAccess();
+    },
+  });
   const url = new URL(
     '../../lib/features/trial/StrategyTrial.svelte',
     import.meta.url,
@@ -124,13 +138,22 @@ function mountExamples(
   const module = clientModule<{
     default: (
       anchor: null,
-      props: { embedded: boolean },
+      props: { embedded: boolean; workspace?: workspace.WorkspaceContext },
     ) => {
+      checkWorkspace: () => Promise<void>;
+      restore: () => void;
+      review: (value: ResearchReview) => void;
+      edit: (value: workspace.WorkspaceContext) => void;
       read: () => {
         mode: string;
-        report: unknown;
+        report: workspace.EvidenceReport | null;
         runError: string;
         running: boolean;
+        receivedAt: string;
+        restored: boolean;
+        inputsChanged: boolean;
+        recovery: recovery.RecoveryResult;
+        storageMessage: string;
       };
     };
   }>(
@@ -157,17 +180,22 @@ function mountExamples(
       '@lucide/svelte/icons/activity': {},
       'bits-ui': {},
       './workspace': { ...workspace, runWorkspaceChecks },
+      './ResearchReview.svelte': {},
+      './recovery': { ...recovery, reviewInputFingerprint: fingerprint },
     },
     `${script}
-    const window = { location: { search: '' } };
-    export function read() { return { mode, report, runError, running }; }
+    export function checkWorkspace() { return runWorkspace(); }
+    export function restore() { restorePrevious(); }
+    export function review(value) { updateReview(value); }
+    export function edit(value) { workspace = value; }
+    export function read() { return { mode, report, runError, running, receivedAt, restored, inputsChanged, recovery, storageMessage }; }
   </script>`,
   );
   let trial!: ReturnType<typeof module.default>;
   const stop = client.effect_root(() => {
-    trial = module.default(null, { embedded: true });
+    trial = module.default(null, { embedded: true, workspace: context });
   });
-  return { trial, stop, runWorkspaceChecks };
+  return { trial, stop, runWorkspaceChecks, authState, storageAccess };
 }
 
 function mountEntry(
@@ -175,13 +203,13 @@ function mountEntry(
   user: { id: string } | null = null,
 ) {
   const guide = mountGuide();
-  let trial: ReturnType<typeof mountExamples> | undefined;
+  let trial: ReturnType<typeof mountTrial> | undefined;
   cleanups.push(
     client.effect_root(() => {
       client.user_effect(() => {
         const state = guide.read();
         if (!state.open || !state.exampleStarted) return;
-        trial = client.untrack(() => mountExamples(apiFetch, user));
+        trial = client.untrack(() => mountTrial(apiFetch, user));
         return trial.stop;
       });
     }),
@@ -347,6 +375,7 @@ describe('guided example entry', () => {
         runError: '',
       });
       expect(entry.trial()?.runWorkspaceChecks).not.toHaveBeenCalled();
+      expect(entry.trial()?.storageAccess).not.toHaveBeenCalled();
       entry.guide.close();
       await settle();
       entry.guide.setOpen(true);
@@ -435,4 +464,221 @@ describe('guided example entry', () => {
       expect(entry.guide.read().exampleStarted).toBe(false);
     },
   );
+});
+
+const draft: workspace.WorkspaceContext = {
+  code: 'def on_bar(ctx):\n    pass',
+  name: 'Draft',
+  symbol: 'TEST',
+  provider: 'yfinance',
+  period: '1y',
+  interval: '1d',
+};
+const inputHash = 'd'.repeat(64);
+function oldWorkspaceReport(): workspace.WorkspaceReport {
+  const run = {
+    total_return: -0.1,
+    max_drawdown: -0.2,
+    trade_count: 1,
+    total_cost: 7,
+    equity: [{ t: 1735689600, value: 100000 }],
+  };
+  return {
+    schema_version: 1,
+    source: 'workspace',
+    report_id: 'a'.repeat(64),
+    code_hash: 'b'.repeat(64),
+    engine_version: 'engine-1',
+    strategy: {
+      id: 'workspace',
+      name: 'Draft',
+      description: 'Current strategy',
+      lesson: 'Research only',
+    },
+    dataset: {
+      id: 'yfinance:TEST',
+      version: 'c'.repeat(64),
+      label: 'TEST · yfinance',
+      synthetic: false,
+      start: '2025-01-01',
+      end: '2025-04-01',
+      split_date: '2025-03-01',
+      training_bars: 70,
+      holdout_bars: 30,
+    },
+    config: {
+      strategy_id: 'workspace',
+      seed: 0,
+      commission_bps: 1,
+      slippage_bps: 5,
+      starting_cash: 100000,
+      holdout_fraction: 0.3,
+      params: {},
+      sensitivity_parameter: null,
+    },
+    baseline: run,
+    realistic: run,
+    benchmark: run,
+    holdout: { strategy: run, benchmark: run },
+    sensitivity: [],
+    selected_parameter: null,
+    findings: [],
+    assumptions: [],
+    limitations: [],
+  };
+}
+
+function mountWorkspace(
+  storage: recovery.ReviewStorage,
+  fingerprint: typeof recovery.reviewInputFingerprint = async () => inputHash,
+) {
+  const instance = mountTrial(
+    vi.fn(async () =>
+      jsonResponse({ schema_version: 1, strategies: [strategy] }),
+    ),
+    { id: 'a' },
+    draft,
+    storage,
+    fingerprint,
+  );
+  cleanups.push(instance.stop);
+  return instance;
+}
+
+describe('integrated workspace report lifecycle', () => {
+  it.each(['success', 'failure'])(
+    'fences actual obsolete workspace %s through same-turn A→B→A',
+    async completion => {
+      const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
+      const { trial, runWorkspaceChecks, authState } = mountWorkspace(storage);
+      await settle();
+      const response = deferred<workspace.WorkspaceReport>();
+      runWorkspaceChecks.mockReturnValueOnce(response.promise);
+      const pending = trial.checkWorkspace();
+      const signal = runWorkspaceChecks.mock.calls[0][2] as AbortSignal;
+      expect(trial.read().running).toBe(true);
+      authState.set({ user: { id: 'b' } });
+      authState.set({ user: { id: 'a' } });
+      expect(signal.aborted).toBe(true);
+      if (completion === 'success') response.resolve(oldWorkspaceReport());
+      else response.reject(new Error('Obsolete account failure'));
+      await pending;
+      await settle();
+      expect(trial.read()).toMatchObject({
+        report: null,
+        running: false,
+        runError: '',
+      });
+      expect(storage.setItem).not.toHaveBeenCalled();
+      runWorkspaceChecks.mockResolvedValueOnce(oldWorkspaceReport());
+      await trial.checkWorkspace();
+      expect(trial.read().report?.report_id).toBe('a'.repeat(64));
+      expect(storage.setItem).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('fences a delayed input hash and never overwrites the new account report', async () => {
+    const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
+    const fingerprint = vi.fn(async () => inputHash);
+    const { trial, runWorkspaceChecks, authState } = mountWorkspace(
+      storage,
+      fingerprint,
+    );
+    await settle();
+    const hash = deferred<string>();
+    fingerprint.mockReturnValueOnce(hash.promise);
+    runWorkspaceChecks.mockResolvedValue(oldWorkspaceReport());
+    const obsolete = trial.checkWorkspace();
+    await settle();
+    authState.set({ user: { id: 'b' } });
+    await trial.checkWorkspace();
+    const current = trial.read().report;
+    hash.resolve(inputHash);
+    await obsolete;
+    expect(trial.read().report).toBe(current);
+    expect(storage.setItem).toHaveBeenCalledOnce();
+    expect(storage.setItem.mock.calls[0][0]).toBe(
+      recovery.latestReviewKey('b'),
+    );
+  });
+
+  it.each(['unreadable', 'blocked', 'quota'])(
+    'keeps a completed report in memory and preserves %s recovery storage',
+    async failure => {
+      const bytes = '{unreadable';
+      const storage = {
+        getItem: vi.fn(() => {
+          if (failure === 'blocked') throw new Error('Blocked');
+          return failure === 'unreadable' ? bytes : null;
+        }),
+        setItem: vi.fn(() => {
+          throw new Error('Quota');
+        }),
+      };
+      const { trial, runWorkspaceChecks } = mountWorkspace(storage);
+      await settle();
+      runWorkspaceChecks.mockResolvedValue(oldWorkspaceReport());
+      await trial.checkWorkspace();
+      expect(trial.read().report?.report_id).toBe('a'.repeat(64));
+      expect(trial.read().storageMessage).toMatch(/preserved/i);
+      expect(trial.read().storageMessage).not.toMatch(/saved in this account/);
+      expect(storage.setItem).toHaveBeenCalledTimes(
+        failure === 'quota' ? 1 : 0,
+      );
+      if (failure === 'unreadable') expect(storage.getItem()).toBe(bytes);
+    },
+  );
+
+  it('explicitly restores an old report, retains receipt time, and marks edited inputs stale without executing', async () => {
+    const saved: recovery.SavedReview = {
+      version: 1,
+      account: 'a',
+      received_at: '2026-01-01T00:00:00Z',
+      input_fingerprint: inputHash,
+      context: {
+        name: draft.name,
+        symbol: draft.symbol,
+        provider: draft.provider,
+        period: draft.period,
+        interval: draft.interval,
+      },
+      report: {
+        ...oldWorkspaceReport(),
+        research_review: { decision: 'revise', reason: 'Review costs' },
+      },
+    };
+    const storage = {
+      getItem: vi.fn((key: string) =>
+        key === recovery.latestReviewKey('a') ? JSON.stringify(saved) : null,
+      ),
+      setItem: vi.fn(),
+    };
+    const fingerprint = async (context: workspace.WorkspaceContext) =>
+      context.code === draft.code ? inputHash : 'e'.repeat(64);
+    const { trial, runWorkspaceChecks, authState } = mountWorkspace(
+      storage,
+      fingerprint,
+    );
+    await settle();
+    expect(trial.read().report).toBeNull();
+    trial.restore();
+    expect(trial.read()).toMatchObject({
+      receivedAt: saved.received_at,
+      restored: true,
+      inputsChanged: false,
+      report: {
+        research_review: { decision: 'revise', reason: 'Review costs' },
+      },
+    });
+    trial.edit({ ...draft, code: `${draft.code}\n# changed` });
+    await settle();
+    expect(trial.read().inputsChanged).toBe(true);
+    expect(runWorkspaceChecks).not.toHaveBeenCalled();
+    authState.set({ user: { id: 'b' } });
+    expect(trial.read().report).toBeNull();
+    trial.restore();
+    trial.review({ decision: 'continue-research', reason: 'No obsolete save' });
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(trial.read().recovery).toEqual({ status: 'ready', saved: null });
+  });
 });
