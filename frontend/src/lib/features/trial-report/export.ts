@@ -147,6 +147,7 @@ export function generateTrialReportHtml(report: EvidenceReport): string {
     ['Holdout strategy · chosen costs', report.holdout.strategy],
     ['Holdout buy-and-hold · chosen costs', report.holdout.benchmark],
   ];
+  const stress = workspace ? report.cost_stress : null;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
@@ -175,7 +176,7 @@ export function generateTrialReportHtml(report: EvidenceReport): string {
 <dt>Commission</dt><dd>${exactNumber(report.config.commission_bps)} bps</dd>
 <dt>Slippage</dt><dd>${exactNumber(report.config.slippage_bps)} bps</dd>
 <dt>Starting cash</dt><dd>${cash} currency units per independently funded run</dd>
-${workspace ? `<dt>Source SHA-256</dt><dd>${escapeHtml(report.code_hash)}</dd><dt>Engine version</dt><dd>${escapeHtml(report.engine_version)}</dd><dt>Resolved parameters</dt><dd>${escapeHtml(JSON.stringify(report.config.params))}</dd><dt>Seed</dt><dd>${exactNumber(report.config.seed)}</dd>` : ''}
+${workspace ? `<dt>Source SHA-256</dt><dd>${escapeHtml(report.code_hash)}</dd><dt>Engine version</dt><dd>${escapeHtml(report.engine_version)}</dd><dt>Review suite</dt><dd>${escapeHtml(report.suite_version ?? 'Unavailable in older report')}</dd><dt>Resolved parameters</dt><dd>${escapeHtml(JSON.stringify(report.config.params))}</dd><dt>Seed</dt><dd>${exactNumber(report.config.seed)}</dd>` : ''}
 <dt>${workspace ? 'Dataset' : 'Scenario'}</dt><dd>${escapeHtml(report.dataset.label)}</dd>
 <dt>Dataset ID / version</dt><dd>${escapeHtml(report.dataset.id)} / ${escapeHtml(report.dataset.version)}</dd>
 <dt>Period</dt><dd>${escapeHtml(report.dataset.start)} → ${escapeHtml(report.dataset.end)}</dd>
@@ -185,12 +186,14 @@ ${workspace ? `<dt>Source SHA-256</dt><dd>${escapeHtml(report.code_hash)}</dd><d
 </dl></section>
 <section><h2>Full-period results</h2><p>All three runs use the same full dataset. Baseline is frictionless; strategy and buy-and-hold use the chosen commission and slippage.</p>
 ${metrics(fullRuns)}${equityChart('Full-period measured equity', fullRuns)}</section>
+<section><h2>Bounded full-period cost stress</h2>${stress ? `<p>Same snapshotted bars, source, parameters, seed and starting cash. The 1× row reuses the configured-cost result; 2× and 3× multiply commission and slippage only. Status: ${escapeHtml(stress.status)}.</p><p>${escapeHtml(stress.limitation)}</p>${metrics(stress.points.map(point => [`${point.multiplier}× · ${exactNumber(point.commission_bps)} bps commission / ${exactNumber(point.slippage_bps)} bps slippage`, point.summary]))}` : '<p>Cost-stress evidence unavailable in this older report or synthetic example. Missing checks provide no resilience evidence.</p>'}</section>
 <section><h2>${workspace ? 'Chronological holdout' : 'Untouched chronological holdout'}</h2><p>Strategy and benchmark use exactly the same holdout segment and chosen costs. Each starts with separate funding of ${cash} currency units. These curves are not stitched to the full-period curves.</p>
 ${metrics(holdoutRuns)}${equityChart('Separately funded holdout measured equity', holdoutRuns)}</section>
-<section><h2>Parameter sensitivity on holdout</h2><p>Fixed neighboring parameters at the chosen costs. This is a holdout comparison, not a second parameter-selection step.</p>
+<section><h2>Parameter sensitivity on holdout</h2><p>Fixed neighboring parameters at the chosen costs. This is a holdout comparison, not a second parameter-selection step. Repeatedly inspected holdouts and their sensitivity comparisons are not independent out-of-sample evidence.</p>
 ${report.sensitivity.length ? `<div class="table-wrap"><table><thead><tr><th scope="col">Parameter value</th><th scope="col">Total return</th><th scope="col">Max drawdown</th></tr></thead><tbody>${report.sensitivity.map(row => `<tr><th scope="row">${exactNumber(row.parameter_value)}</th><td>${percent(row.total_return)}</td><td>${percent(row.max_drawdown)}</td></tr>`).join('')}</tbody></table></div>` : '<p>No parameter sensitivity reported.</p>'}</section>
 <section><h2>Measured findings</h2>${report.findings.length ? report.findings.map(finding => `<article><p><strong>${escapeHtml(finding.severity)}</strong> · <code>${escapeHtml(finding.id)}</code></p><h3>${escapeHtml(finding.title)}</h3><p>${escapeHtml(finding.detail)}</p></article>`).join('') : '<p>No findings reported.</p>'}</section>
 <section><h2>Assumptions</h2>${list(report.assumptions)}</section><section><h2>Limitations</h2>${list(report.limitations)}</section>
+${report.research_review ? `<section><h2>Research conclusion · not a confidence score</h2><p>Researcher decision: <strong>${escapeHtml(report.research_review.decision)}</strong></p><p>${escapeHtml(report.research_review.reason || 'No reason recorded.')}</p><p>This is an editable research decision, not engine certification, investment advice or approval to trade. Review context, baseline, cost stress, chronology, sensitivity, findings and assumptions together.</p></section>` : ''}
 <footer>Metrics and equity are supplied by the existing backtest engine. Returns and drawdowns are displayed as percentages; costs and equity are in currency units. Displayed metrics are rounded to two decimals; configuration and parameter values retain their precision. Dates on charts are UTC. Non-finite numeric values are marked unavailable or omitted, never replaced with invented observations. This file requires no scripts or third-party resources.</footer>
 </main></body></html>`;
 }

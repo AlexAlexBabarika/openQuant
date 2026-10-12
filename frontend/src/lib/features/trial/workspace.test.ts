@@ -204,6 +204,23 @@ describe('workspace robustness inputs and boundary', () => {
     expect(html).not.toContain('EXAMPLE DATA');
     expect(html).not.toContain('value="workspace" selected disabled');
   });
+
+  it('namespaces label, help and submit targets with a Svelte instance id', () => {
+    const html = render(StrategyTrial, {
+      props: { workspace: context, embedded: true },
+    }).body;
+    const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), match => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const match of html.matchAll(
+      /\b(?:for|form|aria-controls|aria-describedby)="([^"]+)"/g,
+    )) {
+      for (const target of match[1].split(' ')) expect(ids).toContain(target);
+    }
+    const form = html.match(/<form id="([^"]+)"/)?.[1];
+    expect(form).toMatch(/-run-form$/);
+    expect(form).not.toBe('robustness-run-form');
+    expect(html).toContain(`form="${form}"`);
+  });
 });
 
 describe('private workspace evidence export', () => {

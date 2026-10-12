@@ -1,6 +1,6 @@
 import { apiJson } from '$lib/core/api';
 import type { MarketDataProviderValue } from '$lib/features/market/marketDataProviders';
-import type { TrialReport } from '$lib/features/trial-report/types';
+import type { CostStress, TrialReport } from '$lib/features/trial-report/types';
 
 export interface WorkspaceContext {
   code: string;
@@ -27,6 +27,8 @@ export type WorkspaceReport = Omit<
   source: 'workspace';
   code_hash: string;
   engine_version: string;
+  suite_version?: string | null;
+  cost_stress?: CostStress | null;
   strategy: Omit<TrialReport['strategy'], 'id'> & { id: 'workspace' };
   dataset: Omit<TrialReport['dataset'], 'synthetic'> & { synthetic: false };
   config: WorkspaceSettings & { strategy_id: 'workspace'; seed: number };

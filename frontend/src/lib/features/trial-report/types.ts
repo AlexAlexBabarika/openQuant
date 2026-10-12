@@ -24,6 +24,28 @@ export interface RunSummary {
   equity: { t: number; value: number }[];
 }
 
+export type ResearchDecision =
+  | 'unreviewed'
+  | 'revise'
+  | 'reject'
+  | 'continue-research';
+
+export interface ResearchReview {
+  decision: ResearchDecision;
+  reason: string;
+}
+
+export interface CostStress {
+  status: 'measured' | 'zero-cost';
+  points: {
+    multiplier: 1 | 2 | 3;
+    commission_bps: number;
+    slippage_bps: number;
+    summary: RunSummary;
+  }[];
+  limitation: string;
+}
+
 export interface TrialReport {
   schema_version: 1;
   report_id: string;
@@ -58,6 +80,7 @@ export interface TrialReport {
   }[];
   assumptions: string[];
   limitations: string[];
+  research_review?: ResearchReview;
 }
 
 export interface TrialCatalog {
