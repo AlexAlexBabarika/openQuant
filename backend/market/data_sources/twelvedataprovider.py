@@ -6,7 +6,7 @@ import requests
 
 from backend.market.data_sources.marketdataprovider import MarketDataProvider
 from backend.market.models import OHLCVCandle
-from backend.market.normalizer import normalize_rows
+from backend.market.data_sources.raw_quality import normalize_provider_rows
 from backend.market.shared_config import resolve_twelvedata_interval
 from backend.market.time_utils import period_to_startdate
 from backend.core.api_key_store import fetch_api_key
@@ -71,14 +71,18 @@ class TwelveDataProvider(MarketDataProvider):
         )
         resp.raise_for_status()
         data = resp.json()
+        if not isinstance(data, dict):
+            raise ValueError("Twelve Data response must be an object.")
         if data.get("status") == "error":
             raise RuntimeError(
                 f"Twelve Data API error: {data.get('message', 'unknown')}"
             )
         values = data.get("values")
-        if not values:
+        if values is None or values == []:
             return []
-        return normalize_rows(values, symbol)
+        return normalize_provider_rows(
+            values, symbol, provider=self.name, interval=interval
+        )
 
     def list_symbols(self) -> list[SymbolRecord]:
         api_key = self._api_key()

@@ -120,6 +120,9 @@
     const userId = $authState.user?.id ?? null;
     if (userId !== savedUserId) untrack(() => {
       savedUserId = userId;
+      sweep.reset();
+      portfolio.reset();
+      loadedPortfolioRun = null;
       strat.clearSaved();
       completedSource = null;
       completedResult = null;
@@ -133,7 +136,11 @@
 
 
   const modal = createModalLifecycle();
-  onDestroy(() => modal.close());
+  onDestroy(() => {
+    sweep.reset();
+    portfolio.reset();
+    modal.close();
+  });
   let panelEl = $state<HTMLDivElement | null>(null);
 
   function close() {

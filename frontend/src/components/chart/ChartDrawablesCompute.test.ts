@@ -140,6 +140,34 @@ function setup(candleRevision?: number, types = ['ruler', 'ruler']) {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('clears large-scene pending work and results when returning to 500 bars / zero Elements', async () => {
+    const { props, requests, data, states, stop } = setup(0, ['ruler']);
+    props.candles = Array.from({ length: 50_000 }, (_, i) => ({
+      ...props.candles[0],
+      timestamp: new Date(i * 60_000).toISOString(),
+    }));
+    props.candleRevision = 1;
+    client.flush();
+    requests[0].request.resolve('old');
+    await Promise.resolve();
+    expect(requests).toHaveLength(2);
+    props.candles = props.candles.slice(0, 500);
+    props.items = [];
+    props.candleRevision = 2;
+    client.flush();
+    expect(requests[1].signal.aborted).toBe(true);
+    expect(data().size).toBe(0);
+    expect(states().size).toBe(0);
+    requests[1].request.resolve('obsolete-large-scene');
+    await Promise.resolve();
+    expect(requests).toHaveLength(2);
+    expect(data().size).toBe(0);
+    expect(states().size).toBe(0);
+    stop();
+    expect(data().size).toBe(0);
+    expect(states().size).toBe(0);
+  });
+
   it('reuses context/geometry keys for 100 Elements across a candle publication burst', async () => {
     const { props, requests, data } = setup(0, ['ruler']);
     props.items = Array.from({ length: 100 }, (_, i) => item(`element-${i}`));

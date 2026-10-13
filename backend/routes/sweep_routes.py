@@ -35,6 +35,7 @@ from backend.backtesting.types import Metrics
 from backend.core.auth_deps import optional_current_user
 from backend.core.database import DatabaseError
 from backend.market import cache
+from backend.market.data_sources.raw_quality import RawProviderDataError
 from backend.market.ohlcv_limits import cap_candles
 from backend.market.shared_config import validate_interval, validate_period
 from backend.models.auth_models import AuthUserInfo
@@ -131,6 +132,11 @@ async def _load_frame(
                 body.interval,
                 user,
             )
+        except RawProviderDataError as e:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": str(e), "data_quality": e.data_quality},
+            ) from e
         except ValueError as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
         except DatabaseError as e:

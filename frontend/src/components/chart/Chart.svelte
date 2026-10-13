@@ -58,6 +58,7 @@
   } from '$lib/features/drawables';
   import ChartViewport from './ChartViewport.svelte';
   import { coordinateInvalidator } from '$lib/features/drawables/coordMap';
+  import { candleBatchSignature } from '$lib/features/chart/candleFingerprint';
   import ChartScriptOverlay from './ChartScriptOverlay.svelte';
   import ChartScriptMarkers from './ChartScriptMarkers.svelte';
   import type { RunningScript } from '$lib/features/indicators/indicatorState.svelte';
@@ -190,7 +191,34 @@
   let coordVersion = $state(0);
 
   let coordMap = $state<CoordMap | null>(null);
+  let coordCandleRevision = $derived(
+    candleRevision ?? candleBatchSignature(candles),
+  );
+  let currentCoordMap: CoordMap | null = null;
   let priceInvalidator: ReturnType<typeof coordinateInvalidator> | null = null;
+
+  function updateCoordMap(version: number, data: OHLCVCandle[]): void {
+    const series = priceSeries();
+    currentCoordMap =
+      chart && series ? buildCoordMap(chart, series, version, data) : null;
+    coordMap = currentCoordMap
+      ? {
+          version,
+          plotWidth: currentCoordMap.plotWidth,
+          plotHeight: currentCoordMap.plotHeight,
+          // Renderers track the map/version, not candle proxy sources or past histories.
+          timeToX: t => untrack(() => currentCoordMap?.timeToX(t) ?? null),
+          xToTime: x => untrack(() => currentCoordMap?.xToTime(x) ?? null),
+          priceToY: p => untrack(() => currentCoordMap?.priceToY(p) ?? null),
+          yToPrice: y => untrack(() => currentCoordMap?.yToPrice(y) ?? null),
+        }
+      : null;
+  }
+
+  function clearCoordMap(): void {
+    currentCoordMap = null;
+    coordMap = null;
+  }
 
   let drawablePlacing = $state(false);
 
@@ -461,16 +489,10 @@
   $effect(() => {
     const version = coordVersion;
     const data = candles;
-    if (!chart) {
-      coordMap = null;
-      return;
-    }
-    const series = priceSeries();
-    if (!series) {
-      coordMap = null;
-      return;
-    }
-    coordMap = buildCoordMap(chart, series, version, data);
+    coordCandleRevision;
+    candleSeries;
+    lineSeries;
+    untrack(() => updateCoordMap(version, data));
   });
 
   $effect(() => {
@@ -537,6 +559,17 @@
 
   onDestroy(() => {
     api = null;
+    clearCoordMap();
+    prevCandles = undefined;
+    candleSeries = null;
+    lineSeries = null;
+    areaSeries = null;
+    volumeSeries = null;
+    smaSeries = null;
+    emaSeries = null;
+    bbandsUpperSeries = null;
+    bbandsMiddleSeries = null;
+    bbandsLowerSeries = null;
     window.removeEventListener('resize', handleResize);
     if (resizeObserver) {
       resizeObserver.disconnect();

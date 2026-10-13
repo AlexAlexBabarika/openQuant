@@ -1,5 +1,48 @@
 import type { OHLCVCandle } from '$lib/core/types';
 
+interface CandlePublication {
+  revision: number;
+  history: object;
+  length: number;
+}
+
+const ownedPublications = new WeakMap<
+  readonly OHLCVCandle[],
+  CandlePublication
+>();
+
+/** Internal controller contract: tailOnly edits only the previous last row or appends one row. */
+export function publishOwnedCandles(
+  candles: readonly OHLCVCandle[],
+  revision: number,
+  tailOnly = false,
+): void {
+  const previous = ownedPublications.get(candles);
+  const preservesHistory =
+    tailOnly &&
+    previous?.revision === revision - 1 &&
+    (candles.length === previous.length ||
+      candles.length === previous.length + 1);
+  ownedPublications.set(candles, {
+    revision,
+    history: preservesHistory ? previous.history : {},
+    length: candles.length,
+  });
+}
+
+/** Unmarked arrays/signatures always take the full-content rebuild path. */
+export function ownedCandleHistory(
+  candles: readonly OHLCVCandle[],
+  signature: string,
+): object | undefined {
+  const publication = ownedPublications.get(candles);
+  return publication &&
+    signature === `revision:${publication.revision}` &&
+    candles.length === publication.length
+    ? publication.history
+    : undefined;
+}
+
 /** FNV-1a 32-bit; hex digest for logging / keys (not cryptographic). */
 export function fnv1a32Hex(s: string): string {
   return (hashString(0x811c9dc5, s) >>> 0).toString(16);

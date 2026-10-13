@@ -4,6 +4,10 @@ import {
   clientModule,
   componentDeclarations,
 } from '$lib/features/chart/reactiveTestSupport';
+import { buildCoordMap } from '$lib/features/drawables/coordMap';
+import type { CoordMap } from '$lib/features/drawables/types';
+import type { OHLCVCandle } from '$lib/core/types';
+import { candleBatchSignature } from '$lib/features/chart/candleFingerprint';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -11,6 +15,166 @@ afterEach(() => {
 });
 
 describe('Chart active series integration', () => {
+  it('invalidates mappings for unversioned historical edits without subscribing owned publications to candle proxies', () => {
+    const chartUrl = new URL('./Chart.svelte', import.meta.url);
+    const props = client.proxy({
+      candles: [0, 1].map(i => ({
+        symbol: 'SYNTHETIC',
+        timestamp: new Date(i * 60_000).toISOString(),
+        open: 1,
+        high: 2,
+        low: 1,
+        close: 2,
+        volume: 100,
+      })),
+      candleRevision: undefined as number | undefined,
+    });
+    let revision!: () => string | number;
+    const module = clientModule<{
+      default: (anchor: unknown, props: unknown) => void;
+    }>(
+      chartUrl,
+      {
+        'test:signature': { candleBatchSignature },
+        'test:capture': {
+          capture: (value: typeof revision) => {
+            revision = value;
+          },
+        },
+      },
+      `<script lang="ts">
+      import { candleBatchSignature } from 'test:signature';
+      import { capture } from 'test:capture';
+      let { candles, candleRevision } = $props();
+      ${componentDeclarations(chartUrl, ['coordCandleRevision'])}
+      capture(() => coordCandleRevision);
+      </script>`,
+    );
+    const revisions: (number | string)[] = [];
+    cleanups.push(
+      client.effect_root(() => {
+        module.default(null, {
+          get candles() {
+            return props.candles;
+          },
+          get candleRevision() {
+            return props.candleRevision;
+          },
+        });
+        client.user_effect(() => {
+          revisions.push(revision());
+        });
+      }),
+    );
+    client.flush();
+    const first = revisions[0];
+    props.candles[0].timestamp = new Date(30_000).toISOString();
+    client.flush();
+    expect(revisions).toHaveLength(2);
+    expect(revisions[1]).not.toBe(first);
+    props.candleRevision = 1;
+    client.flush();
+    expect(revisions).toHaveLength(3);
+    props.candles[0].timestamp = new Date(40_000).toISOString();
+    client.flush();
+    expect(revisions).toHaveLength(3);
+    props.candleRevision = 2;
+    client.flush();
+    expect(revisions).toHaveLength(4);
+  });
+
+  it('releases large-history mappings on return to a small scene and keeps renderer dependencies off candle proxies', () => {
+    const chartUrl = new URL('./Chart.svelte', import.meta.url);
+    const timeToIndex = vi.fn((time: number) => time / 60);
+    const chart = {
+      paneSize: () => ({ width: 800, height: 400 }),
+      timeScale: () => ({
+        timeToIndex,
+        logicalToCoordinate: (index: number) => index,
+        coordinateToLogical: (x: number) => x,
+      }),
+    };
+    let harness!: {
+      updateCoordMap: (version: number, data: OHLCVCandle[]) => void;
+      clearCoordMap: () => void;
+      map: () => CoordMap | null;
+      current: () => CoordMap | null;
+    };
+    const module = clientModule<{
+      default: (anchor: unknown, props: unknown) => void;
+    }>(
+      chartUrl,
+      {
+        'test:chart': { chart, buildCoordMap },
+        'test:capture': {
+          capture: (value: typeof harness) => {
+            harness = value;
+          },
+        },
+      },
+      `<script lang="ts">
+      import { untrack } from 'svelte';
+      import { chart, buildCoordMap } from 'test:chart';
+      import { capture } from 'test:capture';
+      const series = { priceToCoordinate: p => p, coordinateToPrice: y => y };
+      function priceSeries() { return series; }
+      ${componentDeclarations(chartUrl, ['coordMap', 'currentCoordMap', 'updateCoordMap', 'clearCoordMap'])}
+      capture({ updateCoordMap, clearCoordMap, map: () => coordMap, current: () => currentCoordMap });
+      </script>`,
+    );
+    const large = client.proxy(
+      Array.from({ length: 50_000 }, (_, i) => ({
+        symbol: 'SYNTHETIC',
+        timestamp: new Date(i * 60_000).toISOString(),
+        open: 1,
+        high: 2,
+        low: 1,
+        close: 2,
+        volume: 100,
+      })),
+    );
+    const small = client.proxy(large.slice(0, 500).map(c => ({ ...c })));
+    let rendererCalls = 0;
+    let previous!: CoordMap;
+    const stop = client.effect_root(() => {
+      module.default(null, {});
+      harness.updateCoordMap(1, large);
+      previous = harness.map()!;
+      client.user_effect(() => {
+        const map = harness.map();
+        if (map) {
+          map.timeToX(60);
+          rendererCalls++;
+        }
+      });
+    });
+    cleanups.push(stop);
+    client.flush();
+    const calls = rendererCalls;
+    large[1].timestamp = new Date(120_000).toISOString();
+    client.flush();
+    expect(rendererCalls).toBe(calls);
+    harness.updateCoordMap(2, small);
+    client.flush();
+    expect(rendererCalls).toBe(calls + 1);
+    timeToIndex.mockClear();
+    expect(previous.timeToX(499 * 60)).toBe(499);
+    expect(timeToIndex.mock.calls.map(([time]) => time)).toEqual([
+      498 * 60,
+      499 * 60,
+    ]);
+    large[498].timestamp = new Date(0).toISOString();
+    expect(previous.timeToX(499 * 60)).toBe(499);
+    harness.clearCoordMap();
+    client.flush();
+    expect(harness.map()).toBeNull();
+    expect(harness.current()).toBeNull();
+    expect(previous.timeToX(60)).toBeNull();
+    expect(previous.xToTime(60)).toBeNull();
+    expect(previous.priceToY(1)).toBeNull();
+    expect(previous.yToPrice(1)).toBeNull();
+  });
+
   it.each([
     ['BacktestChart', 'pendingViewport', 'updateViewport'],
     ['TimeSeriesChart', 'pendingFitContent', 'fitSeriesContent'],

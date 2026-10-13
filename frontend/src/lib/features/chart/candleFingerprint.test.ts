@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   bundledDrawablesFingerprint,
   candleBatchSignature,
+  publishOwnedCandles,
+  ownedCandleHistory,
 } from './candleFingerprint';
 import type { OHLCVCandle } from '$lib/core/types';
 
@@ -14,6 +16,38 @@ const base = (overrides: Partial<OHLCVCandle> = {}): OHLCVCandle => ({
   close: 1.5,
   volume: 100,
   ...overrides,
+});
+
+describe('controller candle publication contract', () => {
+  it('certifies only consecutive tail publications on the owned array and exact revision', () => {
+    const candles = [base(), base()];
+    expect(ownedCandleHistory(candles, 'revision:0')).toBeUndefined();
+    publishOwnedCandles(candles, 0);
+    const history = ownedCandleHistory(candles, 'revision:0');
+    expect(history).toBeDefined();
+    candles[1].volume = 99;
+    publishOwnedCandles(candles, 1, true);
+    expect(ownedCandleHistory(candles, 'revision:1')).toBe(history);
+    expect(ownedCandleHistory(candles, 'revision:0')).toBeUndefined();
+    expect(
+      ownedCandleHistory(candles, candleBatchSignature(candles)),
+    ).toBeUndefined();
+    expect(ownedCandleHistory(candles.slice(), 'revision:1')).toBeUndefined();
+    candles.push(base());
+    publishOwnedCandles(candles, 2, true);
+    expect(ownedCandleHistory(candles, 'revision:2')).toBe(history);
+    candles[0].volume = 300;
+    publishOwnedCandles(candles, 3);
+    expect(ownedCandleHistory(candles, 'revision:3')).not.toBe(history);
+    const edited = ownedCandleHistory(candles, 'revision:3');
+    publishOwnedCandles(candles, 5, true);
+    expect(ownedCandleHistory(candles, 'revision:5')).not.toBe(edited);
+    const skipped = ownedCandleHistory(candles, 'revision:5');
+    candles.pop();
+    expect(ownedCandleHistory(candles, 'revision:5')).toBeUndefined();
+    publishOwnedCandles(candles, 6, true);
+    expect(ownedCandleHistory(candles, 'revision:6')).not.toBe(skipped);
+  });
 });
 
 describe('candleBatchSignature', () => {

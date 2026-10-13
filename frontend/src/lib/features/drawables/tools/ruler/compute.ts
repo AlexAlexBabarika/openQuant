@@ -1,5 +1,6 @@
 import type { OHLCVCandle } from '$lib/core/types';
 import { formatMarketPrice } from '$lib/features/market/priceFormat';
+import { ownedCandleHistory } from '$lib/features/chart/candleFingerprint';
 
 export interface RulerGeometry {
   startTime: number;
@@ -21,11 +22,12 @@ interface CandleIndex {
   times: number[];
   volumes: number[];
   volumePrefix: number[] | null;
+  incremental: boolean;
 }
 
 const indexCache = new WeakMap<
   readonly OHLCVCandle[],
-  { signature: string; index: CandleIndex }
+  { signature: string; history?: object; index: CandleIndex }
 >();
 let sharedIndex:
   | { candles: readonly OHLCVCandle[]; signature: string }
@@ -34,8 +36,10 @@ let sharedIndex:
 function buildIndex(candles: readonly OHLCVCandle[]): CandleIndex {
   const rows = candles
     .map(c => ({ time: Date.parse(c.timestamp) / 1000, volume: c.volume }))
-    .filter(row => Number.isFinite(row.time))
-    .sort((a, b) => a.time - b.time);
+    .filter(row => Number.isFinite(row.time));
+  const incremental =
+    rows.length === candles.length &&
+    rows.every((row, i) => i === 0 || row.time > rows[i - 1].time);
   const volumePrefix = [0];
   let total = 0;
   let safePrefix = true;
@@ -50,13 +54,46 @@ function buildIndex(candles: readonly OHLCVCandle[]): CandleIndex {
       safePrefix = false;
       break;
     }
-    volumePrefix.push(total);
+  }
+  if (safePrefix) {
+    rows.sort((a, b) => a.time - b.time);
+    // Unsafe sums retain original input order.
+    for (const row of rows)
+      volumePrefix.push(volumePrefix[volumePrefix.length - 1] + row.volume);
   }
   return {
     times: rows.map(row => row.time),
     volumes: rows.map(row => row.volume),
     volumePrefix: safePrefix ? volumePrefix : null,
+    incremental,
   };
+}
+
+function updateTail(
+  index: CandleIndex,
+  candles: readonly OHLCVCandle[],
+): boolean {
+  if (!index.incremental || candles.length < index.times.length) return false;
+  const from = Math.max(0, index.times.length - 1);
+  if (index.volumePrefix) index.volumePrefix.length = from + 1;
+  for (let i = from; i < candles.length; i++) {
+    const time = Date.parse(candles[i].timestamp) / 1000;
+    if (!Number.isFinite(time) || (i > 0 && time <= index.times[i - 1]))
+      return false;
+    index.times[i] = time;
+    index.volumes[i] = candles[i].volume;
+    if (index.volumePrefix) {
+      const total = index.volumePrefix[i] + candles[i].volume;
+      if (
+        !Number.isSafeInteger(candles[i].volume) ||
+        candles[i].volume < 0 ||
+        !Number.isSafeInteger(total)
+      ) {
+        index.volumePrefix = null;
+      } else index.volumePrefix.push(total);
+    }
+  }
+  return true;
 }
 
 /** Share one timestamp index across the synchronous drawable compute pass. */
@@ -119,16 +156,32 @@ export function computeStats(
   ) {
     const signature = sharedIndex.signature;
     const cached = indexCache.get(candles);
+    const history = ownedCandleHistory(candles, signature);
     const index =
-      cached?.signature === signature ? cached.index : buildIndex(candles);
-    indexCache.set(candles, { signature, index });
-    const from = bound(index.times, tMin, false);
-    const to = bound(index.times, tMax, true);
-    barCount = to - from;
+      cached?.signature === signature && cached.history === history
+        ? cached.index
+        : history &&
+            cached?.history === history &&
+            updateTail(cached.index, candles)
+          ? cached.index
+          : buildIndex(candles);
+    indexCache.set(candles, { signature, history, index });
     if (index.volumePrefix) {
+      const from = bound(index.times, tMin, false);
+      const to = bound(index.times, tMax, true);
+      barCount = to - from;
       volumeSum = index.volumePrefix[to] - index.volumePrefix[from];
     } else {
-      for (let i = from; i < to; i++) volumeSum += index.volumes[i];
+      const from = index.incremental ? bound(index.times, tMin, false) : 0;
+      const to = index.incremental
+        ? bound(index.times, tMax, true)
+        : index.times.length;
+      for (let i = from; i < to; i++) {
+        if (index.times[i] >= tMin && index.times[i] <= tMax) {
+          barCount++;
+          volumeSum += index.volumes[i];
+        }
+      }
     }
   } else {
     for (const c of candles) {

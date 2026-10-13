@@ -1,12 +1,13 @@
 """Binance market data provider using python-binance."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from binance.client import Client
 
 from backend.core.api_key_store import fetch_api_key
 from backend.market.data_sources.marketdataprovider import MarketDataProvider
+from backend.market.data_sources.raw_quality import normalize_provider_rows
 from backend.market.models import OHLCVCandle
 from backend.market.time_utils import period_to_startdate
 from backend.models.market_data_models import AssetType, SymbolRecord
@@ -32,23 +33,28 @@ INTERVAL_MAP: dict[str, str] = {
 }
 
 
-def _parse_kline(kline: list, symbol: str) -> OHLCVCandle:
-    """Convert a raw Binance kline array to OHLCVCandle.
+def _kline_row(kline: list) -> dict:
+    """Project a raw Binance kline without truncating its millisecond timestamp.
 
     Kline format: [open_time, open, high, low, close, volume, close_time, ...]
     """
-    open_time_ms = int(kline[0])
-    return OHLCVCandle(
-        symbol=symbol,
-        timestamp=datetime.fromtimestamp(open_time_ms / 1000, tz=timezone.utc).replace(
-            tzinfo=None
-        ),
-        open=float(kline[1]),
-        high=float(kline[2]),
-        low=float(kline[3]),
-        close=float(kline[4]),
-        volume=float(kline[5]),
-    )
+    if not isinstance(kline, list):
+        raise ValueError("Binance kline must be an array.")
+    timestamp = None
+    if kline and type(kline[0]) is int:
+        try:
+            timestamp = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(
+                milliseconds=kline[0]
+            )
+        except OverflowError:
+            pass
+    return {
+        "timestamp": timestamp,
+        **{
+            column: kline[i] if i < len(kline) else None
+            for i, column in enumerate(("open", "high", "low", "close", "volume"), 1)
+        },
+    }
 
 
 class BinanceProvider(MarketDataProvider):
@@ -108,9 +114,16 @@ class BinanceProvider(MarketDataProvider):
             bi_interval,
             start_date,
         )
-        if not klines:
+        if klines is None or klines == []:
             return []
-        return [_parse_kline(k, symbol) for k in klines]
+        if not isinstance(klines, list):
+            raise ValueError("Binance klines response must be an array.")
+        return normalize_provider_rows(
+            [_kline_row(k) for k in klines],
+            symbol,
+            provider=self.name,
+            interval=interval,
+        )
 
     def supports_streaming(self) -> bool:
         return True

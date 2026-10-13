@@ -73,6 +73,9 @@ export class IndicatorState {
     this.loading = false;
     this.loadError = null;
     this.saveError = null;
+    this.isSaving = false;
+    this.#savingId = null;
+    this.#deleting.clear();
     if (this.activeId) this.dirty = true;
     this.activeId = null;
     this.stopAll();
@@ -80,6 +83,10 @@ export class IndicatorState {
 
   get draftVersion(): number {
     return this.#draftVersion;
+  }
+
+  dispose(): void {
+    this.clearSaved();
   }
 
   active = $derived.by(() =>
@@ -234,12 +241,17 @@ export class IndicatorState {
       }
       return saved;
     } catch (err) {
-      if (version === this.#draftVersion)
+      if (
+        accountVersion === this.#accountVersion &&
+        version === this.#draftVersion
+      )
         this.saveError = err instanceof Error ? err.message : 'Failed to save';
       return null;
     } finally {
-      this.isSaving = false;
-      this.#savingId = null;
+      if (accountVersion === this.#accountVersion) {
+        this.isSaving = false;
+        this.#savingId = null;
+      }
     }
   }
 
@@ -267,8 +279,10 @@ export class IndicatorState {
           this.dirty = true;
         }
       }
+    } catch (err) {
+      if (accountVersion === this.#accountVersion) throw err;
     } finally {
-      this.#deleting.delete(id);
+      if (accountVersion === this.#accountVersion) this.#deleting.delete(id);
     }
   }
 

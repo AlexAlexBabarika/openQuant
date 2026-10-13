@@ -7,7 +7,10 @@ import {
   withRulerCandleIndex,
 } from './compute';
 import type { OHLCVCandle } from '$lib/core/types';
-import { candleBatchSignature } from '$lib/features/chart/candleFingerprint';
+import {
+  candleBatchSignature,
+  publishOwnedCandles,
+} from '$lib/features/chart/candleFingerprint';
 
 function candle(tsIso: string, volume: number): OHLCVCandle {
   return {
@@ -21,6 +24,149 @@ function candle(tsIso: string, volume: number): OHLCVCandle {
 }
 
 describe('ruler computeStats', () => {
+  it('parses only the changed tail for 100 Rulers on controller-certified 50k histories', () => {
+    const candles = Array.from({ length: 50_000 }, (_, i) =>
+      candle(new Date(i * 60_000).toISOString(), 100),
+    );
+    const ranges = Array.from({ length: 100 }, (_, i) => ({
+      startTime: i * 60,
+      endTime: (49_999 - i) * 60,
+      startPrice: 1,
+      endPrice: 2,
+    }));
+    const parse = vi.spyOn(Date, 'parse');
+    try {
+      publishOwnedCandles(candles, 0);
+      const run = (revision: number) =>
+        withRulerCandleIndex(candles, `revision:${revision}`, () =>
+          ranges.map(geo => computeStats(geo, candles)),
+        );
+      run(0);
+      expect(parse).toHaveBeenCalledTimes(50_000);
+      parse.mockClear();
+      for (let revision = 1; revision <= 100; revision++) {
+        candles[49_999].volume = 100 + revision;
+        publishOwnedCandles(candles, revision, true);
+        expect(run(revision)[0].volumeSum).toBe(5_000_000 + revision);
+      }
+      expect(parse).toHaveBeenCalledTimes(100);
+      parse.mockClear();
+      run(100);
+      expect(parse).not.toHaveBeenCalled();
+      ranges[0].endTime = 49_998 * 60;
+      expect(run(100)[0].volumeSum).toBe(4_999_900);
+      expect(parse).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
+  it('includes skipped tail publications, appended bars and moved tail timestamps', () => {
+    const candles = Array.from({ length: 3 }, (_, i) =>
+      candle(new Date(i * 60_000).toISOString(), i + 1),
+    );
+    const geo = { startTime: 60, endTime: 300, startPrice: 1, endPrice: 2 };
+    const run = (revision: number) =>
+      withRulerCandleIndex(candles, `revision:${revision}`, () =>
+        computeStats(geo, candles),
+      );
+    publishOwnedCandles(candles, 0);
+    run(0);
+    candles[2].volume = 30;
+    publishOwnedCandles(candles, 1, true);
+    candles.push(candle(new Date(180_000).toISOString(), 4));
+    publishOwnedCandles(candles, 2, true);
+    candles[3].volume = 40;
+    publishOwnedCandles(candles, 3, true);
+    candles.push(candle(new Date(240_000).toISOString(), 5));
+    publishOwnedCandles(candles, 4, true);
+    expect(run(4)).toEqual(computeStats(geo, candles));
+    candles[4].timestamp = new Date(300_000).toISOString();
+    publishOwnedCandles(candles, 5, true);
+    expect(run(5)).toEqual(computeStats(geo, candles));
+  });
+
+  it('rebuilds for history edits, unknown revisions, replacement arrays and shape regressions', () => {
+    let candles = Array.from({ length: 4 }, (_, i) =>
+      candle(new Date(i * 60_000).toISOString(), i + 1),
+    );
+    const geo = { startTime: 0, endTime: 1000, startPrice: 1, endPrice: 2 };
+    const run = (revision: number) =>
+      withRulerCandleIndex(candles, `revision:${revision}`, () =>
+        computeStats(geo, candles),
+      );
+    publishOwnedCandles(candles, 0);
+    run(0);
+    candles[1].volume = 70;
+    publishOwnedCandles(candles, 1);
+    expect(run(1)).toEqual(computeStats(geo, candles));
+    candles[0].volume = 99;
+    expect(run(2)).toEqual(computeStats(geo, candles));
+    candles[3].volume = 100;
+    publishOwnedCandles(candles, 3, true);
+    expect(run(3)).toEqual(computeStats(geo, candles));
+    candles = candles.map(c => ({ ...c }));
+    candles[2].volume = 88;
+    publishOwnedCandles(candles, 4, true);
+    expect(run(4)).toEqual(computeStats(geo, candles));
+    candles.splice(1, 2);
+    publishOwnedCandles(candles, 5, true);
+    expect(run(5)).toEqual(computeStats(geo, candles));
+  });
+
+  it.each(['duplicate', 'out-of-order', 'invalid', 'fractional', 'unsafe'])(
+    'retains direct-scan parity for %s tail and subsequent publications',
+    kind => {
+      const candles = Array.from({ length: 4 }, (_, i) =>
+        candle(new Date(i * 60_000).toISOString(), i + 1),
+      );
+      const ranges = [
+        [0, Infinity],
+        [60, 180],
+        [180, 60],
+        [180, 180],
+        [1, 59],
+      ].map(([startTime, endTime]) => ({
+        startTime,
+        endTime,
+        startPrice: 1,
+        endPrice: 2,
+      }));
+      const run = (revision: number) =>
+        withRulerCandleIndex(candles, `revision:${revision}`, () =>
+          ranges.map(geo => computeStats(geo, candles)),
+        );
+      publishOwnedCandles(candles, 0);
+      run(0);
+      if (kind === 'duplicate') candles[3].timestamp = candles[1].timestamp;
+      if (kind === 'out-of-order')
+        candles[3].timestamp = new Date(30_000).toISOString();
+      if (kind === 'invalid') candles[3].timestamp = 'invalid';
+      if (kind === 'fractional') candles[3].volume = 0.1;
+      if (kind === 'unsafe') candles[3].volume = 1e20;
+      publishOwnedCandles(candles, 1, true);
+      expect(run(1)).toEqual(ranges.map(geo => computeStats(geo, candles)));
+      candles.push(candle(new Date(240_000).toISOString(), 0.2));
+      publishOwnedCandles(candles, 2, true);
+      expect(run(2)).toEqual(ranges.map(geo => computeStats(geo, candles)));
+    },
+  );
+
+  it('preserves source-order floating point sums for unsorted fractional and unsafe volumes', () => {
+    const candles = [
+      candle(new Date(180_000).toISOString(), 1e20),
+      candle(new Date(60_000).toISOString(), -1e20),
+      candle(new Date(120_000).toISOString(), 0.1),
+    ];
+    const geo = { startTime: 0, endTime: 300, startPrice: 1, endPrice: 2 };
+    expect(
+      withRulerCandleIndex(candles, 'untrusted', () =>
+        computeStats(geo, candles),
+      ),
+    ).toEqual(computeStats(geo, candles));
+    expect(computeStats(geo, candles).volumeSum).toBe(0.1);
+  });
+
   it('invalidates a shared prefix for every same-array candle revision', () => {
     const candles = [
       candle('2024-01-01T00:00:00Z', 10),
