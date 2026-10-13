@@ -70,7 +70,10 @@
 
 
   const modal = createModalLifecycle();
-  onDestroy(() => modal.close());
+  onDestroy(() => {
+    rerunState.reset();
+    modal.close();
+  });
   let panelEl = $state<HTMLDivElement | null>(null);
 
   function close() {
