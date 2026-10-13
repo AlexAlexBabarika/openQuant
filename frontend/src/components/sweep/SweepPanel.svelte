@@ -29,6 +29,7 @@
       drillOwner = owner;
       clearDrill();
       lastForm = null;
+      void sweep.loadSchema(code);
     });
   });
   onDestroy(clearDrill);
