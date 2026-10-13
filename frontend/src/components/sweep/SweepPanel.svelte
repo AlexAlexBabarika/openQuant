@@ -29,13 +29,13 @@
       drillOwner = owner;
       clearDrill();
       lastForm = null;
-      void sweep.loadSchema(code);
     });
   });
   onDestroy(clearDrill);
 
-  // Schema introspection when the panel mounts / code changes.
+  // Schema introspection after mount, source edits or state invalidation.
   $effect(() => {
+    sweep.lifecycleRevision;
     void sweep.loadSchema(code);
   });
 

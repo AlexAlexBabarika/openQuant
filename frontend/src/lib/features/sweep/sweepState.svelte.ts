@@ -50,12 +50,16 @@ export class SweepState {
   #client: SweepClient;
   #interval: number;
   #schemaSequence = 0;
-  #lifecycleSequence = 0;
+  #lifecycleSequence = $state(0);
   #active: PendingSweep | null = null;
 
   constructor(client: SweepClient = httpSweepClient, pollIntervalMs = 1000) {
     this.#client = client;
     this.#interval = pollIntervalMs;
+  }
+
+  get lifecycleRevision(): number {
+    return this.#lifecycleSequence;
   }
 
   async loadSchema(code: string): Promise<void> {
