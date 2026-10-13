@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import ts from 'typescript';
+import { componentDeclarations } from '$lib/features/chart/reactiveTestSupport';
 import { render } from 'svelte/server';
 import {
   validWorkspaceReport,
@@ -149,6 +151,75 @@ afterEach(() => {
 });
 
 describe('workspace robustness inputs and boundary', () => {
+  it.each(['pending', 'failed', 'completed'] as const)(
+    'clears old-owner workspace status even when the request is %s',
+    phase => {
+      const controller = new AbortController();
+      const state = {
+        reportAccount: 'a',
+        mode: 'workspace',
+        running: phase === 'pending',
+        report: phase === 'completed' ? fixture() : null,
+        dataQuality: { old: true },
+        receipt: { old: true },
+        restored: true,
+        storageMessage: 'Old owner storage',
+        runError: 'Old owner error',
+        statusMessage: 'Running Old owner draft on MSFT…',
+        completedFingerprint: 'old',
+        receivedAt: 'old',
+        runController: controller as AbortController | null,
+        runSequence: 4,
+      };
+      const invalidate = vi.fn();
+      const reload = vi.fn();
+      const production = ts.transpileModule(
+        componentDeclarations(
+          new URL('./StrategyTrial.svelte', import.meta.url),
+          ['syncReportAccount', 'cancelRun'],
+        ),
+        { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
+      ).outputText;
+      const sync = new Function(
+        'state',
+        'untrack',
+        'reviewFence',
+        'reloadRecovery',
+        'isWorkspaceReport',
+        `with (state) { ${production}; return syncReportAccount; }`,
+      )(
+        state,
+        (fn: () => void) => fn(),
+        { invalidate },
+        reload,
+        isWorkspaceReport,
+      ) as (owner: string | null) => void;
+      sync('a');
+      expect(controller.signal.aborted).toBe(false);
+      expect(state.runSequence).toBe(4);
+      sync(null);
+      expect(controller.signal.aborted).toBe(true);
+      expect(state).toMatchObject({
+        running: false,
+        report: null,
+        dataQuality: null,
+        receipt: null,
+        restored: false,
+        storageMessage: '',
+        runError: '',
+        completedFingerprint: '',
+        receivedAt: '',
+        runController: null,
+        statusMessage: 'Account changed. Run checks for the current workspace.',
+      });
+      sync('b');
+      expect(state.reportAccount).toBe('b');
+      expect(state.statusMessage).not.toContain('Old owner');
+      expect(invalidate).toHaveBeenCalledTimes(4);
+      expect(reload).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('namespaces controls when workspace and guided synthetic trials coexist', () => {
     const Pair = ((payload: unknown) => {
       const child = StrategyTrial as unknown as (

@@ -108,7 +108,7 @@
       storageMessage = '';
       reloadRecovery();
       if (mode === 'workspace') cancelRun();
-      if (report && isWorkspaceReport(report)) {
+      if (mode === 'workspace' || (report && isWorkspaceReport(report))) {
         report = null;
         completedFingerprint = '';
         receivedAt = '';
