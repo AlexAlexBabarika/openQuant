@@ -1,4 +1,8 @@
-import { apiFetch, readErrorMessage } from '$lib/core/api';
+import {
+  apiFetch,
+  getSessionGeneration,
+  readErrorMessage,
+} from '$lib/core/api';
 import type { RunDiff, RerunResponse } from './runTypes';
 import {
   parseNotebookMetadata,
@@ -17,6 +21,19 @@ async function savedResearchError(response: Response): Promise<string> {
 }
 
 export function makeRunsClient(fetchImpl: FetchImpl) {
+  function owned<Args extends unknown[], Result>(
+    operation: (...args: Args) => Promise<Result>,
+  ) {
+    return async (...args: Args): Promise<Result> => {
+      const generation = getSessionGeneration();
+      try {
+        return await operation(...args);
+      } finally {
+        if (generation !== getSessionGeneration())
+          throw new Error('Account changed. Open saved research again.');
+      }
+    };
+  }
   async function notebookMetadata(json?: string): Promise<string> {
     const res = await fetchImpl(
       '/backtests/runs/notebook/metadata',
@@ -61,7 +78,12 @@ export function makeRunsClient(fetchImpl: FetchImpl) {
     return (await res.json()) as RerunResponse;
   }
 
-  return { getRun, compareRuns, rerunRun, notebookMetadata };
+  return {
+    getRun: owned(getRun),
+    compareRuns: owned(compareRuns),
+    rerunRun: owned(rerunRun),
+    notebookMetadata: owned(notebookMetadata),
+  };
 }
 
 export type RunsClient = ReturnType<typeof makeRunsClient>;

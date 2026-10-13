@@ -59,27 +59,40 @@ export class BacktestState {
   }
 
   #loader: Loader;
+  #disposed = false;
 
   constructor(loader: Loader = defaultLoader) {
     this.#loader = loader;
   }
 
+  dispose(): void {
+    this.#disposed = true;
+    this.result = null;
+    this.status = null;
+    this.error = null;
+    this.loading = false;
+    this.hoveredTrade = null;
+    this.selection = null;
+  }
+
   /** Load the result once. No-op if already loaded or in flight. */
   async load(): Promise<void> {
-    if (this.result || this.loading) return;
+    if (this.#disposed || this.result || this.loading) return;
     this.loading = true;
     this.error = null;
     try {
       const raw = await this.#loader();
+      if (this.#disposed) return;
       this.result = loadResult(raw);
       this.status =
         typeof raw === 'object' && raw !== null && 'status' in raw
           ? ((raw as { status: RunStatus }).status ?? null)
           : null;
     } catch (err) {
+      if (this.#disposed) return;
       this.error = err instanceof Error ? err.message : 'Failed to load result';
     } finally {
-      this.loading = false;
+      if (!this.#disposed) this.loading = false;
     }
   }
 

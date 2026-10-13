@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SweepState } from './sweepState.svelte';
+import { clearAccessToken } from '$lib/core/api';
 import type {
   ParamSchema,
   SweepClient,
@@ -56,6 +57,113 @@ function fakeClient(polls: SweepProgress[]): SweepClient {
 }
 
 describe('SweepState', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'does not let schema %s after reset clear newer loading state',
+    async outcome => {
+      const old = deferred<ParamSchema>();
+      const latest = deferred<ParamSchema>();
+      const client = fakeClient([]);
+      client.schema = vi
+        .fn()
+        .mockReturnValueOnce(old.promise)
+        .mockReturnValueOnce(latest.promise);
+      const state = new SweepState(client, 0);
+      const first = state.loadSchema('old');
+      state.reset();
+      const second = state.loadSchema('new');
+      if (outcome === 'resolve')
+        old.resolve({ old: { kind: 'int', low: 1, high: 2, step: 1 } });
+      else old.reject(new Error('old schema error'));
+      await first;
+      expect(state.schema).toEqual({});
+      expect(state.schemaError).toBeNull();
+      expect(state.schemaLoading).toBe(true);
+      latest.resolve({ current: { kind: 'int', low: 1, high: 2, step: 1 } });
+      await second;
+      expect(state.schemaLoading).toBe(false);
+      expect(Object.keys(state.schema)).toEqual(['current']);
+    },
+  );
+
+  it('ignores a previous owner start without cancelling under a new session', async () => {
+    const start = deferred<{ sweep_id: string }>();
+    const client = fakeClient([]);
+    client.start = vi.fn(() => start.promise);
+    const state = new SweepState(client, 0);
+    const running = state.run(FORM);
+    clearAccessToken();
+    state.reset();
+    start.resolve({ sweep_id: 'old' });
+    await running;
+    expect(client.poll).not.toHaveBeenCalled();
+    expect(client.cancel).not.toHaveBeenCalled();
+    expect(state.status).toBe('idle');
+    expect(state.sweepId).toBeNull();
+  });
+
+  it('cancels a late start on disposal in the same session without publishing it', async () => {
+    const start = deferred<{ sweep_id: string }>();
+    const client = fakeClient([]);
+    client.start = vi.fn(() => start.promise);
+    const state = new SweepState(client, 0);
+    const running = state.run(FORM);
+    state.reset();
+    start.resolve({ sweep_id: 'old' });
+    await running;
+    expect(client.cancel).toHaveBeenCalledExactlyOnceWith('old');
+    expect(client.poll).not.toHaveBeenCalled();
+    expect(state.status).toBe('idle');
+  });
+
+  it.each(['resolve', 'reject'] as const)(
+    'does not publish an old poll %s or clear a newer sweep',
+    async outcome => {
+      const old = deferred<SweepProgress>();
+      const latest = deferred<SweepProgress>();
+      const client = fakeClient([]);
+      client.start = vi
+        .fn()
+        .mockResolvedValueOnce({ sweep_id: 'old' })
+        .mockResolvedValueOnce({ sweep_id: 'new' });
+      client.poll = vi
+        .fn()
+        .mockReturnValueOnce(old.promise)
+        .mockReturnValueOnce(latest.promise);
+      const state = new SweepState(client, 0);
+      const first = state.run(FORM);
+      await Promise.resolve();
+      state.reset();
+      const second = state.run(FORM);
+      await Promise.resolve();
+      if (outcome === 'resolve')
+        old.resolve(progress({ status: 'done', done: 4 }));
+      else old.reject(new Error('old failure'));
+      await first;
+      expect(state.status).toBe('running');
+      expect(state.error).toBeNull();
+      expect(state.done).toBe(0);
+      latest.resolve(progress({ status: 'done', sweep_id: 'new', done: 4 }));
+      await second;
+      expect(state.sweepId).toBe('new');
+      expect(state.status).toBe('done');
+    },
+  );
+
+  it('rejects a stale trial loader before and after its deferred response', async () => {
+    const trial = deferred<never>();
+    const client = fakeClient([progress({ status: 'done' })]);
+    client.loadTrial = vi.fn(() => trial.promise);
+    const state = new SweepState(client, 0);
+    await state.run(FORM);
+    const loader = state.trialLoader(0, FORM);
+    const loading = loader();
+    state.reset();
+    trial.resolve({} as never);
+    await expect(loading).rejects.toThrow('Sweep changed');
+    await expect(loader()).rejects.toThrow('Sweep changed');
+    expect(client.loadTrial).toHaveBeenCalledOnce();
+  });
+
   it('ignores old schema results after the editor source changes', async () => {
     const old = deferred<ParamSchema>();
     const latest = deferred<ParamSchema>();
