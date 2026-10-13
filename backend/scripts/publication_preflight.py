@@ -121,7 +121,9 @@ def _within(path: Path, directory: Path) -> bool:
     return path == directory or directory in path.parents
 
 
-def _positive(value: object) -> bool:
+def _positive(value: object, *, integer: bool = False) -> bool:
+    if integer:
+        return type(value) is int and value > 0
     try:
         number = float(str(value))
         return math.isfinite(number) and number > 0
@@ -133,6 +135,15 @@ def _is_directory(path: str) -> bool:
     try:
         return Path(path).is_dir()
     except (OSError, ValueError):
+        return False
+
+
+def _trusts_all_peers(peer: str) -> bool:
+    if peer == "*":
+        return True
+    try:
+        return ipaddress.ip_network(peer, strict=False).prefixlen == 0
+    except ValueError:
         return False
 
 
@@ -206,6 +217,29 @@ def inspect(
                 "warning",
                 "An HTTPS origin is configuration intent only; TLS termination and trusted proxy routing remain unverified.",
             )
+
+    proxy_peers = tuple(
+        peer.strip()
+        for peer in os.environ.get("FORWARDED_ALLOW_IPS", "").split(",")
+        if peer.strip()
+    )
+    if not proxy_peers:
+        add(
+            "proxy.trust_missing",
+            caution,
+            "Explicit proxy peer trust is absent. The shipped Uvicorn launcher defaults to loopback trust; record the actual proxy topology and launch arguments privately.",
+        )
+    elif any(_trusts_all_peers(peer) for peer in proxy_peers):
+        add(
+            "proxy.trust_all",
+            caution,
+            "Proxy headers are configured to trust every peer. Restrict trust to reviewed proxy peers; forwarded client identities are not verified.",
+        )
+    add(
+        "proxy.unverified",
+        "warning",
+        "Proxy peer configuration does not prove TLS, header sanitization, client-IP attribution or blocked direct upstream access; launch arguments may override it.",
+    )
 
     for name, default, minimum, integer in (
         ("MARKET_RATE_LIMIT_MAX", "120", 1, True),
@@ -357,13 +391,28 @@ def inspect(
             for name in ("openquant", "postgres"):
                 service = services[name]
                 if not all(
-                    _positive(service.get(key))
+                    _positive(service.get(key), integer=key != "cpus")
                     for key in ("cpus", "mem_limit", "pids_limit")
                 ):
                     add(
                         "compose.resource_limits",
                         caution,
-                        "Both application and PostgreSQL need positive cpus, mem_limit and pids_limit in resolved metadata.",
+                        "Both application and PostgreSQL need finite positive cpus and positive integer mem_limit bytes and pids_limit in normalized metadata.",
+                    )
+                else:
+                    report.limits.update(
+                        {
+                            f"compose_{name}_{key}": float(service[key])
+                            if key == "cpus"
+                            else service[key]
+                            for key in ("cpus", "mem_limit", "pids_limit")
+                        }
+                    )
+                if service.get("network_mode") == "host":
+                    add(
+                        "compose.host_network",
+                        caution,
+                        "Host networking bypasses the declared port mapping boundary; upstream and database exposure need a reviewed isolated network.",
                     )
                 mounts = service.get("volumes", [])
                 if not isinstance(mounts, list):
@@ -397,28 +446,58 @@ def inspect(
                         caution,
                         "Resolved mounts do not cover configured application data/secrets or PostgreSQL 16 data; durability is not proven by path existence.",
                     )
-                if name == "openquant":
-                    ports = service.get("ports", [])
-                    if not isinstance(ports, list) or any(
-                        not isinstance(port, dict)
-                        or port.get("host_ip") not in ("127.0.0.1", "::1")
-                        for port in ports
-                    ):
-                        add(
-                            "compose.upstream_exposure",
-                            caution,
-                            "The application upstream must stay on loopback behind a reviewed HTTPS proxy.",
-                        )
+                ports = service.get("ports", [])
+                if not isinstance(ports, list) or any(
+                    not isinstance(port, dict)
+                    or port.get("host_ip") not in ("127.0.0.1", "::1")
+                    for port in ports
+                ):
+                    add(
+                        "compose.upstream_exposure"
+                        if name == "openquant"
+                        else "compose.database_exposure",
+                        caution,
+                        "Published application upstream and database ports must stay on loopback; private network topology still requires review.",
+                    )
             add(
                 "compose.evidence_only",
                 "warning",
                 "Compose metadata is declared configuration, not live enforcement or proof that it matches this process's runtime environment.",
             )
 
+    for code, message in (
+        (
+            "execution.memory_unenforced",
+            "This revision's worker resource helper ignores memory_mb. Container memory declarations are aggregate, not enforced per-worker or per-account memory quotas.",
+        ),
+        (
+            "execution.aggregate_unbounded",
+            "There is no shared admission bound across execution entry points. Sweep pool size follows CPU count; job, trial expansion and queue budgets need bounded enforcement.",
+        ),
+        (
+            "execution.in_process",
+            "Schema evaluation, sweep trial reruns and walk-forward out-of-sample code can execute in the app process without the spawned runner's wallclock boundary.",
+        ),
+        (
+            "limits.process_local",
+            "Rate counters, WebSocket counts, sweep registry and robustness semaphore are process-local; more workers or replicas multiply capacity, not distributed quotas.",
+        ),
+    ):
+        add(code, caution, message)
     add(
         "execution.review",
         "warning",
-        "Execution limits include route/runner timeouts and aggregate container caps, not certified sandbox isolation or per-account quotas. Review concurrency, abuse and platform enforcement.",
+        "Spawned runner wallclock timeouts and best-effort POSIX CPU/descriptor caps do not certify sandbox isolation. Live enforcement, overload and cleanup remain unverified.",
+    )
+    add(
+        "auth.owner_review",
+        "warning",
+        "Saved research routes require authenticated owner stores; guest and unassigned legacy artifacts are separate. This checker does not exercise owner authorization or certify hosted tenant isolation.",
+    )
+    add(
+        "backup.credentials_unverified",
+        "warning",
+        "Database backups include account records and encrypted provider credentials; app-data may include research and key material. Matching-key recovery, deletion and backup expiry remain unverified.",
     )
     return report
 
