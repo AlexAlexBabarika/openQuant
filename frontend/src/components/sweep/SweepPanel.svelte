@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy, untrack } from 'svelte';
+  import { authState } from '$lib/features/auth/auth';
   import { SweepState } from '$lib/features/sweep/sweepState.svelte';
   import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
   import type { SweepFormValues } from '$lib/features/sweep/types';
@@ -14,15 +16,32 @@
   let drillOpen = $state(false);
   let drillState = $state<BacktestState | null>(null);
 
-  // Schema introspection when the panel mounts / code changes.
+  function clearDrill(): void {
+    drillState?.dispose();
+    drillState = null;
+    drillOpen = false;
+  }
+
+  let drillOwner = untrack(() => $authState.user?.id ?? null);
   $effect(() => {
+    const owner = $authState.user?.id ?? null;
+    if (owner !== drillOwner) untrack(() => {
+      drillOwner = owner;
+      clearDrill();
+      lastForm = null;
+    });
+  });
+  onDestroy(clearDrill);
+
+  // Schema introspection after mount, source edits or state invalidation.
+  $effect(() => {
+    sweep.lifecycleRevision;
     void sweep.loadSchema(code);
   });
 
   function start(form: SweepFormValues) {
     if (sweep.status === 'running') return;
-    drillOpen = false;
-    drillState = null;
+    clearDrill();
     lastForm = form;
     void sweep.run(form);
   }
@@ -31,6 +50,7 @@
     if (!lastForm || !sweep.sweepId) return;
     // Drill-in reuses the dashboard reader: load this trial's full BacktestResult.
     const loader = sweep.trialLoader(trialId, lastForm);
+    clearDrill();
     drillState = new BacktestState(loader);
     drillOpen = true;
   }

@@ -15,6 +15,7 @@ import {
 import { RunsHistory } from '$lib/features/runs/runsHistory.svelte';
 import { CompareState } from '$lib/features/runs/compareState.svelte';
 import type { RunDiff } from '$lib/features/runs/runTypes';
+import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
 
 const app = new URL('./App.svelte', import.meta.url);
 const cleanups: (() => void)[] = [];
@@ -195,7 +196,12 @@ describe('release-foundation workbench integration', () => {
         default: (
           anchor: null,
           props: unknown,
-        ) => { read: () => boolean; open: () => void };
+        ) => {
+          read: () => boolean;
+          open: () => void;
+          resultState: () => BacktestState;
+          resultOpen: () => boolean;
+        };
       }>(
         app,
         {
@@ -203,17 +209,23 @@ describe('release-foundation workbench integration', () => {
             authState,
             runsHistory: history,
             compareState: comparison,
+            BacktestState,
           },
         },
         `<script lang="ts">
-      import { authState, runsHistory, compareState } from 'test:owners';
+      import { authState, runsHistory, compareState, BacktestState } from 'test:owners';
       import { untrack } from 'svelte';
       let compareOpen = $state(false);
-      ${componentDeclarations(app, ['subscribeNotebookAccount'])}
+      let backtest = $state(new BacktestState());
+      let backtestOpen = $state(true);
+      let portfolioRunId = $state('private');
+      ${componentDeclarations(app, ['backtestOwner', 'subscribeNotebookAccount'])}
       const unsubscribe = subscribeNotebookAccount();
       $effect(() => unsubscribe);
       export function read() { return compareOpen; }
       export function open() { compareOpen = true; }
+      export function resultState() { return backtest; }
+      export function resultOpen() { return backtestOpen; }
     </script>`,
       );
       let harness!: ReturnType<typeof module.default>;
@@ -233,7 +245,15 @@ describe('release-foundation workbench integration', () => {
         owner = history.accountVersion;
       harness.open();
       const pending = comparison.load('one', 'two');
+      const previousResult = harness.resultState();
+      const disposed = vi.spyOn(previousResult, 'dispose');
+      authState.set({ user: { id: 'a' } });
+      expect(harness.resultState()).toBe(previousResult);
+      expect(disposed).not.toHaveBeenCalled();
       authState.set({ user: { id: 'b' } });
+      expect(disposed).toHaveBeenCalledOnce();
+      expect(harness.resultState()).not.toBe(previousResult);
+      expect(harness.resultOpen()).toBe(false);
       expect(history.entries).toEqual([]);
       authState.set({ user: { id: 'a' } });
       expect(history.entries.map(entry => entry.run_id)).toEqual(['private']);

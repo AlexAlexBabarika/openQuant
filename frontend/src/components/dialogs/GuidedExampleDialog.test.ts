@@ -181,6 +181,7 @@ function mountTrial(
       'bits-ui': {},
       './workspace': { ...workspace, runWorkspaceChecks },
       './ResearchReview.svelte': {},
+      '../../../components/backtest/DataQualityEvidence.svelte': {},
       './recovery': { ...recovery, reviewInputFingerprint: fingerprint },
     },
     `${script}

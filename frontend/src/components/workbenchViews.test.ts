@@ -258,6 +258,108 @@ describe('persistent research task views', () => {
       'flex-shrink: 0',
     );
   });
+
+  it('renders quality and errors in a bounded feedback region after Strategy actions', () => {
+    const strategy = new StrategyState();
+    strategy.runError = 'Data quality errors block execution.';
+    strategy.dataQuality = {
+      errors: [
+        {
+          code: 'duplicate_timestamp',
+          message: 'Duplicate timestamps',
+          column: 'timestamp',
+          count: 2,
+          rows: [0, 1],
+        },
+      ],
+      warnings: [],
+      provenance: {
+        provider: 'yfinance',
+        interval: '1d',
+        data_version: 'v1',
+        row_count: 120,
+        start: null,
+        end: null,
+        timestamp_timezone: 'UTC',
+        timestamp_unit: 'us',
+        nominal_interval_seconds: 86400,
+        calendar: 'unknown',
+        adjustment: 'unknown',
+        staleness: 'not_assessed',
+        example_limit: 5,
+      },
+    };
+    const html = render(StrategyPanel, {
+      props: {
+        embedded: true,
+        open: true,
+        strategy,
+        symbol: 'MSFT',
+        provider: 'yfinance',
+        period: '1y',
+        interval: '1d',
+      },
+    }).body;
+    const feedback = html.indexOf('aria-label="Strategy feedback"');
+    expect(feedback).toBeGreaterThan(
+      html.indexOf('aria-label="More strategy actions"'),
+    );
+    expect(html.indexOf('Data quality ·')).toBeGreaterThan(feedback);
+    expect(html).toContain('Duplicate timestamps');
+    expect(html).toContain('Data quality errors block execution.');
+    const source = readFileSync(panel, 'utf8');
+    const css = source.match(/\.research-feedback\s*\{([^}]+)\}/)?.[1];
+    expect(css).toContain('max-height: min(30dvh, 16rem)');
+    expect(css).toContain('overflow: auto');
+    expect(css).toContain('overflow-wrap: anywhere');
+  });
+
+  it('reserves usable embedded editor height without compressing its controls on short screens', () => {
+    const source = readFileSync(panel, 'utf8');
+    const panes = source.match(/\.embedded \.editing-panes\s*\{([^}]+)\}/)?.[1];
+    expect(panes).toContain('min-height: 240px');
+    expect(panes).toContain('flex-shrink: 0');
+    const controls = source.match(
+      /\.embedded \.work-head, \.embedded \.editor-views\s*\{([^}]+)\}/,
+    )?.[1];
+    expect(controls).toContain('flex-shrink: 0');
+    expect(source.match(/\.panel\.embedded\s*\{([^}]+)\}/)?.[1]).toContain(
+      'overflow-y: auto',
+    );
+  });
+
+  it('never puts expandable Strategy feedback inside the narrow action row', () => {
+    const fragment = parse(readFileSync(panel, 'utf8'), {
+      modern: true,
+    }).fragment;
+    let found = 0;
+    function visit(node: unknown, actions = false, feedback = false): void {
+      if (!node || typeof node !== 'object') return;
+      const current = node as Record<string, unknown>;
+      const attrs = current.attributes as
+        | { name?: string; value?: { data?: string }[] }[]
+        | undefined;
+      const classes = Array.isArray(attrs)
+        ? (attrs
+            .find(attr => attr.name === 'class')
+            ?.value?.[0]?.data?.split(/\s+/) ?? [])
+        : [];
+      actions ||= classes.includes('actions');
+      feedback ||= classes.includes('research-feedback');
+      if (
+        current.type === 'Component' &&
+        ['DataQualityEvidence', 'ErrorBanner'].includes(String(current.name))
+      ) {
+        expect(actions).toBe(false);
+        expect(feedback).toBe(true);
+        found++;
+      }
+      for (const child of Object.values(current))
+        visit(child, actions, feedback);
+    }
+    visit(fragment);
+    expect(found).toBe(3);
+  });
 });
 
 describe('completed strategy run context', () => {

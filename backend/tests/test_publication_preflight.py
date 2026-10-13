@@ -33,6 +33,8 @@ ENV_NAMES = (
     "OPENQUANT_DATA_ROOT",
     "OPENQUANT_SECRETS_FILE",
     "DATABASE_URL",
+    "FORWARDED_ALLOW_IPS",
+    "TWELVEDATA_API_KEY",
 )
 SENTINEL = "DO_NOT_DISCLOSE_TEST_SENTINEL"
 
@@ -57,6 +59,7 @@ def hosted_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("JWT_SECRET", "synthetic-signing-secret" * 3)
     monkeypatch.setenv("API_KEYS_ENCRYPTION_KEY", "ab" * 32)
     monkeypatch.setenv("OPENQUANT_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", "127.0.0.1,::1")
 
 
 def compose_metadata(tmp_path, *, app_target=None):
@@ -106,16 +109,92 @@ def test_local_defaults_remain_useful_and_do_not_generate_secrets(tmp_path):
     assert not (tmp_path / "secrets.json").exists()
 
 
-def test_hosted_clear_configuration_never_approves_publication(monkeypatch, tmp_path):
+EXECUTION_BLOCKERS = {
+    "execution.memory_unenforced",
+    "execution.aggregate_unbounded",
+    "execution.security_review_required",
+    "limits.process_local",
+}
+
+
+def test_hosted_declarations_cannot_hide_known_runtime_gaps(monkeypatch, tmp_path):
     report = hosted(monkeypatch, tmp_path)
     output = report.to_dict()
-    assert output["automated_status"] == "clear"
+    assert output["automated_status"] == "blocked"
+    assert {item.code for item in report.findings if item.level == "blocker"} == (
+        EXECUTION_BLOCKERS
+    )
     assert output["publication_status"] == "not_approved"
     assert output["exit_code"] == 1
     assert len(output["human_gates"]) == 6
     assert all(gate["status"] == "unverified" for gate in output["human_gates"])
     assert "configuration checks are not certification" in preflight.render_human(
         report
+    )
+
+
+def test_hosted_even_a_clear_report_never_approves_publication():
+    report = preflight.Report("hosted", [], {})
+    assert report.to_dict()["automated_status"] == "clear"
+    assert report.to_dict()["publication_status"] == "not_approved"
+    assert report.exit_code == 1
+    assert all(
+        gate["status"] == "unverified" for gate in report.to_dict()["human_gates"]
+    )
+
+
+def test_local_execution_gaps_are_warnings_not_local_activation_gates():
+    report = preflight.inspect()
+    assert {item.code for item in report.findings if item.level == "warning"} >= (
+        EXECUTION_BLOCKERS | {"auth.owner_review", "backup.credentials_unverified"}
+    )
+    assert report.exit_code == 0
+
+
+@pytest.mark.parametrize("value", [None, "", " , "])
+def test_missing_proxy_trust_is_hosted_blocker_local_warning(
+    monkeypatch, tmp_path, value
+):
+    hosted_environment(monkeypatch, tmp_path)
+    if value is None:
+        monkeypatch.delenv("FORWARDED_ALLOW_IPS")
+    else:
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", value)
+    for mode, level in (("local", "warning"), ("hosted", "blocker")):
+        report = preflight.inspect(mode, public_origin="https://research.example.com")
+        assert any(
+            item.code == "proxy.trust_missing" and item.level == level
+            for item in report.findings
+        )
+
+
+@pytest.mark.parametrize("value", ["*", "127.0.0.1, * ", "0.0.0.0/0", "::/0"])
+def test_trust_all_proxy_declarations_block_hosted(monkeypatch, tmp_path, value):
+    hosted_environment(monkeypatch, tmp_path)
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", value)
+    report = preflight.inspect("hosted", public_origin="https://research.example.com")
+    assert any(
+        item.code == "proxy.trust_all" and item.level == "blocker"
+        for item in report.findings
+    )
+
+
+@pytest.mark.parametrize("value", ["127.0.0.1,::1", "192.0.2.0/24", "/run/proxy.sock"])
+def test_explicit_proxy_intent_is_not_topology_acceptance(monkeypatch, value):
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", value)
+    report = preflight.inspect()
+    assert not {"proxy.trust_missing", "proxy.trust_all"} & codes(report)
+    assert "proxy.unverified" in codes(report)
+
+
+def test_acknowledgment_booleans_cannot_approve_hosting(monkeypatch, tmp_path):
+    for name in ("HOSTING_APPROVED", "SANDBOX_APPROVED", "PROVIDER_LICENSED"):
+        monkeypatch.setenv(name, "1")
+    report = hosted(monkeypatch, tmp_path)
+    assert EXECUTION_BLOCKERS <= codes(report)
+    assert report.to_dict()["publication_status"] == "not_approved"
+    assert all(
+        gate["status"] == "unverified" for gate in report.to_dict()["human_gates"]
     )
 
 
@@ -352,6 +431,13 @@ def test_oversized_metadata_is_not_read_or_overwritten(tmp_path):
         ("openquant", "cpus", "nan"),
         ("postgres", "pids_limit", -1),
         ("openquant", "mem_limit", 0),
+        ("openquant", "mem_limit", 0.5),
+        ("postgres", "pids_limit", 1.5),
+        ("postgres", "pids_limit", "2"),
+        ("postgres", "cpus", "inf"),
+        ("openquant", "mem_limit", True),
+        ("postgres", "network_mode", "host"),
+        ("openquant", "network_mode", "host"),
         ("postgres", "volumes", []),
         (
             "openquant",
@@ -360,6 +446,9 @@ def test_oversized_metadata_is_not_read_or_overwritten(tmp_path):
         ),
         ("openquant", "ports", [{"host_ip": "0.0.0.0"}]),
         ("openquant", "ports", [{"host_ip": []}]),
+        ("postgres", "ports", [{"host_ip": "0.0.0.0"}]),
+        ("postgres", "ports", [{"host_ip": "::"}]),
+        ("postgres", "ports", [{"published": "5432"}]),
     ],
 )
 def test_container_metadata_failures_are_blockers_for_hosted(
@@ -378,6 +467,39 @@ def test_container_metadata_failures_are_blockers_for_hosted(
         for item in report.findings
     )
     assert SENTINEL not in preflight.render_human(report)
+
+
+def test_normalized_compose_limits_are_reported_only_as_numeric_declarations(
+    monkeypatch, tmp_path
+):
+    report = hosted(monkeypatch, tmp_path)
+    for name in ("openquant", "postgres"):
+        assert report.limits[f"compose_{name}_cpus"] == 1.0
+        assert report.limits[f"compose_{name}_mem_limit"] == 1073741824
+        assert report.limits[f"compose_{name}_pids_limit"] == 256
+    assert "compose.evidence_only" in codes(report)
+    assert EXECUTION_BLOCKERS <= codes(report)
+
+
+def test_loopback_database_mapping_remains_local_intent(monkeypatch, tmp_path):
+    hosted_environment(monkeypatch, tmp_path)
+    path, metadata = compose_metadata(tmp_path)
+    metadata["services"]["postgres"]["ports"] = [
+        {"host_ip": "::1", "published": "5432"}
+    ]
+    path.write_text(json.dumps(metadata))
+    report = preflight.inspect(compose_config=path)
+    assert "compose.database_exposure" not in codes(report)
+    assert "compose.evidence_only" in codes(report)
+
+
+def test_integer_declarations_are_not_rounded_through_float(monkeypatch, tmp_path):
+    hosted_environment(monkeypatch, tmp_path)
+    path, metadata = compose_metadata(tmp_path)
+    metadata["services"]["openquant"]["mem_limit"] = 2**53 + 1
+    path.write_text(json.dumps(metadata))
+    report = preflight.inspect(compose_config=path)
+    assert report.limits["compose_openquant_mem_limit"] == 2**53 + 1
 
 
 def test_mount_checks_include_file_secrets_and_reject_parent_traversal(
@@ -447,7 +569,7 @@ def test_cli_smoke_json_human_and_stdin(monkeypatch, tmp_path):
         text=True,
     )
     assert result.returncode == 1
-    assert json.loads(result.stdout)["automated_status"] == "clear"
+    assert json.loads(result.stdout)["automated_status"] == "blocked"
     assert SENTINEL not in result.stdout + result.stderr
     human = subprocess.run(command, capture_output=True, text=True)
     assert "UNVERIFIED provider_redistribution_rights" in human.stdout
@@ -464,6 +586,7 @@ def test_all_output_channels_redact_provider_keys_paths_and_connection_strings(
     hosted_environment(monkeypatch, tmp_path)
     monkeypatch.setenv("JWT_SECRET", SENTINEL * 3)
     monkeypatch.setenv("TWELVEDATA_API_KEY", SENTINEL)
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", SENTINEL + ",*")
     monkeypatch.setenv(
         "DATABASE_URL", "postgresql://" + SENTINEL + ":" + SENTINEL + "@postgres/drill"
     )

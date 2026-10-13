@@ -48,7 +48,7 @@ class ExecuteRequest(BaseModel):
     memory_mb: int = Field(256, gt=0, le=1024)
 
 
-def _candles_to_df(candles) -> pl.DataFrame:
+def _candles_to_df(candles, *, preserve_order: bool = False) -> pl.DataFrame:
     schema = {
         "timestamp": pl.Datetime("us", "UTC"),
         "open": pl.Float64,
@@ -77,7 +77,7 @@ def _candles_to_df(candles) -> pl.DataFrame:
     df = pl.DataFrame(rows).with_columns(
         pl.col("timestamp").cast(pl.Datetime("us")).dt.replace_time_zone("UTC")
     )
-    return df.sort("timestamp")
+    return df if preserve_order else df.sort("timestamp")
 
 
 def _row_to_info(row: dict) -> ScriptInfo:

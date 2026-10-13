@@ -8,7 +8,7 @@ from typing import Any
 import yfinance as yf
 
 from backend.market.models import CorporateAction, OHLCVCandle
-from backend.market.normalizer import normalize_rows
+from backend.market.data_sources.raw_quality import normalize_provider_rows
 from backend.market.data_sources.marketdataprovider import MarketDataProvider
 
 
@@ -35,7 +35,9 @@ class YFinanceLoader(MarketDataProvider):
         df = df.reset_index()
         df.columns = [c.strip() for c in df.columns]
         rows: list[dict[str, Any]] = df.to_dict(orient="records")
-        return normalize_rows(rows, symbol)
+        return normalize_provider_rows(
+            rows, symbol, provider=self.name, interval=interval
+        )
 
     def get_corporate_actions(self, symbol: str) -> list[CorporateAction]:
         ticker = yf.Ticker(symbol)
@@ -79,7 +81,9 @@ class YFinanceLoader(MarketDataProvider):
         df = df.reset_index()
         df.columns = [c.strip() for c in df.columns]
         rows = df.to_dict(orient="records")
-        return normalize_rows(rows, symbol)
+        return normalize_provider_rows(
+            rows, symbol, provider=self.name, interval=interval
+        )
 
 
 _loader = YFinanceLoader()

@@ -19,6 +19,8 @@ from backend.app import app
 from backend.datastore.ingest import ingest_symbols
 from backend.datastore.layout import StoreLayout
 from backend.market.models import CorporateAction, OHLCVCandle
+from backend.backtesting.run_store import RunStore
+from backend.tests._run_auth_fixtures import auth_headers
 
 CODE = (
     "def on_bar(ctx):\n"
@@ -83,15 +85,68 @@ def _seed_store(tmp_path: Path, monkeypatch):
     ingest_symbols(layout, provider, ["AAPL", "MSFT", "META"], indices=["SP500"])
     monkeypatch.setattr(portfolio_routes, "_STORE_LAYOUT", layout)
     monkeypatch.setattr(portfolio_routes, "_STORE_PROVIDER", "fake")
+    monkeypatch.setattr(portfolio_routes, "_RUN_STORE", RunStore(tmp_path / "runs"))
 
 
 client = TestClient(app)
 
 
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Authorization": "Bearer invalid"},
+        {"Authorization": "Basic invalid"},
+        {"Authorization": "Bearer"},
+        auth_headers("a", expired=True),
+    ],
+)
+def test_supplied_invalid_auth_never_falls_back_to_guest(headers, monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Invalid auth must reject before datastore loading")
+
+    monkeypatch.setattr(portfolio_routes, "_store", forbidden)
+    response = client.post(
+        "/portfolio-backtests/run",
+        json={"code": CODE, "symbols": ["AAPL"], "provider": "yfinance"},
+        headers=headers,
+    )
+    assert response.status_code == 401
+    assert portfolio_routes._RUN_STORE.list_ids() == []
+
+
+def test_guest_has_no_saved_id_or_artifact():
+    response = client.post(
+        "/portfolio-backtests/run",
+        json={"code": CODE, "symbols": ["AAPL"], "provider": "yfinance"},
+    )
+    body = response.json()
+    assert response.status_code == 200
+    assert body["status"] == "ok"
+    assert "run_id" not in body and "run_id" not in body["meta"]
+    assert body["persistence"] == {"stored": False, "reason": "guest", "run_id": None}
+    assert not portfolio_routes._RUN_STORE.root.exists()
+
+
+def test_portfolio_owner_survives_restart_without_global_adoption(monkeypatch):
+    body = _run()
+    root = portfolio_routes._RUN_STORE.root
+    monkeypatch.setattr(portfolio_routes, "_RUN_STORE", RunStore(root))
+    a = portfolio_routes._RUN_STORE.for_owner("a")
+    b = portfolio_routes._RUN_STORE.for_owner("b")
+    assert body["persistence"] == {
+        "stored": True,
+        "reason": "authenticated",
+        "run_id": body["run_id"],
+    }
+    assert a.exists(body["run_id"])
+    assert not b.exists(body["run_id"])
+    assert not portfolio_routes._RUN_STORE.exists(body["run_id"])
+
+
 def _run(payload_overrides: dict | None = None) -> dict:
     payload = {"code": CODE, "symbols": ["MSFT", "AAPL"], "provider": "yfinance"}
     payload.update(payload_overrides or {})
-    r = client.post("/portfolio-backtests/run", json=payload)
+    r = client.post("/portfolio-backtests/run", json=payload, headers=auth_headers("a"))
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -283,6 +338,7 @@ def test_portfolio_persist_helper_writes_snapshot(tmp_path):
     }
     rid = pr._persist_portfolio(
         blob,
+        owner_id="a",
         code="def on_bar(ctx):\n    pass\n",
         params={},
         data_version="v1",
@@ -290,5 +346,6 @@ def test_portfolio_persist_helper_writes_snapshot(tmp_path):
         starting_cash=1e5,
         universe=None,
         constraints=None,
+        date_range=None,
     )
-    assert store.exists(rid)
+    assert store.for_owner("a").exists(rid)

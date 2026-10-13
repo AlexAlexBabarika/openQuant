@@ -65,6 +65,64 @@ function deferred<T>() {
 }
 
 describe('strategy account changes', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'does not leak an old delete %s or unlock the current delete',
+    async outcome => {
+      const old = deferred<void>();
+      const latest = deferred<void>();
+      const remove = vi
+        .fn()
+        .mockReturnValueOnce(old.promise)
+        .mockReturnValueOnce(latest.promise);
+      const state = new StrategyState(fakeClient({ remove }));
+      state.scripts = [info()];
+      const first = state.remove('s1');
+      state.clearSaved();
+      state.scripts = [info({ name: 'new owner' })];
+      const second = state.remove('s1');
+      if (outcome === 'resolve') old.resolve();
+      else old.reject(new Error('old owner error'));
+      await expect(first).resolves.toBeUndefined();
+      expect(state.scripts[0]?.name).toBe('new owner');
+      await state.remove('s1');
+      expect(remove).toHaveBeenCalledTimes(2);
+      latest.resolve();
+      await second;
+      expect(state.scripts).toEqual([]);
+    },
+  );
+
+  it.each(['resolve', 'reject'] as const)(
+    'does not let an old save %s unlock a new owner save',
+    async outcome => {
+      const old = deferred<StrategyInfo>();
+      const latest = deferred<StrategyInfo>();
+      const state = new StrategyState(
+        fakeClient({
+          create: vi
+            .fn()
+            .mockReturnValueOnce(old.promise)
+            .mockReturnValueOnce(latest.promise),
+        }),
+      );
+      const first = state.save();
+      state.clearSaved();
+      state.setCode('new owner draft');
+      const second = state.save();
+      expect(state.isSaving).toBe(true);
+      if (outcome === 'resolve') old.resolve(info({ id: 'old' }));
+      else old.reject(new Error('old failure'));
+      expect(await first).toBeNull();
+      expect(state.isSaving).toBe(true);
+      expect(state.saveError).toBeNull();
+      expect(state.scripts).toEqual([]);
+      latest.resolve(info({ id: 'new', code: 'new owner draft' }));
+      expect((await second)?.id).toBe('new');
+      expect(state.isSaving).toBe(false);
+      expect(state.activeId).toBe('new');
+    },
+  );
+
   it('detaches saved resources while retaining unsaved editor work', () => {
     const state = new StrategyState(fakeClient());
     state.scripts = [info()];
@@ -354,10 +412,13 @@ describe('StrategyState', () => {
     const state = new StrategyState(client);
     state.setCode('params = {}\n\ndef on_bar(ctx):\n    ctx.buy(1)\n');
     const bt = await state.runBacktest(CTX);
-    expect(client.runBacktest).toHaveBeenCalledWith({
-      code: state.draftCode,
-      ...CTX,
-    });
+    expect(client.runBacktest).toHaveBeenCalledWith(
+      {
+        code: state.draftCode,
+        ...CTX,
+      },
+      expect.any(Function),
+    );
     expect(bt).toBe(state.backtest);
     expect(state.backtest?.result).not.toBeNull();
     expect(state.isRunning).toBe(false);

@@ -9,7 +9,8 @@ from backend.backtesting.robustness import run_robustness
 from backend.core.auth_deps import get_current_user
 from backend.models.auth_models import AuthUserInfo
 from backend.models.robustness_models import RobustnessRequest, WorkspaceReport
-from backend.routes.sweep_routes import _load_frame
+from backend.routes.sweep_routes import _load_research_frame as _load_frame
+from backend.routes.backtest_routes import execution_quality
 from backend.scripts.ast_guard import ScriptValidationError, validate
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
@@ -30,7 +31,9 @@ async def robustness(
         )
     try:
         frame, data_version = await _load_frame(body, user)
-        return await run_in_threadpool(run_robustness, body, frame, data_version)
+        quality = execution_quality(body, frame, data_version)
+        report = await run_in_threadpool(run_robustness, body, frame, data_version)
+        return report.model_copy(update={"data_quality": quality})
     except (ValueError, ScriptValidationError) as exc:
         raise HTTPException(400, str(exc)) from exc
     finally:

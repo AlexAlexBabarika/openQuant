@@ -148,6 +148,9 @@ export function generateTrialReportHtml(report: EvidenceReport): string {
     ['Holdout buy-and-hold · chosen costs', report.holdout.benchmark],
   ];
   const stress = workspace ? report.cost_stress : null;
+  const folds = workspace ? report.walk_forward : null;
+  const regimes = workspace ? report.regimes : null;
+  const quality = workspace ? report.data_quality : null;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
@@ -192,6 +195,25 @@ ${metrics(holdoutRuns)}${equityChart('Separately funded holdout measured equity'
 <section><h2>Parameter sensitivity on holdout</h2><p>Fixed neighboring parameters at the chosen costs. This is a holdout comparison, not a second parameter-selection step. Repeatedly inspected holdouts and their sensitivity comparisons are not independent out-of-sample evidence.</p>
 ${report.sensitivity.length ? `<div class="table-wrap"><table><thead><tr><th scope="col">Parameter value</th><th scope="col">Total return</th><th scope="col">Max drawdown</th></tr></thead><tbody>${report.sensitivity.map(row => `<tr><th scope="row">${exactNumber(row.parameter_value)}</th><td>${percent(row.total_return)}</td><td>${percent(row.max_drawdown)}</td></tr>`).join('')}</tbody></table></div>` : '<p>No parameter sensitivity reported.</p>'}</section>
 <section><h2>Measured findings</h2>${report.findings.length ? report.findings.map(finding => `<article><p><strong>${escapeHtml(finding.severity)}</strong> · <code>${escapeHtml(finding.id)}</code></p><h3>${escapeHtml(finding.title)}</h3><p>${escapeHtml(finding.detail)}</p></article>`).join('') : '<p>No findings reported.</p>'}</section>
+<section><h2>Data quality · recorded snapshot</h2>${quality ? `<p>Recorded provider: ${escapeHtml(quality.provenance.provider)}; interval: ${escapeHtml(quality.provenance.interval)}; version: ${escapeHtml(quality.provenance.data_version)}. ${number(quality.provenance.row_count)} canonical bars: ${escapeHtml(quality.provenance.start ?? 'Unavailable')} — ${escapeHtml(quality.provenance.end ?? 'Unavailable')}.</p>${list(quality.errors.map(i => `Blocking error · ${i.code}: ${i.message} (${i.count})`))}${list(quality.warnings.map(i => `Warning · ${i.code}: ${i.message} (${i.count})`))}<p>Calendar and adjustment unknown; freshness not assessed. Recorded labels are not provider certification; upstream normalization may hide earlier defects.</p>` : '<p>No recorded quality evidence. Missing evidence is not a pass.</p>'}</section>
+<section><h2>Walk-forward chronology · fixed parameters</h2>${
+    folds
+      ? `<p>Status: ${escapeHtml(folds.status)}. ${escapeHtml(folds.assumption)}</p><p>${escapeHtml(folds.limitation)}</p>${folds.folds
+          .map(
+            fold =>
+              `<article><h3>Fold ${fold.id} · ${escapeHtml(fold.status)}</h3><p>Chronology context: ${escapeHtml(fold.train_start)} — ${escapeHtml(fold.train_end)} (${number(fold.training_bars)} bars). Validation: ${escapeHtml(fold.validation_start)} — ${escapeHtml(fold.validation_end)} (${number(fold.validation_bars)} bars).</p>${
+                fold.strategy && fold.benchmark
+                  ? metrics([
+                      ['Validation strategy', fold.strategy],
+                      ['Validation benchmark', fold.benchmark],
+                    ])
+                  : '<p>Inadequate sample; no measured fold outcomes.</p>'
+              }</article>`,
+          )
+          .join('')}`
+      : '<p>Fold evidence unavailable in this older report or example.</p>'
+  }<p>No fitting, optimization or parameter selection occurs in these fixed-parameter folds.</p></section>
+<section><h2>Retrospective validation regimes</h2>${regimes ? `<p>Status: ${escapeHtml(regimes.status)}; method: ${escapeHtml(regimes.method)}; threshold ±${percent(regimes.threshold)}. ${escapeHtml(regimes.assumption)}</p><p>${escapeHtml(regimes.limitation)}</p>${list(regimes.observations.map(obs => `Fold ${obs.fold_id}: ${obs.label}, observed market return ${percentFormat.format(obs.market_return)}`))}` : '<p>Regime evidence unavailable.</p>'}<p>Retrospective labels are not predictive confidence or investment advice.</p></section>
 <section><h2>Assumptions</h2>${list(report.assumptions)}</section><section><h2>Limitations</h2>${list(report.limitations)}</section>
 ${report.research_review ? `<section><h2>Research conclusion · not a confidence score</h2><p>Researcher decision: <strong>${escapeHtml(report.research_review.decision)}</strong></p><p>${escapeHtml(report.research_review.reason || 'No reason recorded.')}</p><p>This is an editable research decision, not engine certification, investment advice or approval to trade. Review context, baseline, cost stress, chronology, sensitivity, findings and assumptions together.</p></section>` : ''}
 <footer>Metrics and equity are supplied by the existing backtest engine. Returns and drawdowns are displayed as percentages; costs and equity are in currency units. Displayed metrics are rounded to two decimals; configuration and parameter values retain their precision. Dates on charts are UTC. Non-finite numeric values are marked unavailable or omitted, never replaced with invented observations. This file requires no scripts or third-party resources.</footer>

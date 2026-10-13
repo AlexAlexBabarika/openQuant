@@ -71,6 +71,65 @@ const CTX = { provider: 'yfinance', period: '1y', interval: '1d' } as const;
 
 describe('PortfolioState', () => {
   it.each(['success', 'failure'])(
+    'fences run, stored-load and ingest completions after reset (%s)',
+    async outcome => {
+      const run = deferred<PortfolioRunResponse>();
+      const stored = deferred<unknown>();
+      const ingest = deferred<IngestReport>();
+      const state = new PortfolioState(
+        fakeClient({
+          run: vi.fn(() => run.promise),
+          ingest: vi.fn(() => ingest.promise),
+        }),
+        { getRun: vi.fn(() => stored.promise) } as unknown as RunsClient,
+      );
+      state.add('AAPL');
+      const pendingRun = state.run('code', CTX);
+      const pendingStored = state.loadStored('private');
+      const pendingIngest = state.ingest();
+      state.reset();
+      if (outcome === 'success') {
+        run.resolve(okRun());
+        stored.resolve(okRun());
+        ingest.resolve(okReport());
+      } else {
+        run.reject(new Error('old run'));
+        stored.reject(new Error('old stored'));
+        ingest.reject(new Error('old ingest'));
+      }
+      await Promise.all([pendingRun, pendingStored, pendingIngest]);
+      expect(state.response).toBeNull();
+      expect(state.runError).toBeNull();
+      expect(state.isRunning).toBe(false);
+      expect(state.ingestReport).toBeNull();
+      expect(state.ingestError).toBeNull();
+      expect(state.isIngesting).toBe(false);
+    },
+  );
+
+  it('does not clear a newer ingest when the reset request settles', async () => {
+    const old = deferred<IngestReport>();
+    const current = deferred<IngestReport>();
+    const ingest = vi
+      .fn()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(current.promise);
+    const state = new PortfolioState(fakeClient({ ingest }));
+    state.add('AAPL');
+    const first = state.ingest();
+    state.reset();
+    const second = state.ingest();
+    old.resolve(okReport());
+    await first;
+    expect(state.isIngesting).toBe(true);
+    expect(state.ingestReport).toBeNull();
+    current.resolve(okReport({ data_version: 'new' }));
+    await second;
+    expect(state.ingestReport?.data_version).toBe('new');
+    expect(state.isIngesting).toBe(false);
+  });
+
+  it.each(['success', 'failure'])(
     'keeps a newer stored selection after a delayed run %s',
     async outcome => {
       const old = deferred<PortfolioRunResponse>();

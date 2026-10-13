@@ -140,6 +140,75 @@ function setup(candleRevision?: number, types = ['ruler', 'ruler']) {
 }
 
 describe('drawable compute state and dirty keys', () => {
+  it('clears large-scene pending work and results when returning to 500 bars / zero Elements', async () => {
+    const { props, requests, data, states, stop } = setup(0, ['ruler']);
+    props.candles = Array.from({ length: 50_000 }, (_, i) => ({
+      ...props.candles[0],
+      timestamp: new Date(i * 60_000).toISOString(),
+    }));
+    props.candleRevision = 1;
+    client.flush();
+    requests[0].request.resolve('old');
+    await Promise.resolve();
+    expect(requests).toHaveLength(2);
+    props.candles = props.candles.slice(0, 500);
+    props.items = [];
+    props.candleRevision = 2;
+    client.flush();
+    expect(requests[1].signal.aborted).toBe(true);
+    expect(data().size).toBe(0);
+    expect(states().size).toBe(0);
+    requests[1].request.resolve('obsolete-large-scene');
+    await Promise.resolve();
+    expect(requests).toHaveLength(2);
+    expect(data().size).toBe(0);
+    expect(states().size).toBe(0);
+    stop();
+    expect(data().size).toBe(0);
+    expect(states().size).toBe(0);
+  });
+
+  it('reuses context/geometry keys for 100 Elements across a candle publication burst', async () => {
+    const { props, requests, data } = setup(0, ['ruler']);
+    props.items = Array.from({ length: 100 }, (_, i) => item(`element-${i}`));
+    client.flush();
+    const stringify = vi.spyOn(JSON, 'stringify');
+    try {
+      for (let revision = 1; revision <= 100; revision++) {
+        props.candles = [{ ...props.candles[0], volume: revision }];
+        props.candleRevision = revision;
+        client.flush();
+      }
+      const contextKeys = () =>
+        stringify.mock.calls.filter(
+          ([value]) => Array.isArray(value) && value.length === 7,
+        );
+      expect(contextKeys()).toHaveLength(0);
+      expect(requests).toHaveLength(101);
+      expect(requests.slice(1).every(r => !r.signal.aborted)).toBe(true);
+      for (const r of requests) r.request.resolve('obsolete');
+      await Promise.resolve();
+      expect(requests).toHaveLength(201);
+      expect(requests.slice(101).every(r => r.volume === 100)).toBe(true);
+      expect(data().size).toBe(0);
+      for (const r of requests.slice(101)) r.request.resolve('terminal');
+      await Promise.resolve();
+      expect(data().size).toBe(100);
+      expect([...data().values()].every(value => value === 'terminal')).toBe(
+        true,
+      );
+      props.items[0].geometry.endTime = 2;
+      client.flush();
+      expect(contextKeys()).toHaveLength(100);
+      expect(requests).toHaveLength(202);
+      expect(requests[201].endTime).toBe(2);
+      expect(data().has('element-0')).toBe(false);
+      expect(data().size).toBe(99);
+    } finally {
+      stringify.mockRestore();
+    }
+  });
+
   it('coalesces a publication burst to one latest request per Element without abort churn', async () => {
     const { props, requests, data, states } = setup(0);
     for (let revision = 1; revision <= 100; revision++) {

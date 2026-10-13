@@ -23,6 +23,7 @@
   import SweepPanel from '../sweep/SweepPanel.svelte';
   import PortfolioPanel from './PortfolioPanel.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
+  import DataQualityEvidence from '../backtest/DataQualityEvidence.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
   import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
   import { runsHistory } from '$lib/features/runs/runsHistory.svelte';
@@ -119,6 +120,9 @@
     const userId = $authState.user?.id ?? null;
     if (userId !== savedUserId) untrack(() => {
       savedUserId = userId;
+      sweep.reset();
+      portfolio.reset();
+      loadedPortfolioRun = null;
       strat.clearSaved();
       completedSource = null;
       completedResult = null;
@@ -132,7 +136,11 @@
 
 
   const modal = createModalLifecycle();
-  onDestroy(() => modal.close());
+  onDestroy(() => {
+    sweep.reset();
+    portfolio.reset();
+    modal.close();
+  });
   let panelEl = $state<HTMLDivElement | null>(null);
 
   function close() {
@@ -149,7 +157,7 @@
     const market = { symbol, provider, period, interval };
     const bt = await strat.runBacktest(market);
     if (strat.backtest === bt && !bt.error) {
-      if (bt.result && accountVersion === runsHistory.accountVersion) runsHistory.record({
+      if (bt.result?.meta.run_id && accountVersion === runsHistory.accountVersion) runsHistory.record({
         run_id: bt.result.meta.run_id, kind: 'single', label: runName,
         created_at: bt.result.meta.finished_at,
       });
@@ -366,13 +374,6 @@
             <div class="actions">
               <button type="button" class="btn ghost wide-action" onclick={() => strat.newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
               {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
-              {#if strat.saveError}
-                <ErrorBanner message={strat.saveError} />
-              {/if}
-              {#if strat.runError}
-                <ErrorBanner message={strat.runError} />
-              {/if}
-
               <button
                 type="button"
                 class="btn ghost"
@@ -403,6 +404,15 @@
               </Popover.Root></div>
             </div>
           </div>
+
+          {#if strat.saveError || strat.isRunning || strat.runError || strat.dataQuality}
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable evidence must be keyboard reachable.) -->
+            <div class="research-feedback" role="region" aria-label="Strategy feedback" tabindex="0">
+              {#if strat.saveError}<ErrorBanner message={strat.saveError} />{/if}
+              {#if strat.runError}<ErrorBanner message={strat.runError} />{/if}
+              {#if strat.isRunning || strat.runError || strat.dataQuality}<DataQualityEvidence report={strat.dataQuality} pending={strat.isRunning} />{/if}
+            </div>
+          {/if}
 
           <div class="editor-views" class:single={!splitEnabled} aria-label="Editor and results views">
             <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
@@ -631,6 +641,8 @@
   .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
   .editing-panes.resizing { user-select: none; }
+  .embedded .editing-panes { min-height: 240px; flex-shrink: 0; }
+  .embedded .work-head, .embedded .editor-views { flex-shrink: 0; }
   .editing-panes.single { grid-template-columns: minmax(0, 1fr); }
   .editing-panes.single .inactive, .editing-panes.single .editor-splitter { display: none; }
   .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
@@ -844,6 +856,15 @@
     gap: 8px;
   }
   .mobile-actions { display: none; }
+
+  .research-feedback {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-height: min(30dvh, 16rem);
+    overflow: auto;
+    overflow-wrap: anywhere;
+    padding: 6px 12px;
+  }
 
   .btn {
     display: inline-flex;

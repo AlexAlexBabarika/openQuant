@@ -35,6 +35,7 @@ from backend.backtesting.types import Metrics
 from backend.core.auth_deps import optional_current_user
 from backend.core.database import DatabaseError
 from backend.market import cache
+from backend.market.data_sources.raw_quality import RawProviderDataError
 from backend.market.ohlcv_limits import cap_candles
 from backend.market.shared_config import validate_interval, validate_period
 from backend.models.auth_models import AuthUserInfo
@@ -90,7 +91,11 @@ class WalkForwardRequest(SweepRequest):
 
 
 async def _load_frame(
-    body: _DataRequest, user: AuthUserInfo | None = None
+    body: _DataRequest,
+    user: AuthUserInfo | None = None,
+    *,
+    preserve_order: bool = False,
+    cache_only: bool = False,
 ) -> tuple[pl.DataFrame, str]:
     """Fetch (or cache-hit) candles and return (frame, data_version)."""
     sym = body.symbol.strip()
@@ -113,6 +118,11 @@ async def _load_frame(
         body.provider.value, sym, period=body.period, interval=body.interval
     )
     if not candles:
+        if cache_only:
+            raise HTTPException(
+                404,
+                "Quality preview unavailable: load this chart dataset first. Execution will inspect its loaded snapshot.",
+            )
         try:
             candles = await run_in_threadpool(
                 _fetch_candles_blocking,
@@ -122,6 +132,11 @@ async def _load_frame(
                 body.interval,
                 user,
             )
+        except RawProviderDataError as e:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"message": str(e), "data_quality": e.data_quality},
+            ) from e
         except ValueError as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
         except DatabaseError as e:
@@ -144,10 +159,14 @@ async def _load_frame(
     if not candles:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No data for '{sym}'")
 
-    frame = _candles_to_df(candles)
+    frame = _candles_to_df(candles, preserve_order=preserve_order)
     digest = hashlib.sha256(frame.write_json().encode()).hexdigest()
     data_version = f"{body.provider.value}:{sym}:{body.period}:{body.interval}:{digest}"
     return frame, data_version
+
+
+async def _load_research_frame(body, user=None, *, cache_only: bool = False):
+    return await _load_frame(body, user, preserve_order=True, cache_only=cache_only)
 
 
 @router.post("/schema")

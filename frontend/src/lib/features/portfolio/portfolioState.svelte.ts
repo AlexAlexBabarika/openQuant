@@ -84,6 +84,7 @@ export class PortfolioState {
   #client: PortfolioClient;
   #runs: RunsClient;
   #request = 0;
+  #ingestRequest = 0;
 
   constructor(
     client: PortfolioClient = httpPortfolioClient,
@@ -91,6 +92,17 @@ export class PortfolioState {
   ) {
     this.#client = client;
     this.#runs = runs;
+  }
+
+  reset(): void {
+    this.#request++;
+    this.#ingestRequest++;
+    this.isRunning = false;
+    this.runError = null;
+    this.response = null;
+    this.isIngesting = false;
+    this.ingestError = null;
+    this.ingestReport = null;
   }
 
   /**
@@ -177,16 +189,16 @@ export class PortfolioState {
       return;
     }
     this.isIngesting = true;
+    const request = ++this.#ingestRequest;
     this.ingestError = null;
     try {
-      this.ingestReport = await this.#client.ingest(
-        [...this.symbols],
-        interval,
-      );
+      const report = await this.#client.ingest([...this.symbols], interval);
+      if (request === this.#ingestRequest) this.ingestReport = report;
     } catch (err) {
-      this.ingestError = err instanceof Error ? err.message : 'Ingest failed';
+      if (request === this.#ingestRequest)
+        this.ingestError = err instanceof Error ? err.message : 'Ingest failed';
     } finally {
-      this.isIngesting = false;
+      if (request === this.#ingestRequest) this.isIngesting = false;
     }
   }
 }

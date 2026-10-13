@@ -28,6 +28,7 @@ class RobustnessRequest(TrialModel):
     slippage_bps: CostBps = 5.0
     holdout_fraction: float = Field(default=0.3, ge=0.1, le=0.5, allow_inf_nan=False)
     sensitivity_parameter: str | None = Field(default=None, max_length=100)
+    preview_data_version: str | None = Field(default=None, max_length=512)
 
 
 class WorkspaceStrategy(TrialModel):
@@ -84,7 +85,45 @@ class WorkspaceCostStress(TrialModel):
     limitation: str
 
 
+class WorkspaceFold(TrialModel):
+    id: Literal[1, 2, 3]
+    status: Literal["measured", "inadequate-sample"]
+    train_start: str
+    train_end: str
+    training_bars: int = Field(ge=20)
+    validation_start: str
+    validation_end: str
+    validation_bars: int = Field(ge=1)
+    strategy: RunSummary | None = None
+    benchmark: RunSummary | None = None
+
+
+class WorkspaceWalkForward(TrialModel):
+    status: Literal["measured", "inadequate-sample"]
+    folds: list[WorkspaceFold] = Field(min_length=3, max_length=3)
+    assumption: str
+    limitation: str
+
+
+class WorkspaceRegimeObservation(TrialModel):
+    fold_id: Literal[1, 2, 3]
+    label: Literal["rising", "falling", "sideways"]
+    market_return: float = Field(allow_inf_nan=False)
+
+
+class WorkspaceRegimes(TrialModel):
+    status: Literal["measured", "inadequate-sample", "unsupported-data"]
+    method: Literal["validation-close-return-v1"] = "validation-close-return-v1"
+    threshold: float = Field(default=0.05, ge=0.05, le=0.05, allow_inf_nan=False)
+    observations: list[WorkspaceRegimeObservation] = Field(
+        default_factory=list, max_length=3
+    )
+    assumption: str
+    limitation: str
+
+
 class WorkspaceReport(TrialModel):
+    data_quality: dict | None = None
     schema_version: Literal[1] = 1
     source: Literal["workspace"] = "workspace"
     report_id: str
@@ -97,6 +136,8 @@ class WorkspaceReport(TrialModel):
     baseline: RunSummary
     realistic: RunSummary
     cost_stress: WorkspaceCostStress | None = None
+    walk_forward: WorkspaceWalkForward | None = None
+    regimes: WorkspaceRegimes | None = None
     benchmark: RunSummary
     holdout: Holdout
     sensitivity: list[WorkspaceSensitivity]

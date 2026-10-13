@@ -1,12 +1,36 @@
 import { describe, it, expect } from 'vitest';
 import sampleRun from './fixtures/sample-run.json';
 import { BacktestState } from './backtestState.svelte';
+import { deferred } from '$lib/features/chart/reactiveTestSupport';
 
 function makeState() {
   return new BacktestState(async () => sampleRun);
 }
 
 describe('BacktestState.load', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'ignores late %s after disposal and cannot restart',
+    async outcome => {
+      const pending = deferred<unknown>();
+      let loads = 0;
+      const state = new BacktestState(() => {
+        loads++;
+        return pending.promise;
+      });
+      const loading = state.load();
+      state.dispose();
+      if (outcome === 'resolve') pending.resolve(sampleRun);
+      else pending.reject(new Error('obsolete'));
+      await loading;
+      await state.load();
+      expect(loads).toBe(1);
+      expect(state.result).toBeNull();
+      expect(state.status).toBeNull();
+      expect(state.error).toBeNull();
+      expect(state.loading).toBe(false);
+    },
+  );
+
   it('loads and parses the blob through the injected loader', async () => {
     const s = makeState();
     await s.load();

@@ -5,6 +5,7 @@
  * tests stub the network, mirroring `SweepState`.
  */
 import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
+import type { DataQualityReport } from '$lib/features/runs/dataQuality';
 import {
   httpStrategyClient,
   type BacktestRunParams,
@@ -53,6 +54,7 @@ export class StrategyState {
   backtest = $state<BacktestState | null>(null);
   isRunning = $state(false);
   runError = $state<string | null>(null);
+  dataQuality = $state<DataQualityReport | null>(null);
 
   #client: StrategyClient;
   #draftVersion = $state(0);
@@ -72,12 +74,24 @@ export class StrategyState {
     this.loading = false;
     this.loadError = null;
     this.saveError = null;
+    this.isSaving = false;
+    this.#savingId = null;
+    this.#deleting.clear();
     if (this.activeId) this.dirty = true;
     this.activeId = null;
+    this.backtest?.dispose();
+    this.backtest = null;
+    this.dataQuality = null;
+    this.isRunning = false;
+    this.runError = null;
   }
 
   constructor(client: StrategyClient = httpStrategyClient) {
     this.#client = client;
+  }
+
+  dispose(): void {
+    this.clearSaved();
   }
 
   get draftVersion(): number {
@@ -196,12 +210,17 @@ export class StrategyState {
       }
       return saved;
     } catch (err) {
-      if (version === this.#draftVersion)
+      if (
+        accountVersion === this.#accountVersion &&
+        version === this.#draftVersion
+      )
         this.saveError = err instanceof Error ? err.message : 'Failed to save';
       return null;
     } finally {
-      this.isSaving = false;
-      this.#savingId = null;
+      if (accountVersion === this.#accountVersion) {
+        this.isSaving = false;
+        this.#savingId = null;
+      }
     }
   }
 
@@ -227,8 +246,10 @@ export class StrategyState {
           this.dirty = true;
         }
       }
+    } catch (err) {
+      if (accountVersion === this.#accountVersion) throw err;
     } finally {
-      this.#deleting.delete(id);
+      if (accountVersion === this.#accountVersion) this.#deleting.delete(id);
     }
   }
 
@@ -238,11 +259,21 @@ export class StrategyState {
    * A non-ok sandbox status is surfaced as `runError` with the run's stderr.
    */
   async runBacktest(ctx: RunContext): Promise<BacktestState> {
+    this.backtest?.dispose();
     const code = this.draftCode;
+    const account = this.#accountVersion;
+    this.dataQuality = null;
     this.isRunning = true;
     this.runError = null;
     const bt = new BacktestState(async () => {
-      const res = await this.#client.runBacktest({ code, ...ctx });
+      const res = await this.#client.runBacktest({ code, ...ctx }, quality => {
+        if (account === this.#accountVersion && this.backtest === bt)
+          this.dataQuality = quality;
+      });
+      if (account !== this.#accountVersion)
+        throw new Error('Account changed. Run again.');
+      if (this.backtest === bt)
+        this.dataQuality = res.meta.data_quality ?? this.dataQuality;
       if (res.status !== 'ok') {
         throw new Error(res.stderr.trim() || `Backtest ${res.status}`);
       }

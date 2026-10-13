@@ -32,10 +32,14 @@ from backend.models.robustness_models import (
     WorkspaceCostStress,
     WorkspaceCostStressPoint,
     WorkspaceDataset,
+    WorkspaceFold,
     WorkspaceParameter,
+    WorkspaceRegimeObservation,
+    WorkspaceRegimes,
     WorkspaceReport,
     WorkspaceSensitivity,
     WorkspaceStrategy,
+    WorkspaceWalkForward,
 )
 from backend.scripts.ast_guard import validate
 from backend.scripts.runner import (
@@ -48,7 +52,7 @@ from backend.trial.report import summarize
 
 MAX_BARS = 10_000
 MIN_SEGMENT_BARS = 20
-SUITE_VERSION = "2"
+SUITE_VERSION = "3"
 TIMEOUT_S = 30.0
 
 
@@ -237,6 +241,68 @@ def _build_report(
                     max_drawdown=variant.max_drawdown,
                 )
             )
+    initial = frame.height // 2
+    boundaries = [initial + (frame.height - initial) * index // 3 for index in range(4)]
+    enough = min(b - a for a, b in zip(boundaries, boundaries[1:])) >= MIN_SEGMENT_BARS
+    folds = []
+    for index, (start, end) in enumerate(zip(boundaries, boundaries[1:]), 1):
+        validation = frame.slice(start, end - start)
+        folds.append(
+            WorkspaceFold(
+                id=index,
+                status="measured" if enough else "inadequate-sample",
+                train_start=frame["timestamp"][0].isoformat(),
+                train_end=frame["timestamp"][start - 1].isoformat(),
+                training_bars=start,
+                validation_start=validation["timestamp"][0].isoformat(),
+                validation_end=validation["timestamp"][-1].isoformat(),
+                validation_bars=validation.height,
+                strategy=evaluate(validation, costs, params) if enough else None,
+                benchmark=evaluate(validation, costs, {}, True) if enough else None,
+            )
+        )
+    walk_forward = WorkspaceWalkForward(
+        status="measured" if enough else "inadequate-sample",
+        folds=folds,
+        assumption="Three expanding training prefixes start at half the snapshot; the remaining bars form three disjoint validation windows. Training is chronology context only: no fitting, parameter selection or training engine runs. Fixed resolved parameters and configured costs apply to every validation account, starting flat with fresh module/indicator state, funding and seed.",
+        limitation="All three windows require at least 20 validation bars; otherwise none is executed. At most six additional engine runs (strategy and benchmark per window) share the existing suite timeout. Validation windows may overlap the separate single holdout and sensitivity dates; these are not independent confirmations. Short windows and long lookbacks may produce no trades. Returns are not stitched or averaged into a confidence score.",
+    )
+    timestamps = frame["timestamp"].to_list()
+    daily = (
+        body.interval == "1d"
+        and len({stamp.date() for stamp in timestamps}) == frame.height
+        and all(
+            20 * 3600 <= (later - earlier).total_seconds() <= 7 * 24 * 3600
+            for earlier, later in zip(timestamps, timestamps[1:])
+        )
+    )
+    observations = []
+    if daily and enough:
+        for fold, start, end in zip(folds, boundaries, boundaries[1:]):
+            market_return = (
+                float(frame["close"][end - 1]) / float(frame["close"][start]) - 1
+            )
+            observations.append(
+                WorkspaceRegimeObservation(
+                    fold_id=fold.id,
+                    label="rising"
+                    if market_return >= 0.05
+                    else "falling"
+                    if market_return <= -0.05
+                    else "sideways",
+                    market_return=market_return,
+                )
+            )
+    regimes = WorkspaceRegimes(
+        status="unsupported-data"
+        if not daily
+        else "measured"
+        if enough
+        else "inadequate-sample",
+        observations=observations,
+        assumption="Retrospective daily trend labels use each validation window's first-to-last close return: rising >= +5%, falling <= -5%, sideways between those thresholds. Each observation references the same fold's strategy/benchmark summaries; no new engine runs or parameter selection. Requires declared 1d bars, at most one bar per date and every timestamp gap between 20 hours and 7 days; no intraday sessions are inferred.",
+        limitation="Labels use future closes relative to the window start and cannot be traded as forecasts. Thresholds are descriptive conventions, not fitted; window lengths depend on the selected snapshot and returns are not annualized. Sideways describes net movement, not low volatility. Three windows may miss regimes or mix changing conditions. Unsupported intervals/cadence and inadequate samples provide no regime evidence; daily cadence is not a data-quality certification.",
+    )
     config = WorkspaceConfig(
         commission_bps=body.commission_bps,
         slippage_bps=body.slippage_bps,
@@ -300,6 +366,8 @@ def _build_report(
                 else "Only commission and slippage are multiplied on the full-period snapshot, not holdout. Different costs may change fills, sizing and decisions; returns need not worsen monotonically. No liquidity, market impact or funding stress is modeled."
             ),
         ),
+        walk_forward=walk_forward,
+        regimes=regimes,
         benchmark=benchmark,
         holdout=holdout,
         sensitivity=sensitivity,
@@ -335,6 +403,8 @@ def _build_report(
             "Buy-and-hold submits one order for 95% of initial cash divided by the first close, filled at the next open. Price gaps and fees change the final allocation.",
             "All checks reuse the same sorted OHLCV snapshot. Full-period and holdout equity are not stitched; open positions are marked at the last close, not liquidated. Last-bar orders remain unfilled.",
             "Cost stress uses configured, 2× and 3× commission/slippage (at most 150 bps each). The 1× row reuses the realistic result. All rows use identical full-period bars, source, resolved parameters, seed, funding and fresh strategy state. Zero-cost rows reuse the realistic result without adding evidence.",
+            walk_forward.assumption,
+            regimes.assumption,
         ],
         limitations=[
             "Cash, equity and costs use the instrument's quote-currency units; no currency conversion is performed.",
@@ -343,6 +413,8 @@ def _build_report(
             "The engine permits strategy-defined sizing, shorting and leverage; no additional risk constraints, liquidity limits, market impact, borrow costs or funding fees are imposed by this suite.",
             "Short segments or long lookbacks can produce no trades. Repeated holdout inspection can overfit. Neighbor sensitivity is descriptive, not a statistical confidence score.",
             "Single-symbol strategies only. No live orders or investment advice. Local sandbox protections are not production multi-tenant isolation.",
+            walk_forward.limitation,
+            regimes.limitation,
         ],
     )
 

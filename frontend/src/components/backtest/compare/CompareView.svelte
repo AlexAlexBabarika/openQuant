@@ -18,7 +18,7 @@
       <Dialog.Title>
         Compare {compare.a ? truncateRunId(compare.a) : '—'} vs {compare.b ? truncateRunId(compare.b) : '—'}
       </Dialog.Title>
-      <Dialog.Description>Recorded input differences explain what changed, not why performance changed. These are simulated results.</Dialog.Description>
+      <Dialog.Description>Recorded input differences show what changed, not why performance changed. Simulated research evidence is not investment advice or a confidence score.</Dialog.Description>
     </Dialog.Header>
 
     {#if compare.loading}
@@ -28,9 +28,9 @@
     {:else if compare.diff}
       <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
         <span>A: engine {compare.diff.status.a.recorded}{compare.diff.status.a.stale ? ' · stale engine' : ''}</span>
-        <span>B: engine {compare.diff.status.b.recorded}{compare.diff.status.b.stale ? ' ⚠ stale' : ''}</span>
+        <span>B: engine {compare.diff.status.b.recorded}{compare.diff.status.b.stale ? ' · stale engine' : ''}</span>
       </div>
-      <p class="text-sm">Changed inputs: {compare.diff.inputs_diff.length ? compare.diff.inputs_diff.map(row => row.path).join(', ') : 'none recorded'}. Engine A → B: {compare.diff.status.a.recorded} → {compare.diff.status.b.recorded}.</p>
+      <p class="text-sm">Recorded context and observed results are compared separately. Unavailable fields are not evidence of matching inputs.</p>
       <LineageView lineage={compare.diff.lineage} />
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard scrolling for two-dimensional result tables) -->
       <div class="min-w-0 overflow-x-auto" tabindex="0" role="region" aria-label="Input, metric, and trade differences">

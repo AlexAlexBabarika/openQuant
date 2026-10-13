@@ -561,8 +561,17 @@
   }
 
   let runsOpen = $state(false);
+  let backtestOwner = untrack(() => $authState.user?.id ?? null);
   function subscribeNotebookAccount(): () => void {
     return authState.subscribe(state => untrack(() => {
+      const owner = state.user?.id ?? null;
+      if (owner !== backtestOwner) {
+        backtestOwner = owner;
+        backtest.dispose();
+        backtest = new BacktestState();
+        backtestOpen = false;
+        portfolioRunId = null;
+      }
       runsHistory.setAccount(state.user?.id ?? null);
       if (compareState.setAccount(state.user?.id ?? null)) compareOpen = false;
     }));
@@ -583,6 +592,7 @@
       openStrategy();
       return;
     }
+    backtest.dispose();
     backtest = new BacktestState(storedRunLoader(id));
     void backtest.load();
     backtestOpen = true;
@@ -979,6 +989,9 @@
   });
 
   onDestroy(() => {
+    backtest.dispose();
+    strategy.dispose();
+    indicators.dispose();
     workspaceSync.destroy();
     persistOnUnload();
     window.removeEventListener('beforeunload', persistOnUnload);

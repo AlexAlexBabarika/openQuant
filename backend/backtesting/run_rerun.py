@@ -120,6 +120,7 @@ def rerun(store: RunStore, run_id: str) -> str:
             starting_cash=starting_cash,
             constraints=constraints,
             universe=universe,
+            date_range=config.get("date_range"),
         )
     else:  # single-symbol
         frame = frame_from_bars(blob["bars"])
@@ -143,6 +144,10 @@ def rerun(store: RunStore, run_id: str) -> str:
             data_version=data_version,
             seed=seed,
             starting_cash=starting_cash,
+            date_range=config.get("date_range"),
         )
 
+    if "data_quality" in meta:
+        new_blob["meta"]["data_quality"] = meta["data_quality"]
+    new_blob["meta"]["data_version"] = data_version
     return store.write(assemble_snapshot(new_blob, inputs))

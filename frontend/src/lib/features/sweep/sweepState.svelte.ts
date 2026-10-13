@@ -7,6 +7,7 @@
  * delay.
  */
 import { httpSweepClient } from './sweepClient';
+import { getSessionGeneration } from '$lib/core/api';
 import type { BacktestResult } from '$lib/features/backtest/types';
 import type {
   ParamSchema,
@@ -17,7 +18,11 @@ import type {
 } from './types';
 
 type Status = 'idle' | 'running' | 'done' | 'error' | 'cancelled';
-type PendingSweep = { id: string | null; cancelRequested: boolean };
+type PendingSweep = {
+  id: string | null;
+  cancelRequested: boolean;
+  generation: number;
+};
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -45,6 +50,7 @@ export class SweepState {
   #client: SweepClient;
   #interval: number;
   #schemaSequence = 0;
+  #lifecycleSequence = $state(0);
   #active: PendingSweep | null = null;
 
   constructor(client: SweepClient = httpSweepClient, pollIntervalMs = 1000) {
@@ -52,26 +58,38 @@ export class SweepState {
     this.#interval = pollIntervalMs;
   }
 
+  get lifecycleRevision(): number {
+    return this.#lifecycleSequence;
+  }
+
   async loadSchema(code: string): Promise<void> {
     const sequence = ++this.#schemaSequence;
+    const generation = getSessionGeneration();
+    const current = () =>
+      sequence === this.#schemaSequence &&
+      generation === getSessionGeneration();
     this.schema = {};
     this.schemaLoading = true;
     this.schemaError = null;
     try {
       const schema = await this.#client.schema(code);
-      if (sequence === this.#schemaSequence) this.schema = schema;
+      if (current()) this.schema = schema;
     } catch (err) {
-      if (sequence === this.#schemaSequence) {
+      if (current()) {
         this.schemaError =
           err instanceof Error ? err.message : 'Failed to load parameters';
       }
     } finally {
-      if (sequence === this.#schemaSequence) this.schemaLoading = false;
+      if (current()) this.schemaLoading = false;
     }
   }
 
   async run(form: SweepFormValues): Promise<void> {
-    const active: PendingSweep = { id: null, cancelRequested: false };
+    const active: PendingSweep = {
+      id: null,
+      cancelRequested: false,
+      generation: getSessionGeneration(),
+    };
     this.#active = active;
     this.status = 'running';
     this.error = null;
@@ -84,26 +102,27 @@ export class SweepState {
     this.bestTrialId = null;
     try {
       const { sweep_id } = await this.#client.start(form);
-      if (this.#active !== active) {
-        await this.#client.cancel(sweep_id);
+      if (!this.#current(active)) {
+        if (active.generation === getSessionGeneration())
+          await this.#client.cancel(sweep_id);
         return;
       }
       active.id = sweep_id;
       this.sweepId = sweep_id;
       if (active.cancelRequested) await this.#cancel(active);
-      while (this.#active === active) {
+      while (this.#current(active)) {
         const p: SweepProgress = await this.#client.poll(sweep_id);
-        if (this.#active !== active) return;
+        if (!this.#current(active)) return;
         this.#apply(p);
         if (p.status !== 'running') break;
         if (this.#interval > 0) await sleep(this.#interval);
       }
     } catch (err) {
-      if (this.#active !== active) return;
+      if (!this.#current(active)) return;
       this.status = 'error';
       this.error = err instanceof Error ? err.message : 'Sweep failed';
     } finally {
-      if (this.#active === active) {
+      if (this.#current(active)) {
         this.#active = null;
         this.cancelling = false;
       }
@@ -112,7 +131,7 @@ export class SweepState {
 
   async cancel(): Promise<void> {
     const active = this.#active;
-    if (!active || this.cancelling) return;
+    if (!active || !this.#current(active) || this.cancelling) return;
     active.cancelRequested = true;
     this.cancelling = true;
     this.cancelError = null;
@@ -123,12 +142,39 @@ export class SweepState {
     try {
       await this.#client.cancel(active.id!);
     } catch (err) {
-      if (this.#active !== active) return;
+      if (!this.#current(active)) return;
       active.cancelRequested = false;
       this.cancelling = false;
       this.cancelError =
         err instanceof Error ? err.message : 'Cancellation failed';
     }
+  }
+
+  #current(active: PendingSweep): boolean {
+    return (
+      this.#active === active && active.generation === getSessionGeneration()
+    );
+  }
+
+  reset(): void {
+    const active = this.#active;
+    this.#active = null;
+    this.#schemaSequence++;
+    this.#lifecycleSequence++;
+    if (active?.id && active.generation === getSessionGeneration())
+      void this.#client.cancel(active.id).catch(() => {});
+    this.schema = {};
+    this.schemaLoading = false;
+    this.schemaError = null;
+    this.status = 'idle';
+    this.total = 0;
+    this.done = 0;
+    this.trials = [];
+    this.bestTrialId = null;
+    this.error = null;
+    this.sweepId = null;
+    this.cancelling = false;
+    this.cancelError = null;
   }
 
   trialLoader(
@@ -142,7 +188,23 @@ export class SweepState {
       vary: [...form.vary],
       ...(form.fixed ? { fixed: { ...form.fixed } } : {}),
     };
-    return () => this.#client.loadTrial(id, trialId, snapshot);
+    const sequence = this.#lifecycleSequence;
+    const generation = getSessionGeneration();
+    const check = () => {
+      if (
+        sequence !== this.#lifecycleSequence ||
+        generation !== getSessionGeneration()
+      )
+        throw new Error('Sweep changed. Open the trial again.');
+    };
+    return async () => {
+      check();
+      try {
+        return await this.#client.loadTrial(id, trialId, snapshot);
+      } finally {
+        check();
+      }
+    };
   }
 
   #apply(p: SweepProgress): void {

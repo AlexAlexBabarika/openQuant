@@ -104,12 +104,21 @@ or activation endpoint. Hosted `automated_status: clear` still reports
   for hosted use and check its directory presence. Optional Compose metadata
   checks writable named/bind mounts covering the configured root and file-backed
   secrets, plus PostgreSQL 16's `/var/lib/postgresql/data`; both long-running
-  services need positive `cpus`, `mem_limit` and `pids_limit`. Published app
-  upstream ports must be loopback. Mount coverage is lexical configuration
+  services need finite positive `cpus`, positive integer `mem_limit` bytes and
+  positive integer `pids_limit`. These declarations appear as numeric
+  `compose_<service>_<setting>` entries in `limits`, not measured enforcement.
+  Published app upstream and database ports must be loopback; host networking
+  blocks hosted checks because it bypasses port mapping. Mount coverage is lexical configuration
   evidence, not verified mount identity, symlink containment or surviving a
   machine loss. Compose metadata is not live enforcement or proof that its
   environment matches the inspected process.
-- **Execution review remains manual:** HTTP backtest and portfolio routes use
+- **Proxy trust intent:** absent/empty `FORWARDED_ALLOW_IPS` and trust-all values
+  (`*`, IPv4/IPv6 `/0`) block hosted checks and warn locally. The shipped Uvicorn
+  launcher defaults to loopback peer trust when the variable is absent; its
+  explicit launch arguments can override environment intent. An explicit peer,
+  network or socket literal does not prove correct proxy routing, trusted client
+  IP attribution, sanitized headers or TLS. No topology is probed.
+- **Known execution gaps block hosted checks:** HTTP backtest and portfolio routes use
   30-second budgets; display scripts accept a positive timeout up to 30 seconds.
   Runner defaults are 5 seconds (single/display) and 10 seconds (portfolio).
   `MAX_CONCURRENT_SWEEPS` bounds the registry, not all users' execution work.
@@ -118,12 +127,23 @@ or activation endpoint. Hosted `automated_status: clear` still reports
   controls are not per-account quotas or proven hostile-code isolation.
   Market/WebSocket limits are not a distributed abuse-control system. Inspect
   actual platform enforcement, proxy/client-IP trust, concurrency and overload
-  behavior before considering internet exposure.
+  behavior before considering internet exposure. Separate private execution
+  containment/resource review is required. Sweep pools default to CPU count;
+  registry capacity is not an aggregate active/queued worker or whole-job budget.
+  The checker emits `execution.memory_unenforced`,
+  `execution.aggregate_unbounded`, `execution.security_review_required` and
+  `limits.process_local` as hosted blockers (local warnings). These are
+  source-reviewed limitations of this revision, not live platform measurements.
+  No acknowledgment boolean can clear them. Runtime changes require renewed
+  source review and independent enforcement evidence, not preflight-only edits.
 
 The default Compose upstream is loopback; `compose.proxy.yml` configures secure
 cookies and allowed hosts but does not install or validate a TLS proxy. The
 provided HTTPS origin expresses intent only: certificate validity, TLS
 termination, proxy headers, firewall rules and deployment topology are untested.
+
+Use [Publication operations](PUBLICATION_OPERATIONS.md) for the operator evidence
+record, declaration/enforcement matrix and unverified acceptance responsibilities.
 
 ## Human publication gates: always unverified by this CLI
 
@@ -133,8 +153,9 @@ termination, proxy headers, firewall rules and deployment topology are untested.
    of these. The project's code license does not grant market-data rights.
 2. **Per-account/private artifacts:** review authorization and ownership for all
    persisted artifacts, exports, caches and logs. Research snapshots are
-   currently **server-local/shared**, as the notebook UI documents; this slice
-   does not make them account-private or change backend authorization.
+   **account-private/server-local** through authenticated saved-run endpoints;
+   guests do not persist and legacy unassigned snapshots remain untouched.
+   This is not a hosted multi-tenant isolation or privacy/retention acceptance.
 3. **Sandbox/resources/abuse:** maintainers must review hostile-code boundaries,
    effective quotas, denial-of-service containment, rate limiting and incident
    response, including every execution entry point. No boolean proves isolation.
@@ -146,79 +167,22 @@ termination, proxy headers, firewall rules and deployment topology are untested.
    incidents, support and shutdown. Record their approvals privately, separately
    from the automated report. Passing checks is not certification.
 
-## Repeatable isolated restore drill (operator-run, never run by preflight)
+## Recovery evidence (operator-run, never run by preflight)
 
-Use the [existing README backup/restore mechanisms](../README.md#back-up): a plain
-PostgreSQL `pg_dump --clean --if-exists` and `docker compose cp` of `/app/data`.
-A database dump plus app-data copy is not one atomic cross-store snapshot.
-Quiesce all application writers and scheduled jobs for a consistent pair;
-stopping the app still permits copying its data from the stopped container.
-Keep PostgreSQL running for the dump. Preserve externally managed encryption
-and signing secrets through their approved backup mechanism, too.
+Follow [Research recovery](RESEARCH_RECOVERY.md) for the separately maintained
+recovery procedure and its limitations; do not substitute preflight output for
+a completed restore drill. The [README backup mechanisms](../README.md#back-up)
+are additional context, not evidence of a consistent paired backup.
 
-1. Record the compatible source code/image revision, PostgreSQL major version,
-   database/role identities, timestamp and expected synthetic recovery evidence
-   privately. Put both artifacts in an access-restricted, encrypted backup store.
-   The app-data backup includes research data/strategies and may contain secrets;
-   the SQL dump contains accounts and encrypted provider credentials. Never
-   attach these artifacts to an issue, chat or commit.
-2. Use a disposable VM/Docker context with **no production containers or volumes**.
-   A distinct Compose project provides additional naming isolation, not the
-   primary safety boundary. Choose a free loopback port; pin the compatible
-   images before the drill. Prepare an operator-owned override outside the
-   checkout setting the existing `SEED_SYMBOLS_ON_STARTUP=0`, using the internal
-   default network and an independently reviewed outbound-deny policy. Do not
-   contact restored providers. No restored real account may be used for trading.
-3. Keep every command scoped identically. A shell function reduces accidental
-   omission of the isolated project/override:
-
-   ```bash
-   # On the disposable VM only, at the compatible checkout.
-   export OPENQUANT_PORT=18080
-   drill() {
-     docker compose -p openquant-restore-drill \
-       -f docker-compose.yml -f /protected/operator/restore-drill.yml "$@"
-   }
-   drill up -d postgres
-   # Wait for PostgreSQL readiness. App must not be running during restore.
-   drill exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
-   drill create --no-deps openquant
-   drill exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-     < /protected/backup/openquant.sql
-   drill cp /protected/backup/app-data/. openquant:/app/data
-   # Inspect ownership/access privately; app runs as UID 10001 in the image.
-   # Supply original externally managed secrets if that was the source setup.
-   drill up -d openquant
-   ```
-
-   Fresh drill database credentials can differ, but restored role ownership and
-   database identity must be compatible with the dump; plan any required role
-   mapping before restore. `ON_ERROR_STOP` prevents treating partial SQL replay
-   as success. Never start the app against restored encrypted keys with newly
-   generated replacement key material. Compose starts its existing identity
-   migration dependency; review compatibility before allowing that step.
-
-4. In the isolated instance, verify database rows/schema and app-data manifests/
-   research snapshots are present, restored provider-key records can decrypt
-   **without printing keys or calling providers**, and restart retains the same
-   data/key material. Check any synthetic recovery scenario with a disposable
-   browser profile. Record downtime, artifact hashes, expected versus observed
-   counts and failures, without sensitive payloads. The preflight can be run
-   there as additional configuration evidence, not as the recovery assertion.
-5. Keep failures as failures; missing/mismatched key material is not fixed by
-   rotation for existing ciphertext. Repeat after meaningful storage/schema/
-   secret-management changes. Only after reviewing results, remove the drill
-   project's containers/volumes on that disposable context. The destructive
-   command `drill down --volumes` applies only **there**. Follow retention policy for sensitive
-   copies. Do not run volume deletion against the source deployment.
-
-**Excluded from server backups:** browser-local notebook names/tags/notes and
-baseline choices, saved workspace layouts, recoverable drafts and Elements/
-annotations. Account-scoped browser records remain local to that browser;
-local storage is neither encrypted storage nor cloud sync. A server restore
-does not restore them. Keep guest/legacy data separate and never silently adopt
-it into an account. Use only existing explicit export/recovery mechanisms where
-available; do not promise a comprehensive browser backup that does not exist.
+Required operator evidence covers a compatible database, app-data, matching key
+material and explicitly included account-scoped browser state. Server backups
+alone do not include browser-local drafts, layouts, robustness recovery or
+Elements/annotations. Database dumps contain account records and encrypted
+provider credentials; app-data may contain sensitive research and secrets.
+Protect all copies, document their expiry, and never attach payloads to issues,
+chat or commits. Preserve unreadable originals and guest/unassigned legacy
+separation. No hosted restore, backup expiry or deletion acceptance is claimed
+by this checker.
 
 ## Local research versus a prospective paid service
 
@@ -231,7 +195,7 @@ A future paid boundary could charge for **operated** compute capacity, explicit
 durable sync/retention, collaboration and support, once actually implemented
 with ownership, isolation, quotas, licensing and recovery obligations. These
 capabilities are not implemented today: browser notebooks are not cloud-synced,
-and shared server snapshots are not a private managed research service. Selling
+and account-private server-local snapshots are not a managed research service. Selling
 hosting now would assume responsibilities that this configuration checker cannot
 fulfil. Keep that boundary explicit rather than describing local features as
 an already activated paid product.
@@ -239,6 +203,8 @@ an already activated paid product.
 ## Authoritative references
 
 - [Starlette TrustedHost/CORS middleware](https://www.starlette.io/middleware/)
+- [Uvicorn proxy, worker and resource settings](https://www.uvicorn.org/settings/)
+- [Python resource limits and platform availability](https://docs.python.org/3/library/resource.html)
 - [Docker Compose normalized config](https://docs.docker.com/reference/cli/docker/compose/config/)
 - [Compose resource/mount settings](https://docs.docker.com/reference/compose-file/services/)
 - [Compose project naming](https://docs.docker.com/compose/how-tos/project-name/)

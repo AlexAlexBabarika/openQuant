@@ -18,6 +18,7 @@ from backend.routes import (
     robustness_routes,
     sweep_routes,
 )
+from backend.routes.backtest_routes import optional_run_user
 from backend.tests._analytics_helpers import make_candles
 
 CODE = "def on_bar(ctx):\n    pass\n"
@@ -32,6 +33,7 @@ def client(monkeypatch):
     for module in (sweep_routes, backtest_routes, robustness_routes, portfolio_routes):
         app.include_router(module.router)
     app.dependency_overrides[optional_current_user] = lambda: USER
+    app.dependency_overrides[optional_run_user] = lambda: USER
     app.dependency_overrides[get_current_user] = lambda: USER
     return TestClient(app)
 
@@ -96,6 +98,7 @@ def test_cold_cache_twelve_data_uses_the_account_key(client, monkeypatch):
 
 def test_twelve_data_without_auth_is_actionable_even_with_warm_cache(client):
     client.app.dependency_overrides[optional_current_user] = lambda: None
+    client.app.dependency_overrides[optional_run_user] = lambda: None
     cache.set_cached("twelvedata", "TEST", make_candles([100, 101]))
     response = client.post("/backtests/run", json=PAYLOAD)
     assert response.status_code == 401
@@ -108,6 +111,7 @@ def test_public_provider_cold_cache_still_accepts_anonymous(
     client, monkeypatch, provider
 ):
     client.app.dependency_overrides[optional_current_user] = lambda: None
+    client.app.dependency_overrides[optional_run_user] = lambda: None
     seen = []
 
     def fetch(*args):
