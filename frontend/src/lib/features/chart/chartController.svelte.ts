@@ -2,6 +2,7 @@ import { onDestroy, untrack } from 'svelte';
 import { apiFetch, readErrorMessage } from '$lib/core/api';
 import { WSClient, type ConnectionStatus } from '$lib/core/ws';
 import type { OHLCVCandle } from '$lib/core/types';
+import { publishOwnedCandles } from './candleFingerprint';
 import { fetchMarketOHLCV } from '$lib/features/market/marketData';
 import { DEFAULT_MARKET_INTERVAL } from '$lib/features/market/marketIntervals';
 import { DEFAULT_MARKET_PERIOD } from '$lib/features/market/marketPeriods';
@@ -140,7 +141,7 @@ export class ChartController {
     this.isLoading = false;
     if (this.source === 'twelvedata' || this.source === 'csv') {
       this.candles = [];
-      this.candleRevision++;
+      this.#publishCandles();
       this.loadedSymbol = '';
       this.#loadedContext = null;
       this.snapshotReceivedAt = null;
@@ -159,6 +160,11 @@ export class ChartController {
   get loadedContext(): Readonly<ChartContext> | null {
     this.marketDataVersion;
     return this.#loadedContext;
+  }
+
+  #publishCandles(tailOnly = false): void {
+    this.candleRevision++;
+    publishOwnedCandles(this.candles, this.candleRevision, tailOnly);
   }
 
   get dataContextCurrent(): boolean {
@@ -195,7 +201,7 @@ export class ChartController {
       if (!this.#isCurrentLoad(generation, context)) return;
       if (!this.#usableCandles(data.candles ?? [], context, true)) return;
       this.candles = data.candles ?? [];
-      this.candleRevision++;
+      this.#publishCandles();
       this.loadedSymbol = context.symbol;
       this.#loadedContext = context;
       this.snapshotReceivedAt = Date.now();
@@ -327,7 +333,7 @@ export class ChartController {
       ? existing[existing.length - 1].timestamp
       : undefined;
     this.candles = existing.slice();
-    this.candleRevision++;
+    this.#publishCandles();
     let liveCandles = this.candles;
 
     const mapStatus = (s: StreamStatus): ConnectionStatus =>
@@ -354,7 +360,7 @@ export class ChartController {
         const merged = mergeCandleSnapshot(liveCandles, snapshot);
         if (merged.length === liveCandles.length) return;
         this.candles = merged;
-        this.candleRevision++;
+        this.#publishCandles();
         liveCandles = this.candles;
       },
       onCandle: (c, _isFinal) => {
@@ -368,7 +374,7 @@ export class ChartController {
         } else {
           liveCandles.push(c);
         }
-        if (changed) this.candleRevision++;
+        if (changed) this.#publishCandles(true);
         this.chartApi?.appendCandle(c);
       },
       onCandleClose: c => {
@@ -433,7 +439,7 @@ export class ChartController {
     const isCurrent = () =>
       generation === this.#streamGeneration && this.#contextMatches(context);
     this.candles = [];
-    this.candleRevision++;
+    this.#publishCandles();
     this.streamReceivedAt = null;
     const streamCandles = this.candles;
     this.#wsClient = new WSClient({
@@ -451,7 +457,7 @@ export class ChartController {
         } else {
           streamCandles.push(c);
         }
-        if (changed) this.candleRevision++;
+        if (changed) this.#publishCandles(true);
         this.chartApi?.appendCandle(c);
       },
       onStatus: s => {

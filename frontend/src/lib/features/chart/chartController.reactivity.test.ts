@@ -10,6 +10,7 @@ import { providerSupportsWs } from '../market/marketDataProviders';
 import { DEFAULT_MARKET_INTERVAL } from '../market/marketIntervals';
 import { DEFAULT_MARKET_PERIOD } from '../market/marketPeriods';
 import { inspectCandles } from '../market/dataInspection';
+import { publishOwnedCandles, ownedCandleHistory } from './candleFingerprint';
 
 const candle: OHLCVCandle = {
   symbol: 'BTCUSDT',
@@ -32,6 +33,7 @@ function setup(source: 'binance' | 'csv' = 'binance') {
   const module = clientModule<{ ChartController: typeof ChartController }>(
     new URL('./chartController.svelte.ts', import.meta.url),
     {
+      './candleFingerprint': { publishOwnedCandles },
       '$lib/core/api': { apiFetch: vi.fn(), readErrorMessage: vi.fn() },
       '$lib/core/ws': {
         WSClient: class {
@@ -102,12 +104,15 @@ describe('chart reactive publication', () => {
     const resetCount = reset.mock.calls.length;
     const publicationCount = snapshots.length;
     const revision = controller.candleRevision;
+    const history = ownedCandleHistory(ref, `revision:${revision}`);
+    expect(history).toBeDefined();
     const callbacks = subscribe.mock.calls[0][0];
     callbacks.onCandle({ ...candle, high: 90, close: 77, volume: 200 }, false);
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([1, 77, 200]);
     expect(snapshots).toHaveLength(publicationCount + 1);
     expect(controller.candleRevision).toBe(revision + 1);
+    expect(ownedCandleHistory(ref, `revision:${revision + 1}`)).toBe(history);
     callbacks.onCandle(
       {
         ...candle,
@@ -122,6 +127,7 @@ describe('chart reactive publication', () => {
     expect(snapshots[snapshots.length - 1]).toEqual([2, 88, 500]);
     expect(snapshots).toHaveLength(publicationCount + 2);
     expect(controller.candleRevision).toBe(revision + 2);
+    expect(ownedCandleHistory(ref, `revision:${revision + 2}`)).toBe(history);
     expect(controller.candles).toBe(ref);
     expect(append).toHaveBeenCalledTimes(2);
     expect(reset).toHaveBeenCalledTimes(resetCount);
@@ -133,6 +139,12 @@ describe('chart reactive publication', () => {
     callbacks.onSnapshot?.([{ ...candle, timestamp: '2025-12-31T23:59:00Z' }]);
     client.flush();
     expect(controller.candleRevision).toBe(revision + 3);
+    expect(
+      ownedCandleHistory(controller.candles, `revision:${revision + 3}`),
+    ).toBeDefined();
+    expect(
+      ownedCandleHistory(controller.candles, `revision:${revision + 3}`),
+    ).not.toBe(history);
     callbacks.onCandle(
       { ...candle, timestamp: '2026-01-01T00:01:00Z', close: 88, volume: 300 },
       false,
@@ -149,12 +161,20 @@ describe('chart reactive publication', () => {
     const callback = csvCallbacks[0].onCandle!;
     const resets = reset.mock.calls.length;
     const revision = controller.candleRevision;
+    const history = ownedCandleHistory(
+      controller.candles,
+      `revision:${revision}`,
+    );
+    expect(history).toBeDefined();
     callback(candle);
     client.flush();
     callback({ ...candle, high: 40, close: 33 });
     client.flush();
     expect(snapshots[snapshots.length - 1]).toEqual([1, 33, 100]);
     expect(controller.candleRevision).toBe(revision + 2);
+    expect(
+      ownedCandleHistory(controller.candles, `revision:${revision + 2}`),
+    ).toBe(history);
     expect(reset).toHaveBeenCalledTimes(resets);
     callback({ ...candle, close: 33 });
     client.flush();
@@ -163,6 +183,12 @@ describe('chart reactive publication', () => {
     callback({ ...candle, close: 99 });
     client.flush();
     expect(controller.candles).toEqual([]);
+    expect(
+      ownedCandleHistory(
+        controller.candles,
+        `revision:${controller.candleRevision}`,
+      ),
+    ).not.toBe(history);
     const afterSignOut = controller.candleRevision;
     stop();
     callback(candle);
