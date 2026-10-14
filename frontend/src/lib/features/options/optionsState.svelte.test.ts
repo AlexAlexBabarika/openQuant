@@ -3,6 +3,10 @@ import { apiJson } from '$lib/core/api';
 import { OptionsState, optionsErrors } from './optionsState.svelte';
 import { createOptionsDraft } from './optionsTemplates';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
+import {
+  exportOptionsBundle,
+  decodeOptionsStorage,
+} from './optionsPersistence';
 
 vi.mock('$lib/core/api', () => ({ apiJson: vi.fn() }));
 
@@ -532,5 +536,424 @@ describe('bounded account-scoped named drafts', () => {
     });
     expect(s.save('Bad request')).toBe(false);
     expect(s.saved).toEqual([]);
+  });
+});
+
+describe('editable history and explicit source document fencing', () => {
+  it('undoes/redoes editor inputs only, keeping evidence and native Python history untouched', async () => {
+    const s = new OptionsState(
+      storage(),
+      vi.fn().mockResolvedValue(response()),
+    );
+    s.setAccount('a');
+    s.setSource('user-authored Python');
+    const documentKey = s.documentKey;
+    await s.run();
+    const result = s.result;
+    s.editDraft(d => (d.spot = 110));
+    expect(s.canUndo).toBe(true);
+    expect(s.canRedo).toBe(false);
+    expect(s.stale).toBe(true);
+    s.setMode('python');
+    s.setMode('editor');
+    expect(s.documentKey).toBe(documentKey);
+    expect(s.undo()).toBe(true);
+    expect(s.draft.spot).toBe(100);
+    expect(s.canRedo).toBe(true);
+    expect(s.redo()).toBe(true);
+    expect(s.draft.spot).toBe(110);
+    expect(s.result).toBe(result);
+    expect(s.source).toBe('user-authored Python');
+    expect(s.documentKey).toBe(documentKey);
+    s.undo();
+    s.editDraft(d => (d.spot = 120));
+    expect(s.canRedo).toBe(false);
+    expect(s.redo()).toBe(false);
+    s.dispose();
+  });
+  it('bounds history to 50 drafts and clears it on account switches, not auth refresh', () => {
+    const s = new OptionsState(storage());
+    s.setAccount('a');
+    for (let i = 0; i < 60; i++) s.editDraft(d => (d.spot = i + 101));
+    let count = 0;
+    while (s.undo()) count++;
+    expect(count).toBe(50);
+    expect(s.draft.spot).toBe(110);
+    s.setAccount('a');
+    expect(s.canRedo).toBe(true);
+    s.setAccount('b');
+    expect(s.canRedo).toBe(false);
+    expect(s.canUndo).toBe(false);
+    s.dispose();
+  });
+  it('increments documentKey for identical explicit replacements but not keystrokes/mode toggles', () => {
+    const s = new OptionsState(storage());
+    s.setAccount('a');
+    let key = s.documentKey;
+    s.setSource(s.source);
+    s.setMode('python');
+    s.setMode('editor');
+    s.setAccount('a');
+    expect(s.documentKey).toBe(key);
+    expect(s.exportPython()).toBe(true);
+    expect(s.documentKey).toBe(++key);
+    expect(s.exportPython()).toBe(true);
+    expect(s.documentKey).toBe(++key);
+    s.save('Same');
+    expect(s.restore(0)).toBe(true);
+    expect(s.documentKey).toBe(++key);
+    s.renameSaved(0, 'Renamed');
+    expect(s.restore(0, 1)).toBe(true);
+    expect(s.documentKey).toBe(++key);
+    s.flushRecovery();
+    s.recover();
+    expect(s.documentKey).toBe(++key);
+    const bundle = s.exportBundle();
+    s.importBundle(bundle);
+    expect(s.documentKey).toBe(key);
+    s.importBundle(bundle, true);
+    expect(s.documentKey).toBe(++key);
+    s.setAccount('b');
+    expect(s.documentKey).toBe(++key);
+    s.dispose();
+  });
+  it('cancels a pending request when undoing and ignores obsolete success', async () => {
+    const pending = deferred();
+    const s = new OptionsState(storage(), () => pending.promise);
+    s.setAccount(null);
+    s.editDraft(d => (d.spot = 120));
+    const run = s.run();
+    expect(s.loading).toBe(true);
+    s.undo();
+    expect(s.loading).toBe(false);
+    pending.resolve(response());
+    await run;
+    expect(s.result).toBeNull();
+    s.dispose();
+  });
+});
+
+describe('explicit working recovery and scoped migration', () => {
+  it('debounces incomplete field/source saves, restores only explicitly and never persists results', async () => {
+    vi.useFakeTimers();
+    const db = storage();
+    const set = vi.spyOn(db, 'setItem');
+    const analyze = vi.fn().mockResolvedValue(response());
+    const s = new OptionsState(db, analyze);
+    s.setAccount('a');
+    await s.run();
+    s.editDraft(d => {
+      d.spot = NaN;
+      d.strategy.name = '';
+      d.strategy.legs[0].strike = null;
+    });
+    s.setSource('# incomplete source');
+    s.setMode('python');
+    vi.advanceTimersByTime(499);
+    expect(set).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(set).toHaveBeenCalledOnce();
+    const raw = db.getItem('openquant.options.v2:account:a')!;
+    expect(raw).not.toContain('today_pnl');
+    expect(raw).not.toContain('greeks');
+    const recovered = new OptionsState(db, analyze);
+    recovered.setAccount('a');
+    expect(recovered.draft.spot).toBe(100);
+    expect(recovered.result).toBeNull();
+    const key = recovered.documentKey;
+    expect(recovered.recover()).toBe(true);
+    expect(recovered.documentKey).toBe(key + 1);
+    expect(recovered.draft.spot).toBeNaN();
+    expect(recovered.draft.strategy.legs[0].strike).toBeNull();
+    expect(recovered.source).toBe('# incomplete source');
+    expect(recovered.mode).toBe('python');
+    expect(analyze).toHaveBeenCalledTimes(1);
+    recovered.dispose();
+    s.dispose();
+  });
+  it('flushes pending recovery into the old scope, never adopts guest edits and clears pins/history/stdout', async () => {
+    vi.useFakeTimers();
+    const db = storage();
+    const s = new OptionsState(
+      db,
+      vi.fn().mockResolvedValue({ ...response(), stdout: 'private stdout' }),
+    );
+    s.setAccount(null);
+    s.setMode('python');
+    s.setSource('private guest');
+    await s.run();
+    s.pin();
+    s.editDraft(d => (d.spot = 123));
+    s.setAccount('a');
+    expect(s.source).not.toContain('private guest');
+    expect(s.recovery).toBeNull();
+    expect(s.saved).toEqual([]);
+    expect(s.comparisons).toEqual([]);
+    expect(s.stdout).toBeNull();
+    expect(s.canUndo).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(db.getItem('openquant.options.v2:account:a')).toBeNull();
+    expect(
+      decodeOptionsStorage(db.getItem('openquant.options.v2:guest')!).recovery!
+        .source,
+    ).toBe('private guest');
+    s.setAccount(null);
+    expect(s.source).not.toContain('private guest');
+    expect(s.recovery!.source).toBe('private guest');
+    s.dispose();
+  });
+  it('discards working recovery without deleting named records or automatically resaving it', () => {
+    vi.useFakeTimers();
+    const db = storage();
+    const s = new OptionsState(db);
+    s.setAccount('a');
+    s.save('Named');
+    s.setSource('working');
+    s.flushRecovery();
+    expect(s.recovery).not.toBeNull();
+    s.setSource('new unsaved');
+    expect(s.discardRecovery()).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(s.recovery).toBeNull();
+    expect(s.source).toBe('new unsaved');
+    expect(s.saved).toHaveLength(1);
+    const data = decodeOptionsStorage(
+      db.getItem('openquant.options.v2:account:a')!,
+    );
+    expect(data.recovery).toBeNull();
+    expect(data.drafts).toHaveLength(1);
+    s.dispose();
+  });
+  it('retains matching-scope legacy records unchanged and lazily migrates writes to v2', () => {
+    const db = storage();
+    const legacy = JSON.stringify({
+      version: 1,
+      drafts: [
+        {
+          name: 'Legacy',
+          updatedAt: '2026-01-01T00:00:00Z',
+          draft: createOptionsDraft(),
+          mode: 'python',
+          source: 'legacy Python',
+        },
+      ],
+    });
+    db.setItem('openquant.options.v1:account:a', legacy);
+    const s = new OptionsState(db);
+    s.setAccount('a');
+    expect(s.saved[0].source).toBe('legacy Python');
+    expect(s.source).not.toBe('legacy Python');
+    expect(s.renameSaved(0, 'Migrated')).toBe(true);
+    expect(db.getItem('openquant.options.v1:account:a')).toBe(legacy);
+    expect(
+      decodeOptionsStorage(db.getItem('openquant.options.v2:account:a')!)
+        .drafts[0].revisions![0].source,
+    ).toBe('legacy Python');
+    s.setAccount('b');
+    expect(s.saved).toEqual([]);
+    expect(s.recovery).toBeNull();
+    s.dispose();
+  });
+  it('leaves corrupt v2 and quota-failed named/working records unchanged with retryable errors', () => {
+    vi.useFakeTimers();
+    const db = storage();
+    const s = new OptionsState(db);
+    s.setAccount(null);
+    s.save('Existing');
+    const previous = db.getItem('openquant.options.v2:guest');
+    const write = db.setItem;
+    db.setItem = () => {
+      throw new Error('QuotaExceededError');
+    };
+    s.editDraft(d => (d.spot = 120));
+    vi.advanceTimersByTime(500);
+    expect(s.storageError).toContain('full');
+    expect(s.draft.spot).toBe(120);
+    expect(s.saved[0].draft.spot).toBe(100);
+    expect(db.getItem('openquant.options.v2:guest')).toBe(previous);
+    expect(s.updateSaved(0)).toBe(false);
+    expect(s.saved[0].revision).toBe(1);
+    db.setItem = write;
+    expect(s.flushRecovery()).toBe(true);
+    expect(s.storageError).toBeNull();
+    db.setItem(
+      'openquant.options.v2:account:a',
+      '{"version":2,"drafts":[{}],"recovery":null}',
+    );
+    s.setAccount('a');
+    s.setSource('keep in memory');
+    vi.advanceTimersByTime(500);
+    expect(s.storageError).toContain('paused');
+    expect(s.source).toBe('keep in memory');
+    expect(db.getItem('openquant.options.v2:account:a')).toContain(
+      '"drafts":[{}]',
+    );
+    s.dispose();
+  });
+});
+
+describe('named revisions, validated additive imports and submitted exports', () => {
+  it('updates detached snapshots, renames the saved source rather than current edits and restores exact revisions', () => {
+    const s = new OptionsState(storage());
+    s.setAccount('a');
+    s.setSource('original Python');
+    s.save('Original');
+    s.setSource('new Python');
+    s.editDraft(d => (d.spot = 110));
+    expect(s.updateSaved(0)).toBe(true);
+    s.setSource('unsaved Python');
+    s.editDraft(d => (d.spot = 120));
+    expect(s.renameSaved(0, 'Renamed')).toBe(true);
+    expect(s.saved[0].source).toBe('new Python');
+    expect(s.saved[0].draft.spot).toBe(110);
+    expect(s.restore(0, 1)).toBe(true);
+    expect(s.source).toBe('original Python');
+    expect(s.draft.spot).toBe(100);
+    expect(s.saved[0].name).toBe('Renamed');
+    expect(s.saved[0].revision).toBe(3);
+    for (let i = 0; i < 5; i++) s.updateSaved(0);
+    expect(s.saved[0].revisions).toHaveLength(3);
+    expect(s.restore(0, 1)).toBe(false);
+    s.dispose();
+  });
+  it('imports source-preserving drafts additively, applies only explicitly, and never loses records after bad/capacity imports', () => {
+    const analyze = vi.fn();
+    const db = storage();
+    const s = new OptionsState(db, analyze);
+    s.setAccount('a');
+    s.setSource('custom imported Python');
+    s.setMode('python');
+    s.save('Portable');
+    const bundle = s.exportBundle();
+    s.setSource('working source');
+    const key = s.documentKey;
+    expect(s.importBundle(bundle)).toBe(true);
+    expect(s.saved).toHaveLength(2);
+    expect(s.source).toBe('working source');
+    expect(s.documentKey).toBe(key);
+    expect(s.saved[0].id).not.toBe(s.saved[1].id);
+    expect(s.importBundle(bundle, true)).toBe(true);
+    expect(s.source).toBe('custom imported Python');
+    expect(s.documentKey).toBe(key + 1);
+    const raw = db.getItem('openquant.options.v2:account:a');
+    for (const bad of [
+      'broken',
+      '{"format":"openquant-options-drafts","version":3,"drafts":[]}',
+      exportOptionsBundle([{ ...s.saved[0], name: 'Valid' }]).replace(
+        '"spot": 100',
+        '"spot": -1',
+      ),
+    ]) {
+      expect(s.importBundle(bad, true)).toBe(false);
+      expect(s.saved).toHaveLength(3);
+      expect(db.getItem('openquant.options.v2:account:a')).toBe(raw);
+    }
+    for (let i = 3; i < 10; i++) s.save('Another');
+    const capped = db.getItem('openquant.options.v2:account:a');
+    expect(s.importBundle(bundle)).toBe(false);
+    expect(s.saved).toHaveLength(10);
+    expect(db.getItem('openquant.options.v2:account:a')).toBe(capped);
+    expect(analyze).not.toHaveBeenCalled();
+    s.dispose();
+  });
+  it('exports current authored source separately from older canonical submitted report/CSV/source/stdout', async () => {
+    const canonical = response();
+    canonical.request.strategy.underlying = '=PRIVATE()';
+    canonical.expiry_curve = [
+      { spot: 50, pnl: -500 },
+      { spot: 100, pnl: -500 },
+      { spot: 105, pnl: 0 },
+      { spot: 150, pnl: 4500 },
+    ];
+    const s = new OptionsState(
+      storage(),
+      vi.fn().mockResolvedValue({ ...canonical, stdout: 'submitted stdout' }),
+    );
+    s.setAccount('a');
+    s.setSource('submitted Python');
+    s.setMode('python');
+    await s.run();
+    expect(s.stdout).toBe('submitted stdout');
+    s.setSource('working Python');
+    s.editDraft(d => (d.spot = 200));
+    expect(s.exportSource()).toBe('working Python');
+    const report = JSON.parse(s.exportReport()!);
+    expect(report.submittedSource).toBe('submitted Python');
+    expect(report.stdout).toBe('submitted stdout');
+    expect(report.result.request.spot).toBe(100);
+    expect(report.result.expiry_curve).toEqual(canonical.expiry_curve);
+    const csv = s.exportCsv()!;
+    expect(csv).toContain('request.strategy.underlying');
+    expect(csv).toContain('""=PRIVATE()');
+    expect(csv).toContain('expiry_curve.2.spot');
+    s.setAccount('b');
+    expect(s.exportCsv()).toBeNull();
+    expect(s.exportReport()).toBeNull();
+    expect(s.stdout).toBeNull();
+    s.dispose();
+  });
+  it('preserves old evidence as stale after identical restore/recovery and never runs a saved Python draft', async () => {
+    const analyze = vi.fn().mockResolvedValue(response());
+    const s = new OptionsState(storage(), analyze);
+    s.setAccount('a');
+    await s.run();
+    s.save('Identical');
+    expect(s.stale).toBe(false);
+    s.restore(0);
+    expect(s.stale).toBe(true);
+    expect(s.result).not.toBeNull();
+    s.flushRecovery();
+    s.recover();
+    expect(s.stale).toBe(true);
+    expect(analyze).toHaveBeenCalledOnce();
+    s.dispose();
+  });
+});
+
+describe('session-only immutable canonical comparison pins', () => {
+  it('pins submitted assumptions/source rather than current edits without mutating current result', async () => {
+    const r = response();
+    r.expiry_curve = [
+      { spot: 50, pnl: -500 },
+      { spot: 105, pnl: 0 },
+      { spot: 150, pnl: 4500 },
+    ];
+    r.greeks.theta = null;
+    const db = storage();
+    const s = new OptionsState(db, vi.fn().mockResolvedValue(r));
+    s.setAccount('a');
+    expect(s.pin()).toBe(false);
+    await s.run();
+    const result = s.result;
+    s.editDraft(d => (d.spot = 120));
+    expect(s.pin()).toBe(true);
+    expect(s.result).toBe(result);
+    expect(s.draft.spot).toBe(120);
+    const pinned = s.comparisons[0];
+    expect(pinned.result.request.spot).toBe(100);
+    expect(pinned.result.greeks.theta).toBeNull();
+    expect(Object.isFrozen(pinned.result.request.strategy.legs[0])).toBe(true);
+    expect(() => {
+      pinned.result.request.spot = 200;
+    }).toThrow();
+    s.result!.request.spot = 300;
+    expect(pinned.result.request.spot).toBe(100);
+    expect(s.pin()).toBe(true);
+    expect(s.pin()).toBe(true);
+    expect(s.pin()).toBe(false);
+    expect(s.comparisons).toHaveLength(3);
+    s.unpin(pinned.id);
+    expect(s.comparisons).toHaveLength(2);
+    s.flushRecovery();
+    expect(db.getItem('openquant.options.v2:account:a')).not.toContain(
+      'options-pin',
+    );
+    const reload = new OptionsState(db);
+    reload.setAccount('a');
+    expect(reload.comparisons).toEqual([]);
+    s.setAccount('b');
+    expect(s.comparisons).toEqual([]);
+    s.dispose();
+    reload.dispose();
   });
 });
