@@ -13,8 +13,11 @@ from .models import (
     OptionLeg,
     OptionsAnalysis,
     OptionsAnalysisRequest,
+    OptionsExpiryPoint,
     OptionsGreeks,
+    OptionsLegAnalysis,
     OptionsScenarioAnalysis,
+    OptionsSurfaceAnalysis,
     OptionsSummary,
     ZeroInterval,
 )
@@ -99,11 +102,16 @@ def _value_and_greeks(
     iv: float,
     rate: float,
     yield_: float,
-) -> tuple[float, OptionsGreeks]:
+    entry_costs: list[float],
+    iv_shift_pp: float = 0,
+) -> tuple[float, OptionsGreeks, float]:
     values: list[float] = []
     exposures: dict[str, list[float | None]] = {k: [] for k in _GREEKS}
     for leg in legs:
-        value, greeks = _mark_and_greeks(leg, spot, days, iv, rate, yield_)
+        resolved_iv = iv if leg.implied_volatility is None else leg.implied_volatility
+        value, greeks = _mark_and_greeks(
+            leg, spot, days, resolved_iv + iv_shift_pp / 100, rate, yield_
+        )
         weight = leg.quantity * leg.multiplier
         values.append(weight * value)
         for key in _GREEKS:
@@ -122,7 +130,11 @@ def _value_and_greeks(
             scale = max((abs(c) for c in finite), default=0)
             total = scale * fsum(c / scale for c in finite) if scale else 0.0
             aggregate[key] = total if isfinite(total) else None
-    return fsum(values), OptionsGreeks(**aggregate)
+    return (
+        fsum(values),
+        OptionsGreeks(**aggregate),
+        fsum(value - cost for value, cost in zip(values, entry_costs)),
+    )
 
 
 def _expiry_geometry(
@@ -186,27 +198,98 @@ def analyze_options(
         request.model_dump() if isinstance(request, OptionsAnalysisRequest) else request
     )
     legs = [leg for leg in submitted.strategy.legs if leg.enabled]
-    gross_cost = fsum(leg.quantity * leg.multiplier * leg.entry_premium for leg in legs)
-    fees = fsum(
-        abs(leg.quantity) * submitted.strategy.entry_fee_per_contract
-        for leg in legs
-        if leg.kind != "underlying"
-    )
-    entry_cost = fsum([gross_cost, fees])
     days = submitted.strategy.days_to_expiry
+    leg_results = []
+    for index, leg in enumerate(submitted.strategy.legs):
+        gross = leg.quantity * leg.multiplier * leg.entry_premium if leg.enabled else 0
+        fee = (
+            abs(leg.quantity) * submitted.strategy.entry_fee_per_contract
+            if leg.enabled and leg.kind != "underlying"
+            else 0
+        )
+        cost = fsum([gross, fee])
+        value, exposure, pnl = _value_and_greeks(
+            [leg] if leg.enabled else [],
+            submitted.spot,
+            days,
+            submitted.volatility,
+            submitted.rate,
+            submitted.dividend_yield,
+            [cost] if leg.enabled else [],
+        )
+        leg_results.append(
+            OptionsLegAnalysis(
+                leg_index=index,
+                enabled=leg.enabled,
+                resolved_implied_volatility=(
+                    None
+                    if leg.kind == "underlying"
+                    else (
+                        submitted.volatility
+                        if leg.implied_volatility is None
+                        else leg.implied_volatility
+                    )
+                ),
+                gross_entry_cost=gross,
+                entry_fees=fee,
+                net_entry_cost=cost,
+                theoretical_value_today=value,
+                pnl_today=pnl,
+                greeks=exposure,
+            )
+        )
+    gross_cost = fsum(leg.gross_entry_cost for leg in leg_results)
+    fees = fsum(leg.entry_fees for leg in leg_results)
+    entry_cost = fsum(leg.net_entry_cost for leg in leg_results)
+    entry_costs = [leg.net_entry_cost for leg in leg_results if leg.enabled]
 
-    def value_at(spot: float, days: float, iv: float) -> tuple[float, OptionsGreeks]:
+    def value_at(
+        spot: float, days: float, shift: float = 0
+    ) -> tuple[float, OptionsGreeks, float]:
         return _value_and_greeks(
-            legs, spot, days, iv, submitted.rate, submitted.dividend_yield
+            legs,
+            spot,
+            days,
+            submitted.volatility,
+            submitted.rate,
+            submitted.dividend_yield,
+            entry_costs,
+            shift,
         )
 
-    today_value, greeks = value_at(submitted.spot, days, submitted.volatility)
+    today_value, greeks, today_pnl = value_at(submitted.spot, days)
     profit, loss, roots, intervals = _expiry_geometry(legs, entry_cost)
+    vertices = sorted(
+        {
+            submitted.spot_grid[0],
+            submitted.spot_grid[-1],
+            *(
+                leg.strike
+                for leg in legs
+                if leg.strike is not None
+                and submitted.spot_grid[0] <= leg.strike <= submitted.spot_grid[-1]
+            ),
+            *(
+                s
+                for s in roots
+                if submitted.spot_grid[0] <= s <= submitted.spot_grid[-1]
+            ),
+        }
+    )
+
+    def expiry_pnl_at(spot: float) -> float:
+        return fsum(
+            leg.quantity * leg.multiplier * terminal_payoff(leg, spot) - cost
+            for leg, cost in zip(legs, entry_costs)
+        )
+
     scenarios = []
     for scenario in submitted.scenarios:
         remaining = days - scenario.elapsed_days
         iv = submitted.volatility + scenario.iv_shift_pp / 100
-        _, scenario_greeks = value_at(submitted.spot, remaining, iv)
+        _, scenario_greeks, _ = value_at(
+            submitted.spot, remaining, scenario.iv_shift_pp
+        )
         scenarios.append(
             OptionsScenarioAnalysis(
                 name=scenario.name,
@@ -214,7 +297,7 @@ def analyze_options(
                 remaining_days=remaining,
                 volatility=iv,
                 pnl=[
-                    value_at(s, remaining, iv)[0] - entry_cost
+                    value_at(s, remaining, scenario.iv_shift_pp)[2]
                     for s in submitted.spot_grid
                 ],
                 greeks=scenario_greeks,
@@ -230,7 +313,26 @@ def analyze_options(
             "Null Greeks are undefined/not reported at expiry, zero IV or a numerical "
             "singularity; a null leg exposure makes that strategy Greek null."
         )
-    today_marks = [value_at(s, days, submitted.volatility) for s in submitted.spot_grid]
+    today_marks = [value_at(s, days) for s in submitted.spot_grid]
+    surface = None
+    if submitted.surface is not None:
+        config = submitted.surface
+        surface = OptionsSurfaceAnalysis(
+            axis=config.axis,
+            spots=config.spots,
+            steps=config.steps,
+            pnl=[
+                [
+                    value_at(
+                        s,
+                        days - step if config.axis == "elapsed_days" else days,
+                        step if config.axis == "iv_shift_pp" else 0,
+                    )[2]
+                    for s in config.spots
+                ]
+                for step in config.steps
+            ],
+        )
     return OptionsAnalysis(
         request=submitted,
         summary=OptionsSummary(
@@ -240,7 +342,7 @@ def analyze_options(
             entry_debit=max(entry_cost, 0),
             entry_credit=max(-entry_cost, 0),
             theoretical_value_today=today_value,
-            pnl_today=today_value - entry_cost,
+            pnl_today=today_pnl,
             max_profit=profit,
             max_loss=loss,
             profit_unbounded=profit is None,
@@ -249,19 +351,15 @@ def analyze_options(
             zero_intervals=intervals,
         ),
         spot_grid=submitted.spot_grid,
-        today_pnl=[value - entry_cost for value, _ in today_marks],
-        expiry_pnl=[
-            fsum(
-                [
-                    leg.quantity * leg.multiplier * terminal_payoff(leg, s)
-                    for leg in legs
-                ]
-            )
-            - entry_cost
-            for s in submitted.spot_grid
+        today_pnl=[pnl for _, _, pnl in today_marks],
+        expiry_pnl=[expiry_pnl_at(s) for s in submitted.spot_grid],
+        expiry_curve=[
+            OptionsExpiryPoint(spot=s, pnl=expiry_pnl_at(s)) for s in vertices
         ],
+        legs=leg_results,
+        surface=surface,
         scenarios=scenarios,
         greeks=greeks,
-        greeks_grid=[exposure for _, exposure in today_marks],
+        greeks_grid=[exposure for _, exposure, _ in today_marks],
         warnings=warnings,
     )

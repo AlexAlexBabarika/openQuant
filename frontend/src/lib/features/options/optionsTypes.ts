@@ -19,12 +19,19 @@ export interface OptionLeg {
   entry_premium: number;
   multiplier: number;
   enabled: boolean;
+  implied_volatility?: number | null;
+  bid?: number | null;
+  ask?: number | null;
+  quote_as_of?: string | null;
 }
 
 export interface OptionStrategy {
   name: string;
   template: OptionTemplate;
   days_to_expiry: number;
+  underlying?: string | null;
+  valuation_date?: string | null;
+  expiry_date?: string | null;
   currency: 'USD';
   exercise_style: 'european';
   settlement: 'cash';
@@ -38,6 +45,12 @@ export interface OptionsScenario {
   iv_shift_pp: number;
 }
 
+export interface OptionsSurfaceRequest {
+  axis: 'elapsed_days' | 'iv_shift_pp';
+  spots: number[];
+  steps: number[];
+}
+
 /** IV/rate/yield are annual fractions; scenario IV shifts are percentage points. */
 export interface OptionsDraft {
   strategy: OptionStrategy;
@@ -47,6 +60,7 @@ export interface OptionsDraft {
   dividend_yield: number;
   spot_grid: number[];
   scenarios: OptionsScenario[];
+  surface?: OptionsSurfaceRequest | null;
 }
 
 export type OptionsAnalysisRequest = OptionsDraft;
@@ -108,6 +122,29 @@ export interface OptionsScenarioAnalysis {
   greeks: OptionsGreeks;
 }
 
+export interface OptionsExpiryPoint {
+  spot: number;
+  pnl: number;
+}
+
+/** Signed USD totals and exposures; disabled contributions are zero. */
+export interface OptionsLegAnalysis {
+  leg_index: number;
+  enabled: boolean;
+  resolved_implied_volatility: number | null;
+  gross_entry_cost: number;
+  entry_fees: number;
+  net_entry_cost: number;
+  theoretical_value_today: number;
+  pnl_today: number;
+  greeks: OptionsGreeks;
+}
+
+/** P&L rows are steps, columns are spots; premiums and entry fees stay fixed. */
+export interface OptionsSurfaceAnalysis extends OptionsSurfaceRequest {
+  pnl: number[][];
+}
+
 export interface OptionsAnalysis {
   request: OptionsDraft;
   model: OptionsProvenance;
@@ -115,6 +152,10 @@ export interface OptionsAnalysis {
   spot_grid: number[];
   today_pnl: number[];
   expiry_pnl: number[];
+  /** Canonical vertices; independent of the regular aligned grid. */
+  expiry_curve?: OptionsExpiryPoint[];
+  legs?: OptionsLegAnalysis[];
+  surface?: OptionsSurfaceAnalysis | null;
   scenarios: OptionsScenarioAnalysis[];
   greeks: OptionsGreeks;
   greek_units: OptionsGreekUnits;

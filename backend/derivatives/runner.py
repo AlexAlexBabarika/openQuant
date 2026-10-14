@@ -100,6 +100,53 @@ def _validated_analysis(value: Any) -> OptionsAnalysis:
         or any(len(s.pnl) != len(points) for s in analysis.scenarios)
     ):
         raise OptionsRunError("Result curves must match the analysis request")
+    vertices = sorted(
+        {
+            points[0],
+            points[-1],
+            *(
+                leg.strike
+                for leg in analysis.request.strategy.legs
+                if leg.enabled
+                and leg.strike is not None
+                and points[0] <= leg.strike <= points[-1]
+            ),
+            *(s for s in analysis.summary.breakevens if points[0] <= s <= points[-1]),
+        }
+    )
+    if [point.spot for point in analysis.expiry_curve] != vertices:
+        raise OptionsRunError("Result expiry vertices must match the analysis domain")
+    if len(analysis.legs) != len(analysis.request.strategy.legs) or any(
+        result.leg_index != index
+        or result.enabled != leg.enabled
+        or result.resolved_implied_volatility
+        != (
+            None
+            if leg.kind == "underlying"
+            else (
+                analysis.request.volatility
+                if leg.implied_volatility is None
+                else leg.implied_volatility
+            )
+        )
+        for index, (result, leg) in enumerate(
+            zip(analysis.legs, analysis.request.strategy.legs)
+        )
+    ):
+        raise OptionsRunError("Result legs must match the analysis request")
+    config, surface = analysis.request.surface, analysis.surface
+    if config is None:
+        if surface is not None:
+            raise OptionsRunError("Unexpected result surface")
+    elif (
+        surface is None
+        or surface.axis != config.axis
+        or surface.spots != config.spots
+        or surface.steps != config.steps
+        or len(surface.pnl) != len(config.steps)
+        or any(len(row) != len(config.spots) for row in surface.pnl)
+    ):
+        raise OptionsRunError("Result surface dimensions must match the request")
     return analysis
 
 
