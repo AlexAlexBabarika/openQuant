@@ -19,6 +19,10 @@ import {
   svgPath,
   validateDomain,
   zoomDomain,
+  expiryTraceError,
+  inspectionGrid,
+  seriesValue,
+  legBreakdownError,
 } from './optionsChart';
 import type { OptionsAnalysis } from './optionsTypes';
 
@@ -93,6 +97,12 @@ const result: OptionsAnalysis = {
   spot_grid: [80, 100, 120],
   today_pnl: [-490.1, 99, 1600.55],
   expiry_pnl: [-501, -501, 1499],
+  expiry_curve: [
+    { spot: 80, pnl: -501 },
+    { spot: 100, pnl: -501 },
+    { spot: 105.01, pnl: 0 },
+    { spot: 120, pnl: 1499 },
+  ],
   scenarios: [
     {
       name: 'Later',
@@ -130,7 +140,8 @@ describe('options numeric price-domain renderer', () => {
     const s = optionsSeries(result);
     expect(s.map(v => v.label)).toEqual(['Expiration', 'Today', 'Later']);
     expect(new Set(s.map(v => v.dash)).size).toBe(3);
-    expect(s[0].values).toBe(result.expiry_pnl);
+    expect(s[0].values).toEqual(result.expiry_curve!.map(p => p.pnl));
+    expect(s[0].spots).toEqual([80, 100, 105.01, 120]);
     expect(s[1].values).toBe(result.today_pnl);
     expect(s[2].values).toBe(result.scenarios[0].pnl);
   });
@@ -170,6 +181,7 @@ describe('options numeric price-domain renderer', () => {
         ...result,
         today_pnl: [NaN, NaN, NaN],
         expiry_pnl: [Infinity, Infinity, Infinity],
+        expiry_curve: undefined,
         scenarios: [],
       }),
     ).toContain('finite');
@@ -339,5 +351,191 @@ describe('options chart markup (shell SSR, not browser validation)', () => {
     expect(html).toContain('Paths break at missing/nonfinite values');
     expect(html).toContain('Unavailable');
     expect(html).toContain('-0.001');
+  });
+  it('shows all draft drift without relabelling or changing result data', () => {
+    const draft = structuredClone(result.request);
+    draft.strategy.days_to_expiry = 90;
+    draft.strategy.legs[0].implied_volatility = 0.8;
+    const html = render(OptionsCharts, { props: { result, draft } }).body;
+    expect(html).toContain('Inputs changed');
+    expect(html).toContain('30 calendar days');
+    expect(html).not.toContain('90 calendar days');
+  });
+  it('omits legacy expiry paths with explicit unavailability, retaining today/scenario arrays', () => {
+    const html = markup({ ...result, expiry_curve: undefined });
+    expect(html).toContain('Exact expiry trace unavailable');
+    expect(html).not.toMatch(/class="curve expiry/);
+    expect(html).toMatch(/class="curve today/);
+    expect(html).toContain('+1700');
+  });
+  it('displays signed backend per-leg totals in original order; disabled zeros and active nulls differ', () => {
+    const analysis: OptionsAnalysis = {
+      ...result,
+      legs: result.request.strategy.legs.map((leg, i) => ({
+        leg_index: i,
+        enabled: leg.enabled,
+        resolved_implied_volatility: leg.kind === 'underlying' ? null : 0.2,
+        gross_entry_cost: leg.enabled ? -500 : 0,
+        entry_fees: leg.enabled ? 1 : 0,
+        net_entry_cost: leg.enabled ? -499 : 0,
+        theoretical_value_today: leg.enabled ? -700.123456789 : 0,
+        pnl_today: leg.enabled ? -201.123456789 : 0,
+        greeks: leg.enabled
+          ? greeks
+          : { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 },
+      })),
+    };
+    const html = markup(analysis);
+    expect(html).toContain('original leg order');
+    expect(html).toContain('Disabled · zero contribution');
+    expect(html).toContain('-201.123456789');
+    expect(html).toContain('Not applicable · shares');
+    expect(html).toContain('USD per 1 volatility percentage point');
+    expect(html).toContain(
+      'active undefined Greeks are unavailable, never zero',
+    );
+    expect(html).toContain('Unavailable');
+    expect(html.indexOf('Leg 1 · call')).toBeLessThan(
+      html.indexOf('Leg 2 · put'),
+    );
+    const invalid = {
+      ...analysis,
+      legs: analysis.legs!.map(l => ({ ...l, leg_index: 0 })),
+    };
+    expect(markup(invalid)).toContain('backend leg identities must match');
+    expect(markup(result)).toContain('Per-leg breakdown unavailable');
+  });
+});
+
+describe('canonical expiry vertices and per-series exact inspection', () => {
+  const sparse: OptionsAnalysis = {
+    ...result,
+    request: {
+      ...result.request,
+      strategy: {
+        ...result.request.strategy,
+        legs: [result.request.strategy.legs[0]],
+      },
+    },
+    spot_grid: [50, 150],
+    today_pnl: [-490, 4500],
+    expiry_pnl: [-500, 4500],
+    scenarios: [],
+    summary: { ...result.summary, breakevens: [105] },
+    expiry_curve: [
+      { spot: 50, pnl: -500 },
+      { spot: 100, pnl: -500 },
+      { spot: 105, pnl: 0 },
+      { spot: 150, pnl: 4500 },
+    ],
+    greeks_grid: [greeks, greeks],
+  };
+  it('rejects null or sparse malformed vertex entries without sampled fallback', () => {
+    const r = { ...sparse, expiry_curve: [...sparse.expiry_curve!] };
+    r.expiry_curve[1] = null as unknown as NonNullable<
+      OptionsAnalysis['expiry_curve']
+    >[number];
+    expect(expiryTraceError(r)).toContain('Exact expiry trace unavailable');
+    expect(optionsSeries(r).map(s => s.id)).toEqual(['today']);
+    delete r.expiry_curve[1];
+    expect(expiryTraceError(r)).toContain('Exact expiry trace unavailable');
+    expect(render(OptionsCharts, { props: { result: r } }).body).toContain(
+      'Exact expiry trace unavailable',
+    );
+  });
+  it('preserves the kink and isolated root for sparse [50,150] grids without TS valuation', () => {
+    expect(expiryTraceError(sparse)).toBeNull();
+    const series = optionsSeries(sparse)[0];
+    expect(series.spots).toEqual([50, 100, 105, 150]);
+    expect(series.values).toEqual([-500, -500, 0, 4500]);
+    expect(
+      svgPath(
+        seriesPoints(series.spots, series.values),
+        { min: 50, max: 150 },
+        { min: -500, max: 4500 },
+        200,
+        0,
+        100,
+      ),
+    ).toBe('M0.000,100.000 L100.000,100.000 L110.000,90.000 L200.000,0.000');
+    expect(inspectionGrid(sparse)).toEqual([50, 100, 105, 150]);
+    expect(seriesValue(series, 105)).toBe(0);
+    expect(seriesValue(series, 102)).toBeUndefined();
+    expect(seriesValue(optionsSeries(sparse)[1], 100)).toBeUndefined();
+    expect(seriesValue(optionsSeries(sparse)[1], 150)).toBe(4500);
+    const html = render(OptionsCharts, { props: { result: sparse } }).body;
+    expect(html).toMatch(/class="curve expiry/);
+    expect(html).toContain('preserving strike kinks');
+    expect(html).toContain('never interpolated');
+  });
+  it.each([
+    undefined,
+    [],
+    [
+      { spot: 50, pnl: -500 },
+      { spot: 150, pnl: 4500 },
+    ],
+    [
+      { spot: 50, pnl: -500 },
+      { spot: 105, pnl: 0 },
+      { spot: 150, pnl: 4500 },
+    ],
+    [
+      { spot: 50, pnl: -500 },
+      { spot: 100, pnl: -500 },
+      { spot: 150, pnl: 4500 },
+    ],
+    [
+      { spot: 50, pnl: -500 },
+      { spot: 100, pnl: NaN },
+      { spot: 105, pnl: 0 },
+      { spot: 150, pnl: 4500 },
+    ],
+    [
+      { spot: 50, pnl: -500 },
+      { spot: 105, pnl: 0 },
+      { spot: 100, pnl: -500 },
+      { spot: 150, pnl: 4500 },
+    ],
+    [
+      { spot: 40, pnl: -500 },
+      { spot: 100, pnl: -500 },
+      { spot: 105, pnl: 0 },
+      { spot: 150, pnl: 4500 },
+    ],
+  ])(
+    'refuses incomplete/nonfinite/unsorted expiry vertices, never falling back to sparse expiry_pnl (%j)',
+    curve => {
+      const analysis = { ...sparse, expiry_curve: curve };
+      expect(expiryTraceError(analysis)).toContain(
+        'Exact expiry trace unavailable',
+      );
+      expect(optionsSeries(analysis).map(s => s.id)).toEqual(['today']);
+      expect(plotError(analysis)).toBeNull();
+    },
+  );
+  it('retains disabled/out-of-domain strike semantics and zero intervals without fabricating new points', () => {
+    const analysis = {
+      ...sparse,
+      request: {
+        ...sparse.request,
+        strategy: {
+          ...sparse.request.strategy,
+          legs: [
+            ...sparse.request.strategy.legs,
+            { ...sparse.request.strategy.legs[0], strike: 110, enabled: false },
+            { ...sparse.request.strategy.legs[0], strike: 200 },
+          ],
+        },
+      },
+      summary: {
+        ...sparse.summary,
+        zero_intervals: [{ start: 105, end: null }],
+        breakevens: [105, 200],
+      },
+    };
+    expect(expiryTraceError(analysis)).toBeNull();
+    expect(optionsSeries(analysis)[0].spots).toEqual([50, 100, 105, 150]);
+    expect(legBreakdownError(analysis)).toContain('unavailable');
   });
 });

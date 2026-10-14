@@ -13,6 +13,7 @@ export interface ChartSeries {
   label: string;
   tone: 'expiry' | 'today' | 'scenario1' | 'scenario2' | 'scenario3';
   dash: string;
+  spots: number[];
   values: (number | null)[];
 }
 export interface PriceMarker {
@@ -76,7 +77,7 @@ export function zoomDomain(
   return { min, max: min + width };
 }
 
-/** Straight segments join supplied values only; gaps break paths, never financial interpolation. */
+/** Straight segments join supplied values only; gaps break paths. */
 export function seriesPoints(
   grid: number[],
   values: (number | null)[],
@@ -95,18 +96,24 @@ export function optionsSeries(result: OptionsAnalysis): ChartSeries[] {
     'scenario3',
   ];
   return [
-    {
-      id: 'expiry',
-      label: 'Expiration',
-      tone: 'expiry',
-      dash: '',
-      values: result.expiry_pnl,
-    },
+    ...(!expiryTraceError(result)
+      ? [
+          {
+            id: 'expiry',
+            label: 'Expiration',
+            tone: 'expiry' as const,
+            dash: '',
+            spots: result.expiry_curve!.map(p => p.spot),
+            values: result.expiry_curve!.map(p => p.pnl),
+          },
+        ]
+      : []),
     {
       id: 'today',
       label: 'Today',
       tone: 'today',
       dash: '7 4',
+      spots: result.spot_grid,
       values: result.today_pnl,
     },
     ...result.scenarios.map((s, i) => ({
@@ -114,6 +121,7 @@ export function optionsSeries(result: OptionsAnalysis): ChartSeries[] {
       label: s.name,
       tone: scenarios[i % 3],
       dash: ['2 4', '10 3 2 3', '12 5'][i % 3],
+      spots: result.spot_grid,
       values: s.pnl,
     })),
   ];
@@ -129,6 +137,7 @@ export function greekSeries(
       label: `Today ${greek}`,
       tone: 'today',
       dash: '7 4',
+      spots: result.spot_grid,
       values: (result.greeks_grid ?? []).map(g => g[greek]),
     },
   ];
@@ -160,14 +169,72 @@ export function plotError(result: OptionsAnalysis): string | null {
   ) {
     return 'The returned price grid is invalid or not strictly increasing.';
   }
-  if (
-    optionsSeries(result).some(s => s.values.length !== result.spot_grid.length)
-  ) {
+  if (optionsSeries(result).some(s => s.values.length !== s.spots.length)) {
     return 'Returned P&L series do not align with the price grid.';
   }
   if (!optionsSeries(result).some(s => s.values.some(finiteValue)))
     return 'No finite P&L values were returned.';
   return null;
+}
+
+export function expiryTraceError(result: OptionsAnalysis): string | null {
+  const curve = result.expiry_curve;
+  const full = priceDomain(result.spot_grid);
+  const unavailable =
+    'Exact expiry trace unavailable: canonical expiry_curve vertices are required; sampled expiry values are not a safe fallback across strikes.';
+  if (!full || !Array.isArray(curve) || curve.length < 2) return unavailable;
+  if (
+    Array.from(curve).some(
+      (p, i) =>
+        !p ||
+        !finiteValue(p.spot) ||
+        !finiteValue(p.pnl) ||
+        p.spot < full.min ||
+        p.spot > full.max ||
+        (i > 0 && p.spot <= curve[i - 1].spot),
+    ) ||
+    curve[0].spot !== full.min ||
+    curve[curve.length - 1].spot !== full.max
+  )
+    return unavailable;
+  const required = [
+    ...result.request.strategy.legs
+      .filter(l => l.enabled && l.kind !== 'underlying')
+      .map(l => l.strike),
+    ...result.summary.breakevens,
+  ].filter(
+    (s): s is number => finiteValue(s) && s >= full.min && s <= full.max,
+  );
+  return required.some(s => !curve.some(p => p.spot === s))
+    ? unavailable
+    : null;
+}
+
+/** Exact lookup only: no interpolation or pricing in browser readouts. */
+export function seriesValue(
+  series: ChartSeries,
+  spot: number,
+): number | null | undefined {
+  return series.values[series.spots.indexOf(spot)];
+}
+
+export function inspectionGrid(result: OptionsAnalysis): number[] {
+  return [...new Set(optionsSeries(result).flatMap(s => s.spots))].sort(
+    (a, b) => a - b,
+  );
+}
+
+export function legBreakdownError(result: OptionsAnalysis): string | null {
+  return !Array.isArray(result.legs) ||
+    result.legs.length !== result.request.strategy.legs.length ||
+    Array.from(result.legs).some(
+      (l, i) =>
+        !l ||
+        l.leg_index !== i ||
+        l.enabled !== result.request.strategy.legs[i].enabled,
+    )
+    ? 'Per-leg breakdown unavailable: backend leg identities must match the submitted strategy.'
+    : null;
 }
 
 export function priceMarkers(result: OptionsAnalysis): PriceMarker[] {
