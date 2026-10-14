@@ -189,6 +189,7 @@ shipped bundle, so they are included here.
 
 | Package | Version | License |
 | --- | --- | --- |
+| `@codemirror/autocomplete` | 6.20.1 | MIT |
 | `@codemirror/lang-python` | 6.2.1 | MIT |
 | `@codemirror/state` | 6.6.0 | MIT |
 | `@codemirror/theme-one-dark` | 6.1.3 | MIT |
@@ -221,6 +222,31 @@ Across the full transitive npm tree (140 packages): 119 MIT, 8 Apache-2.0,
 `license` field in its manifest but ships an MIT license file (Copyright (c) 2024
 Hunter Johnston and Thomas G. Lopes). No copyleft licenses beyond MPL-2.0 appear
 in the frontend tree.
+
+`@codemirror/autocomplete` 6.20.1 was already a transitive dependency and is
+declared directly for the options editor completion API. Its MIT notice is:
+
+```
+Copyright (C) 2018-2021 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
 
 Icons are provided by `@lucide/svelte` (ISC), derived from Feather Icons
 (MIT, Copyright (c) 2013-2023 Cole Bemis). UI primitives derive from `bits-ui`

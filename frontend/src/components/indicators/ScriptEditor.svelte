@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { python } from '@codemirror/lang-python';
-  import { EditorState } from '@codemirror/state';
+  import { EditorState, type Extension } from '@codemirror/state';
   import {
     EditorView,
     keymap,
@@ -26,16 +26,24 @@
     documentKey = 0,
     onRun,
     onSave,
+    onChange,
+    extensions = [],
+    ariaLabel = 'Python source',
+    ariaDescribedby,
   }: {
     value: string;
-    documentKey?: number;
+    documentKey?: string | number;
     onRun?: () => void;
     onSave?: () => void;
+    onChange?: (value: string) => void;
+    extensions?: Extension[];
+    ariaLabel?: string;
+    ariaDescribedby?: string;
   } = $props();
 
   let host = $state<HTMLDivElement | null>(null);
   let view: EditorView | null = null;
-  let syncedKey: number | undefined;
+  let syncedKey: string | number | undefined;
 
   // Class-based highlighter so the palette can swap with the app theme via
   // CSS. Dark theme keeps a Tokyo-Night-ish palette; light theme uses a
@@ -125,6 +133,7 @@
   const updateListener = EditorView.updateListener.of(u => {
     if (u.docChanged) {
       value = u.state.doc.toString();
+      onChange?.(value);
     }
   });
 
@@ -142,6 +151,11 @@
         syntaxHighlighting(highlight),
         python(),
         editorTheme,
+        EditorView.contentAttributes.of({
+          'aria-label': ariaLabel,
+          ...(ariaDescribedby ? { 'aria-describedby': ariaDescribedby } : {}),
+        }),
+        ...extensions,
         keymap.of([
           {
             key: 'Mod-Enter',
