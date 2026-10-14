@@ -2,8 +2,9 @@
 
 OpenQuant's `backend.derivatives` module analyzes an explicit multi-leg position
 from manual inputs. It returns theoretical Black–Scholes–Merton (BSM) marks,
-exact expiry P&L geometry, signed strategy Greeks and time/IV scenarios. It does
-not fetch an options chain, execute a trade or replay historical options prices.
+exact expiry P&L geometry, signed strategy/per-leg Greeks, time/IV scenarios and
+bounded P&L surfaces. It does not fetch an options chain, execute a trade or replay
+historical options prices.
 No account, provider key, network request or new dependency is required for the
 direct Python analysis shown here.
 
@@ -11,7 +12,8 @@ direct Python analysis shown here.
 
 - European, cash-settled, USD calls and puts with one shared expiry, plus explicit
   underlying share hedges. All prices and P&L amounts are USD.
-- Constant annual IV, continuously compounded rate and continuous dividend yield;
+- Constant annual IV per option leg (falling back to the declared request IV),
+  continuously compounded rate and continuous dividend yield;
   calendar time is ACT/365. These are manual assumptions, not calibrated forecasts.
 - Today and scenario curves are theoretical valuations; expiry curves are exact
   terminal intrinsic cash flows minus fixed entry cost. A scenario is not a
@@ -94,6 +96,11 @@ The price-domain charts show exact expiry P&L, theoretical today/scenario P&L,
 and selectable today-model Greek curves with keyboard and exact-value readouts.
 The result retains its submitted inputs; editing the draft marks it stale.
 
+The additive metadata, per-leg rows, exact expiry vertices and surface API below
+are canonical backend contracts. Frontend editor/chart/recovery integration is
+reconciled separately; API support does not by itself establish that every field
+has an editable control or that every artifact is included in local recovery.
+
 - `POST /options/analyze`: send `OptionsAnalysisRequest` as JSON; receive
   `OptionsAnalysis` directly, including `greeks_grid` aligned with `spot_grid`.
 - `POST /options/python`: send only `{ "source": "..." }`; receive the same
@@ -101,7 +108,11 @@ The result retains its submitted inputs; editing the draft marks it stale.
   `result = analyze_options(request_dictionary)`. Injected `OptionLeg(**kwargs)`
   and `OptionStrategy(**kwargs)` validate and return dictionaries. The injected
   `analyze_options` returns a dictionary, unlike the trusted module's model.
-  No imports of `backend.derivatives` or unrestricted modules are allowed.
+  No imports of `backend.derivatives` or unrestricted modules are allowed. Keep
+  `result` unmodified: the worker validates its finite JSON, vertices, leg
+  identities/resolved IVs and surface dimensions, then compares it to canonical
+  Python analysis. User-authored source runs in a spawned worker, not the server
+  process. Scenarios and surfaces use dictionaries in this injected namespace.
 
 For example, in the panel's Python mode:
 
@@ -140,6 +151,8 @@ Disabled legs are still validated.
 | `strategy.name` | Nonblank, at most 120 characters; default `"Custom options"` |
 | `strategy.template` | Informational label; default `"custom"` |
 | `strategy.days_to_expiry` | 0–3650 calendar days, fractional days allowed; default 30 |
+| `strategy.underlying` | Optional manual identity label, nonblank and at most 80 characters; default `null`, no instrument lookup or provider verification |
+| `strategy.valuation_date`, `strategy.expiry_date` | Optional paired valid calendar dates, exact `YYYY-MM-DD`; default `null`. Nonnegative date difference must equal the explicitly submitted/defaulted `days_to_expiry` |
 | `strategy.currency`, `strategy.exercise_style`, `strategy.settlement` | Only `"USD"`, `"european"`, `"cash"`, respectively; these are also the defaults |
 | `strategy.entry_fee_per_contract` | 0–10000 USD per enabled option contract, once at entry; default 0 |
 | `strategy.legs` | 1–16 legs, at least one enabled |
@@ -149,6 +162,9 @@ Disabled legs are still validated.
 | `leg.entry_premium` | 0–1000000 USD per underlying unit; stock entry price for an underlying leg; default 0 |
 | `leg.multiplier` | 1–1000 units per option contract, default 100; an underlying leg requires explicit 1 |
 | `leg.enabled` | Boolean, default `true`; disabled legs have no cost, mark, Greek or geometry contribution |
+| `leg.implied_volatility` | Optional option IV fraction, 0–5; default `null` resolves to request `volatility`. Underlying legs require `null` |
+| `leg.bid`, `leg.ask` | Optional paired manual USD/unit quote values, 0–1000000 and `bid <= ask`; both default `null`. A supplied pair requires `quote_as_of`; underlying legs forbid both |
+| `leg.quote_as_of` | Optional manual timezone-aware ISO timestamp, at most 64 characters; default `null`. Timestamp-only metadata is accepted. Underlying legs forbid it |
 | `spot` | Current positive USD spot up to 1000000; required |
 | `volatility` | Annual fraction, 0–5; default 0.20 means 20% IV |
 | `rate` | Annual continuously compounded fraction, −1 to 1; default 0.03 |
@@ -157,11 +173,37 @@ Disabled legs are still validated.
 | `scenarios` | 0–3 uniquely named scenarios; default empty list |
 | `scenario.name` | Nonblank, at most 80 characters; required |
 | `scenario.elapsed_days` | 0 through expiry inclusive; default 0 |
-| `scenario.iv_shift_pp` | Additive −100 to +100 IV percentage points; shifted IV must remain 0–5; default 0 |
+| `scenario.iv_shift_pp` | Additive −100 to +100 IV percentage points; shifted declared request IV and every resolved enabled option IV must remain 0–5; default 0 |
+| `surface` | Optional `null` (default) or `{axis, spots, steps}`; result always includes a nullable `surface` |
+| `surface.axis` | Only `"elapsed_days"` or `"iv_shift_pp"` |
+| `surface.spots` | 2–41 strictly increasing finite USD spots, each 0–1000000; independent of the 2–201-point curve grid |
+| `surface.steps` | 2–21 strictly increasing finite numbers: elapsed calendar days from 0 through common expiry, or additive −100 to +100 IV pp subject to all shifted IV bounds |
 
 `iv_shift_pp=5` means 20% IV becomes 25%, not a 5% relative increase and not
 an IV fraction of 5. Remaining days are `days_to_expiry - elapsed_days`.
 Scenarios never advance beyond expiry, change entry premiums or charge fees again.
+They shift each enabled option's resolved IV in parallel, preserving differences
+between explicit IVs rather than replacing them with an average. The output
+scenario `volatility` is the shifted **declared request IV**, even when all legs
+have explicit IVs. Disabled leg IVs are still validated as inputs but do not limit
+a scenario/surface shift; the declared request IV always does.
+
+Dates are optional common-contract metadata, not per-leg expiries. Interpret
+them as calendar dates (UTC calendar convention in editor integrations), not
+local timestamps. The backend does not infer days from dates, consult a current
+clock or certify freshness: a 30-day date pair with omitted `days_to_expiry` uses
+the existing default 30, while a 31-day pair requires explicit 31. Dates do not
+support mixed expiries; fractional horizons remain available without dates.
+
+`quote_as_of` requires a `T`, hours/minutes, optional seconds/fractional seconds,
+and `Z` or an explicit `+/-HH:MM` offset, e.g. `2024-02-28T14:15:16.125Z`.
+Invalid calendar dates/times, missing offsets, unpaired bid/ask, crossed quotes,
+nonfinite values and out-of-range IVs are rejected, including on disabled legs.
+Quote timestamps are echoed as entered, not normalized to UTC or checked against
+valuation dates. Old or future timestamp metadata is not proof of usable data.
+**Manual quotes never alter `entry_premium`**: a midpoint/premium choice must be
+an explicit input edit, not automatic repricing. There is no live chain fetch,
+provider verification, quote freshness assessment or executable fill guarantee.
 
 Supported template labels are `custom`, `long_call`, `long_put`, `call_vertical`,
 `put_vertical`, `straddle`, `strangle`, `iron_condor`, `iron_butterfly`,
@@ -192,6 +234,31 @@ fee in this model. Call terminal value per unit is `max(S-K, 0)`, put value is
 `max(K-S, 0)`, underlying value is `S`. Long/short signs apply to both premium
 cash flows and terminal/marked values. Fees can turn a small credit into a debit.
 
+`expiry_curve` is the exact sparse-grid-safe polyline over the submitted
+`spot_grid` domain. Its sorted unique `{spot, pnl}` vertices include both domain
+endpoints, all enabled in-domain option strikes and all in-domain isolated
+breakevens. Disabled/out-of-domain strikes are excluded. Adjacent vertices can
+be joined linearly without hiding a strike kink; `expiry_pnl` remains aligned
+with the original grid and must not be treated as an exact polyline on a coarse
+grid. For one long 100-strike call, premium 5, multiplier 100, zero fees and
+`spot_grid: [50, 150]`:
+
+```json
+{
+  "expiry_pnl": [-500, 4500],
+  "expiry_curve": [
+    {"spot": 50, "pnl": -500},
+    {"spot": 100, "pnl": -500},
+    {"spot": 105, "pnl": 0},
+    {"spot": 150, "pnl": 4500}
+  ]
+}
+```
+
+Global extrema, isolated roots and zero intervals still come from the full
+nonnegative-spot domain, not just these display vertices. Do not add isolated
+roots at the boundaries of a zero interval.
+
 `summary.max_profit` and `max_loss` are nonnegative achievable expiry gain/loss
 over **all** `S >= 0`, not extrema of the display grid and not today's model
 marks. Zero means there is no achievable gain/loss, respectively. `null` means
@@ -216,8 +283,10 @@ fees to 2.50 per option contract gives fees 10, credit/max profit 390, max loss
 ### Output and Greek units
 
 `OptionsAnalysis` returns `request`, `model`, `summary`, `spot_grid`, `today_pnl`,
-`expiry_pnl`, `scenarios`, `greeks`, `greek_units`, and `warnings`. Every P&L array
-aligns one-to-one with the returned `spot_grid`. Summary also includes
+`expiry_pnl`, `expiry_curve`, `legs`, `surface`, `scenarios`, `greeks`,
+`greeks_grid`, `greek_units`, and `warnings`. `today_pnl`, `expiry_pnl`, scenario
+`pnl` and `greeks_grid` align one-to-one with the returned `spot_grid`; expiry
+vertices and surface cells have their own coordinates. Summary also includes
 `theoretical_value_today` and `pnl_today` at the submitted current spot.
 Scenario output includes `name`, `elapsed_days`, `remaining_days`, resolved
 `volatility` fraction, `pnl` and `greeks`; the original IV shift stays in
@@ -247,6 +316,57 @@ positions retain delta equal to shares and the other Greeks zero, including at
 expiry/zero IV. Disabled legs never propagate null. Preserve null versus zero in
 tables/charts and retain the returned warnings.
 
+`legs` is always emitted in the original input order, including disabled rows.
+Each row contains `leg_index` (zero-based), `enabled`,
+`resolved_implied_volatility`, `gross_entry_cost`, `entry_fees`, `net_entry_cost`,
+`theoretical_value_today`, `pnl_today` and `greeks`. Monetary fields are signed
+**total USD contributions**, not per-unit/contract prices. Their sums reproduce
+the corresponding summary fields (subject to floating-point tolerance). Leg
+Greeks are likewise quantity/multiplier-weighted; finite components sum to the
+strategy component, while any undefined active component propagates `null`.
+Disabled money/Greek components are zero, not null; their resolved IV still
+reflects stored/fallback inputs. Share rows have resolved IV `null`, zero fees,
+delta equal to signed shares and the other Greeks zero.
+
+### P&L surface API
+
+For example, add one of these configurations to a validated 30-day request:
+
+```json
+{
+  "surface": {
+    "axis": "elapsed_days",
+    "spots": [80, 100, 120],
+    "steps": [0, 15, 30]
+  }
+}
+```
+
+Or use `{"axis": "iv_shift_pp", "spots": [80, 100, 120], "steps": [-5, 0, 5]}`
+when the declared base and every resolved enabled IV support those shifts.
+`result.surface` echoes `axis`, `spots` and `steps`, plus `pnl`: **rows are steps,
+columns are spots**, at most 21 × 41 = 861 finite signed-total-USD cells.
+
+- `elapsed_days`: evaluate at `days_to_expiry - step`, keeping each resolved IV.
+  The final expiry row uses exact intrinsic cash flows, not a stochastic forecast.
+- `iv_shift_pp`: evaluate at the current time, shifting all resolved enabled IVs
+  and the declared request IV by `step / 100`. It is a parallel shift, not an IV
+  term structure or separate-expiry analysis.
+- Step zero reproduces today's P&L at the same spots. Premiums and entry fees
+  are fixed across all cells; fees are never charged again. Cells exclude the
+  same financing/dividend/exit-cost/slippage effects as curves.
+- No surface requested means `result.surface: null`. No cell probabilities,
+  surface Greeks, provider observations or historical execution are returned.
+  A zero-day horizon cannot request a time surface: two distinct in-range time
+  steps do not exist. Omit it instead of duplicating zero or crossing expiry.
+
+The new request fields are optional/defaulted for legacy requests. New canonical
+backend responses always emit `expiry_curve`, `legs` and `surface` through both
+HTTP endpoints and sandbox exports. Frontend extension types are additive/optional
+for older draft fixtures; consumers must distinguish absent legacy fields from
+zero, from null/unavailable Greeks and from an unrequested surface. Use returned
+request/axes/leg identities for results, never revised draft coordinates.
+
 ## Python analysis is not historical execution or arbitrary imports
 
 The direct-module example uses trusted local Python. It does not authorize
@@ -270,6 +390,14 @@ drafts are separate from the stock script library, research shelf and existing
 account recovery bundle. They are not cloud-synced, encrypted or server-authorized
 artifacts. Results are not persisted; rerun a restored draft to obtain analysis.
 
+Scoped working recovery, versioned libraries, comparison pins and downloadable
+artifacts are frontend integration concerns reconciled separately from this
+backend contract. Any restore/import of inputs or Python source must remain
+explicit and must not execute source automatically. Local scope keys, a copied
+CSV/report or an Options-only export do not transfer server authorization or
+constitute a PostgreSQL/data-root/runtime-secret backup. Keep guest and account
+records separate; account switching must fence pending results as well as data.
+
 OpenQuant's existing research shelf uses separate guest/account browser-local
 storage. Browser account namespaces are not encrypted storage or cloud sync and
 do not establish server authorization. Existing authenticated saved historical
@@ -286,9 +414,9 @@ for the separate browser and server backup boundaries.
 From the repository root:
 
 ```bash
-.venv/bin/python -m pytest backend/tests/test_options_analytics.py backend/tests/test_options_financial_regressions.py -q
-.venv/bin/ruff format --check backend/tests/test_options_financial_regressions.py
-.venv/bin/ruff check backend/tests/test_options_financial_regressions.py
+.venv/bin/python -m pytest backend/tests/test_options_analytics.py backend/tests/test_options_financial_regressions.py backend/tests/test_options_extensions.py backend/tests/test_options_runner.py backend/tests/test_options_routes.py -q
+.venv/bin/ruff format --check backend/tests/test_options_financial_regressions.py backend/tests/test_options_extensions.py backend/tests/test_options_routes.py
+.venv/bin/ruff check backend/tests/test_options_financial_regressions.py backend/tests/test_options_extensions.py backend/tests/test_options_routes.py
 ```
 
 The independent suite uses discounted lognormal terminal-payoff integration
@@ -297,6 +425,17 @@ put-call/Greek parity and hand-derived piecewise expiry cash flows. It checks
 long/short tails, multiple/no/tangent roots, zero regions, hedges, multipliers,
 fees, disabled legs, finite-difference Greek units, zero/tiny time and IV,
 nonfinite rejection, fixed-premium scenarios and seeded deterministic inputs.
+Extension coverage independently checks heterogeneous resolved leg IVs and
+finite-difference Greeks, parallel scenario shifts, sparse two-point expiry
+vertices/arbitrary strike knots/zoomed domains, signed per-leg sums and null/zero
+semantics, and each requested time/IV surface cell against payoff integration.
+Boundary tests include exact paired common dates, manual quotes that do not
+reprice premiums, legacy defaults, dimensions and shifted IV limits. Real spawned
+exports and both actual HTTP endpoints preserve the full canonical contract;
+maximum-count payloads (16 legs, 201 curve points, 3 scenarios, 861 cells) with
+64-character quote metadata and a fully escaped 16 KiB stdout fixture fit the
+unchanged 256 KiB worker envelope cap. These fixtures are regression evidence,
+not an exhaustive proof of every possible response size or sandbox isolation.
 These are shell-level mathematical regressions, not browser validation or
 real-market calibration.
 
