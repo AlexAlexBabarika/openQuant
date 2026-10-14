@@ -754,6 +754,43 @@ describe('explicit working recovery and scoped migration', () => {
     expect(s.recovery).toBeNull();
     s.dispose();
   });
+  it('assigns stable IDs to legacy drafts so prepended saves/imports cannot retarget a library selection', () => {
+    const db = storage();
+    const legacy = JSON.stringify({
+      version: 1,
+      drafts: [
+        {
+          name: 'Legacy',
+          updatedAt: '2026-01-01T00:00:00Z',
+          draft: createOptionsDraft(),
+          mode: 'python',
+          source: 'legacy source',
+        },
+      ],
+    });
+    db.setItem('openquant.options.v1:guest', legacy);
+    const s = new OptionsState(db);
+    s.setAccount(null);
+    const id = s.saved[0].id;
+    expect(id).toBeTruthy();
+    expect(s.save('Prepended')).toBe(true);
+    const index = s.saved.findIndex(item => item.id === id);
+    expect(index).toBe(1);
+    expect(s.renameSaved(index, 'Renamed legacy')).toBe(true);
+    expect(s.saved[index].id).toBe(id);
+    expect(s.importBundle(s.exportBundle())).toBe(true);
+    const moved = s.saved.find(item => item.id === id)!;
+    expect(moved.name).toBe('Renamed legacy');
+    expect(moved.source).toBe('legacy source');
+    expect(db.getItem('openquant.options.v1:guest')).toBe(legacy);
+    const reloaded = new OptionsState(db);
+    reloaded.setAccount(null);
+    expect(reloaded.saved.find(item => item.id === id)?.source).toBe(
+      'legacy source',
+    );
+    reloaded.dispose();
+    s.dispose();
+  });
   it('leaves corrupt v2 and quota-failed named/working records unchanged with retryable errors', () => {
     vi.useFakeTimers();
     const db = storage();

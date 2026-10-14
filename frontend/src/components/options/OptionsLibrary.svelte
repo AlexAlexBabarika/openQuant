@@ -9,7 +9,8 @@
   let applyImport = $state(false);
   let importing = $state(false);
   let feedback = $state<string | null>(null);
-  const item = $derived(selected === '' ? null : options.saved[Number(selected)] ?? null);
+  const selectedIndex = $derived(options.saved.findIndex((saved, i) => (saved.id ?? `legacy-${i}`) === selected));
+  const item = $derived(options.saved[selectedIndex] ?? null);
   $effect(() => {
     options.documentKey;
     name = ''; selected = ''; revision = ''; feedback = null; applyImport = false;
@@ -61,7 +62,7 @@
     <label>Saved draft
       <select value={selected} onchange={e => { selected = e.currentTarget.value; name = item?.name ?? ''; revision = ''; }}>
         <option value="">Select a draft</option>
-        {#each options.saved as saved, i}<option value={String(i)}>{saved.name} · revision {saved.revision ?? 1}</option>{/each}
+        {#each options.saved as saved, i}<option value={saved.id ?? `legacy-${i}`}>{saved.name} · revision {saved.revision ?? 1}</option>{/each}
       </select>
     </label>
     <label>Revision
@@ -70,10 +71,10 @@
         {#each item?.revisions ?? [] as prior}<option value={String(prior.revision)}>{prior.revision} · {prior.name} · {prior.updatedAt}</option>{/each}
       </select>
     </label>
-    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => options.restore(Number(selected), revision ? Number(revision) : undefined)}>Restore inputs & source</button>
-    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => options.updateSaved(Number(selected))}>Update from working inputs</button>
-    <button type="button" class="ot-workbench-ghost" disabled={!item || !name.trim()} onclick={() => options.renameSaved(Number(selected), name)}>Rename saved draft</button>
-    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => { options.remove(Number(selected)); selected = ''; revision = ''; }}>Delete saved draft</button>
+    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => options.restore(selectedIndex, revision ? Number(revision) : undefined)}>Restore inputs & source</button>
+    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => options.updateSaved(selectedIndex)}>Update from working inputs</button>
+    <button type="button" class="ot-workbench-ghost" disabled={!item || !name.trim()} onclick={() => options.renameSaved(selectedIndex, name)}>Rename saved draft</button>
+    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => { options.remove(selectedIndex); selected = ''; revision = ''; }}>Delete saved draft</button>
   </div>
   <div class="actions" role="group" aria-label="Portable draft files">
     <button type="button" class="ot-workbench-ghost" disabled={!options.saved.length} onclick={() => download(() => options.exportBundle(), 'drafts.json', 'application/json')}>Export named JSON bundle</button>
