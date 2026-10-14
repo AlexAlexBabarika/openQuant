@@ -1,14 +1,15 @@
 <script lang="ts">
-  import type { GreekKey, OptionsAnalysis } from '$lib/features/options/optionsTypes';
+  import type { GreekKey, OptionsAnalysis, OptionsDraft } from '$lib/features/options/optionsTypes';
+  import { requestChanged } from '$lib/features/options/optionsScenario';
   import {
     GREEK_KEYS, axisValue, domainTicks, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
     priceMarkers, sampledYDomain, scaleValue, seriesPoints, svgPath, validateDomain,
-    zoomDomain,
+    zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError,
   } from '$lib/features/options/optionsChart';
   import type { Domain } from '$lib/features/options/optionsChart';
 
-  let { result = null, spot }: { result?: OptionsAnalysis | null; spot?: number } = $props();
+  let { result = null, spot, draft }: { result?: OptionsAnalysis | null; spot?: number; draft?: OptionsDraft } = $props();
   const id = $props.id();
   let containerWidth = $state(360);
   let view = $state<Domain | null>(null);
@@ -24,7 +25,10 @@
   const domain = $derived(view ?? full);
   const error = $derived(result ? plotError(result) : null);
   const curves = $derived(result ? optionsSeries(result) : []);
-  const points = $derived(result ? curves.map(s => seriesPoints(result.spot_grid, s.values)) : []);
+  const points = $derived(curves.map(s => seriesPoints(s.spots, s.values)));
+  const inspectGrid = $derived(result ? inspectionGrid(result) : []);
+  const expiryError = $derived(result ? expiryTraceError(result) : null);
+  const legError = $derived(result ? legBreakdownError(result) : null);
   const pnlY = $derived(domain ? sampledYDomain(points, domain) : { min: -1, max: 1 });
   const greekCurves = $derived(result ? greekSeries(result, greek) : []);
   const greekPoints = $derived(result ? greekCurves.map(s => seriesPoints(result.spot_grid, s.values)) : []);
@@ -32,13 +36,16 @@
   const greekError = $derived(result ? greekPlotError(result, greek) : null);
   const markers = $derived(result ? priceMarkers(result) : []);
   const activeIndex = $derived(result && domain && selected != null &&
-    result.spot_grid[selected] >= domain.min && result.spot_grid[selected] <= domain.max ? selected : null);
-  const activeSpot = $derived(result && activeIndex != null ? result.spot_grid[activeIndex] : null);
+    inspectGrid[selected] >= domain.min && inspectGrid[selected] <= domain.max ? selected : null);
+  const activeSpot = $derived(activeIndex != null ? inspectGrid[activeIndex] : null);
+  const greekIndex = $derived(activeSpot != null ? result?.spot_grid.indexOf(activeSpot) ?? -1 : -1);
   const drift = $derived(result && finiteValue(spot) && spot !== result.request.spot);
+  const stale = $derived(result && draft && requestChanged(draft, result.request));
   const unit = $derived(result?.greek_units[greek] ?? '');
 
   $effect(() => {
     const grid = result?.spot_grid;
+    result?.expiry_curve;
     view = null;
     selected = null;
     domainError = '';
@@ -69,7 +76,7 @@
   function keydown(event: KeyboardEvent) {
     if (!result || !domain) return;
     const key = event.key === 'ArrowUp' ? 'ArrowRight' : event.key === 'ArrowDown' ? 'ArrowLeft' : event.key;
-    const next = keyboardIndex(result.spot_grid, domain, activeIndex, key);
+    const next = keyboardIndex(inspectGrid, domain, activeIndex, key);
     if (next !== undefined) { event.preventDefault(); selected = next; }
   }
 
@@ -80,7 +87,7 @@
     const pixel = ((event.clientX - bounds.left) / bounds.width) * width - left;
     if (pixel < 0 || pixel > plotWidth) { selected = null; return; }
     const price = scaleValue(pixel, { min: 0, max: plotWidth }, domain.min, domain.max);
-    selected = nearestIndex(result.spot_grid, price, domain);
+    selected = nearestIndex(inspectGrid, price, domain);
   }
 
   function x(price: number) { return domain ? left + scaleValue(price, domain, 0, plotWidth) : left; }
@@ -100,7 +107,8 @@
       <div><span class="eyebrow">MANUAL · EUROPEAN · CASH SETTLED</span><h3>{result.request.strategy.name}</h3></div>
       <div class="context">Submitted spot <b>{exactValue(result.request.spot)} USD</b><br />{exactValue(result.request.strategy.days_to_expiry)} calendar days · ACT/365</div>
     </header>
-    {#if drift}<p class="notice">Draft spot changed. Charts still show the returned analysis at {exactValue(result.request.spot)} USD; analyze again to refresh.</p>{/if}
+    {#if drift && !stale}<p class="notice">Draft spot changed. Charts still show the returned analysis at {exactValue(result.request.spot)} USD; analyze again to refresh.</p>{/if}
+    {#if stale}<p class="notice" role="status">Inputs changed. All charts and per-leg readouts remain previous submitted evidence; Analyze explicitly to refresh.</p>{/if}
 
     <form class="domain-controls" onsubmit={applyDomain} aria-label="Numeric price view">
       <label for={`${id}-minimum`}>From (USD)<input id={`${id}-minimum`} type="text" inputmode="decimal" bind:value={minimum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
@@ -115,6 +123,7 @@
     <p id={`${id}-domain-note`} class:notice={!!domainError} class="note" role={domainError ? 'alert' : undefined}>{domainError || `View ${exactValue(domain.min)}–${exactValue(domain.max)} USD. Zoom changes display only, not the analysis.`}</p>
 
     <div class="pane-title"><h4>P&amp;L by underlying price</h4><span>USD · signed strategy total</span></div>
+    {#if expiryError}<p class="notice" role="status">{expiryError}</p>{/if}
     <div class="legend" aria-label="P&L series legend">
       {#each curves as curve (curve.id)}
         <span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray={curve.dash} /></svg>{curve.label}</span>
@@ -124,7 +133,7 @@
       <div class="chart-control" role="slider" tabindex="0" aria-label="Inspect P&L at supplied price samples" aria-valuemin={domain.min} aria-valuemax={domain.max} aria-valuenow={sliderSpot()} aria-valuetext={activeSpot == null ? 'No sample selected' : `${exactValue(activeSpot)} USD; values in readout below`} aria-describedby={`${id}-instructions`} onkeydown={keydown}>
         <svg viewBox={`0 0 ${width} 254`} role="img" aria-label={`Expiration, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
           <title>Options P&amp;L over numeric underlying price</title>
-          <desc>Lines connect returned samples only. Dashed vertical lines mark strikes, dotted lines mark expiration breakevens, solid line marks submitted spot. Exact values are below.</desc>
+          <desc>Expiration connects canonical piecewise-linear vertices, including every in-domain strike and isolated breakeven. Today and scenarios connect backend grid samples only. Dashed vertical lines mark strikes, dotted lines mark expiration breakevens, solid line marks submitted spot. Exact values are below.</desc>
           <defs><clipPath id={`${id}-pnl-clip`}><rect x={left} y="24" width={plotWidth} height="184" /></clipPath></defs>
           {#each domainTicks(pnlY, 5) as tick}
             {@const py = scaleValue(tick, pnlY, 208, 24)}
@@ -148,7 +157,7 @@
             {#if activeSpot != null && activeIndex != null}
               <line class="crosshair" x1={x(activeSpot)} x2={x(activeSpot)} y1="24" y2="208" />
               {#each curves as curve (curve.id)}
-                {#if finiteValue(curve.values[activeIndex])}<circle class={`point ${curve.tone}`} cx={x(activeSpot)} cy={scaleValue(curve.values[activeIndex] as number, pnlY, 208, 24)} r="3.5" />{/if}
+                {#if finiteValue(seriesValue(curve, activeSpot))}<circle class={`point ${curve.tone}`} cx={x(activeSpot)} cy={scaleValue(seriesValue(curve, activeSpot) as number, pnlY, 208, 24)} r="3.5" />{/if}
               {/each}
             {/if}
           </g>
@@ -160,14 +169,14 @@
       </div>
     </div>
     <p class="marker-key">Solid vertical: submitted spot · dashed: strike · dotted: expiration breakeven · horizontal: zero P&amp;L</p>
-    <p id={`${id}-instructions`} class="note">Hover or touch to inspect supplied samples. Focus either chart: arrows, Home/End to select; Escape to clear. Axes use up to 4 significant digits or scientific notation; readouts and tables are unrounded. Lines identify series, not gain/loss.</p>
-    {#if !result.spot_grid.some(s => inView(s))}<p class="notice">No supplied samples inside this zoomed view. Lines may show clipped connections between neighboring samples; zoom out or reset to inspect exact values.</p>{/if}
+    <p id={`${id}-instructions`} class="note">Hover or touch to inspect supplied samples or exact expiry vertices. Focus either chart: arrows, Home/End to select; Escape to clear. Values not returned at a selected price are unavailable, never interpolated. Axes use up to 4 significant digits or scientific notation; readouts and tables are unrounded. Lines identify series, not gain/loss.</p>
+    {#if !inspectGrid.some(s => inView(s))}<p class="notice">No supplied samples or vertices inside this zoomed view. Lines may show clipped connections between neighboring points; zoom out or reset to inspect exact values.</p>{/if}
     {#if curves.some(c => c.values.some(v => !finiteValue(v)))}<p class="notice">Some returned P&amp;L values are unavailable. Paths break at missing/nonfinite values; see exact-value data.</p>{/if}
     <div class="readout" aria-live="polite" aria-atomic="true">
       {#if activeIndex != null && activeSpot != null}
-        <strong>Sample spot {exactValue(activeSpot)} USD</strong>
-        <dl>{#each curves as curve (curve.id)}<div><dt>{curve.label} P&amp;L</dt><dd>{exactValue(curve.values[activeIndex], true)} USD</dd></div>{/each}
-          <div><dt>Today {greek}</dt><dd>{exactValue(greekCurves[0]?.values[activeIndex], true)} · {unit}</dd></div>
+        <strong>Returned spot {exactValue(activeSpot)} USD</strong>
+        <dl>{#each curves as curve (curve.id)}<div><dt>{curve.label} P&amp;L</dt><dd>{exactValue(seriesValue(curve, activeSpot), true)} USD</dd></div>{/each}
+          <div><dt>Today {greek}</dt><dd>{exactValue(greekCurves[0]?.values[greekIndex], true)} · {unit}</dd></div>
         </dl>
       {:else}<span>Select a price sample to inspect exact returned values. No sampled view is a maximum profit/loss estimate.</span>{/if}
     </div>
@@ -177,7 +186,7 @@
     </div>
     <p class="unit">{greek} · {unit}</p>
     {#if greekError}<p class="notice" role="status">{greekError}</p>{/if}
-    <div class="chart-control" role="slider" tabindex="0" aria-label={`Inspect today ${greek} at supplied price samples`} aria-valuemin={domain.min} aria-valuemax={domain.max} aria-valuenow={sliderSpot()} aria-valuetext={activeSpot == null ? 'No sample selected' : `${exactValue(activeSpot)} USD; ${exactValue(greekCurves[0]?.values[activeIndex ?? -1], true)} ${unit}`} aria-describedby={`${id}-instructions`} onkeydown={keydown}>
+    <div class="chart-control" role="slider" tabindex="0" aria-label={`Inspect today ${greek} at supplied price samples`} aria-valuemin={domain.min} aria-valuemax={domain.max} aria-valuenow={sliderSpot()} aria-valuetext={activeSpot == null ? 'No sample selected' : `${exactValue(activeSpot)} USD; ${exactValue(greekCurves[0]?.values[greekIndex], true)} ${unit}`} aria-describedby={`${id}-instructions`} onkeydown={keydown}>
       <svg viewBox={`0 0 ${width} 194`} role="img" aria-label={`Today ${greek}, ${unit}, over underlying price in USD; aligned with P&L pane`} onpointermove={inspect} onpointerdown={inspect}>
         <title>Today {greek} by underlying price</title><desc>Only backend greeks_grid values are plotted. Null Greeks form gaps, never zeros. Scenario aggregate values are listed separately at the submitted spot.</desc>
         <defs><clipPath id={`${id}-greek-clip`}><rect x={left} y="20" width={plotWidth} height="128" /></clipPath></defs>
@@ -193,7 +202,7 @@
             <path class="curve today" d={svgPath(greekPoints[0], domain, greekY, plotWidth, 20, 148)} transform={`translate(${left},0)`} stroke-dasharray="7 4" />
             {#if activeSpot != null && activeIndex != null}
               <line class="crosshair" x1={x(activeSpot)} x2={x(activeSpot)} y1="20" y2="148" />
-              {#if finiteValue(greekCurves[0].values[activeIndex])}<circle class="point today" cx={x(activeSpot)} cy={scaleValue(greekCurves[0].values[activeIndex] as number, greekY, 148, 20)} r="3.5" />{/if}
+              {#if finiteValue(greekCurves[0].values[greekIndex])}<circle class="point today" cx={x(activeSpot)} cy={scaleValue(greekCurves[0].values[greekIndex] as number, greekY, 148, 20)} r="3.5" />{/if}
             {/if}
           </g>
         {:else}<text class="axis" x={left+plotWidth/2} y="86" text-anchor="middle">{greek}: unavailable</text>{/if}
@@ -212,14 +221,14 @@
         <div><dt>Expiration breakevens (USD)</dt><dd>{result.summary.breakevens.length ? result.summary.breakevens.map(v => exactValue(v)).join(', ') : 'None'}</dd></div>
         <div><dt>Zero P&amp;L intervals (USD)</dt><dd>{result.summary.zero_intervals.length ? result.summary.zero_intervals.map(z => `[${exactValue(z.start)}, ${z.end == null ? '∞' : exactValue(z.end)}]`).join(', ') : 'None'}</dd></div>
         <div><dt>Enabled option strikes (USD)</dt><dd>{markers.filter(m => m.kind === 'strike').map(m => exactValue(m.spot)).join(', ') || 'None'}</dd></div>
-      </dl><p class="note">Expiry limits and roots cover all nonnegative prices, including outside this view. Sampled chart bounds are not risk limits. Lines are straight connections of supplied samples, not additional model evaluations.</p>
+      </dl><p class="note">Expiry limits and roots cover all nonnegative prices, including outside this view. Sampled chart bounds are not risk limits. The exact expiry trace joins canonical vertices, preserving strike kinks. Other lines connect returned grid samples, not additional model evaluations.</p>
     </details>
     <details class="evidence"><summary>Exact-value data · all returned price samples</summary>
       <p class="note">Unrounded signed values. Missing/nonfinite values are unavailable; they are omitted from plots. The table is independent of display zoom.</p>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to horizontal table scrolling) -->
       <div class="table-scroll" role="region" aria-label="Exact options price data" tabindex="0">
         <table><caption>P&amp;L and today {greek}; {unit}</caption><thead><tr><th scope="col">Spot (USD)</th>{#each curves as curve (curve.id)}<th scope="col">{curve.label} P&amp;L (USD)</th>{/each}<th scope="col">Today {greek}</th></tr></thead>
-          <tbody>{#each result.spot_grid as price, i}<tr><th scope="row">{exactValue(price)}</th>{#each curves as curve (curve.id)}<td>{exactValue(curve.values[i], true)}</td>{/each}<td>{exactValue(greekCurves[0]?.values[i], true)}</td></tr>{/each}</tbody>
+          <tbody>{#each inspectGrid as price}<tr><th scope="row">{exactValue(price)}</th>{#each curves as curve (curve.id)}<td>{exactValue(seriesValue(curve, price), true)}</td>{/each}<td>{exactValue(greekCurves[0]?.values[result.spot_grid.indexOf(price)], true)}</td></tr>{/each}</tbody>
         </table>
       </div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to horizontal table scrolling) -->
@@ -228,6 +237,27 @@
           {#each GREEK_KEYS as key}<tr><th scope="row">{key}<span class="table-unit">{result.greek_units[key]}</span></th><td>{exactValue(result.greeks[key], true)}</td>{#each result.scenarios as scenario}<td>{exactValue(scenario.greeks[key], true)}</td>{/each}</tr>{/each}
         </tbody></table>
       </div>
+    </details>
+    <details class="evidence"><summary>Per-leg P&amp;L &amp; Greeks · submitted spot</summary>
+      <p class="note">Signed total USD contributions, not per-contract values. Positive costs are debits; negative costs are credits. Fees are nonnegative USD entry charges. Disabled legs contribute zero; active undefined Greeks are unavailable, never zero. Values are unrounded.</p>
+      {#if legError}<p class="notice">{legError}</p>{:else}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to horizontal table scrolling) -->
+        <div class="table-scroll" role="region" aria-label="Exact per-leg monetary contributions" tabindex="0">
+          <table><caption>Today at submitted spot {exactValue(result.request.spot)} USD · original leg order</caption>
+            <thead><tr><th scope="col">Leg / submitted position</th><th scope="col">Resolved IV (annual fraction)</th><th scope="col">Gross entry (USD)</th><th scope="col">Entry fees (USD)</th><th scope="col">Net entry (USD)</th><th scope="col">Theoretical value (USD)</th><th scope="col">Today P&amp;L (USD)</th></tr></thead>
+            <tbody>{#each result.legs ?? [] as row}{@const leg = result.request.strategy.legs[row.leg_index]}<tr>
+              <th scope="row">Leg {row.leg_index + 1} · {leg.kind} · {exactValue(leg.quantity, true)} {leg.kind === 'underlying' ? 'shares' : 'contracts'}{leg.strike != null ? ` · strike ${exactValue(leg.strike)} USD` : ''}<span class="table-unit">{row.enabled ? 'Enabled' : 'Disabled · zero contribution'}</span></th>
+              <td>{leg.kind === 'underlying' ? 'Not applicable · shares' : exactValue(row.resolved_implied_volatility)}</td><td>{exactValue(row.gross_entry_cost, true)}</td><td>{exactValue(row.entry_fees, true)}</td><td>{exactValue(row.net_entry_cost, true)}</td><td>{exactValue(row.theoretical_value_today, true)}</td><td>{exactValue(row.pnl_today, true)}</td>
+            </tr>{/each}</tbody>
+          </table>
+        </div>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to horizontal table scrolling) -->
+        <div class="table-scroll" role="region" aria-label="Exact per-leg Greek contributions" tabindex="0">
+          <table><caption>Signed leg Greek exposures at submitted spot · quantity × multiplier weighted</caption><thead><tr><th scope="col">Leg / status</th>{#each GREEK_KEYS as key}<th scope="col">{key}<span class="table-unit">{result.greek_units[key]}</span></th>{/each}</tr></thead>
+            <tbody>{#each result.legs ?? [] as row}<tr><th scope="row">Leg {row.leg_index + 1} · {row.enabled ? 'enabled' : 'disabled'}</th>{#each GREEK_KEYS as key}<td>{exactValue(row.greeks?.[key], true)}</td>{/each}</tr>{/each}</tbody>
+          </table>
+        </div>
+      {/if}
     </details>
     <details class="evidence"><summary>Model assumptions &amp; scenario context</summary><p class="note">Manual inputs · Black–Scholes–Merton v{result.model.version} · European cash settlement · ACT/365. No provider snapshot or historical options execution.</p>
       <dl>{#each result.scenarios as scenario}<div><dt>{scenario.name}</dt><dd>{exactValue(scenario.elapsed_days)} days elapsed · {exactValue(scenario.remaining_days)} remaining · IV {exactValue(scenario.volatility)} annual fraction</dd></div>{/each}</dl>
@@ -304,6 +334,7 @@
   .empty { padding: 16px; border: 1px dashed oklch(var(--border)); border-radius: 4px; line-height: 1.6; }
   .empty p { color: oklch(var(--muted-foreground)); margin-top: 6px; }
   @media (max-width: 420px) { header { align-items: flex-start; } .actions { flex-basis: 100%; } .pane-title > span { flex-basis: 100%; } }
+  @media (pointer: coarse) { button, input, select { min-height: var(--control-touch-height); } }
   @media (forced-colors: active) {
     .curve, .point, .marker, .zero-line, .crosshair, .swatch path { stroke: CanvasText; }
     .grid { stroke: GrayText; }
