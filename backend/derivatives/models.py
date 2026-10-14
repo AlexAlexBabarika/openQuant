@@ -7,6 +7,8 @@ quantity is signed shares. Stock hedges use entry_premium as their entry price
 and multiplier=1. Template names are descriptive labels, never execution rules.
 """
 
+from datetime import date, datetime
+import re
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -16,6 +18,9 @@ PositivePrice = Annotated[float, Field(gt=0, le=1_000_000)]
 Days = Annotated[float, Field(ge=0, le=3650)]
 Volatility = Annotated[float, Field(ge=0, le=5)]
 AnnualRate = Annotated[float, Field(ge=-1, le=1)]
+CalendarDate = Annotated[
+    str, Field(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", min_length=10, max_length=10)
+]
 TemplateName = Literal[
     "custom",
     "long_call",
@@ -58,6 +63,16 @@ class OptionLeg(OptionsModel):
         description="Units per option contract; stock requires explicit 1.",
     )
     enabled: bool = True
+    implied_volatility: Volatility | None = Field(
+        default=None, description="Option IV fraction; null uses request.volatility."
+    )
+    bid: Price | None = None
+    ask: Price | None = None
+    quote_as_of: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Manual timezone-aware ISO timestamp; no verification/freshness claim.",
+    )
 
     @model_validator(mode="after")
     def leg_semantics(self) -> Self:
@@ -66,8 +81,28 @@ class OptionLeg(OptionsModel):
         if self.kind == "underlying":
             if self.strike is not None or self.multiplier != 1:
                 raise ValueError("underlying uses strike=null and multiplier=1")
+            if any(
+                v is not None
+                for v in (self.implied_volatility, self.bid, self.ask, self.quote_as_of)
+            ):
+                raise ValueError("underlying has no option IV or quote metadata")
         elif self.strike is None or abs(self.quantity) > 10_000:
             raise ValueError("options require a positive strike and <=10000 contracts")
+        if (self.bid is None) != (self.ask is None):
+            raise ValueError("bid and ask must be supplied together")
+        if self.bid is not None and self.ask is not None:
+            if self.bid > self.ask:
+                raise ValueError("bid must not exceed ask")
+            if self.quote_as_of is None:
+                raise ValueError("manual quotes require an explicit quote_as_of")
+        if self.quote_as_of is not None:
+            pattern = (
+                r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
+                r"(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])"
+            )
+            if not re.fullmatch(pattern, self.quote_as_of):
+                raise ValueError("quote_as_of must be a timezone-aware ISO timestamp")
+            datetime.fromisoformat(self.quote_as_of)
         return self
 
 
@@ -89,6 +124,9 @@ class OptionStrategy(OptionsModel):
     days_to_expiry: Days = Field(
         default=30, description="Common remaining calendar days, ACT/365."
     )
+    underlying: str | None = Field(default=None, min_length=1, max_length=80)
+    valuation_date: CalendarDate | None = None
+    expiry_date: CalendarDate | None = None
     currency: Literal["USD"] = "USD"
     exercise_style: Literal["european"] = "european"
     settlement: Literal["cash"] = "cash"
@@ -104,6 +142,19 @@ class OptionStrategy(OptionsModel):
     def active_legs(self) -> Self:
         if not self.name.strip():
             raise ValueError("name must not be blank")
+        if self.underlying is not None and not self.underlying.strip():
+            raise ValueError("underlying must not be blank")
+        if (self.valuation_date is None) != (self.expiry_date is None):
+            raise ValueError("valuation_date and expiry_date must be supplied together")
+        if self.valuation_date is not None and self.expiry_date is not None:
+            horizon = (
+                date.fromisoformat(self.expiry_date)
+                - date.fromisoformat(self.valuation_date)
+            ).days
+            if horizon < 0 or horizon != self.days_to_expiry:
+                raise ValueError(
+                    "dates must match the nonexpired common days_to_expiry"
+                )
         if not any(leg.enabled for leg in self.legs):
             raise ValueError("at least one leg must be enabled")
         return self
@@ -120,6 +171,23 @@ class OptionsScenario(OptionsModel):
         le=100,
         description="Additive IV percentage points: +5 changes 0.20 to 0.25.",
     )
+
+
+class OptionsSurfaceRequest(OptionsModel):
+    axis: Literal["elapsed_days", "iv_shift_pp"]
+    spots: list[Price] = Field(min_length=2, max_length=41)
+    steps: list[float] = Field(min_length=2, max_length=21)
+
+    @model_validator(mode="after")
+    def surface_limits(self) -> Self:
+        if any(a >= b for a, b in zip(self.spots, self.spots[1:])):
+            raise ValueError("surface spots must be strictly increasing")
+        if any(a >= b for a, b in zip(self.steps, self.steps[1:])):
+            raise ValueError("surface steps must be strictly increasing")
+        low, high = (0, 3650) if self.axis == "elapsed_days" else (-100, 100)
+        if any(not low <= step <= high for step in self.steps):
+            raise ValueError("surface steps exceed the axis bounds")
+        return self
 
 
 class OptionsAnalysisRequest(OptionsModel):
@@ -142,6 +210,7 @@ class OptionsAnalysisRequest(OptionsModel):
         description="Strictly increasing USD spots; all P&L arrays align to this grid.",
     )
     scenarios: list[OptionsScenario] = Field(default_factory=list, max_length=3)
+    surface: OptionsSurfaceRequest | None = None
 
     @model_validator(mode="after")
     def analysis_limits(self) -> Self:
@@ -149,12 +218,27 @@ class OptionsAnalysisRequest(OptionsModel):
             raise ValueError("spot_grid must be strictly increasing")
         if len({s.name for s in self.scenarios}) != len(self.scenarios):
             raise ValueError("scenario names must be unique")
+        shifts = [scenario.iv_shift_pp for scenario in self.scenarios]
         for scenario in self.scenarios:
             if not scenario.name.strip():
                 raise ValueError("scenario name must not be blank")
             if scenario.elapsed_days > self.strategy.days_to_expiry:
                 raise ValueError("scenario time cannot cross expiry")
-            if not 0 <= self.volatility + scenario.iv_shift_pp / 100 <= 5:
+        if self.surface is not None:
+            if self.surface.axis == "elapsed_days":
+                if self.surface.steps[-1] > self.strategy.days_to_expiry:
+                    raise ValueError("surface time cannot cross expiry")
+            else:
+                shifts.extend(self.surface.steps)
+        ivs = [self.volatility] + [
+            self.volatility
+            if leg.implied_volatility is None
+            else leg.implied_volatility
+            for leg in self.strategy.legs
+            if leg.enabled and leg.kind != "underlying"
+        ]
+        for shift in shifts:
+            if any(not 0 <= iv + shift / 100 <= 5 for iv in ivs):
                 raise ValueError("shifted volatility must be between 0 and 5")
         return self
 
@@ -230,6 +314,30 @@ class OptionsScenarioAnalysis(OptionsModel):
     greeks: OptionsGreeks
 
 
+class OptionsExpiryPoint(OptionsModel):
+    spot: Price
+    pnl: float
+
+
+class OptionsLegAnalysis(OptionsModel):
+    leg_index: int = Field(ge=0, le=15)
+    enabled: bool
+    resolved_implied_volatility: Volatility | None
+    gross_entry_cost: float
+    entry_fees: float
+    net_entry_cost: float
+    theoretical_value_today: float
+    pnl_today: float
+    greeks: OptionsGreeks
+
+
+class OptionsSurfaceAnalysis(OptionsModel):
+    axis: Literal["elapsed_days", "iv_shift_pp"]
+    spots: list[Price] = Field(min_length=2, max_length=41)
+    steps: list[float] = Field(min_length=2, max_length=21)
+    pnl: list[list[float]] = Field(min_length=2, max_length=21)
+
+
 class OptionsAnalysis(OptionsModel):
     request: OptionsAnalysisRequest
     model: OptionsProvenance = Field(default_factory=OptionsProvenance)
@@ -237,6 +345,9 @@ class OptionsAnalysis(OptionsModel):
     spot_grid: list[float]
     today_pnl: list[float]
     expiry_pnl: list[float]
+    expiry_curve: list[OptionsExpiryPoint] = Field(min_length=2, max_length=35)
+    legs: list[OptionsLegAnalysis] = Field(min_length=1, max_length=16)
+    surface: OptionsSurfaceAnalysis | None
     scenarios: list[OptionsScenarioAnalysis]
     greeks: OptionsGreeks
     greek_units: OptionsGreekUnits = Field(default_factory=OptionsGreekUnits)

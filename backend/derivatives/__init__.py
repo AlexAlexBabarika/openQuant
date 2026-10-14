@@ -12,7 +12,11 @@ from .models import (
     OptionStrategy,
     OptionsAnalysis,
     OptionsAnalysisRequest,
+    OptionsExpiryPoint,
+    OptionsLegAnalysis,
     OptionsScenario,
+    OptionsSurfaceAnalysis,
+    OptionsSurfaceRequest,
 )
 
 __all__ = [
@@ -20,6 +24,10 @@ __all__ = [
     "OptionStrategy",
     "OptionsAnalysis",
     "OptionsAnalysisRequest",
+    "OptionsExpiryPoint",
+    "OptionsLegAnalysis",
     "OptionsScenario",
+    "OptionsSurfaceAnalysis",
+    "OptionsSurfaceRequest",
     "analyze_options",
 ]
