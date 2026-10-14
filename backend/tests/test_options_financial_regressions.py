@@ -87,7 +87,7 @@ def discounted_payoff(kind, spot, strike, days, iv, rate, yield_):
     return exp(-rate * t) * step * fsum(terms) / 3
 
 
-def reference_value(data, spot=None, days=None, iv=None):
+def reference_value(data, spot=None, days=None, iv=None, iv_shift_pp=0):
     strategy = data["strategy"]
     spot = data["spot"] if spot is None else spot
     days = strategy["days_to_expiry"] if days is None else days
@@ -103,7 +103,12 @@ def reference_value(data, spot=None, days=None, iv=None):
                 spot,
                 item["strike"],
                 days,
-                iv,
+                (
+                    iv
+                    if item.get("implied_volatility") is None
+                    else item["implied_volatility"]
+                )
+                + iv_shift_pp / 100,
                 data["rate"],
                 data["dividend_yield"],
             )
@@ -731,3 +736,259 @@ def test_seeded_portfolios_are_deterministic_permutation_invariant_and_additive(
         assert permuted.today_pnl == result.today_pnl
         assert permuted.expiry_pnl == result.expiry_pnl
         assert permuted.scenarios == result.scenarios
+
+
+def heterogeneous_request():
+    data = request(
+        [
+            leg("call", 2, 103.125, 7.125, 100, implied_volatility=0.17),
+            leg("put", -3, 91.375, 4.375, 17, implied_volatility=0.61),
+            leg("call", -1, 117.625, 2.125, 50),
+            leg("underlying", -11, None, 98.125),
+            leg("put", 5, 100.125, 99, 1000, implied_volatility=0, enabled=False),
+        ],
+        days=180,
+    )
+    data.update(volatility=0.35, rate=0.04, dividend_yield=0.02)
+    data["strategy"]["entry_fee_per_contract"] = 1.75
+    return data
+
+
+def independent_greeks(data, days=None, shift=0):
+    days = data["strategy"]["days_to_expiry"] if days is None else days
+    spot = data["spot"]
+
+    def value(**kwargs):
+        return reference_value(data, days=days, iv_shift_pp=shift, **kwargs)
+
+    h = 0.01
+    up, down, base = value(spot=spot + h), value(spot=spot - h), value()
+    result = dict(delta=(up - down) / (2 * h), gamma=(up - 2 * base + down) / h**2)
+    h = 0.02
+    result["theta"] = (
+        reference_value(data, days=days - h, iv_shift_pp=shift)
+        - reference_value(data, days=days + h, iv_shift_pp=shift)
+    ) / (2 * h)
+    h = 1e-4
+    result["vega"] = (
+        reference_value(data, days=days, iv_shift_pp=shift + h * 100)
+        - reference_value(data, days=days, iv_shift_pp=shift - h * 100)
+    ) / (2 * h * 100)
+    up_data, down_data = deepcopy(data), deepcopy(data)
+    up_data["rate"] += h
+    down_data["rate"] -= h
+    result["rho"] = (
+        reference_value(up_data, days=days, iv_shift_pp=shift)
+        - reference_value(down_data, days=days, iv_shift_pp=shift)
+    ) / (2 * h * 100)
+    return result
+
+
+def test_two_point_expiry_curve_contains_exact_strike_and_isolated_root():
+    data = request([leg("call", 1, 100, 5, 100)])
+    data["spot_grid"] = [50, 150]
+    result = analyze_options(data)
+    assert result.expiry_pnl == [-500, 4500]
+    assert [p.model_dump() for p in result.expiry_curve] == [
+        dict(spot=50, pnl=-500),
+        dict(spot=100, pnl=-500),
+        dict(spot=105, pnl=0),
+        dict(spot=150, pnl=4500),
+    ]
+
+
+@pytest.mark.parametrize("domain", [[50, 150], [87, 115], [0, 80], [122, 200]])
+def test_arbitrary_expiry_knots_roots_and_interpolation_on_zoomed_domains(domain):
+    data = request(
+        [
+            leg("put", 1, 80.125, 1, 100),
+            leg("put", -1, 90.875, 3, 100),
+            leg("call", -1, 110.625, 3, 100),
+            leg("call", 1, 121.375, 1, 100),
+            leg("call", 99, 100, 100, enabled=False),
+        ],
+    )
+    data["spot_grid"] = domain
+    data["strategy"]["entry_fee_per_contract"] = 2.5
+    result = analyze_options(data)
+    knots = [80.125, 86.975, 90.875, 110.625, 114.525, 121.375]
+    expected_spots = sorted(
+        set(domain + [s for s in knots if domain[0] <= s <= domain[-1]])
+    )
+    assert [p.spot for p in result.expiry_curve] == expected_spots
+    assert result.summary.breakevens == pytest.approx([86.975, 114.525])
+    assert result.summary.max_profit == 390
+    assert result.summary.max_loss == 685
+    for left, right in zip(result.expiry_curve, result.expiry_curve[1:]):
+        for fraction in [0, 0.137, 0.5, 0.923, 1]:
+            spot = left.spot + fraction * (right.spot - left.spot)
+            expected = reference_value(data, spot=spot, days=0) + 390
+            interpolated = left.pnl + fraction * (right.pnl - left.pnl)
+            assert interpolated == pytest.approx(expected, abs=2e-10)
+    assert len(result.expiry_pnl) == len(domain)
+
+
+def test_heterogeneous_iv_marks_leg_cash_flow_sums_and_independent_greeks():
+    data = heterogeneous_request()
+    original = deepcopy(data)
+    result = analyze_options(data)
+    assert [row.leg_index for row in result.legs] == list(range(5))
+    assert [row.resolved_implied_volatility for row in result.legs] == [
+        0.17,
+        0.61,
+        0.35,
+        None,
+        0,
+    ]
+    for row, item in zip(result.legs, data["strategy"]["legs"]):
+        enabled = item.get("enabled", True)
+        assert row.enabled is enabled
+        gross = (
+            item["quantity"] * item["multiplier"] * item["entry_premium"]
+            if enabled
+            else 0
+        )
+        fee = (
+            abs(item["quantity"]) * 1.75
+            if enabled and item["kind"] != "underlying"
+            else 0
+        )
+        assert row.gross_entry_cost == gross
+        assert row.entry_fees == fee
+        assert row.net_entry_cost == gross + fee
+        single = deepcopy(data)
+        single["strategy"]["legs"] = [item]
+        expected_value = reference_value(single)
+        assert row.theoretical_value_today == pytest.approx(expected_value, abs=2e-6)
+        assert row.pnl_today == pytest.approx(expected_value - gross - fee, abs=2e-6)
+        if enabled:
+            for key, value in independent_greeks(single).items():
+                assert getattr(row.greeks, key) == pytest.approx(
+                    value, rel=5e-6, abs=2e-6
+                )
+        else:
+            assert set(row.greeks.model_dump().values()) == {0}
+    for key in [
+        "gross_entry_cost",
+        "entry_fees",
+        "net_entry_cost",
+        "theoretical_value_today",
+        "pnl_today",
+    ]:
+        assert fsum(getattr(row, key) for row in result.legs) == pytest.approx(
+            getattr(result.summary, key)
+        )
+    for key, value in independent_greeks(data).items():
+        assert getattr(result.greeks, key) == pytest.approx(value, rel=5e-6, abs=2e-6)
+        assert fsum(getattr(row.greeks, key) for row in result.legs) == pytest.approx(
+            getattr(result.greeks, key)
+        )
+    assert data == original
+
+
+@pytest.mark.parametrize("days,shift", [(180, 5), (130, -10), (0, 12)])
+def test_parallel_scenario_shifts_preserve_leg_skew_costs_and_declared_base(
+    days, shift
+):
+    data = heterogeneous_request()
+    data["scenarios"] = [
+        dict(name="Parallel", elapsed_days=180 - days, iv_shift_pp=shift)
+    ]
+    result = analyze_options(data)
+    scenario = result.scenarios[0]
+    assert scenario.volatility == pytest.approx(0.35 + shift / 100)
+    assert scenario.remaining_days == days
+    assert scenario.pnl == pytest.approx(
+        [
+            reference_value(data, spot=s, days=days, iv_shift_pp=shift)
+            - result.summary.net_entry_cost
+            for s in result.spot_grid
+        ],
+        abs=2e-6,
+    )
+    if days:
+        for key, value in independent_greeks(data, days=days, shift=shift).items():
+            assert getattr(scenario.greeks, key) == pytest.approx(
+                value, rel=5e-6, abs=2e-6
+            )
+    else:
+        assert scenario.pnl == result.expiry_pnl
+        assert set(scenario.greeks.model_dump().values()) == {None}
+    assert (
+        result.request.strategy.legs
+        == OptionsAnalysisRequest.model_validate(data).strategy.legs
+    )
+
+
+@pytest.mark.parametrize("axis", ["elapsed_days", "iv_shift_pp"])
+def test_surface_cells_against_independent_integrals_with_fixed_cash_flows(axis):
+    data = heterogeneous_request()
+    data["surface"] = dict(
+        axis=axis,
+        spots=[0, 83.25, 100, 137.125, 200],
+        steps=[0, 17.5, 90, 180] if axis == "elapsed_days" else [-17, -5, 0, 23],
+    )
+    data["spot_grid"] = data["surface"]["spots"]
+    original = deepcopy(data)
+    result = analyze_options(data)
+    surface = result.surface
+    assert surface is not None
+    assert surface.axis == axis
+    assert surface.spots == data["surface"]["spots"]
+    assert surface.steps == data["surface"]["steps"]
+    assert len(surface.pnl) == len(surface.steps)
+    for step, row in zip(surface.steps, surface.pnl):
+        days = 180 - step if axis == "elapsed_days" else 180
+        shift = step if axis == "iv_shift_pp" else 0
+        assert len(row) == len(surface.spots)
+        assert row == pytest.approx(
+            [
+                reference_value(data, spot=s, days=days, iv_shift_pp=shift)
+                - result.summary.net_entry_cost
+                for s in surface.spots
+            ],
+            abs=2e-6,
+        )
+        if step == 0:
+            assert row == result.today_pnl
+        if axis == "elapsed_days" and step == 180:
+            assert row == result.expiry_pnl
+    assert data == original
+
+
+@pytest.mark.parametrize(
+    "days,zero_iv,disabled", [(0, False, False), (180, True, False), (180, True, True)]
+)
+def test_perleg_null_components_propagate_only_when_active(days, zero_iv, disabled):
+    data = request(
+        [
+            leg("underlying", 25, None, 99),
+            leg(
+                "call",
+                1,
+                101,
+                5,
+                100,
+                implied_volatility=0 if zero_iv else 0.2,
+                enabled=not disabled,
+            ),
+        ],
+        days=days,
+    )
+    data["strategy"]["entry_fee_per_contract"] = 2
+    result = analyze_options(data)
+    assert result.legs[0].greeks.model_dump() == dict(
+        delta=25, gamma=0, theta=0, vega=0, rho=0
+    )
+    assert set(result.legs[1].greeks.model_dump().values()) == (
+        {0} if disabled else {None}
+    )
+    assert (
+        result.greeks == result.legs[0].greeks
+        if disabled
+        else set(result.greeks.model_dump().values()) == {None}
+    )
+    assert result.summary.entry_fees == (0 if disabled else 2)
+    assert fsum(row.pnl_today for row in result.legs) == pytest.approx(
+        result.summary.pnl_today
+    )

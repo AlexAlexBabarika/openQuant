@@ -13,6 +13,12 @@ from backend.core import rate_limit
 from backend.derivatives import OptionsAnalysis, analyze_options
 from backend.derivatives import runner
 from backend.routes import options_routes as routes
+from backend.tests.test_options_extensions import (
+    extension_payload,
+    extension_source,
+    maximum_extension_payload,
+    set_path,
+)
 from backend.tests.test_options_runner import EXPORT_SOURCE, request_payload
 
 
@@ -230,3 +236,102 @@ def test_openapi_exposes_canonical_schema_and_no_auth_or_tuning(client) -> None:
     )
     assert set(components["OptionsPythonRequest"]["properties"]) == {"source"}
     assert "securitySchemes" not in schema["components"]
+
+
+@pytest.mark.parametrize("endpoint", ["analyze", "python"])
+@pytest.mark.parametrize("axis", ["elapsed_days", "iv_shift_pp"])
+def test_expanded_api_preserves_original_leg_indices_exact_vertices_and_cells(
+    client, endpoint, axis
+):
+    data = extension_payload(axis)
+    body = data if endpoint == "analyze" else {"source": extension_source(data)}
+    response = client.post(f"/options/{endpoint}", json=body)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result == analyze_options(data).model_dump(mode="json")
+    assert result["request"]["strategy"]["valuation_date"] == "2024-02-28"
+    assert result["request"]["strategy"]["legs"][0]["entry_premium"] == 5
+    assert result["request"]["strategy"]["legs"][0]["bid"] == 9
+    assert result["model"]["input_source"] == "manual"
+    assert [row["leg_index"] for row in result["legs"]] == list(range(5))
+    assert [row["resolved_implied_volatility"] for row in result["legs"]] == [
+        0.15,
+        0.55,
+        0.3,
+        None,
+        0,
+    ]
+    assert result["legs"][-1]["enabled"] is False
+    assert set(result["legs"][-1]["greeks"].values()) == {0}
+    assert [p["spot"] for p in result["expiry_curve"]] == sorted(
+        {50, 150, 95.375, 100.125, 110.875, *result["summary"]["breakevens"]}
+    )
+    assert result["surface"]["axis"] == axis
+    assert len(result["surface"]["pnl"]) == 3
+    assert all(len(row) == 4 for row in result["surface"]["pnl"])
+
+
+@pytest.mark.parametrize("endpoint", ["analyze", "python"])
+@pytest.mark.parametrize("axis", ["elapsed_days", "iv_shift_pp"])
+def test_maximum_extended_http_response_survives_response_model_serialization(
+    client, endpoint, axis
+):
+    data = maximum_extension_payload(axis)
+    body = (
+        data
+        if endpoint == "analyze"
+        else {"source": extension_source(data) + "print('manual')"}
+    )
+    response = client.post(f"/options/{endpoint}", json=body)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    if endpoint == "python":
+        assert result.pop("stdout") == "manual\n"
+    assert result == analyze_options(data).model_dump(mode="json")
+    assert len(result["surface"]["pnl"]) * len(result["surface"]["spots"]) == 861
+
+
+@pytest.mark.parametrize(
+    "path,value",
+    [
+        (("strategy", "expiry_date"), "2024-02-30"),
+        (("strategy", "valuation_date"), None),
+        (("strategy", "legs", 0, "quote_as_of"), "2024-02-28T14:15:16"),
+        (("strategy", "legs", 0, "ask"), None),
+        (("strategy", "legs", 0, "bid"), 12),
+        (("strategy", "legs", 0, "implied_volatility"), -1),
+        (("strategy", "legs", 3, "implied_volatility"), 0.2),
+        (("surface", "spots"), list(range(42))),
+        (("surface", "steps"), [0, 31]),
+        (("scenarios", 0, "iv_shift_pp"), -16),
+    ],
+)
+def test_extended_http_validation_is_json_safe_and_does_not_echo_manual_inputs(
+    client, path, value
+):
+    data = extension_payload()
+    set_path(data, path, value)
+    response = client.post("/options/analyze", json=data)
+    assert response.status_code == 422
+    assert all(
+        "input" not in error and "ctx" not in error
+        for error in response.json()["detail"]
+    )
+    json.dumps(response.json(), allow_nan=False)
+
+
+def test_openapi_exposes_manual_extensions_and_surface_axis_limits(client):
+    components = client.get("/openapi.json").json()["components"]["schemas"]
+    assert {"underlying", "valuation_date", "expiry_date"} <= components[
+        "OptionStrategy"
+    ]["properties"].keys()
+    assert {"implied_volatility", "bid", "ask", "quote_as_of"} <= components[
+        "OptionLeg"
+    ]["properties"].keys()
+    assert {"expiry_curve", "legs", "surface"} <= set(
+        components["OptionsAnalysis"]["required"]
+    )
+    surface = components["OptionsSurfaceRequest"]["properties"]
+    assert surface["axis"]["enum"] == ["elapsed_days", "iv_shift_pp"]
+    assert (surface["spots"]["minItems"], surface["spots"]["maxItems"]) == (2, 41)
+    assert (surface["steps"]["minItems"], surface["steps"]["maxItems"]) == (2, 21)
