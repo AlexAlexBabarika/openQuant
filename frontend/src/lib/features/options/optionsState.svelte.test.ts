@@ -78,6 +78,25 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it('retains custom Python and document history when explicit export fails', async () => {
+  const python = await import('./optionsPython');
+  const state = new OptionsState(storage());
+  state.setSource('private_custom_source = 1');
+  const key = state.documentKey;
+  const spy = vi.spyOn(python, 'exportOptionsPython').mockImplementation(() => {
+    throw new Error('Export cannot fit the source limit.');
+  });
+  try {
+    expect(state.exportPython()).toBe(false);
+    expect(state.source).toBe('private_custom_source = 1');
+    expect(state.documentKey).toBe(key);
+    expect(state.error).toContain('source limit');
+  } finally {
+    spy.mockRestore();
+    state.dispose();
+  }
+});
+
 describe('bounded options inputs', () => {
   it.each([
     [

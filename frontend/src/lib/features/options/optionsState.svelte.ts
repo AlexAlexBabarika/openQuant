@@ -217,8 +217,18 @@ export class OptionsState {
       this.error = 'Complete the editor fields before replacing Python.';
       return false;
     }
+    let source: string;
+    try {
+      source = exportOptionsPython(this.draft);
+    } catch (error) {
+      this.error =
+        error instanceof Error
+          ? error.message
+          : 'Python export failed. Source is unchanged.';
+      return false;
+    }
     this.changed();
-    this.source = exportOptionsPython(this.draft);
+    this.source = source;
     this.mode = 'python';
     this.documentKey++;
     this.#submittedKey = '';

@@ -96,6 +96,21 @@ function analysis(): OptionsAnalysis {
   };
 }
 
+it('renders submitted Python heatmaps without editor draft controls or callbacks', () => {
+  const result = analysis();
+  const onEdit = vi.fn();
+  const onAnalyze = vi.fn();
+  const html = render(OptionsScenarioLab, {
+    props: { draft: result.request, result, onEdit, onAnalyze, readOnly: true },
+  }).body;
+  expect(html).toContain('Canonical heatmap');
+  expect(html).toContain('-123.123456789');
+  expect(html).not.toContain('Analyze draft');
+  expect(html).not.toContain('Apply heatmap grid');
+  expect(onEdit).not.toHaveBeenCalled();
+  expect(onAnalyze).not.toHaveBeenCalled();
+});
+
 describe('explicit scenario and bounded surface input helpers', () => {
   it('requires unique nonblank bounded scenario names without changing inputs', () => {
     const d = draft();

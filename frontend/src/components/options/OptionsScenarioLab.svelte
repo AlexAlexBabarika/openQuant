@@ -6,12 +6,13 @@
   import { heatmapColor, heatmapLegend, heatmapScale } from '$lib/features/sweep/heatmap';
   import { untrack } from 'svelte';
 
-  let { draft, result, onEdit, onAnalyze, pending = false }: {
+  let { draft, result, onEdit, onAnalyze, pending = false, readOnly = false }: {
     draft: OptionsDraft;
     result: OptionsAnalysis | null;
     onEdit: (update: (draft: OptionsDraft) => void) => void;
     onAnalyze: () => void;
     pending?: boolean;
+    readOnly?: boolean;
   } = $props();
   const id = $props.id();
   let settings = $state<SurfaceSettings>(untrack(() => surfaceSettings(draft)));
@@ -74,6 +75,7 @@
 </script>
 
 <section class="scenario-lab" aria-label="Options scenario lab">
+  {#if !readOnly}
   <header><h3>Scenario lab</h3><button type="button" class="ot-workbench-primary" disabled={pending} onclick={() => { if (!pending) onAnalyze(); }}>{pending ? 'Analyzing…' : 'Analyze draft'}</button></header>
   <p class="note">Manual European cash-settled USD research. Controls edit inputs only; no automatic Python execution. Premiums and entry fees stay fixed. No probability forecast or provider verification.</p>
   <div class="feedback" aria-live="polite" aria-atomic="true">
@@ -122,6 +124,7 @@
     <p class="note">{draft.surface ? `Draft requests ${draft.surface.spots.length} spot columns × ${draft.surface.steps.length} ${draft.surface.axis === 'elapsed_days' ? 'time' : 'IV-shift'} rows.` : 'No heatmap requested in the draft.'} Saved nonuniform grids remain unchanged until Apply explicitly replaces them with a uniform grid.</p>
   </details>
 
+  {/if}
   <div class="section-title"><h4>Canonical heatmap · submitted evidence</h4></div>
   {#if !result}<p class="notice">No analysis yet. Apply a heatmap grid and Analyze explicitly.</p>
   {:else}

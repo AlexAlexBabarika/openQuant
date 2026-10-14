@@ -96,10 +96,28 @@ The price-domain charts show exact expiry P&L, theoretical today/scenario P&L,
 and selectable today-model Greek curves with keyboard and exact-value readouts.
 The result retains its submitted inputs; editing the draft marks it stale.
 
-The additive metadata, per-leg rows, exact expiry vertices and surface API below
-are canonical backend contracts. Frontend editor/chart/recovery integration is
-reconciled separately; API support does not by itself establish that every field
-has an editable control or that every artifact is included in local recovery.
+The editor exposes underlying identity, common valuation/expiry dates, per-leg
+IV overrides and manual bid/ask timestamps. Quotes are unverified and never
+replace entry premiums unless explicitly applying a valid midpoint. Desktop leg
+rows reflow to mobile cards; Buy/Sell, duplicate/reorder and bounded undo/redo
+operate on signed canonical inputs. Submitted risk totals remain separate from
+current edits. Expiry paths use exact backend vertices, not sparse sampled lines.
+
+The scenario lab provides explicit time/IV sliders and bounded spot/time or
+spot/IV heatmaps. Apply configures a draft; Analyze submits it. Python-mode
+heatmaps render submitted cells read-only, without submitting editor assumptions.
+Per-leg monetary/Greek tables and session-only pins (up to three) expose signed
+contributions and comparison contexts. Different assumptions are not presented
+as directly comparable performance. CodeMirror supports sandbox helper
+completions, scoped run shortcuts and bounded stdout; custom source is replaced
+only by the confirmed editor-export action.
+
+Each guest/account browser scope has separate working recovery and up to ten
+named drafts. Recovery autosaves after 500 ms and restores explicitly, without
+running Python. Named updates/renames retain three prior revisions. Versioned
+JSON bundles support validated manual import/export; submitted CSV and JSON
+reports retain canonical context and source/stdout where present. These are
+private local files, not encrypted, cloud-synced or included in server backups.
 
 - `POST /options/analyze`: send `OptionsAnalysisRequest` as JSON; receive
   `OptionsAnalysis` directly, including `greeks_grid` aligned with `spot_grid`.
