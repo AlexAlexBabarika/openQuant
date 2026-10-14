@@ -147,6 +147,10 @@ export class OptionsState {
         const legacy = this.#storage.getItem(`openquant.options.v1:${scope}`);
         if (legacy !== null) this.saved = decodeLegacyOptions(legacy);
       }
+      this.saved = this.saved.map(item => ({
+        ...$state.snapshot(item),
+        id: item.id ?? crypto.randomUUID(),
+      }));
     } catch (e) {
       this.#readFailed = true;
       this.storageError =
