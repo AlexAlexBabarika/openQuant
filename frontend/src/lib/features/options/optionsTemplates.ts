@@ -152,3 +152,16 @@ export function createOptionsDraft(): OptionsDraft {
     scenarios: [],
   };
 }
+
+/** Replace explicit synthetic legs, not common contract or request assumptions. */
+export function applyOptionsTemplate(
+  draft: OptionsDraft,
+  id: OptionsTemplate,
+): void {
+  const spot =
+    Number.isFinite(draft.spot) && draft.spot > 0 && draft.spot <= 1000000
+      ? draft.spot
+      : 100;
+  const { name, template, legs } = templateStrategy(id, spot);
+  Object.assign(draft.strategy, { name, template, legs });
+}
