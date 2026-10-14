@@ -4,10 +4,51 @@ import {
   OPTIONS_TEMPLATES,
   spotGrid,
   templateStrategy,
+  applyOptionsTemplate,
 } from './optionsTemplates';
 import { optionsErrors } from './optionsState.svelte';
 
 describe('manual options templates', () => {
+  it.each(OPTIONS_TEMPLATES)(
+    'replaces %s legs without dropping manual metadata or request assumptions',
+    id => {
+      const d = createOptionsDraft();
+      Object.assign(d.strategy, {
+        underlying: 'Manual index',
+        valuation_date: '2026-10-14',
+        expiry_date: '2026-11-13',
+        days_to_expiry: 30,
+        entry_fee_per_contract: 0.65,
+      });
+      d.scenarios = [{ name: 'Later', elapsed_days: 2, iv_shift_pp: 5 }];
+      d.surface = { axis: 'elapsed_days', spots: [50, 150], steps: [0, 30] };
+      const before = structuredClone(d);
+      applyOptionsTemplate(d, id);
+      expect(d.strategy.legs).toEqual(templateStrategy(id, d.spot).legs);
+      expect({
+        ...d,
+        strategy: {
+          ...d.strategy,
+          name: before.strategy.name,
+          template: before.strategy.template,
+          legs: before.strategy.legs,
+        },
+      }).toEqual(before);
+      expect(optionsErrors(d)).toEqual({});
+    },
+  );
+  it('uses a bounded synthetic seed without silently repairing an invalid request spot', () => {
+    for (const spot of [NaN, Infinity, -5, 0, 1000001]) {
+      const d = createOptionsDraft();
+      d.spot = spot;
+      applyOptionsTemplate(d, 'iron_condor');
+      expect(d.strategy.legs).toEqual(
+        templateStrategy('iron_condor', 100).legs,
+      );
+      expect(Object.is(d.spot, spot)).toBe(true);
+      expect(optionsErrors(d).spot).toBeTruthy();
+    }
+  });
   it.each(OPTIONS_TEMPLATES)('creates bounded editable %s legs', id => {
     const d = createOptionsDraft();
     d.strategy = templateStrategy(id);
