@@ -20,6 +20,7 @@
   import X from '@lucide/svelte/icons/x';
   import ScriptEditor from '../indicators/ScriptEditor.svelte';
   import StrategyDocs from './StrategyDocs.svelte';
+  import OptionsPanel from '../options/OptionsPanel.svelte';
   import SweepPanel from '../sweep/SweepPanel.svelte';
   import PortfolioPanel from './PortfolioPanel.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
@@ -45,7 +46,7 @@
     portfolioRunId = null,
     editorShare = $bindable(50),
     recoverySavedAt = null,
-    tab = $bindable<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor'),
+    tab = $bindable<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor'),
   }: {
     open?: boolean;
     embedded?: boolean;
@@ -61,7 +62,7 @@
     portfolioRunId?: string | null;
     editorShare?: number;
     recoverySavedAt?: string | null;
-    tab?: 'editor' | 'sweep' | 'portfolio' | 'docs';
+    tab?: 'editor' | 'options' | 'sweep' | 'portfolio' | 'docs';
   } = $props();
 
   const strat = $derived(strategy);
@@ -234,6 +235,12 @@
         <button
           type="button"
           class="tab"
+          class:active={tab === 'options'}
+          onclick={() => (tab = 'options')}
+        >options</button>
+        <button
+          type="button"
+          class="tab"
           class:active={tab === 'sweep'}
           onclick={() => (tab = 'sweep')}
         >sweep</button>
@@ -275,8 +282,10 @@
       class="body"
       class:sweep-mode={tab === 'sweep' || tab === 'portfolio'}
       class:docs-mode={tab === 'docs'}
+      class:options-mode={tab === 'options'}
       class:library-collapsed={!libraryOpen}
     >
+      <div class="options-host" hidden={tab !== 'options'}><OptionsPanel /></div>
       {#if tab === 'docs'}
         <StrategyDocs />
       {:else if tab === 'portfolio'}
@@ -290,7 +299,7 @@
         />
       {:else if tab === 'sweep'}
         <SweepPanel code={strat.draftCode} {symbol} {provider} {sweep} />
-      {:else}
+      {:else if tab !== 'options'}
         {#if libraryOpen}<aside class="rail" id="strategy-library" aria-label="Saved strategies">
           <div class="rail-head">
             <span class="rail-title">strategies</span>
@@ -634,6 +643,9 @@
     grid-template-columns: 220px minmax(0, 1fr);
   }
   .body.library-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .body.options-mode { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+  .options-host { min-width: 0; }
+  .options-host[hidden] { display: none; }
   .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
   .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
   .compact-view { display: none; }

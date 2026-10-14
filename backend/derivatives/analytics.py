@@ -230,6 +230,7 @@ def analyze_options(
             "Null Greeks are undefined/not reported at expiry, zero IV or a numerical "
             "singularity; a null leg exposure makes that strategy Greek null."
         )
+    today_marks = [value_at(s, days, submitted.volatility) for s in submitted.spot_grid]
     return OptionsAnalysis(
         request=submitted,
         summary=OptionsSummary(
@@ -248,10 +249,7 @@ def analyze_options(
             zero_intervals=intervals,
         ),
         spot_grid=submitted.spot_grid,
-        today_pnl=[
-            value_at(s, days, submitted.volatility)[0] - entry_cost
-            for s in submitted.spot_grid
-        ],
+        today_pnl=[value - entry_cost for value, _ in today_marks],
         expiry_pnl=[
             fsum(
                 [
@@ -264,5 +262,6 @@ def analyze_options(
         ],
         scenarios=scenarios,
         greeks=greeks,
+        greeks_grid=[exposure for _, exposure in today_marks],
         warnings=warnings,
     )

@@ -51,6 +51,29 @@ def condor():
     )
 
 
+def test_greek_curves_align_with_canonical_spot_exposures():
+    data = condor()
+    result = analyze_options(data)
+    assert len(result.greeks_grid) == len(result.spot_grid)
+    for spot, exposure in zip(result.spot_grid, result.greeks_grid):
+        if spot == 0:
+            assert exposure.delta is None
+        else:
+            at_spot = {**data, "spot": spot}
+            assert exposure == analyze_options(at_spot).greeks
+
+
+@pytest.mark.parametrize("field,value", [("volatility", 0), ("days", 0)])
+def test_greek_curves_preserve_unavailable_values(field, value):
+    data = condor()
+    if field == "days":
+        data["strategy"]["days_to_expiry"] = value
+    else:
+        data[field] = value
+    result = analyze_options(data)
+    assert all(g.delta is None and g.gamma is None for g in result.greeks_grid)
+
+
 def test_condor_credit_bounds_and_all_roots_outside_display_grid():
     data = condor()
     data["spot_grid"] = [99, 100, 101]

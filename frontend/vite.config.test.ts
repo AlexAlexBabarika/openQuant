@@ -73,6 +73,8 @@ describe('development API routing', () => {
     ['GET', '/symbols/search?q=AAPL&limit=20'],
     ['POST', '/scripts'],
     ['PUT', '/strategies/42'],
+    ['POST', '/options/analyze'],
+    ['POST', '/options/python'],
     ['DELETE', '/sweeps/run-id'],
     ['POST', '/portfolio-backtests/run'],
     ['POST', '/datastore/ingest'],

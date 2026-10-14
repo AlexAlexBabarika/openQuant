@@ -83,8 +83,51 @@ constructed or subsequently mutated request models. Invalid inputs raise
 `pydantic.ValidationError`. Wire names are snake_case, without aliases; all
 resolved defaults are echoed in `result.request`. The module neither saves a run
 nor creates a research archive. This document specifies the direct Python/model
-API; it does not assert a REST endpoint, workbench editor or sandbox callable
-exists merely because the pricing module exists.
+API. The native workbench and bounded HTTP worker use that same contract.
+
+## Workbench and HTTP API
+
+Open **Strategy → Options** or choose **Open Options workbench** in the command
+palette. Templates are editable configurations, not special payoff formulas.
+Analyze the visual draft, or explicitly export it to the panel's Python mode.
+The price-domain charts show exact expiry P&L, theoretical today/scenario P&L,
+and selectable today-model Greek curves with keyboard and exact-value readouts.
+The result retains its submitted inputs; editing the draft marks it stale.
+
+- `POST /options/analyze`: send `OptionsAnalysisRequest` as JSON; receive
+  `OptionsAnalysis` directly, including `greeks_grid` aligned with `spot_grid`.
+- `POST /options/python`: send only `{ "source": "..." }`; receive the same
+  analysis, with optional `stdout`. The source assigns
+  `result = analyze_options(request_dictionary)`. Injected `OptionLeg(**kwargs)`
+  and `OptionStrategy(**kwargs)` validate and return dictionaries. The injected
+  `analyze_options` returns a dictionary, unlike the trusted module's model.
+  No imports of `backend.derivatives` or unrestricted modules are allowed.
+
+For example, in the panel's Python mode:
+
+```python
+strategy = OptionStrategy(
+    name="Long call", days_to_expiry=30,
+    legs=[OptionLeg(kind="call", quantity=1, strike=100, entry_premium=5)],
+)
+result = analyze_options({
+    "strategy": strategy, "spot": 100, "volatility": 0.2,
+    "spot_grid": [80, 90, 100, 110, 120],
+})
+```
+
+Both endpoints are guest-accessible, provider-free, rate-limited, and spawn a
+worker with a five-second timeout and at most two concurrent workers per server
+process. Bodies are bounded to 128 KiB; Python source to 20,000 characters,
+combined printed output to 16 KiB, and worker JSON to 256 KiB. Invalid source or
+result returns 400, malformed inputs 422, timeout 408, oversized bodies 413,
+rate limits 429 and saturated workers 503. Browser cancellation does not
+terminate the server computation; the server timeout still applies.
+
+The inherited AST/resource/socket controls are **best effort, not a strong
+security boundary**. The existing resource helper does not enforce memory in
+the process; deployment isolation and container/cgroup memory limits remain
+necessary for untrusted source. This feature is not hosted multi-tenant approval.
 
 ### Input contract and limits
 
@@ -206,11 +249,10 @@ tables/charts and retain the returned warnings.
 
 ## Python analysis is not historical execution or arbitrary imports
 
-The example uses trusted local Python. It does not authorize user-authored
-sandbox code to import `backend.derivatives` or arbitrary modules. Existing stock,
-portfolio and Robustness sandbox/execution rules remain unchanged. An options
-worker integration must expose a narrow supported analysis callable under those
-same sandbox conventions, not broaden allowed imports or disable AST guards.
+The direct-module example uses trusted local Python. It does not authorize
+user-authored sandbox code to import `backend.derivatives` or arbitrary modules.
+The Options worker injects only narrow model builders and the shared analyzer;
+existing stock, portfolio and Robustness sandbox/execution rules remain unchanged.
 Do not treat BSM P&L/Greeks as stock backtest equity, fills, return series,
 historical options execution or a new brokerage ledger. American assignment and
 futures remain deferred rather than hidden execution modes.
@@ -221,13 +263,20 @@ The pure analyzer has no persistence or account identity. An editable draft is
 not completed evidence: display results from the returned `request`, and mark
 them stale after input edits instead of relabeling old results with new controls.
 
+The Options panel explicitly saves/restores named, bounded browser-local drafts
+under its own guest/account key. Account changes clear in-memory results and fence
+obsolete requests; guest drafts are not adopted by a signed-in account. Options
+drafts are separate from the stock script library, research shelf and existing
+account recovery bundle. They are not cloud-synced, encrypted or server-authorized
+artifacts. Results are not persisted; rerun a restored draft to obtain analysis.
+
 OpenQuant's existing research shelf uses separate guest/account browser-local
 storage. Browser account namespaces are not encrypted storage or cloud sync and
 do not establish server authorization. Existing authenticated saved historical
 research is account-private and server-local; guest historical runs are not
 durably saved as account artifacts. These are boundaries of the existing
-research workbench, not a claim that this analyzer saves options drafts/results,
-syncs them, or writes options analysis into the historical run store. Clearing
+research workbench, not a claim that options analysis is saved into historical
+run storage or included in a comprehensive backup. Clearing
 browser storage can remove local research. Legacy/guest records must never be
 silently claimed by another account. See [research recovery](RESEARCH_RECOVERY.md)
 for the separate browser and server backup boundaries.

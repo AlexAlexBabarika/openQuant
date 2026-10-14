@@ -240,4 +240,7 @@ class OptionsAnalysis(OptionsModel):
     scenarios: list[OptionsScenarioAnalysis]
     greeks: OptionsGreeks
     greek_units: OptionsGreekUnits = Field(default_factory=OptionsGreekUnits)
+    greeks_grid: list[OptionsGreeks] = Field(
+        description="Today-model exposures aligned with spot_grid; null means unavailable."
+    )
     warnings: list[str]

@@ -95,6 +95,7 @@ def _validated_analysis(value: Any) -> OptionsAnalysis:
         analysis.spot_grid != points
         or len(analysis.today_pnl) != len(points)
         or len(analysis.expiry_pnl) != len(points)
+        or len(analysis.greeks_grid) != len(points)
         or len(analysis.scenarios) != len(analysis.request.scenarios)
         or any(len(s.pnl) != len(points) for s in analysis.scenarios)
     ):
