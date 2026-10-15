@@ -40,7 +40,7 @@
 </section>
 
 <style>
-  .research-tools { display: grid; gap: 8px; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; padding: 8px; }
+  .research-tools { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; padding: 8px; }
   h3, p { margin: 0; font-size: 12px; }
   p { line-height: 1.5; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
   select { width: 100%; min-width: 0; min-height: 32px; border: 1px solid oklch(var(--input)); border-radius: 4px; padding: 5px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }

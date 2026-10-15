@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { createOptionsDraft } from '$lib/features/options/optionsTemplates';
 import { pathControls } from '$lib/features/options/optionsLifecycle';
@@ -14,6 +16,24 @@ describe('controlled lifecycle and hedge components', () => {
     documentKey: 'guest:doc-a',
     onEdit: vi.fn(),
   });
+  it.each(['OptionsLifecycle', 'OptionsHedgeLab', 'OptionsResearchTools'])(
+    'contains %s in a shrinkable grid track without hiding overflow',
+    name => {
+      const source = readFileSync(
+        new URL(`./${name}.svelte`, import.meta.url),
+        'utf8',
+      );
+      const compiled = compile(source, {
+        generate: 'client',
+        filename: `${name}.svelte`,
+      });
+      expect(compiled.warnings).toEqual([]);
+      expect(compiled.css?.code).toMatch(
+        /grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+      );
+      expect(source).not.toMatch(/overflow(?:-x)?:\s*hidden/);
+    },
+  );
   it('renders the lifecycle empty state and bounded explicit path controls without fetching or editing', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);

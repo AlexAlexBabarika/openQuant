@@ -128,7 +128,7 @@
 </section>
 
 <style>
-  .lifecycle { min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font: 12px var(--font-family-lato); }
+  .lifecycle { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; color: oklch(var(--foreground)); font: 12px var(--font-family-lato); }
   header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } header { justify-content: space-between; } h3, h4, p { margin: 0; } h3 { font-size: 14px; } h4 { font-size: 12px; }
   .note, small { color: oklch(var(--muted-foreground)); line-height: 1.6; overflow-wrap: anywhere; } .error { color: oklch(var(--foreground)); border-left: 3px solid oklch(var(--destructive)); padding-left: 6px; } .notice, .readout { border: 1px dashed oklch(var(--border)); padding: 8px; border-radius: 4px; overflow-wrap: anywhere; line-height: 1.6; }
   fieldset { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; } legend, summary { font-weight: 700; } summary { cursor: pointer; padding: 4px 0; }
