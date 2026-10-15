@@ -128,6 +128,8 @@ describe('integrated options workbench', () => {
     expect(html).toContain('Research tools');
     expect(html).toContain('US exercise and physical delivery are not modeled');
     expect(html).not.toContain('One common expiry, ACT/365');
+    expect(html).toContain('Common expiry is the default');
+    expect(html).not.toContain('One common expiry; no per-leg dates.');
   });
 
   it('never offers visual-draft research in Python mode without submitted evidence', () => {
