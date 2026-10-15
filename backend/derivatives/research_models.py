@@ -8,7 +8,7 @@ Each also accepts a dict and revalidates models before computation. No I/O in
 these functions; authenticated provider I/O belongs to the chain adapter.
 """
 
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, Field, model_validator
@@ -23,6 +23,7 @@ from .models import (
     OptionsGreeks,
     OptionsModel,
     OptionsSummary,
+    OptionsTimestamp,
     PositivePrice,
     Price,
     Volatility,
@@ -36,20 +37,12 @@ Money = Annotated[float, Field(ge=0, le=1_000_000_000_000)]
 Probability = Annotated[float, Field(ge=0, le=1)]
 
 
-def _timestamp(value: str) -> str:
-    if "T" not in value or datetime.fromisoformat(value).utcoffset() is None:
-        raise ValueError("timestamp must be timezone-aware ISO")
-    return value
-
-
 def _calendar(value: str) -> str:
     date.fromisoformat(value)
     return value
 
 
-Timestamp = Annotated[
-    str, Field(min_length=1, max_length=64), AfterValidator(_timestamp)
-]
+Timestamp = OptionsTimestamp
 ChainDate = Annotated[CalendarDate, AfterValidator(_calendar)]
 Symbol = Annotated[str, Field(pattern=r"^[A-Za-z0-9.^_/-]{1,32}$")]
 Environment = Literal["production", "sandbox"]

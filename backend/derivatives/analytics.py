@@ -328,6 +328,28 @@ def analyze_options(
         _, scenario_greeks, _ = value_at(
             submitted.spot, scenario.elapsed_days, scenario.iv_shift_pp
         )
+        scenario_legs = []
+        for horizon, leg, result in zip(
+            horizon_legs(scenario.elapsed_days), strategy.legs, leg_results
+        ):
+            value, exposure, pnl = _value_and_greeks(
+                [leg] if leg.enabled else [],
+                submitted.spot,
+                max(0, strategy.leg_days(leg) - scenario.elapsed_days),
+                submitted.volatility,
+                submitted.rate,
+                submitted.dividend_yield,
+                [result.net_entry_cost] if leg.enabled else [],
+                scenario.iv_shift_pp,
+            )
+            scenario_legs.append(
+                OptionsScenarioLegAnalysis(
+                    **horizon.model_dump(),
+                    theoretical_value=value,
+                    pnl=pnl,
+                    greeks=exposure,
+                )
+            )
         scenarios.append(
             OptionsScenarioAnalysis(
                 name=scenario.name,
@@ -339,29 +361,7 @@ def analyze_options(
                     for s in submitted.spot_grid
                 ],
                 greeks=scenario_greeks,
-                legs=[
-                    OptionsScenarioLegAnalysis(
-                        **h.model_dump(),
-                        theoretical_value=mark[0],
-                        pnl=mark[2],
-                        greeks=mark[1],
-                    )
-                    for h, leg, result in zip(
-                        horizon_legs(scenario.elapsed_days), strategy.legs, leg_results
-                    )
-                    for mark in [
-                        _value_and_greeks(
-                            [leg] if leg.enabled else [],
-                            submitted.spot,
-                            max(0, strategy.leg_days(leg) - scenario.elapsed_days),
-                            submitted.volatility,
-                            submitted.rate,
-                            submitted.dividend_yield,
-                            [result.net_entry_cost] if leg.enabled else [],
-                            scenario.iv_shift_pp,
-                        )
-                    ]
-                ],
+                legs=scenario_legs,
             )
         )
     warnings = list(_LIMITATIONS)

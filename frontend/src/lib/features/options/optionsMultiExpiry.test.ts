@@ -10,7 +10,7 @@ import {
   scenarioInputError,
   surfaceSettings,
 } from './optionsScenario';
-import { setLegKind } from './optionsLegEditor';
+import { addOptionLeg, setLegKind } from './optionsLegEditor';
 import { exportOptionsPython } from './optionsPython';
 import { exportOptionsBundle, importOptionsBundle } from './optionsPersistence';
 
@@ -80,6 +80,15 @@ describe('canonical multi-expiry authoring, export and recovery', () => {
     expect(source).toContain('"bid_as_of": None');
     expect(source).toContain('"provider": "tradier"');
     expect(records[0].source).toBe('# unchanged custom Python');
+    const echo = structuredClone(d);
+    Object.assign(echo.strategy.legs[0].source!, {
+      observed_exercise_style: 'unknown',
+      observed_settlement: 'unknown',
+    });
+    expect(requestChanged(d, echo)).toBe(false);
+    expect(addOptionLeg(d, 0)).toBe(true);
+    d.strategy.legs[1].source!.contract_symbol = 'different';
+    expect(d.strategy.legs[0].source!.contract_symbol).toBe('XYZ-EXAMPLE');
   });
   it('normalizes omitted and null overrides but never treats an explicit zero as omitted', () => {
     const d = calendar(),

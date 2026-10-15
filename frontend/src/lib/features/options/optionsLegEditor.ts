@@ -64,7 +64,7 @@ export function addOptionLeg(draft: OptionsDraft, copyIndex?: number): boolean {
   const copy = copyIndex === undefined ? null : draft.strategy.legs[copyIndex];
   if (copyIndex !== undefined && !copy) return false;
   const leg: OptionLeg = copy
-    ? { ...copy }
+    ? structuredClone(copy)
     : {
         kind: 'call',
         quantity: 1,
@@ -228,7 +228,7 @@ export function optionsEditorErrors(
       const days = commonDateHorizon(valuation, expiry);
       if (days === null)
         errors['strategy.expiry_date'] =
-          'Expiry must be 0–3650 UTC calendar days after valuation; no expired or mixed horizons.';
+          'Expiry must be 0–3650 UTC calendar days after valuation.';
       else if (days !== strategy.days_to_expiry)
         errors['strategy.days_to_expiry'] =
           'Common days to expiry must exactly match the paired UTC dates.';

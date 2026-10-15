@@ -318,7 +318,14 @@ def test_signed_multipliers_fees_and_disabled_legs_excluded_everywhere():
     assert disabled.greeks == result.greeks
     assert disabled.today_pnl == result.today_pnl
     assert disabled.expiry_pnl == result.expiry_pnl
-    assert disabled.scenarios == result.scenarios
+    assert [s.model_dump(exclude={"legs"}) for s in disabled.scenarios] == [
+        s.model_dump(exclude={"legs"}) for s in result.scenarios
+    ]
+    assert disabled.scenarios[0].legs[:-1] == result.scenarios[0].legs
+    disabled_leg = disabled.scenarios[0].legs[-1]
+    assert disabled_leg.state == "disabled"
+    assert disabled_leg.theoretical_value == disabled_leg.pnl == 0
+    assert set(disabled_leg.greeks.model_dump().values()) == {0}
     assert disabled.warnings == result.warnings
     assert not disabled.request.strategy.legs[-1].enabled
     data["strategy"]["legs"][-1]["strike"] = 0
@@ -735,7 +742,14 @@ def test_seeded_portfolios_are_deterministic_permutation_invariant_and_additive(
         assert permuted.greeks == result.greeks
         assert permuted.today_pnl == result.today_pnl
         assert permuted.expiry_pnl == result.expiry_pnl
-        assert permuted.scenarios == result.scenarios
+        assert [s.model_dump(exclude={"legs"}) for s in permuted.scenarios] == [
+            s.model_dump(exclude={"legs"}) for s in result.scenarios
+        ]
+        for new_index, item in enumerate(data["strategy"]["legs"]):
+            old_index = original["strategy"]["legs"].index(item)
+            assert permuted.scenarios[0].legs[new_index].model_dump(
+                exclude={"leg_index"}
+            ) == result.scenarios[0].legs[old_index].model_dump(exclude={"leg_index"})
 
 
 def heterogeneous_request():

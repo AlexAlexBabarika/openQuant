@@ -163,6 +163,20 @@ def test_mixed_expiry_trusted_and_sandbox_serialization_match():
     assert runner.run_options_analysis(data).model_dump(mode="json") == expected
 
 
+def test_diagonal_helpers_preserve_overrides_and_signed_provenance():
+    source = """
+front = OptionLeg(kind="put", quantity=-2, strike=95, entry_premium=2, days_to_expiry=10.5)
+back = OptionLeg(kind="put", quantity=2, strike=100, entry_premium=4, days_to_expiry=60)
+strategy = OptionStrategy(template="diagonal", days_to_expiry=60, legs=[front, back])
+result = analyze_options(dict(strategy=strategy, spot=100, volatility=0.2, spot_grid=[0, 100, 200]))
+"""
+    result = runner.run_options_python(source)
+    assert result["request"]["strategy"]["template"] == "diagonal"
+    assert result["request"]["strategy"]["legs"][0]["quantity"] == -2
+    assert result["horizon"]["first_expiry_days"] == 10.5
+    assert [leg["remaining_days"] for leg in result["horizon"]["legs"]] == [0, 49.5]
+
+
 def test_mixed_expiry_http_analyze_and_python(client):  # noqa: F811
     data = calendar_request()
     expected = analyze_options(data).model_dump(mode="json")

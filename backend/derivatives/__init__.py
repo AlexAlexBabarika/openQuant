@@ -18,6 +18,7 @@ from .models import (
     OptionsHorizon,
     OptionsLegHorizon,
     OptionsScenario,
+    OptionsScenarioLegAnalysis,
     OptionsSurfaceAnalysis,
     OptionsSurfaceRequest,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "OptionsExpiryPoint",
     "OptionsLegAnalysis",
     "OptionsScenario",
+    "OptionsScenarioLegAnalysis",
     "OptionsSurfaceAnalysis",
     "OptionsSurfaceRequest",
     "analyze_options",

@@ -9,6 +9,7 @@ from backend.derivatives.research_models import (
     FinderRequest,
     LifecycleRequest,
 )
+from backend.derivatives.models import OptionsContractSource
 from backend.tests.test_options_multi_expiry import calendar_request
 
 
@@ -92,3 +93,25 @@ def test_normalized_chain_preserves_zero_and_unknown_and_never_accepts_token():
     quote["token"] = "not-allowed"
     with pytest.raises(ValidationError):
         ChainQuote.model_validate(quote)
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        "2026-10-15",
+        "2026-10-15T12:00",
+        "2026-02-30T00:00Z",
+        "2026-10-15T24:00Z",
+        "2026-10-15T00:00+02",
+        "2026-10-15T00:00Z" + "x" * 64,
+    ],
+)
+def test_source_timestamp_requires_bounded_zoned_iso_calendar_timestamp(time):
+    with pytest.raises(ValidationError):
+        OptionsContractSource(
+            provider="tradier",
+            environment="sandbox",
+            contract_symbol="XYZ-EXAMPLE",
+            underlying="XYZ",
+            fetched_at=time,
+        )

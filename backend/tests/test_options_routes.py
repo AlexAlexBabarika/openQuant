@@ -322,9 +322,10 @@ def test_extended_http_validation_is_json_safe_and_does_not_echo_manual_inputs(
 
 def test_openapi_exposes_manual_extensions_and_surface_axis_limits(client):
     components = client.get("/openapi.json").json()["components"]["schemas"]
-    assert {"underlying", "valuation_date", "expiry_date"} <= components[
-        "OptionStrategy"
-    ]["properties"].keys()
+    strategy = components.get("OptionStrategy", components.get("OptionStrategy-Input"))
+    assert {"underlying", "valuation_date", "expiry_date"} <= strategy[
+        "properties"
+    ].keys()
     assert {"implied_volatility", "bid", "ask", "quote_as_of"} <= components[
         "OptionLeg"
     ]["properties"].keys()

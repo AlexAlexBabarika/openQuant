@@ -256,7 +256,17 @@ export function requestChanged(
         quote_as_of: l.quote_as_of ?? null,
         days_to_expiry: l.days_to_expiry ?? null,
         expiry_date: l.expiry_date ?? null,
-        source: l.source ?? null,
+        source:
+          l.source == null
+            ? null
+            : {
+                ...l.source,
+                bid_as_of: l.source.bid_as_of ?? null,
+                ask_as_of: l.source.ask_as_of ?? null,
+                observed_exercise_style:
+                  l.source.observed_exercise_style ?? 'unknown',
+                observed_settlement: l.source.observed_settlement ?? 'unknown',
+              },
       })),
     },
   });

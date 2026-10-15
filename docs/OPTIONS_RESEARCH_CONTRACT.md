@@ -81,7 +81,10 @@ They use the same inherited bounded worker/time/concurrency controls as options
 analysis; integration must bound request bytes (128 KiB), output bytes (1 MiB),
 wall time (5 seconds) and cancellation/replacement generations. Oversized output
 is an explicit error, not silently truncated evidence. Typed list/cell caps below
-apply before expensive computation. Any child process semaphore must release
+apply before expensive computation. These are new research HTTP envelopes only:
+the existing options analyze/Python 256 KiB output bound and sandbox policies
+remain unchanged; research functions are not injected into untrusted Python.
+Any child process semaphore must release
 on timeout/error. Browser abort prevents publishing results; it does not promise
 server process cancellation. HTTP errors: 422 validation, 400 unsupported/invalid
 research assumptions, 408 timeout, 413 oversize, 429 rate limit, 503 saturation.

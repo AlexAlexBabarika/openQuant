@@ -11,7 +11,7 @@ from datetime import date, datetime
 import re
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 Price = Annotated[float, Field(ge=0, le=1_000_000)]
 PositivePrice = Annotated[float, Field(gt=0, le=1_000_000)]
@@ -44,14 +44,30 @@ class OptionsModel(BaseModel):
     )
 
 
+def _timestamp(value: str) -> str:
+    pattern = (
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
+        r"(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])"
+    )
+    if not re.fullmatch(pattern, value):
+        raise ValueError("time must be a timezone-aware ISO timestamp")
+    datetime.fromisoformat(value)
+    return value
+
+
+OptionsTimestamp = Annotated[
+    str, Field(min_length=1, max_length=64), AfterValidator(_timestamp)
+]
+
+
 class OptionsContractSource(OptionsModel):
     provider: Literal["tradier"]
     environment: Literal["production", "sandbox"]
     contract_symbol: str = Field(min_length=1, max_length=80)
     underlying: str = Field(min_length=1, max_length=80)
-    fetched_at: str = Field(min_length=1, max_length=64)
-    bid_as_of: str | None = Field(default=None, max_length=64)
-    ask_as_of: str | None = Field(default=None, max_length=64)
+    fetched_at: OptionsTimestamp
+    bid_as_of: OptionsTimestamp | None = None
+    ask_as_of: OptionsTimestamp | None = None
     observed_exercise_style: Literal["american", "european", "unknown"] = "unknown"
     observed_settlement: Literal["cash", "physical", "unknown"] = "unknown"
 
@@ -59,11 +75,6 @@ class OptionsContractSource(OptionsModel):
     def source_metadata(self) -> Self:
         if not self.contract_symbol.strip() or not self.underlying.strip():
             raise ValueError("contract source identity must not be blank")
-        for value in (self.fetched_at, self.bid_as_of, self.ask_as_of):
-            if value is None:
-                continue
-            if "T" not in value or datetime.fromisoformat(value).utcoffset() is None:
-                raise ValueError("source times must be timezone-aware ISO timestamps")
         return self
 
 
@@ -104,6 +115,8 @@ class OptionLeg(OptionsModel):
 
     @model_validator(mode="after")
     def leg_semantics(self) -> Self:
+        if self.expiry_date is not None:
+            date.fromisoformat(self.expiry_date)
         if self.quantity == 0:
             raise ValueError("quantity must be a nonzero signed integer")
         if self.kind == "underlying":
@@ -128,13 +141,7 @@ class OptionLeg(OptionsModel):
             if self.quote_as_of is None:
                 raise ValueError("manual quotes require an explicit quote_as_of")
         if self.quote_as_of is not None:
-            pattern = (
-                r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
-                r"(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])"
-            )
-            if not re.fullmatch(pattern, self.quote_as_of):
-                raise ValueError("quote_as_of must be a timezone-aware ISO timestamp")
-            datetime.fromisoformat(self.quote_as_of)
+            _timestamp(self.quote_as_of)
         return self
 
 

@@ -16,8 +16,9 @@ afterEach(() => {
 it('authenticates chain requests, encodes query values and carries AbortSignal', async () => {
   const fetch = vi
     .fn()
-    .mockResolvedValue(
-      new Response('{}', { headers: { 'content-type': 'application/json' } }),
+    .mockImplementation(
+      async () =>
+        new Response('{}', { headers: { 'content-type': 'application/json' } }),
     );
   vi.stubGlobal('fetch', fetch);
   setAccessToken('test-only-placeholder');

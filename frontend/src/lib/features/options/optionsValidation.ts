@@ -421,15 +421,17 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
         s.provider !== 'tradier' ||
         !['production', 'sandbox'].includes(s.environment) ||
         !s.contract_symbol.trim() ||
+        s.contract_symbol.length > 80 ||
         !s.underlying.trim() ||
+        s.underlying.length > 80 ||
         !quoteTimestamp(s.fetched_at) ||
         (s.bid_as_of != null && !quoteTimestamp(s.bid_as_of)) ||
         (s.ask_as_of != null && !quoteTimestamp(s.ask_as_of)) ||
-        (s.observed_exercise_style != null &&
+        (s.observed_exercise_style !== undefined &&
           !['american', 'european', 'unknown'].includes(
             s.observed_exercise_style,
           )) ||
-        (s.observed_settlement != null &&
+        (s.observed_settlement !== undefined &&
           !['cash', 'physical', 'unknown'].includes(s.observed_settlement))
       )
         errors[`${key}.source`] =

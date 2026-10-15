@@ -55,7 +55,7 @@ export const OPTIONS_PYTHON_HELPERS: Completion[] = [
     label: 'analyze_options',
     type: 'function',
     detail: '(request: dict) → dict',
-    info: 'Assign result = analyze_options(request). Canonical Python BSM manual/synthetic research only; no provider, brokerage or historical execution. Returns summary, signed total Greeks (undefined is None), aligned curves, exact expiry_curve vertices, per-leg contributions, scenarios and optional surface. USD totals include fixed premiums and fees.',
+    info: 'Assign result = analyze_options(request). Canonical Python BSM research only; no provider lookup, brokerage or historical execution. Returns summary, signed Greeks (undefined is None), current marks, per-leg contributions, scenarios and optional surface bounded by first expiry. Common expiry returns exact vertices; mixed expiry withholds terminal extrema/curves/breakevens and returns sampled horizon_pnl with horizon metadata. USD totals include fixed premiums and fees.',
   }),
 ];
 
@@ -83,7 +83,7 @@ const FIELD_DOCS: [string, string][] = [
   ],
   [
     'valuation_date',
-    'Optional YYYY-MM-DD valid date, paired with expiry_date. Difference must equal days_to_expiry.',
+    'Optional YYYY-MM-DD valuation anchor for strategy and/or leg expiry_date. Common dates match default days; leg dates match explicit leg days if supplied.',
   ],
   [
     'expiry_date',
