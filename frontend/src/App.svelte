@@ -378,7 +378,7 @@
   let dataInspectorOpen = $state(false);
   let strategyEditorShare = $state(50);
   let indicatorSplitPct = $state(60);
-  let strategyTab = $state<'editor' | 'sweep' | 'portfolio' | 'docs'>('editor');
+  let strategyTab = $state<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor');
   let indicatorTab = $state<'editor' | 'docs'>('editor');
   let commandsOpen = $state(false);
   let guidedExampleOpen = $state(false);
@@ -442,6 +442,7 @@
     const command = (id: string, title: string, action: () => void, group = 'Workspace', detail = ''): ResearchCommand => ({ id, title, group, detail, action: () => void activateCommand(action, group === 'Drawing' || group === 'Symbol') });
     const commands = [
       command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }),
+      command('options', 'Open Options workbench', () => { portfolioRunId = null; strategyTab = 'options'; openStrategy(); }, 'Workspace', 'multi-leg payoff Greeks Python scenarios'),
       command('indicators', 'Open Indicators editor', () => { indicatorTab = 'editor'; indicatorsOpen = true; }),
       command('analytics', 'Open Analytics', () => (analyticsOpen = true)),
       command('runs', 'Open Experiment notebook', () => (runsOpen = true), 'Workspace', 'runs baseline notes tags compare'),

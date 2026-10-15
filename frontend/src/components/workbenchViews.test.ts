@@ -246,6 +246,30 @@ describe('persistent research task views', () => {
     expect(html).not.toContain('class="backdrop');
   });
 
+  it('opens native options without changing or replacing the stock editor draft', () => {
+    const strategy = new StrategyState();
+    const source = strategy.draftCode;
+    const html = render(StrategyPanel, {
+      props: {
+        embedded: true,
+        open: true,
+        tab: 'options',
+        strategy,
+        symbol: 'MSFT',
+        provider: 'yfinance',
+        period: '1y',
+        interval: '1d',
+      },
+    }).body;
+    expect(html).toContain('aria-label="Strategy views"');
+    expect(html).toContain('options-host');
+    expect(html).not.toContain('aria-label="More strategy actions"');
+    expect(strategy.draftCode).toBe(source);
+    const panelSource = readFileSync(panel, 'utf8');
+    expect(panelSource).toContain("hidden={tab !== 'options'}");
+    expect(readFileSync(app, 'utf8')).toContain('Open Options workbench');
+  });
+
   it('keeps embedded Strategy content scrollable when stacked controls consume the viewport', () => {
     const source = readFileSync(panel, 'utf8');
     expect(source.match(/\.panel\.embedded\s*\{([^}]+)\}/)?.[1]).toContain(

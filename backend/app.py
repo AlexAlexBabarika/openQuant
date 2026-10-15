@@ -78,6 +78,7 @@ from backend.routes.datastore_routes import router as datastore_router
 from backend.routes.strategy_routes import router as strategy_router
 from backend.routes.trial_routes import router as trial_router
 from backend.routes.robustness_routes import router as robustness_router
+from backend.routes.options_routes import router as options_router
 from backend.core.rate_limit import allow, client_key, retry_after_seconds
 from backend.core.auth_deps import _user_from_token
 
@@ -236,6 +237,7 @@ app.include_router(datastore_router)
 app.include_router(strategy_router)
 app.include_router(trial_router)
 app.include_router(robustness_router)
+app.include_router(options_router)
 
 
 @app.get("/health")

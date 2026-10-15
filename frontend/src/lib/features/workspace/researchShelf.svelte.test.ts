@@ -96,6 +96,7 @@ describe('ResearchShelf', () => {
   });
   it('rejects unsupported contexts and malformed code snapshots', () => {
     expect(validLayout(layout)).toBe(true);
+    expect(validLayout({ ...layout, strategyTab: 'options' })).toBe(true);
     expect(validLayout({ ...layout, provider: 'bogus' })).toBe(false);
     expect(validLayout({ ...layout, strategyTab: 'unknown' })).toBe(false);
     expect(validLayout({ ...layout, indicatorSplitPct: 90 })).toBe(false);

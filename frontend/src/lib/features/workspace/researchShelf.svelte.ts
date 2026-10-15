@@ -28,7 +28,7 @@ export type ResearchLayout = {
   indicatorsOpen: boolean;
   strategyEditorShare: number;
   indicatorSplitPct: number;
-  strategyTab: 'editor' | 'sweep' | 'portfolio' | 'docs';
+  strategyTab: 'editor' | 'options' | 'sweep' | 'portfolio' | 'docs';
   indicatorTab: 'editor' | 'docs';
   strategy: LocalDraft;
   indicator: LocalDraft;
@@ -72,7 +72,9 @@ export function validLayout(value: unknown): value is ResearchLayout {
     MARKET_INTERVAL_OPTIONS.some(p => p.value === l.interval) &&
     MARKET_PERIOD_OPTIONS.some(p => p.value === l.period) &&
     ['candlestick', 'line'].includes(l.chartType) &&
-    ['editor', 'sweep', 'portfolio', 'docs'].includes(l.strategyTab) &&
+    ['editor', 'options', 'sweep', 'portfolio', 'docs'].includes(
+      l.strategyTab,
+    ) &&
     ['editor', 'docs'].includes(l.indicatorTab) &&
     [
       l.showArea,
