@@ -92,5 +92,5 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - name: Apply and verify fresh schema twice
         run: |
-          python -c 'from backend.core.migrations import apply_migrations; assert apply_migrations() == [1]; assert apply_migrations() == []'
-          python -c 'from backend.core.database import connection; c=connection(); cur=c.cursor(); cur.execute("SELECT count(*) AS count FROM schema_migrations"); assert cur.fetchone()["count"] == 1; cur.close(); c.close()'
+          python -c 'from backend.core.migrations import apply_migrations; assert apply_migrations() == [1, 2]; assert apply_migrations() == []'
+          python -c 'from backend.core.database import connection; c=connection(); cur=c.cursor(); cur.execute("SELECT count(*) AS count FROM schema_migrations"); assert cur.fetchone()["count"] == 2; cur.close(); c.close()'

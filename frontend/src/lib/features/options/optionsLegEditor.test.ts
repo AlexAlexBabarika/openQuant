@@ -352,7 +352,7 @@ describe('controlled editor shell rendering (not browser validation)', () => {
     }).body;
     expect(html.match(/type="date"/g)).toHaveLength(2);
     expect(html).toContain('Manual test index');
-    expect(html).toContain('no expired or mixed horizons');
+    expect(html).toContain('nonnegative common days to expiry');
     expect(html).toContain('Clear both dates');
     expect(html).toContain('value="30"');
     expect(html).toContain('disabled');

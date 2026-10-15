@@ -118,6 +118,39 @@ def reference_value(data, spot=None, days=None, iv=None, iv_shift_pp=0):
     )
 
 
+@pytest.mark.parametrize("premium_change", [0, 2**-30, -(2**-30)])
+def test_box_terminal_geometry_and_curves_preserve_exact_constant(premium_change):
+    data = request(
+        [
+            leg("call", 1, 90, 20 + premium_change, 100),
+            leg("call", -1, 110, 0, 100),
+            leg("put", 1, 110, 0, 100),
+            leg("put", -1, 90, 0, 100),
+        ]
+    )
+    data["spot_grid"] = [0, 80.56882430542512, 90, 100, 110, 1e6]
+    result = analyze_options(data)
+    expected = -100 * premium_change
+    assert result.expiry_pnl == result.horizon_pnl == [expected] * 6
+    assert all(point.pnl == expected for point in result.expiry_curve)
+    assert result.summary.max_profit == max(0, expected)
+    assert result.summary.max_loss == max(0, -expected)
+    assert result.summary.profit_unbounded is result.summary.loss_unbounded is False
+    assert result.summary.breakevens == []
+    assert [row.model_dump() for row in result.summary.zero_intervals] == (
+        [{"start": 0, "end": None}] if premium_change == 0 else []
+    )
+
+
+@pytest.mark.parametrize("kind", ["call", "put"])
+def test_aggregate_terminal_payoff_retains_small_intrinsic_at_large_strike(kind):
+    strike = 1e6 - 2**-30 if kind == "call" else 1e6
+    spot = 1e6 if kind == "call" else 1e6 - 2**-30
+    data = request([leg(kind, 10000, strike, 0, 1000)])
+    data["spot_grid"] = [0, spot]
+    assert analyze_options(data).expiry_pnl[-1] == 10_000_000 * 2**-30
+
+
 def test_condor_hand_derived_boundary_and_tail_values():
     data = request(
         [
@@ -318,7 +351,14 @@ def test_signed_multipliers_fees_and_disabled_legs_excluded_everywhere():
     assert disabled.greeks == result.greeks
     assert disabled.today_pnl == result.today_pnl
     assert disabled.expiry_pnl == result.expiry_pnl
-    assert disabled.scenarios == result.scenarios
+    assert [s.model_dump(exclude={"legs"}) for s in disabled.scenarios] == [
+        s.model_dump(exclude={"legs"}) for s in result.scenarios
+    ]
+    assert disabled.scenarios[0].legs[:-1] == result.scenarios[0].legs
+    disabled_leg = disabled.scenarios[0].legs[-1]
+    assert disabled_leg.state == "disabled"
+    assert disabled_leg.theoretical_value == disabled_leg.pnl == 0
+    assert set(disabled_leg.greeks.model_dump().values()) == {0}
     assert disabled.warnings == result.warnings
     assert not disabled.request.strategy.legs[-1].enabled
     data["strategy"]["legs"][-1]["strike"] = 0
@@ -735,7 +775,14 @@ def test_seeded_portfolios_are_deterministic_permutation_invariant_and_additive(
         assert permuted.greeks == result.greeks
         assert permuted.today_pnl == result.today_pnl
         assert permuted.expiry_pnl == result.expiry_pnl
-        assert permuted.scenarios == result.scenarios
+        assert [s.model_dump(exclude={"legs"}) for s in permuted.scenarios] == [
+            s.model_dump(exclude={"legs"}) for s in result.scenarios
+        ]
+        for new_index, item in enumerate(data["strategy"]["legs"]):
+            old_index = original["strategy"]["legs"].index(item)
+            assert permuted.scenarios[0].legs[new_index].model_dump(
+                exclude={"leg_index"}
+            ) == result.scenarios[0].legs[old_index].model_dump(exclude={"leg_index"})
 
 
 def heterogeneous_request():

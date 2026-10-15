@@ -138,7 +138,7 @@ def set_path(data, path, value):
         (("strategy", "valuation_date"), "2024-02-28T00:00:00Z"),
         (("strategy", "valuation_date"), "2024-02-28+00:00"),
         (("strategy", "days_to_expiry"), 30.5),
-        (("strategy", "legs", 0, "expiry_date"), "2024-03-29"),
+        (("strategy", "legs", 0, "expiry_date"), "2024-02-27"),
         (("strategy", "legs", 0, "implied_volatility"), -0.001),
         (("strategy", "legs", 0, "implied_volatility"), 5.001),
         (("strategy", "legs", 0, "implied_volatility"), "0.2"),

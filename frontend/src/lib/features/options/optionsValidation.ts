@@ -113,6 +113,9 @@ export function workingDraftShape(
             'entry_premium',
             'multiplier',
             'enabled',
+            'days_to_expiry',
+            'expiry_date',
+            'source',
             'implied_volatility',
             'bid',
             'ask',
@@ -134,6 +137,43 @@ export function workingDraftShape(
         numeric(l.entry_premium) &&
         numeric(l.multiplier) &&
         typeof l.enabled === 'boolean' &&
+        optional(l.days_to_expiry, numeric) &&
+        optional(l.expiry_date, x => text(x, 10)) &&
+        optional(
+          l.source,
+          x =>
+            keys(
+              x,
+              [
+                'provider',
+                'environment',
+                'contract_symbol',
+                'underlying',
+                'fetched_at',
+                'bid_as_of',
+                'ask_as_of',
+                'observed_exercise_style',
+                'observed_settlement',
+              ],
+              [
+                'provider',
+                'environment',
+                'contract_symbol',
+                'underlying',
+                'fetched_at',
+              ],
+            ) &&
+            object(x) &&
+            text(x.provider, 16) &&
+            text(x.environment, 16) &&
+            text(x.contract_symbol, 80) &&
+            text(x.underlying, 80) &&
+            text(x.fetched_at, 64) &&
+            optional(x.bid_as_of, y => text(y, 64)) &&
+            optional(x.ask_as_of, y => text(y, 64)) &&
+            optional(x.observed_exercise_style, y => text(y, 16)) &&
+            optional(x.observed_settlement, y => text(y, 16)),
+        ) &&
         optional(l.implied_volatility, numeric) &&
         optional(l.bid, numeric) &&
         optional(l.ask, numeric) &&
@@ -207,6 +247,28 @@ function quoteTimestamp(v: unknown): boolean {
   );
 }
 
+/** Mirrors canonical ACT/365 resolution; invalid dates remain NaN, never zero. */
+export function resolvedLegDays(
+  strategy: OptionsDraft['strategy'],
+  leg: OptionsDraft['strategy']['legs'][number],
+): number {
+  if (leg.expiry_date != null) {
+    const start = calendar(strategy.valuation_date),
+      end = calendar(leg.expiry_date);
+    return start === null || end === null ? NaN : (end - start) / 86400000;
+  }
+  return leg.days_to_expiry ?? strategy.days_to_expiry;
+}
+
+export function firstExpiryDays(draft: OptionsDraft): number {
+  const horizons = draft.strategy.legs
+    .filter(l => l.enabled && l.kind !== 'underlying')
+    .map(l => resolvedLegDays(draft.strategy, l));
+  return horizons.length
+    ? Math.min(...horizons)
+    : draft.strategy.days_to_expiry;
+}
+
 export function optionsErrors(d: OptionsDraft): Record<string, string> {
   const errors: Record<string, string> = {};
   if (Array.isArray(d?.strategy?.legs) && d.strategy.legs.length > 16)
@@ -266,6 +328,8 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
       'iron_butterfly',
       'covered_call',
       'protective_put',
+      'calendar',
+      'diagonal',
     ].includes(d.strategy.template)
   )
     errors.strategy = 'Unknown template label.';
@@ -284,7 +348,14 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     if (start === null)
       errors['strategy.valuation_date'] =
         'Supply paired valid YYYY-MM-DD calendar dates.';
-    if (end === null)
+    if (
+      valuation != null &&
+      expiry == null &&
+      !d.strategy.legs.some(l => l.expiry_date != null)
+    )
+      errors['strategy.expiry_date'] =
+        'Valuation date requires a common or per-leg expiry date.';
+    if (expiry != null && end === null)
       errors['strategy.expiry_date'] =
         'Supply paired valid YYYY-MM-DD calendar dates.';
     if (
@@ -318,6 +389,9 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     number(`${key}.entry_premium`, l.entry_premium, 0, 1000000);
     number(`${key}.multiplier`, l.multiplier, 1, 1000, true);
     if (l.kind === 'underlying') {
+      if (l.days_to_expiry != null || l.expiry_date != null || l.source != null)
+        errors[`${key}.expiry_date`] =
+          'Underlying has no expiry override or option contract source.';
       if (l.strike !== null || l.multiplier !== 1)
         errors[`${key}.multiplier`] =
           'Underlying uses no strike and multiplier 1.';
@@ -328,6 +402,41 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
           'Underlying legs cannot carry option IV or quote metadata.';
     } else
       number(`${key}.strike`, l.strike as number, Number.MIN_VALUE, 1000000);
+    if (l.days_to_expiry != null)
+      number(`${key}.days_to_expiry`, l.days_to_expiry, 0, 3650);
+    if (l.kind !== 'underlying') {
+      const days = resolvedLegDays(d.strategy, l);
+      number(`${key}.expiry_date`, days, 0, 3650);
+      if (
+        l.expiry_date != null &&
+        l.days_to_expiry != null &&
+        days !== l.days_to_expiry
+      )
+        errors[`${key}.expiry_date`] =
+          'Leg dates must exactly match its days override.';
+    }
+    if (l.source != null) {
+      const s = l.source;
+      if (
+        s.provider !== 'tradier' ||
+        !['production', 'sandbox'].includes(s.environment) ||
+        !s.contract_symbol.trim() ||
+        s.contract_symbol.length > 80 ||
+        !s.underlying.trim() ||
+        s.underlying.length > 80 ||
+        !quoteTimestamp(s.fetched_at) ||
+        (s.bid_as_of != null && !quoteTimestamp(s.bid_as_of)) ||
+        (s.ask_as_of != null && !quoteTimestamp(s.ask_as_of)) ||
+        (s.observed_exercise_style !== undefined &&
+          !['american', 'european', 'unknown'].includes(
+            s.observed_exercise_style,
+          )) ||
+        (s.observed_settlement !== undefined &&
+          !['cash', 'physical', 'unknown'].includes(s.observed_settlement))
+      )
+        errors[`${key}.source`] =
+          'Invalid bounded contract identity/provenance; unknown classification stays unknown.';
+    }
     if (l.implied_volatility != null)
       number(`${key}.implied_volatility`, l.implied_volatility, 0, 5);
     if (l.bid != null) number(`${key}.bid`, l.bid, 0, 1000000);
@@ -390,7 +499,7 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     if (names.has(s.name))
       errors[`${key}.name`] = 'Scenario names must be unique.';
     names.add(s.name);
-    number(`${key}.elapsed_days`, s.elapsed_days, 0, d.strategy.days_to_expiry);
+    number(`${key}.elapsed_days`, s.elapsed_days, 0, firstExpiryDays(d));
     shift(`${key}.iv_shift_pp`, s.iv_shift_pp);
   });
   if (d.surface != null) {
@@ -403,7 +512,7 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
       s.steps,
       21,
       s.axis === 'elapsed_days' ? 0 : -100,
-      s.axis === 'elapsed_days' ? d.strategy.days_to_expiry : 100,
+      s.axis === 'elapsed_days' ? firstExpiryDays(d) : 100,
     );
     if (s.axis === 'iv_shift_pp')
       s.steps.forEach(v => shift('surface.steps', v));

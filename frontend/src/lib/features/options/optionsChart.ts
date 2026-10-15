@@ -96,6 +96,19 @@ export function optionsSeries(result: OptionsAnalysis): ChartSeries[] {
     'scenario3',
   ];
   return [
+    ...(result.horizon?.kind === 'mixed_expiry' &&
+    result.horizon_pnl?.length === result.spot_grid.length
+      ? [
+          {
+            id: 'horizon',
+            label: `First expiry · day ${result.horizon.first_expiry_days} · later legs model-marked`,
+            tone: 'expiry' as const,
+            dash: '4 3',
+            spots: result.spot_grid,
+            values: result.horizon_pnl,
+          },
+        ]
+      : []),
     ...(!expiryTraceError(result)
       ? [
           {
@@ -178,6 +191,11 @@ export function plotError(result: OptionsAnalysis): string | null {
 }
 
 export function expiryTraceError(result: OptionsAnalysis): string | null {
+  if (
+    result.horizon?.kind === 'mixed_expiry' ||
+    result.horizon?.exact_terminal_available === false
+  )
+    return 'Mixed-expiry horizon: no exact terminal trace, maxima or breakevens. First-expiry values mark later legs; use lifecycle research for settlement transitions.';
   const curve = result.expiry_curve;
   const full = priceDomain(result.spot_grid);
   const unavailable =
@@ -258,7 +276,10 @@ export function priceMarkers(result: OptionsAnalysis): PriceMarker[] {
       label: `Submitted spot ${exactValue(result.request.spot)} USD`,
       kind: 'spot' as const,
     },
-    ...result.summary.breakevens.map(spot => ({
+    ...(result.horizon?.exact_terminal_available === false
+      ? []
+      : result.summary.breakevens
+    ).map(spot => ({
       spot,
       label: `Expiration breakeven ${exactValue(spot)} USD`,
       kind: 'breakeven' as const,

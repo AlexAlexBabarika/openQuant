@@ -11,7 +11,7 @@ from datetime import date, datetime
 import re
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 Price = Annotated[float, Field(ge=0, le=1_000_000)]
 PositivePrice = Annotated[float, Field(gt=0, le=1_000_000)]
@@ -33,6 +33,8 @@ TemplateName = Literal[
     "iron_butterfly",
     "covered_call",
     "protective_put",
+    "calendar",
+    "diagonal",
 ]
 
 
@@ -40,6 +42,40 @@ class OptionsModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid", strict=True, allow_inf_nan=False, validate_default=True
     )
+
+
+def _timestamp(value: str) -> str:
+    pattern = (
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
+        r"(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])"
+    )
+    if not re.fullmatch(pattern, value):
+        raise ValueError("time must be a timezone-aware ISO timestamp")
+    datetime.fromisoformat(value)
+    return value
+
+
+OptionsTimestamp = Annotated[
+    str, Field(min_length=1, max_length=64), AfterValidator(_timestamp)
+]
+
+
+class OptionsContractSource(OptionsModel):
+    provider: Literal["tradier"]
+    environment: Literal["production", "sandbox"]
+    contract_symbol: str = Field(min_length=1, max_length=80)
+    underlying: str = Field(min_length=1, max_length=80)
+    fetched_at: OptionsTimestamp
+    bid_as_of: OptionsTimestamp | None = None
+    ask_as_of: OptionsTimestamp | None = None
+    observed_exercise_style: Literal["american", "european", "unknown"] = "unknown"
+    observed_settlement: Literal["cash", "physical", "unknown"] = "unknown"
+
+    @model_validator(mode="after")
+    def source_metadata(self) -> Self:
+        if not self.contract_symbol.strip() or not self.underlying.strip():
+            raise ValueError("contract source identity must not be blank")
+        return self
 
 
 class OptionLeg(OptionsModel):
@@ -63,6 +99,9 @@ class OptionLeg(OptionsModel):
         description="Units per option contract; stock requires explicit 1.",
     )
     enabled: bool = True
+    days_to_expiry: Days | None = None
+    expiry_date: CalendarDate | None = None
+    source: OptionsContractSource | None = None
     implied_volatility: Volatility | None = Field(
         default=None, description="Option IV fraction; null uses request.volatility."
     )
@@ -76,9 +115,15 @@ class OptionLeg(OptionsModel):
 
     @model_validator(mode="after")
     def leg_semantics(self) -> Self:
+        if self.expiry_date is not None:
+            date.fromisoformat(self.expiry_date)
         if self.quantity == 0:
             raise ValueError("quantity must be a nonzero signed integer")
         if self.kind == "underlying":
+            if self.days_to_expiry is not None or self.expiry_date is not None:
+                raise ValueError("underlying has no expiry override")
+            if self.source is not None:
+                raise ValueError("underlying has no option contract source")
             if self.strike is not None or self.multiplier != 1:
                 raise ValueError("underlying uses strike=null and multiplier=1")
             if any(
@@ -96,18 +141,12 @@ class OptionLeg(OptionsModel):
             if self.quote_as_of is None:
                 raise ValueError("manual quotes require an explicit quote_as_of")
         if self.quote_as_of is not None:
-            pattern = (
-                r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
-                r"(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])"
-            )
-            if not re.fullmatch(pattern, self.quote_as_of):
-                raise ValueError("quote_as_of must be a timezone-aware ISO timestamp")
-            datetime.fromisoformat(self.quote_as_of)
+            _timestamp(self.quote_as_of)
         return self
 
 
 class OptionStrategy(OptionsModel):
-    """All enabled options share one European cash-settled expiry and USD currency."""
+    """European cash-settled USD legs; omitted leg expiries inherit the default."""
 
     name: str = Field(default="Custom options", min_length=1, max_length=120)
     template: TemplateName = Field(
@@ -144,8 +183,16 @@ class OptionStrategy(OptionsModel):
             raise ValueError("name must not be blank")
         if self.underlying is not None and not self.underlying.strip():
             raise ValueError("underlying must not be blank")
-        if (self.valuation_date is None) != (self.expiry_date is None):
-            raise ValueError("valuation_date and expiry_date must be supplied together")
+        if self.valuation_date is not None:
+            date.fromisoformat(self.valuation_date)
+            if self.expiry_date is None and not any(
+                leg.expiry_date is not None for leg in self.legs
+            ):
+                raise ValueError(
+                    "valuation_date requires a common or per-leg expiry_date"
+                )
+        if self.expiry_date is not None and self.valuation_date is None:
+            raise ValueError("expiry_date requires valuation_date")
         if self.valuation_date is not None and self.expiry_date is not None:
             horizon = (
                 date.fromisoformat(self.expiry_date)
@@ -157,7 +204,38 @@ class OptionStrategy(OptionsModel):
                 )
         if not any(leg.enabled for leg in self.legs):
             raise ValueError("at least one leg must be enabled")
+        for leg in self.legs:
+            self.leg_days(leg)
         return self
+
+    def leg_days(self, leg: OptionLeg) -> float:
+        """Resolved ACT/365 calendar horizon; date overrides need a valuation anchor."""
+        if leg.expiry_date is not None:
+            if self.valuation_date is None:
+                raise ValueError("leg expiry_date requires strategy.valuation_date")
+            days = (
+                date.fromisoformat(leg.expiry_date)
+                - date.fromisoformat(self.valuation_date)
+            ).days
+            if not 0 <= days <= 3650:
+                raise ValueError("leg expiry_date must be 0–3650 days after valuation")
+            if leg.days_to_expiry is not None and leg.days_to_expiry != days:
+                raise ValueError(
+                    "leg dates must exactly match its days_to_expiry override"
+                )
+            return float(days)
+        return self.days_to_expiry if leg.days_to_expiry is None else leg.days_to_expiry
+
+    @property
+    def first_expiry_days(self) -> float:
+        return min(
+            (
+                self.leg_days(leg)
+                for leg in self.legs
+                if leg.enabled and leg.kind != "underlying"
+            ),
+            default=self.days_to_expiry,
+        )
 
 
 class OptionsScenario(OptionsModel):
@@ -222,12 +300,16 @@ class OptionsAnalysisRequest(OptionsModel):
         for scenario in self.scenarios:
             if not scenario.name.strip():
                 raise ValueError("scenario name must not be blank")
-            if scenario.elapsed_days > self.strategy.days_to_expiry:
-                raise ValueError("scenario time cannot cross expiry")
+            if scenario.elapsed_days > self.strategy.first_expiry_days:
+                raise ValueError(
+                    "scenario time cannot cross first active expiry; use lifecycle"
+                )
         if self.surface is not None:
             if self.surface.axis == "elapsed_days":
-                if self.surface.steps[-1] > self.strategy.days_to_expiry:
-                    raise ValueError("surface time cannot cross expiry")
+                if self.surface.steps[-1] > self.strategy.first_expiry_days:
+                    raise ValueError(
+                        "surface time cannot cross first active expiry; use lifecycle"
+                    )
             else:
                 shifts.extend(self.surface.steps)
         ivs = [self.volatility] + [
@@ -292,13 +374,13 @@ class OptionsSummary(OptionsModel):
     theoretical_value_today: float
     pnl_today: float
     max_profit: float | None = Field(
-        description="Nonnegative achievable expiry gain; null only when unbounded."
+        description="Nonnegative achievable common-expiry gain; null if unbounded or mixed-expiry unavailable."
     )
     max_loss: float | None = Field(
-        description="Nonnegative achievable expiry loss; null only when unbounded."
+        description="Nonnegative achievable common-expiry loss; null if unbounded or mixed-expiry unavailable."
     )
-    profit_unbounded: bool
-    loss_unbounded: bool
+    profit_unbounded: bool | None
+    loss_unbounded: bool | None
     breakevens: list[float] = Field(
         description="All isolated expiry roots on S>=0, excluding zero intervals."
     )
@@ -312,6 +394,30 @@ class OptionsScenarioAnalysis(OptionsModel):
     volatility: float
     pnl: list[float]
     greeks: OptionsGreeks
+    legs: list["OptionsScenarioLegAnalysis"] = Field(
+        default_factory=list, max_length=16
+    )
+
+
+class OptionsLegHorizon(OptionsModel):
+    leg_index: int = Field(ge=0, le=15)
+    remaining_days: Days | None
+    state: Literal["disabled", "underlying", "model_mark", "expiry_intrinsic"]
+
+
+class OptionsScenarioLegAnalysis(OptionsLegHorizon):
+    theoretical_value: float
+    pnl: float
+    greeks: OptionsGreeks
+
+
+class OptionsHorizon(OptionsModel):
+    kind: Literal["single_expiry", "mixed_expiry"]
+    first_expiry_days: Days
+    last_expiry_days: Days
+    elapsed_days: Days
+    exact_terminal_available: bool
+    legs: list[OptionsLegHorizon] = Field(min_length=1, max_length=16)
 
 
 class OptionsExpiryPoint(OptionsModel):
@@ -323,6 +429,7 @@ class OptionsLegAnalysis(OptionsModel):
     leg_index: int = Field(ge=0, le=15)
     enabled: bool
     resolved_implied_volatility: Volatility | None
+    resolved_days_to_expiry: Days | None = None
     gross_entry_cost: float
     entry_fees: float
     net_entry_cost: float
@@ -345,7 +452,9 @@ class OptionsAnalysis(OptionsModel):
     spot_grid: list[float]
     today_pnl: list[float]
     expiry_pnl: list[float]
-    expiry_curve: list[OptionsExpiryPoint] = Field(min_length=2, max_length=35)
+    expiry_curve: list[OptionsExpiryPoint] = Field(max_length=35)
+    horizon: OptionsHorizon
+    horizon_pnl: list[float] = Field(min_length=2, max_length=201)
     legs: list[OptionsLegAnalysis] = Field(min_length=1, max_length=16)
     surface: OptionsSurfaceAnalysis | None
     scenarios: list[OptionsScenarioAnalysis]

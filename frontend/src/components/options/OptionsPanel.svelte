@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { authState } from '$lib/features/auth/auth';
+  import { getSessionGeneration } from '$lib/core/api';
   import { OptionsState } from '$lib/features/options/optionsState.svelte';
   import { spotGrid } from '$lib/features/options/optionsTemplates';
   import OptionsCharts from './OptionsCharts.svelte';
@@ -11,6 +12,8 @@
   import OptionsScenarioLab from './OptionsScenarioLab.svelte';
   import OptionsLibrary from './OptionsLibrary.svelte';
   import OptionsComparison from './OptionsComparison.svelte';
+  import OptionsExpiryEditor from './OptionsExpiryEditor.svelte';
+  import OptionsResearchTools from './OptionsResearchTools.svelte';
 
   const options = new OptionsState();
   let panel: HTMLElement;
@@ -19,7 +22,11 @@
   let gridStart = $state(50);
   let gridEnd = $state(150);
   let gridCount = $state(81);
+  let sessionKey = $state('guest');
   const result = $derived(options.result);
+  const toolKey = $derived(`${sessionKey}:${options.documentKey}:${options.mode}`);
+  const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
+  const submittedPython = $derived(options.mode === 'python' && result !== null && options.submittedSource !== null && options.source === options.submittedSource);
 
   function syncGrid() {
     gridStart = options.draft.spot_grid[0];
@@ -30,6 +37,7 @@
     let previous: string | null | undefined;
     const unsubscribe = authState.subscribe(auth => {
       const id = auth.user?.id ?? null;
+      sessionKey = `${id ?? 'guest'}:${getSessionGeneration()}`;
       if (id === previous) return;
       previous = id;
       options.setAccount(id);
@@ -89,7 +97,7 @@
     </div>
   </header>
   <div class="panel-scroll">
-    <p class="boundary">Theoretical analytics only. No provider snapshot, historical options execution, brokerage, American assignment or futures execution.</p>
+    <p class="boundary">Theoretical European cash-settled analytics only. Optional authenticated read-only Tradier observations require explicit hypothetical conversion; real US exercise and physical delivery are not modeled. No historical options execution, brokerage or futures execution.</p>
     <div class="feedback" aria-live="polite" aria-atomic="true">
       {#if options.loading}<p>{result ? 'Refreshing analysis; previous submitted evidence remains below.' : 'Running bounded options analysis…'}</p>{/if}
       {#if options.notice}<p>{options.notice}</p>{/if}
@@ -110,9 +118,12 @@
           <OptionsLegEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
             canUndo={options.canUndo} canRedo={options.canRedo}
             onUndo={() => { options.undo(); syncGrid(); }} onRedo={() => { options.redo(); syncGrid(); }} />
+          <details class="configuration"><summary>Per-leg expiries · calendar / diagonal construction</summary>
+            {#key toolKey}<OptionsExpiryEditor draft={options.draft} onEdit={update => options.editDraft(update)} documentKey={toolKey} />{/key}
+          </details>
           <details class="configuration" open={!!options.fieldErrors.spot_grid}>
             <summary>Price-domain chart grid</summary>
-            <p class="hint">Display grid only; expiry risk and breakevens cover all nonnegative spots, even outside this range.</p>
+            <p class="hint">Display grid only; common-expiry risk and breakevens cover all nonnegative spots, even outside this range. Mixed-expiry terminal risk is unavailable.</p>
             <div class="inputs-grid">
               {@render numeric('Grid start · USD (0–1m)', 'spot_grid', gridStart, 0, 1000000, 'any', v => { gridStart = v; updateGrid(); })}
               {@render numeric('Grid end · USD (0–1m)', 'spot_grid', gridEnd, 0, 1000000, 'any', v => { gridEnd = v; updateGrid(); })}
@@ -126,6 +137,13 @@
             onRun={() => { void options.run(); }} pending={options.loading} stdout={options.stdout ?? ''}
             error={options.error} documentKey={options.documentKey} />
         {/if}
+        {#key toolKey}
+          {#if options.mode === 'editor'}
+            <OptionsResearchTools draft={options.draft} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
+          {:else if submittedPython && result}
+            {#key result}<OptionsResearchTools draft={result.request} onEdit={() => {}} documentKey={toolKey} readOnly />{/key}
+          {:else}<p class="hint">Analyze the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
+        {/key}
         <div class="export-controls">
           <button type="button" class="ot-workbench-ghost" onclick={() => { exportConfirm = true; }}>Replace Python from editor…</button>
           {#if exportConfirm}
@@ -137,7 +155,7 @@
         <OptionsLibrary state={options} />
       </div>
       <div class="evidence-column" aria-busy={options.loading}>
-        <OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} />
+        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} />{/key}
         {#if options.mode === 'python' && result}
           <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} onAnalyze={() => {}} readOnly />
         {/if}
@@ -145,7 +163,8 @@
         <OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />
         {#if result}
           <div class="evidence-heading"><h3>{result.request.strategy.name} · submitted evidence</h3><span>{options.stale ? 'STALE' : options.loading ? 'REFRESHING' : 'SUBMITTED'} · manual / synthetic</span></div>
-          <p class="breakevens"><strong>Expiry breakevens · USD spot:</strong> {result.summary.breakevens.length ? result.summary.breakevens.map(v => number(v)).join(', ') : 'No isolated breakevens'}.</p>
+          {#if terminalAvailable}<p class="breakevens"><strong>Expiry breakevens · USD spot:</strong> {result.summary.breakevens.length ? result.summary.breakevens.map(v => number(v)).join(', ') : 'No isolated breakevens'}.</p>
+          {:else}<p class="risk">Mixed-expiry horizon: exact terminal payoff, maxima, breakevens and zero intervals are unavailable. First-expiry marks are not terminal risk limits. Use lifecycle research for settlement transitions.</p>{/if}
           {#if result.summary.zero_intervals.length}<p class="breakevens"><strong>Zero-P&amp;L intervals · USD spot:</strong> {result.summary.zero_intervals.map(i => `${number(i.start)} to ${i.end === null ? '∞' : number(i.end)} (inclusive)`).join('; ')}.</p>{/if}
           <h3>Signed strategy Greeks · at submitted spot {number(result.request.spot)} USD</h3>
           <dl class="greeks-grid">
@@ -159,12 +178,15 @@
             <summary>Submitted assumptions &amp; provenance</summary>
             <p>Manual / synthetic · European · cash-settled · {result.request.strategy.currency}. BSM {result.model.version} · {result.model.day_basis} · no stock-provider data.</p>
             <dl class="summary-grid assumptions-readout">
-              <div><dt>Spot · USD</dt><dd>{number(result.request.spot)}</dd></div><div><dt>Expiry · calendar days</dt><dd>{number(result.request.strategy.days_to_expiry)}</dd></div>
+              <div><dt>Spot · USD</dt><dd>{number(result.request.spot)}</dd></div><div><dt>Default expiry · calendar days</dt><dd>{number(result.request.strategy.days_to_expiry)}</dd></div>
               <div><dt>Declared base IV · %</dt><dd>{number(result.request.volatility * 100)}</dd></div><div><dt>Annual rate · %</dt><dd>{number(result.request.rate * 100)}</dd></div>
               <div><dt>Dividend yield · %</dt><dd>{number(result.request.dividend_yield * 100)}</dd></div><div><dt>Fee · USD/option contract</dt><dd>{number(result.request.strategy.entry_fee_per_contract)}</dd></div>
             </dl>
-            <ul class="submitted-legs">{#each result.request.strategy.legs as leg, i}<li>Leg {i + 1}: {leg.quantity > 0 ? 'Buy' : 'Sell'} {number(Math.abs(leg.quantity))} {leg.kind === 'underlying' ? 'shares' : `${leg.kind} contracts`} · strike {leg.strike === null ? 'n/a' : `${number(leg.strike)} USD`} · entry {number(leg.entry_premium)} USD/unit · multiplier {leg.multiplier} · {leg.enabled ? 'enabled' : 'disabled'}</li>{/each}</ul>
-            <p class="hint">Display grid: {number(result.spot_grid[0])}–{number(result.spot_grid[result.spot_grid.length - 1])} USD · {result.spot_grid.length} points. Expiry maximum risk/reward is not clipped to this range.</p>
+            <ul class="submitted-legs">{#each result.request.strategy.legs as leg, i}<li>Leg {i + 1}: {leg.quantity > 0 ? 'Buy' : 'Sell'} {number(Math.abs(leg.quantity))} {leg.kind === 'underlying' ? 'shares' : `${leg.kind} contracts`} · strike {leg.strike === null ? 'n/a' : `${number(leg.strike)} USD`} · entry {number(leg.entry_premium)} USD/unit · multiplier {leg.multiplier} · {leg.enabled ? 'enabled' : 'disabled'}
+              {#if leg.kind !== 'underlying'}<span> · expiry override {leg.days_to_expiry == null ? 'inherits default days' : `${number(leg.days_to_expiry)} days`} / {leg.expiry_date ?? 'no date override'}</span>{/if}
+              {#if leg.source}<p class="hint">Original contract observation: {leg.source.provider} / {leg.source.environment} / {leg.source.contract_symbol}. Observed exercise / delivery: {leg.source.observed_exercise_style ?? 'unknown'} / {leg.source.observed_settlement ?? 'unknown'}. Bid as of {leg.source.bid_as_of ?? 'unavailable'}; ask as of {leg.source.ask_as_of ?? 'unavailable'}; fetched {leg.source.fetched_at}. Hypothetical conversion only; edits do not refresh original-contract quotes.</p>{/if}
+            </li>{/each}</ul>
+            <p class="hint">Display grid: {number(result.spot_grid[0])}–{number(result.spot_grid[result.spot_grid.length - 1])} USD · {result.spot_grid.length} points. {terminalAvailable ? 'Exact expiry maximum risk/reward is not clipped to this range.' : 'Mixed-expiry first-horizon marks are not exact terminal payoff or risk limits.'}</p>
             {#each result.scenarios as scenario, i}
               <p class="hint">{scenario.name}: +{number(scenario.elapsed_days)} days elapsed · {number(scenario.remaining_days)} days remaining · IV shift {number(result.request.scenarios[i].iv_shift_pp, true)} pp · declared base IV {number(scenario.volatility * 100)}%. Per-leg overrides shift in parallel. Greeks below use the same submitted spot.</p>
               <dl class="greeks-grid">{#each ['delta', 'gamma', 'theta', 'vega', 'rho'] as greek}{@const key = greek as keyof typeof scenario.greeks}<div><dt>{scenario.name} · {greek}</dt><dd>{number(scenario.greeks[key], true)}</dd><small>{result.greek_units[key]}</small></div>{/each}</dl>
