@@ -407,6 +407,25 @@ describe('request generation, privacy and replacement fences', () => {
 });
 
 describe('native controlled chart rendering', () => {
+  it('discloses unavailable mixed-expiry geometry instead of claiming no roots or risk limits', () => {
+    const result = evidence();
+    result.horizon = {
+      kind: 'mixed_expiry',
+      first_expiry_days: 10,
+      last_expiry_days: 60,
+      elapsed_days: 10,
+      exact_terminal_available: false,
+      legs: [],
+    };
+    result.expiry_curve = [];
+    const { body } = render(OptionsCharts, { props: { result } });
+    expect(body).toContain(
+      'Exact terminal geometry unavailable for this horizon',
+    );
+    expect(body).not.toContain('Maximum profit (USD)');
+    expect(body).not.toContain('Expiration breakevens (USD)');
+    expect(body).not.toContain('Zero P&amp;L intervals (USD)');
+  });
   it('keeps legacy rendering read-only with exact submitted paths and working inspection', () => {
     const result = evidence();
     const { body } = render(OptionsCharts, { props: { result } });

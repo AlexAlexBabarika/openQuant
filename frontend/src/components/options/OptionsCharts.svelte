@@ -52,10 +52,11 @@
   let previewFields = $state<Record<string, string>>({});
   const context = $derived(chartContextKey(documentKey, draft, result, readOnly, !!onEdit));
   const editable = $derived(!!documentKey && !!draft && !!onEdit && !readOnly);
+  const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
   const proposed = $derived(proposal?.context === context && proposal.baseline === result ? proposal.analysis : null);
   const legAnalysis = $derived(contribution?.context === context && contribution.baseline === result && contribution.legIndex === selectedLeg ? contribution.analysis : null);
   const proposedCurves = $derived(proposed ? canonicalOverlay(proposed, proposed.request) : []);
-  const legCurves = $derived(legAnalysis && result ? canonicalOverlay(legAnalysis, legAnalysis.request, result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false) : []);
+  const legCurves = $derived(legAnalysis && result ? canonicalOverlay(legAnalysis, legAnalysis.request, !terminalAvailable) : []);
   const overlayCurves = $derived([...proposedCurves, ...legCurves]);
   const overlayPoints = $derived(overlayCurves.map(s => seriesPoints(s.spots, s.values)));
   const legRows = $derived(result?.request.strategy.legs.map((leg, index) => ({ leg, index })) ?? []);
@@ -70,10 +71,10 @@
   const full = $derived(result ? priceDomain(result.spot_grid) : null);
   const domain = $derived(view ?? full);
   const error = $derived(result ? plotError(result) : null);
-  const curves = $derived(result ? optionsSeries(result).filter(s => s.id !== 'expiry' || (result.horizon?.kind !== 'mixed_expiry' && result.horizon?.exact_terminal_available !== false)) : []);
+  const curves = $derived(result ? optionsSeries(result).filter(s => s.id !== 'expiry' || terminalAvailable) : []);
   const points = $derived(curves.map(s => seriesPoints(s.spots, s.values)));
   const inspectGrid = $derived(result ? [...new Set([...inspectionGrid(result), ...overlayCurves.flatMap(s => s.spots)])].sort((a, b) => a - b) : []);
-  const expiryError = $derived(result ? expiryTraceError(result) : null);
+  const expiryError = $derived(result ? (terminalAvailable ? expiryTraceError(result) : 'Exact terminal geometry unavailable for this horizon: no common-expiry payoff, extrema, breakevens or zero intervals. Use lifecycle analysis for expiry transitions.') : null);
   const legError = $derived(result ? legBreakdownError(result) : null);
   const pnlY = $derived(domain ? sampledYDomain([...points, ...overlayPoints], domain) : { min: -1, max: 1 });
   const greekCurves = $derived(result ? greekSeries(result, greek) : []);
@@ -512,12 +513,14 @@
     </dl><p class="note">Scenario Greeks are point exposures, not curves. Unavailable means undefined or not reported, never zero.</p></div>
 
     <details class="evidence"><summary>Expiry geometry · exact backend values</summary>
+      {#if !terminalAvailable}<p class="note">{expiryError}</p>{:else}
       <dl><div><dt>Maximum profit (USD)</dt><dd>{result.summary.profit_unbounded ? 'Unbounded' : exactValue(result.summary.max_profit)}</dd></div>
         <div><dt>Maximum loss (USD)</dt><dd>{result.summary.loss_unbounded ? 'Unbounded' : exactValue(result.summary.max_loss)}</dd></div>
         <div><dt>Expiration breakevens (USD)</dt><dd>{result.summary.breakevens.length ? result.summary.breakevens.map(v => exactValue(v)).join(', ') : 'None'}</dd></div>
         <div><dt>Zero P&amp;L intervals (USD)</dt><dd>{result.summary.zero_intervals.length ? result.summary.zero_intervals.map(z => `[${exactValue(z.start)}, ${z.end == null ? '∞' : exactValue(z.end)}]`).join(', ') : 'None'}</dd></div>
         <div><dt>Enabled option strikes (USD)</dt><dd>{markers.filter(m => m.kind === 'strike').map(m => exactValue(m.spot)).join(', ') || 'None'}</dd></div>
       </dl><p class="note">Expiry limits and roots cover all nonnegative prices, including outside this view. Sampled chart bounds are not risk limits. The exact expiry trace joins canonical vertices, preserving strike kinks. Other lines connect returned grid samples, not additional model evaluations.</p>
+      {/if}
     </details>
     <details class="evidence"><summary>Exact-value data · all returned price samples</summary>
       <p class="note">Unrounded signed values. Missing/nonfinite values are unavailable; they are omitted from plots. The table is independent of display zoom.</p>
