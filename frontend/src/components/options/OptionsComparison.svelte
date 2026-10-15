@@ -22,7 +22,7 @@
           <dt>Entry cost incl. fees (signed USD)</dt><dd>{exactValue(item.result.summary.net_entry_cost, true)}</dd>
           <dt>Maximum expiry profit (USD)</dt><dd>{item.result.summary.profit_unbounded ? 'Unbounded' : exactValue(item.result.summary.max_profit)}</dd>
           <dt>Maximum expiry loss magnitude (USD)</dt><dd>{item.result.summary.loss_unbounded ? 'Unbounded' : exactValue(item.result.summary.max_loss)}</dd>
-          <dt>Expiry breakeven spots (USD)</dt><dd>{item.result.summary.breakevens.map(v => exactValue(v)).join(', ') || 'None isolated'}</dd>
+          <dt>Expiry breakeven spots (USD)</dt><dd>{item.result.horizon?.exact_terminal_available === false ? 'Unavailable · mixed expiry' : item.result.summary.breakevens.map(v => exactValue(v)).join(', ') || 'None isolated'}</dd>
         </dl>
         <table><caption>Today Greeks at submitted spot · signed total exposure</caption><thead><tr><th scope="col">Greek / unit</th><th scope="col">Exact value</th></tr></thead><tbody>
           {#each GREEK_KEYS as greek}<tr><th scope="row">{greek} · {item.result.greek_units[greek]}</th><td>{exactValue(item.result.greeks[greek], true)}</td></tr>{/each}

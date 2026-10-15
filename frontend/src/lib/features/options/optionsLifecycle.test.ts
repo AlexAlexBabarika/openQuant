@@ -23,6 +23,63 @@ import {
   validLifecycle,
 } from './optionsLifecycle';
 
+describe('integrated research input and timeout fences', () => {
+  it('rejects publication after input divergence even before the cancellation effect runs', async () => {
+    let key = 'submitted';
+    let finish!: (value: number) => void;
+    const pending = new Promise<number>(resolve => {
+      finish = resolve;
+    });
+    const job = new ResearchJob<null, number>(
+      'guest:a',
+      () => 'guest:a',
+      vi.fn(),
+      () => key,
+    );
+    const done = job.submit(null, key, () => pending, Number.isFinite);
+    key = 'different query';
+    finish(123);
+    await done;
+    expect(job.state.result).toBeNull();
+    job.cancel();
+    expect(job.state.pending).toBe(false);
+  });
+
+  it('bounds lifecycle/hedge client waiting and ignores a late success after timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      let finish!: (value: number) => void;
+      let signal!: AbortSignal;
+      const pending = new Promise<number>(resolve => {
+        finish = resolve;
+      });
+      const job = new ResearchJob<null, number>(
+        'guest:a',
+        () => 'guest:a',
+        vi.fn(),
+      );
+      const done = job.submit(
+        null,
+        'query',
+        (_, s) => {
+          signal = s;
+          return pending;
+        },
+        Number.isFinite,
+      );
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(signal.aborted).toBe(true);
+      expect(job.state.pending).toBe(false);
+      expect(job.state.error).toContain('15 seconds');
+      finish(123);
+      await done;
+      expect(job.state.result).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 function lifecycle(): LifecycleResponse {
   const draft = createOptionsDraft();
   return {

@@ -43,6 +43,7 @@
     return stop;
   });
   $effect(() => { if (readOnly) untrack(stop); });
+  $effect(() => { inputKey; untrack(() => { if (pending) { stop(); notice = 'Stress request cancelled because inputs changed. Run explicitly to refresh.'; } }); });
 
   async function submit(event: SubmitEvent) {
     event.preventDefault(); if (readOnly || pending) return;
@@ -50,7 +51,7 @@
     try { stressRequests(snapshot, submitted); } catch (e) { error = e instanceof Error ? e.message : 'Correct draft inputs before running.'; return; }
     stop(); const flight = ++generation, scope = documentKey, session = getSessionGeneration(), key = inputKey;
     const abort = new AbortController(); controller = abort; pending = true; error = ''; notice = '';
-    const current = () => flight === generation && scope === documentKey && session === getSessionGeneration();
+    const current = () => flight === generation && scope === documentKey && session === getSessionGeneration() && key === inputKey;
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; abort.abort(); }, 15000);
     try {

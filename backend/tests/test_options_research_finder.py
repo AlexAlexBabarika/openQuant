@@ -88,6 +88,16 @@ def test_direction_uses_current_delta_not_scenario_score(thesis):
         assert delta > 0 if thesis == "bullish" else delta < 0
 
 
+def test_neutral_explicitly_means_no_directional_filter_not_delta_neutral():
+    from backend.derivatives import analyze_options
+
+    result = find_strategies(finder_payload())
+    deltas = [analyze_options(c.request).greeks.delta for c in result.candidates]
+    assert any(d is not None and d > 0 for d in deltas)
+    assert any(d is not None and d < 0 for d in deltas)
+    assert any("Neutral applies no delta filter" in w for w in result.warnings)
+
+
 def test_budget_limits_leg_constraints_and_empty_result_are_explicit():
     data = finder_payload()
     data["max_evaluations"] = 1

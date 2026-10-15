@@ -11,7 +11,7 @@
   let path = $state<PathControls>(untrack(() => pathControls(draft)));
   let settings = $state<HedgeControls>(hedgeControls());
   let runState = $state.raw<ResearchState<HedgeResponse>>(emptyResearchState(untrack(() => documentKey)));
-  const job = new ResearchJob<HedgeRequest, HedgeResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; });
+  const job = new ResearchJob<HedgeRequest, HedgeResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; }, () => key);
   const prepared = $derived(hedgeRequest(draft, path, settings));
   const key = $derived(inputKey(draft, [path, settings]));
   const visible = $derived(runState.documentKey === documentKey ? runState : null);
@@ -28,6 +28,7 @@
     return () => clearInterval(timer);
   });
   onDestroy(() => job.reset('unmounted'));
+  $effect(() => { key; readOnly; untrack(() => { if (runState.pending) job.cancel(); }); });
   async function submit() {
     if (readOnly || !prepared.request || visible?.pending) return;
     playing = false; index = 0;

@@ -2,10 +2,11 @@
   import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
 
   let { result, stale = false, pending = false }: {
-    result: Pick<OptionsAnalysis, 'request' | 'summary'>;
+    result: Pick<OptionsAnalysis, 'request' | 'summary' | 'horizon'>;
     stale?: boolean;
     pending?: boolean;
   } = $props();
+  const terminal = $derived(result.horizon?.kind !== 'mixed_expiry' && result.horizon?.exact_terminal_available !== false);
 
   function money(value: number | null, signed = false): string {
     if (value === null || !Number.isFinite(value)) return 'Unavailable';
@@ -19,14 +20,14 @@
 
 <section class="risk-summary" aria-label="Submitted options risk totals" class:stale>
   <header>
-    <div><strong>{result.request.strategy.name}</strong><span>Submitted spot {money(result.request.spot)} USD · {money(result.request.strategy.days_to_expiry)} days · manual</span></div>
+    <div><strong>{result.request.strategy.name}</strong><span>Submitted spot {money(result.request.spot)} USD · {terminal ? `${money(result.request.strategy.days_to_expiry)} default days` : `mixed expiry ${money(result.horizon?.first_expiry_days ?? null)}–${money(result.horizon?.last_expiry_days ?? null)} days`} · theoretical</span></div>
     <span class="status">{stale ? 'STALE INPUTS' : pending ? 'REFRESHING' : 'SUBMITTED EVIDENCE'}</span>
   </header>
   <dl>
     <div><dt>Entry debit · USD</dt><dd>{money(result.summary.entry_debit)}</dd></div>
     <div><dt>Entry credit · USD</dt><dd>{money(result.summary.entry_credit)}</dd></div>
-    <div><dt>Expiry max profit · USD</dt><dd>{result.summary.profit_unbounded ? 'Unbounded' : money(result.summary.max_profit)}</dd></div>
-    <div><dt>Expiry max loss · USD</dt><dd>{result.summary.loss_unbounded ? 'Unbounded' : money(result.summary.max_loss)}</dd></div>
+    <div><dt>Expiry max profit · USD</dt><dd>{!terminal ? 'Unavailable · mixed expiry' : result.summary.profit_unbounded ? 'Unbounded' : money(result.summary.max_profit)}</dd></div>
+    <div><dt>Expiry max loss · USD</dt><dd>{!terminal ? 'Unavailable · mixed expiry' : result.summary.loss_unbounded ? 'Unbounded' : money(result.summary.max_loss)}</dd></div>
     <div><dt>Today model P&amp;L · USD</dt><dd>{money(result.summary.pnl_today, true)}</dd></div>
     <div><dt>Entry fees · USD</dt><dd>{money(result.summary.entry_fees)}</dd></div>
   </dl>

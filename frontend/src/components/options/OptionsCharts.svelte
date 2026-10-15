@@ -328,8 +328,8 @@
     <div class="empty" role="alert"><strong>Chart data unavailable</strong><p>{error} Edit the inputs and analyze again.</p></div>
   {:else if domain && full}
     <header>
-      <div><span class="eyebrow">MANUAL · EUROPEAN · CASH SETTLED</span><h3>{result.request.strategy.name}</h3></div>
-      <div class="context">Submitted spot <b>{exactValue(result.request.spot)} USD</b><br />{exactValue(result.request.strategy.days_to_expiry)} calendar days · ACT/365</div>
+      <div><span class="eyebrow">THEORETICAL · EUROPEAN · CASH SETTLED</span><h3>{result.request.strategy.name}</h3></div>
+      <div class="context">Submitted spot <b>{exactValue(result.request.spot)} USD</b><br />{terminalAvailable ? `${exactValue(result.horizon?.first_expiry_days ?? result.request.strategy.days_to_expiry)} calendar days` : `Mixed expiry · ${exactValue(result.horizon?.first_expiry_days)}–${exactValue(result.horizon?.last_expiry_days)} days`} · ACT/365</div>
     </header>
     {#if drift && !stale}<p class="notice">Draft spot changed. Charts still show the returned analysis at {exactValue(result.request.spot)} USD; analyze again to refresh.</p>{/if}
     {#if stale}<p class="notice" role="status">Inputs changed. All charts and per-leg readouts remain previous submitted evidence; Analyze explicitly to refresh.</p>{/if}
@@ -410,9 +410,9 @@
     </div>
     <div class="graph" bind:clientWidth={containerWidth}>
       <div class="chart-control" role="slider" tabindex="0" aria-label="Inspect P&L at supplied price samples" aria-valuemin={domain.min} aria-valuemax={domain.max} aria-valuenow={sliderSpot()} aria-valuetext={activeSpot == null ? 'No sample selected' : `${exactValue(activeSpot)} USD; values in readout below`} aria-describedby={`${id}-instructions`} onkeydown={keydown}>
-        <svg bind:this={pnlSvg} viewBox={`0 0 ${width} 254`} role="img" aria-label={`Expiration, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
+        <svg bind:this={pnlSvg} viewBox={`0 0 ${width} 254`} role="img" aria-label={`${terminalAvailable ? 'Expiration' : 'First-expiry model marks'}, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
           <title>Options P&amp;L over numeric underlying price</title>
-          <desc>Expiration connects canonical piecewise-linear vertices, including every in-domain strike and isolated breakeven. Today and scenarios connect backend grid samples only. Dashed vertical lines mark strikes, dotted lines mark expiration breakevens, solid line marks submitted spot. Exact values are below.</desc>
+          <desc>{terminalAvailable ? 'Expiration connects canonical piecewise-linear vertices, including every in-domain strike and isolated breakeven.' : 'First-expiry values are backend grid samples with later legs model-marked, not exact terminal payoff or risk limits.'} Today and scenarios connect backend grid samples only. Dashed vertical lines mark strikes, dotted lines mark available expiration breakevens, solid line marks submitted spot. Returned values are below.</desc>
           <defs><clipPath id={`${id}-pnl-clip`}><rect x={left} y="24" width={plotWidth} height="184" /></clipPath></defs>
           {#each domainTicks(pnlY, 5) as tick}
             {@const py = scaleValue(tick, pnlY, 208, 24)}

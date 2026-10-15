@@ -36,7 +36,8 @@ export function comparisonContext(item: OptionsComparisonSnapshot): string[] {
     `Declared IV ${d.volatility * 100}% · rate ${d.rate * 100}% · yield ${d.dividend_yield * 100}% (annual)`,
     `Enabled option IV fractions: ${s.legs.flatMap((l, i) => (l.enabled && l.kind !== 'underlying' ? [`leg ${i + 1}: ${l.implied_volatility ?? d.volatility}`] : [])).join('; ') || 'none'}`,
     `Fee ${s.entry_fee_per_contract} USD/option contract once · total ${r.summary.entry_fees} USD`,
-    `Common expiry ${s.days_to_expiry} calendar days · valuation ${s.valuation_date ?? 'not declared'} · expiry ${s.expiry_date ?? 'not declared'}`,
+    `Default expiry ${s.days_to_expiry} calendar days · valuation ${s.valuation_date ?? 'not declared'} · expiry ${s.expiry_date ?? 'not declared'} · ${r.horizon?.kind ?? 'legacy common expiry'}`,
+    `Per-leg expiry overrides: ${s.legs.map((l, i) => `leg ${i + 1}: ${l.kind === 'underlying' ? 'shares (no expiry)' : `${l.days_to_expiry ?? 'default'} days, date ${l.expiry_date ?? 'not declared'}`}`).join('; ')}`,
     `${r.model.name} v${r.model.version} · ${r.model.day_basis} · ${r.model.input_source} · ${r.model.exercise_style} · ${r.model.settlement} · USD`,
   ];
 }
@@ -45,6 +46,7 @@ export function comparisonCurve(
   item: OptionsComparisonSnapshot,
 ): OptionsExpiryPoint[] | null {
   const curve = item.result.expiry_curve;
+  if (item.result.horizon?.exact_terminal_available === false) return null;
   const request = item.result.request;
   const spots = request.spot_grid;
   const min = spots[0],
@@ -112,7 +114,11 @@ export function optionsResultReport(
       version: 1,
       exportedAt: new Date().toISOString(),
       provenance:
-        'Manual/synthetic European cash-settled USD research. Not provider verified, brokerage execution or a server backup. Evidence from the submitted request, not current edits.',
+        'Theoretical European cash-settled USD research. Optional contract observations retain original provider provenance, not refreshed/executable quotes or modeled American exercise/delivery. Not brokerage execution or a server backup. Evidence from the submitted request, not current edits.',
+      horizonDisclosure:
+        result.horizon?.exact_terminal_available === false
+          ? 'Mixed expiry: no exact terminal curve, extrema, breakevens or zero intervals. horizon_pnl marks later legs at first expiry; lifecycle results require a separate explicit path.'
+          : 'Common expiry: canonical exact terminal geometry; today/scenario curves are model-marked samples.',
       submittedSource: source,
       stdout,
       result,

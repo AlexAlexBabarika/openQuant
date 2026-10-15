@@ -112,7 +112,7 @@
   <p id={`${id}-boundary`} class="hint">
     Set <code>result = analyze_options(request)</code>. Injected <code>OptionLeg</code> and <code>OptionStrategy</code>
     return validated dictionaries; no imports needed. Manual/synthetic European cash-settled USD research,
-    one common expiry. No arbitrary imports, live quotes, brokerage or historical option execution.
+     with per-leg expiry overrides. No arbitrary imports, live quotes, brokerage or historical option execution.
     Switching modes does not replace source; replacing from editor fields is a separate confirmed action.
   </p>
   {#if error}<p class="editor-error" role="alert">{error}</p>{/if}

@@ -10,7 +10,7 @@
   let ownControls = $state<PathControls>(untrack(() => pathControls(draft)));
   const settings = $derived(controls ?? ownControls);
   let runState = $state.raw<ResearchState<LifecycleResponse>>(emptyResearchState(untrack(() => documentKey)));
-  const job = new ResearchJob<LifecycleRequest, LifecycleResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; });
+  const job = new ResearchJob<LifecycleRequest, LifecycleResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; }, () => key);
   const prepared = $derived(lifecycleRequest(draft, settings));
   const key = $derived(inputKey(draft, settings));
   const visible = $derived(runState.documentKey === documentKey ? runState : null);
@@ -30,6 +30,7 @@
     return () => clearInterval(timer);
   });
   onDestroy(() => job.reset('unmounted'));
+  $effect(() => { key; readOnly; untrack(() => { if (runState.pending) job.cancel(); }); });
   async function submit() {
     if (readOnly || inputsOnly || !prepared.request || visible?.pending) return;
     playing = false; index = 0;

@@ -3,7 +3,7 @@
   let { draft, onEdit, fieldErrors = {} }: OptionsEditorProps = $props();
   const uid = $props.id();
   const errors = $derived({ ...optionsEditorErrors(draft), ...fieldErrors });
-  const dated = $derived(draft.strategy.valuation_date != null || draft.strategy.expiry_date != null);
+  const dated = $derived(draft.strategy.expiry_date != null);
   const horizon = $derived(commonDateHorizon(draft.strategy.valuation_date, draft.strategy.expiry_date));
   const errorId = (key: string) => `${uid}-${key.replace(/\./g, '-')}-error`;
 </script>
@@ -19,7 +19,7 @@
 
 <section class="assumptions" aria-label="Common options assumptions">
   <h3>Common contract &amp; assumptions</h3>
-  <p class="hint">Manual / synthetic · European · cash-settled · USD. One common expiry, ACT/365. No provider lookup or live chain.</p>
+  <p class="hint">European · cash-settled · USD · ACT/365. Common expiry is the default; per-leg overrides support calendars and diagonals. Optional read-only provider observations require explicit hypothetical conversion in Research tools.</p>
   {@render error('strategy')}
   <label class="field"><span>Underlying identity · manual, optional (up to 80 characters)</span><input value={draft.strategy.underlying ?? ''} maxlength="80" placeholder="e.g. SPX · manual identifier"
     aria-invalid={!!errors['strategy.underlying']} aria-describedby={errors['strategy.underlying'] ? errorId('strategy.underlying') : undefined}
@@ -39,10 +39,10 @@
     {@render numeric('Entry fee · USD/contract (0–10k)', 'strategy.entry_fee_per_contract', draft.strategy.entry_fee_per_contract, 0, 10000, v => onEdit(d => { d.strategy.entry_fee_per_contract = v; }))}
   </div>
   {#if dated}
-    <p class="hint">{horizon === null ? 'Date pair incomplete or invalid: correct both dates before analysis.' : `Paired dates define ${horizon} UTC calendar days; all enabled option legs use this expiry.`} Dates are user-declared, not market freshness. Expiry before valuation is invalid; past calendar dates may be hypothetical research, not historical execution.</p>
+    <p class="hint">{horizon === null ? 'Date pair incomplete or invalid: correct both dates before analysis.' : `Paired dates define ${horizon} UTC calendar days for legs without overrides.`} Dates are user-declared, not market freshness. Expiry before valuation is invalid; past calendar dates may be hypothetical research, not historical execution.</p>
     <button type="button" class="ot-workbench-ghost" onclick={() => onEdit(clearCommonDates)}>Clear both dates · use days horizon</button>
-  {:else}<p class="hint">Dates are optional. With both blank, use the legacy days horizon. Entering dates requires a valid pair and exactly matching UTC horizon; no silent clamping.</p>{/if}
-  <p class="hint">0.20 IV = 20%; 0.03 rate = 3%. Option IV overrides resolve per leg. Fees are charged once per enabled absolute option quantity, not multiplied; no share fee. Scenario/surface times must remain within the common horizon.</p>
+  {:else}<p class="hint">Dates are optional. Use the legacy default days horizon, or a valuation date with common/per-leg expiry dates. Paired common dates must exactly match default days; no silent clamping.</p>{/if}
+  <p class="hint">0.20 IV = 20%; 0.03 rate = 3%. Option IV overrides resolve per leg. Fees are charged once per enabled absolute option quantity, not multiplied; no share fee. Scenario/surface times must not cross the first active expiry.</p>
 </section>
 
 <style>

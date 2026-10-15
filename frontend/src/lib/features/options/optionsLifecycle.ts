@@ -315,10 +315,12 @@ export class ResearchJob<Q, R> {
   state: ResearchState<R>;
   #generation = 0;
   #controller: AbortController | null = null;
+  #timer: ReturnType<typeof setTimeout> | null = null;
   constructor(
     documentKey: string,
     private currentDocument: () => string,
     private publish: (state: ResearchState<R>) => void,
+    private currentInput?: () => string,
   ) {
     this.state = emptyResearchState(documentKey);
   }
@@ -327,6 +329,8 @@ export class ResearchJob<Q, R> {
     this.publish(this.state);
   }
   reset(documentKey: string): void {
+    if (this.#timer !== null) clearTimeout(this.#timer);
+    this.#timer = null;
     this.#generation++;
     this.#controller?.abort();
     this.#controller = null;
@@ -334,6 +338,8 @@ export class ResearchJob<Q, R> {
     this.publish(this.state);
   }
   cancel(): void {
+    if (this.#timer !== null) clearTimeout(this.#timer);
+    this.#timer = null;
     this.#generation++;
     this.#controller?.abort();
     this.#controller = null;
@@ -350,6 +356,7 @@ export class ResearchJob<Q, R> {
     call: (request: Q, signal: AbortSignal) => Promise<R>,
     validate: (result: R) => boolean,
   ): Promise<void> {
+    if (this.#timer !== null) clearTimeout(this.#timer);
     this.#controller?.abort();
     const generation = ++this.#generation;
     const documentKey = this.currentDocument();
@@ -363,7 +370,16 @@ export class ResearchJob<Q, R> {
     const current = () =>
       generation === this.#generation &&
       documentKey === this.currentDocument() &&
+      (!this.currentInput || key === this.currentInput()) &&
       !controller.signal.aborted;
+    this.#timer = setTimeout(() => {
+      if (!current()) return;
+      this.cancel();
+      this.#update({
+        error:
+          'Research timed out after 15 seconds. Reduce path steps and retry explicitly.',
+      });
+    }, 15000);
     try {
       const result = await call(snapshot, controller.signal);
       if (!current()) return;
@@ -377,6 +393,10 @@ export class ResearchJob<Q, R> {
     } catch (error) {
       if (current()) this.#update({ error: researchError(error) });
     } finally {
+      if (generation === this.#generation && this.#timer !== null) {
+        clearTimeout(this.#timer);
+        this.#timer = null;
+      }
       if (current()) {
         this.#controller = null;
         this.#update({ pending: false });

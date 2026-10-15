@@ -34,6 +34,7 @@
   });
   $effect(() => { draftKey; untrack(() => { edits = {}; pointErrors = {}; }); });
   $effect(() => { if (readOnly) untrack(stop); });
+  $effect(() => { draftKey; untrack(() => { if (pending) { stop(); notice = 'Comparison cancelled because inputs changed. Compare explicitly to refresh.'; } }); });
 
   const numeric = (value: string) => value.trim() === '' ? NaN : Number(value);
   const display = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? exactValue(value, true) : 'Unavailable';
@@ -73,7 +74,7 @@
     stop(); const flight = ++generation, scope = documentKey, session = getSessionGeneration();
     const key = draftKey, snapshot = structuredClone($state.snapshot(draft));
     const abort = new AbortController(); controller = abort; pending = true; error = ''; notice = '';
-    const current = () => flight === generation && scope === documentKey && session === getSessionGeneration();
+    const current = () => flight === generation && scope === documentKey && session === getSessionGeneration() && key === draftKey;
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; abort.abort(); }, 15000);
     try {
