@@ -122,7 +122,9 @@
   }
 
   function commitStrike(index: number, strike: number, original: number) {
-    if (!editable || !onEdit || !matchingLayout) return;
+    const leg = draft?.strategy.legs[index];
+    if (!editable || !onEdit || !matchingLayout || !leg?.enabled || leg.kind === 'underlying' ||
+      leg.strike !== original || !validStrike(strike) || strike === original) return;
     onEdit(d => { applyStrikeEdit(d, index, strike, original); });
   }
 
