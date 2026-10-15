@@ -305,6 +305,18 @@ class PnlQuantile(OptionsModel):
     pnl: float
 
 
+class TerminalPriceBin(OptionsModel):
+    lower_spot: float = Field(gt=0)
+    upper_spot: float = Field(gt=0)
+    representative_spot: float = Field(gt=0)
+    probability: Probability
+
+
+class TerminalPayoffPoint(OptionsModel):
+    spot: float = Field(ge=0)
+    pnl: float
+
+
 class DistributionResponse(OptionsModel):
     request: DistributionRequest
     provenance: ResearchProvenance = Field(default_factory=ResearchProvenance)
@@ -313,6 +325,10 @@ class DistributionResponse(OptionsModel):
     terminal_log_sigma: float = Field(ge=0, le=16)
     deterministic: bool
     bins: list[ProbabilityBin] = Field(min_length=1, max_length=100)
+    terminal_price_bins: list[TerminalPriceBin] = Field(min_length=1, max_length=100)
+    terminal_payoff_curve: list[TerminalPayoffPoint] = Field(
+        min_length=1, max_length=34
+    )
     probability_positive_pnl: Probability
     expected_pnl: float
     quantiles: list[PnlQuantile] = Field(min_length=1, max_length=9)
