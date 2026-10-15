@@ -4,6 +4,8 @@ export const API_KEY_PROVIDERS = [
   { value: 'twelvedata', label: 'Twelve Data' },
   { value: 'alphavantage', label: 'Alpha Vantage' },
   { value: 'massive', label: 'Massive' },
+  { value: 'tradier', label: 'Tradier (production, read-only chains)' },
+  { value: 'tradier_sandbox', label: 'Tradier Sandbox (delayed chains)' },
 ] as const;
 
 export type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number]['value'];
