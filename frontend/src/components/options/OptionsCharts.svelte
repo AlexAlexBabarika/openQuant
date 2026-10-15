@@ -1,6 +1,14 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { GreekKey, OptionsAnalysis, OptionsDraft } from '$lib/features/options/optionsTypes';
   import { requestChanged } from '$lib/features/options/optionsScenario';
+  import { optionsErrors } from '$lib/features/options/optionsValidation';
+  import {
+    STRIKE_STEPS, MAX_STRIKE, validStrike, snapStrike, strikeAtClientX,
+    moveStrikeDrag, finishStrikeDrag, applyStrikeEdit, isolatedLegRequest,
+    canonicalOverlay, requestChartAnalysis, ChartRequestGate, chartContextKey,
+  } from '$lib/features/options/optionsChartEditing';
+  import type { StrikeDrag } from '$lib/features/options/optionsChartEditing';
   import {
     GREEK_KEYS, axisValue, domainTicks, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
@@ -9,7 +17,14 @@
   } from '$lib/features/options/optionsChart';
   import type { Domain } from '$lib/features/options/optionsChart';
 
-  let { result = null, spot, draft }: { result?: OptionsAnalysis | null; spot?: number; draft?: OptionsDraft } = $props();
+  let { result = null, spot, draft, onEdit, readOnly = false, documentKey }: {
+    result?: OptionsAnalysis | null;
+    spot?: number;
+    draft?: OptionsDraft;
+    onEdit?: (update: (draft: OptionsDraft) => void) => void;
+    readOnly?: boolean;
+    documentKey?: string;
+  } = $props();
   const id = $props.id();
   let containerWidth = $state(360);
   let view = $state<Domain | null>(null);
@@ -18,18 +33,49 @@
   let domainError = $state('');
   let selected = $state<number | null>(null);
   let greek = $state<GreekKey>('delta');
+  let pnlSvg = $state<SVGSVGElement>();
+  let selectedLeg = $state<number | null>(null);
+  let strikeText = $state('');
+  let strikeError = $state('');
+  let step = $state<number>(1);
+  let drag = $state<StrikeDrag | null>(null);
+  let capture: HTMLButtonElement | null = null;
+  let suppressMarkerClick = false;
+  let dragStartX = 0;
+  const previewGate = new ChartRequestGate(), legGate = new ChartRequestGate();
+  interface Evidence { analysis: OptionsAnalysis; context: string; baseline: OptionsAnalysis; legIndex?: number }
+  let proposal = $state.raw<Evidence | null>(null);
+  let contribution = $state.raw<Evidence | null>(null);
+  let previewPending = $state(false), legPending = $state(false);
+  let previewMessage = $state(''), legMessage = $state('');
+  let previewFailed = $state(false), legFailed = $state(false);
+  let previewFields = $state<Record<string, string>>({});
+  const context = $derived(chartContextKey(documentKey, draft, result, readOnly, !!onEdit));
+  const editable = $derived(!!documentKey && !!draft && !!onEdit && !readOnly);
+  const proposed = $derived(proposal?.context === context && proposal.baseline === result ? proposal.analysis : null);
+  const legAnalysis = $derived(contribution?.context === context && contribution.baseline === result && contribution.legIndex === selectedLeg ? contribution.analysis : null);
+  const proposedCurves = $derived(proposed ? canonicalOverlay(proposed, proposed.request) : []);
+  const legCurves = $derived(legAnalysis && result ? canonicalOverlay(legAnalysis, legAnalysis.request, result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false) : []);
+  const overlayCurves = $derived([...proposedCurves, ...legCurves]);
+  const overlayPoints = $derived(overlayCurves.map(s => seriesPoints(s.spots, s.values)));
+  const legRows = $derived(result?.request.strategy.legs.map((leg, index) => ({ leg, index })) ?? []);
+  const draftLeg = $derived(selectedLeg == null ? null : draft?.strategy.legs[selectedLeg]);
+  const submittedLeg = $derived(selectedLeg == null ? null : result?.request.strategy.legs[selectedLeg]);
+  const matchingLayout = $derived(!!draft && !!result && draft.strategy.legs.length === result.request.strategy.legs.length && draft.strategy.legs.every((leg, i) => leg.kind === result!.request.strategy.legs[i].kind));
+  const canEditLeg = $derived(editable && matchingLayout && !!draftLeg?.enabled && draftLeg.kind !== 'underlying' && validStrike(draftLeg.strike));
+  const ghost = $derived(drag?.proposed ?? (canEditLeg && draftLeg?.strike !== submittedLeg?.strike ? draftLeg?.strike : null));
   const width = $derived(Math.max(240, containerWidth));
   const left = 64, right = 18;
   const plotWidth = $derived(width - left - right);
   const full = $derived(result ? priceDomain(result.spot_grid) : null);
   const domain = $derived(view ?? full);
   const error = $derived(result ? plotError(result) : null);
-  const curves = $derived(result ? optionsSeries(result) : []);
+  const curves = $derived(result ? optionsSeries(result).filter(s => s.id !== 'expiry' || (result.horizon?.kind !== 'mixed_expiry' && result.horizon?.exact_terminal_available !== false)) : []);
   const points = $derived(curves.map(s => seriesPoints(s.spots, s.values)));
-  const inspectGrid = $derived(result ? inspectionGrid(result) : []);
+  const inspectGrid = $derived(result ? [...new Set([...inspectionGrid(result), ...overlayCurves.flatMap(s => s.spots)])].sort((a, b) => a - b) : []);
   const expiryError = $derived(result ? expiryTraceError(result) : null);
   const legError = $derived(result ? legBreakdownError(result) : null);
-  const pnlY = $derived(domain ? sampledYDomain(points, domain) : { min: -1, max: 1 });
+  const pnlY = $derived(domain ? sampledYDomain([...points, ...overlayPoints], domain) : { min: -1, max: 1 });
   const greekCurves = $derived(result ? greekSeries(result, greek) : []);
   const greekPoints = $derived(result ? greekCurves.map(s => seriesPoints(result.spot_grid, s.values)) : []);
   const greekY = $derived(domain ? sampledYDomain(greekPoints, domain) : { min: -1, max: 1 });
@@ -44,6 +90,178 @@
   const unit = $derived(result?.greek_units[greek] ?? '');
 
   $effect(() => {
+    context; result;
+    untrack(resetEditing);
+    return () => untrack(resetEditing);
+  });
+
+  $effect(() => {
+    selectedLeg;
+    strikeText = validStrike(draftLeg?.strike) ? String(draftLeg.strike) : '';
+    strikeError = '';
+  });
+
+  function cancelDrag(cancelled = true) {
+    const pointerId = drag?.pointerId;
+    if (cancelled && pointerId != null) suppressMarkerClick = true;
+    drag = null;
+    const target = capture;
+    capture = null;
+    if (pointerId != null && target?.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
+  }
+
+  function resetEditing() {
+    cancelDrag();
+    previewGate.cancel(); legGate.cancel();
+    proposal = null; contribution = null;
+    selected = null;
+    previewPending = false; legPending = false;
+    previewMessage = ''; legMessage = '';
+    previewFailed = false; legFailed = false;
+    previewFields = {};
+  }
+
+  function commitStrike(index: number, strike: number, original: number) {
+    if (!editable || !onEdit || !matchingLayout) return;
+    onEdit(d => { applyStrikeEdit(d, index, strike, original); });
+  }
+
+  function numericStrike(event: SubmitEvent) {
+    event.preventDefault();
+    if (!canEditLeg || selectedLeg == null || !validStrike(draftLeg?.strike)) return;
+    const strike = strikeText.trim() ? Number(strikeText) : NaN;
+    if (!validStrike(strike)) { strikeError = `Strike must be greater than 0 and at most ${MAX_STRIKE} USD. No edit was applied.`; return; }
+    strikeError = '';
+    commitStrike(selectedLeg, strike, draftLeg.strike);
+  }
+
+  function incrementStrike(index: number, direction: number) {
+    const leg = draft?.strategy.legs[index];
+    if (!leg || !validStrike(leg.strike)) return;
+    const next = snapStrike(leg.strike + direction * step, step);
+    if (next != null) commitStrike(index, next, leg.strike);
+  }
+
+  function handleKey(event: KeyboardEvent, index: number) {
+    if (event.key === 'Escape') { cancelDrag(); event.stopPropagation(); return; }
+    if (!editable || !matchingLayout || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    if (event.repeat) return;
+    selectLeg(index);
+    incrementStrike(index, ['ArrowLeft', 'ArrowDown'].includes(event.key) ? -1 : 1);
+  }
+
+  function dragStrike(event: PointerEvent) {
+    return domain && pnlSvg ? strikeAtClientX(event.clientX, pnlSvg.getBoundingClientRect(), width, left, plotWidth, domain, step) : null;
+  }
+
+  function startDrag(event: PointerEvent, index: number) {
+    suppressMarkerClick = false;
+    selectLeg(index);
+    const leg = draft?.strategy.legs[index];
+    if (!editable || !matchingLayout || !leg?.enabled || !validStrike(leg.strike) || !event.isPrimary || event.button !== 0 || !(event.currentTarget instanceof HTMLButtonElement)) return;
+    event.preventDefault();
+    cancelDrag(false);
+    capture = event.currentTarget;
+    capture.focus();
+    dragStartX = event.clientX;
+    drag = { pointerId: event.pointerId, legIndex: index, original: leg.strike, proposed: leg.strike, context };
+    try { capture.setPointerCapture(event.pointerId); } catch { cancelDrag(); }
+  }
+
+  function moveDrag(event: PointerEvent) {
+    if (drag) {
+      if (!suppressMarkerClick && Math.abs(event.clientX - dragStartX) < 3) return;
+      drag = moveStrikeDrag(drag, event.pointerId, dragStrike(event));
+      if (drag.proposed !== drag.original) suppressMarkerClick = true;
+    }
+  }
+
+  function endDrag(event: PointerEvent) {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (suppressMarkerClick) moveDrag(event);
+    const completed = finishStrikeDrag(drag, event.pointerId, context);
+    cancelDrag(false);
+    if (completed) commitStrike(completed.legIndex, completed.proposed, completed.original);
+  }
+
+  function handleStrike(index: number): number {
+    if (drag?.legIndex === index) return drag.proposed;
+    const strike = editable && matchingLayout ? draft?.strategy.legs[index]?.strike : null;
+    return validStrike(strike) ? strike : result!.request.strategy.legs[index].strike!;
+  }
+
+  function selectLeg(index: number) {
+    if (selectedLeg !== index) {
+      legGate.cancel(); legPending = false; legFailed = false;
+      legMessage = ''; contribution = null; selected = null;
+    }
+    selectedLeg = index;
+  }
+
+  function markerClick(event: MouseEvent, index: number) {
+    if (event.detail > 0 && suppressMarkerClick) { suppressMarkerClick = false; return; }
+    void loadLeg(index);
+  }
+
+  function cancelPreview(discard = false) {
+    previewGate.cancel(); previewPending = false; previewFailed = false;
+    if (discard) { proposal = null; selected = null; }
+    previewMessage = discard ? 'Proposed overlay discarded. Submitted evidence is unchanged.' : 'Proposal request cancelled. Any previous proposed overlay is unchanged.';
+  }
+
+  function cancelLeg() {
+    legGate.cancel(); legPending = false; legFailed = false;
+    legMessage = 'Leg contribution request cancelled. Submitted strategy evidence is unchanged.';
+  }
+
+  async function loadLeg(index: number) {
+    selectedLeg = index;
+    legGate.cancel(); legPending = false; legFailed = false; contribution = null; selected = null;
+    if (!documentKey || !result) { legMessage = 'Leg curve requests require an active research document.'; return; }
+    const base = result, key = context;
+    const request = isolatedLegRequest($state.snapshot(base), index);
+    if (!request) { legMessage = 'This leg is disabled; its canonical contribution is zero.'; return; }
+    const flight = legGate.begin(key, base);
+    legPending = true; legMessage = ''; legFailed = false;
+    const current = () => flight.current(context, result) && selectedLeg === index;
+    const timer = setTimeout(() => { if (current()) { legGate.cancel(); legPending = false; legFailed = true; legMessage = 'Leg curve timed out. Retry explicitly.'; } }, 15000);
+    try {
+      const analysis = await requestChartAnalysis(request, flight.signal);
+      if (!current()) return;
+      canonicalOverlay(analysis, request);
+      contribution = { analysis, context: key, baseline: base, legIndex: index };
+      selected = null;
+      legMessage = `Canonical submitted leg ${index + 1} contribution loaded; other legs are disabled for this request.`;
+    } catch {
+      if (current()) { legFailed = true; legMessage = 'Leg contribution request failed. Retry explicitly; submitted strategy evidence is unchanged.'; }
+    } finally { clearTimeout(timer); if (current()) legPending = false; }
+  }
+
+  async function previewProposal() {
+    if (!editable || !draft || !result || previewPending || drag) return;
+    const base = result, key = context;
+    const request = structuredClone($state.snapshot(draft));
+    previewFields = optionsErrors(request);
+    previewFailed = Object.keys(previewFields).length > 0;
+    if (previewFailed) { previewMessage = 'Fix the proposal inputs below before previewing. No request was sent.'; return; }
+    const flight = previewGate.begin(key, base);
+    previewPending = true; previewFailed = false; previewMessage = '';
+    const current = () => flight.current(context, result);
+    const timer = setTimeout(() => { if (current()) { previewGate.cancel(); previewPending = false; previewFailed = true; previewMessage = 'Proposal preview timed out. Retry explicitly.'; } }, 15000);
+    try {
+      const analysis = await requestChartAnalysis(request, flight.signal);
+      if (!current()) return;
+      canonicalOverlay(analysis, request);
+      proposal = { analysis, context: key, baseline: base };
+      selected = null;
+      previewMessage = 'Proposed backend result only. The submitted strategy and its evidence have not been replaced.';
+    } catch {
+      if (current()) { previewFailed = true; previewMessage = 'Canonical preview failed. Check the draft inputs and retry; submitted evidence is unchanged.'; }
+    } finally { clearTimeout(timer); if (current()) previewPending = false; }
+  }
+
+  $effect(() => {
     const grid = result?.spot_grid;
     result?.expiry_curve;
     view = null;
@@ -55,6 +273,7 @@
   });
 
   function setDomain(next: Domain) {
+    cancelDrag();
     view = next;
     minimum = String(next.min);
     maximum = String(next.max);
@@ -97,6 +316,8 @@
   }
 </script>
 
+<svelte:window onblur={() => cancelDrag()} onkeydown={(event) => { if (drag && event.key === 'Escape') { event.preventDefault(); cancelDrag(); } }} />
+
 <section class="options-charts" aria-label="Options research charts">
   {#if !result}
     <div class="empty"><strong>Price-domain research</strong><p>Analyze manual inputs to see expiration, today and scenario P&amp;L, plus theoretical Greek exposures.</p></div>
@@ -109,6 +330,59 @@
     </header>
     {#if drift && !stale}<p class="notice">Draft spot changed. Charts still show the returned analysis at {exactValue(result.request.spot)} USD; analyze again to refresh.</p>{/if}
     {#if stale}<p class="notice" role="status">Inputs changed. All charts and per-leg readouts remain previous submitted evidence; Analyze explicitly to refresh.</p>{/if}
+
+    <section class="strike-editor" aria-label="Strike proposals and submitted leg contribution">
+      <div class="pane-title"><h4>Strike proposals</h4><span>Submitted evidence stays fixed</span></div>
+      {#if !editable}<p class="note">Read-only chart. Python source is never changed by chart controls. Visual editing requires an editable draft, parent edit callback and an active document key.</p>{:else}
+        <p class="note">Drag a numbered strike handle, or select a leg and use numeric controls. Release applies one draft edit; Escape, lost capture and pointer cancellation discard it. Pricing requires Preview.</p>
+      {/if}
+      <div class="leg-selectors" aria-label="Select submitted leg">
+        {#each legRows as row (row.index)}
+          <button type="button" class:chosen={selectedLeg === row.index} aria-pressed={selectedLeg === row.index} onclick={() => loadLeg(row.index)}>
+            L{row.index + 1}: {row.leg.kind} · {exactValue(row.leg.quantity, true)} {row.leg.kind === 'underlying' ? 'shares' : 'contracts'}{row.leg.kind !== 'underlying' ? ` · K ${exactValue(row.leg.strike)} USD` : ''}{row.leg.enabled ? '' : ' · disabled'}
+          </button>
+        {/each}
+      </div>
+      <p class="note">Select/Enter/Space explicitly requests the submitted leg's canonical contribution (other legs disabled), not the draft. Arrows edit draft strike when enabled. L = submitted strike; D = unpriced draft strike.</p>
+      {#if selectedLeg != null && submittedLeg}
+        <p class="note">Selected submitted L{selectedLeg + 1}: {submittedLeg.kind}, premium {exactValue(submittedLeg.entry_premium)} USD/unit, multiplier {exactValue(submittedLeg.multiplier)}{submittedLeg.source ? ` · source ${submittedLeg.source.provider}/${submittedLeg.source.environment} · ${submittedLeg.source.contract_symbol}` : ' · manual inputs'}.</p>
+        {#if result.legs?.find(l => l.leg_index === selectedLeg)}
+          {@const leg = result.legs.find(l => l.leg_index === selectedLeg)!}
+          <p class="note">Canonical submitted-spot contribution: today P&amp;L {exactValue(leg.pnl_today, true)} USD · delta {exactValue(leg.greeks.delta, true)} equivalent shares.</p>
+        {/if}
+      {/if}
+      {#if editable}
+        {#if !matchingLayout}<p class="notice">Draft leg layout changed. Analyze explicitly before editing chart strikes; submitted leg selection still inspects the original evidence.</p>{/if}
+        <form class="domain-controls" onsubmit={numericStrike} aria-label="Edit selected draft strike">
+          <label for={`${id}-strike`}>Draft L{selectedLeg == null ? '—' : selectedLeg + 1} strike (USD)
+            <input id={`${id}-strike`} type="text" inputmode="decimal" bind:value={strikeText} disabled={!canEditLeg || !!drag} aria-invalid={!!strikeError} aria-describedby={`${id}-strike-note`} />
+          </label>
+          <label for={`${id}-snap`}>Drag/arrow step (USD)
+            <select id={`${id}-snap`} bind:value={step} disabled={!!drag}>{#each STRIKE_STEPS as s}<option value={s}>{s}</option>{/each}</select>
+          </label>
+          <div class="actions">
+            <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, -1)}>Strike −</button>
+            <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, 1)}>Strike +</button>
+            <button type="submit" disabled={!canEditLeg || !!drag}>Apply strike</button>
+          </div>
+        </form>
+        <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError || `Numeric edits retain entered precision; drag/arrows snap to the chosen step within 0 < strike ≤ ${MAX_STRIKE} USD. Select an enabled option leg to edit.`}</p>
+        <p class="notice">Strike edits never change entry premiums, IVs, quotes, timestamps or source metadata. Premiums and quotes retain prior assumptions; the contract symbol may not match the proposed strike. Review explicitly. The draft ghost is unpriced, not payoff evidence.</p>
+        <div class="actions">
+          <button type="button" onclick={previewProposal} disabled={previewPending || !!drag}>Preview proposal</button>
+          {#if previewPending}<button type="button" onclick={() => cancelPreview()}>Cancel preview</button>{/if}
+          {#if proposed}<button type="button" onclick={() => cancelPreview(true)}>Discard proposed overlay</button>{/if}
+        </div>
+      {/if}
+      {#if previewPending}<p class="note" role="status">Canonical proposal preview pending. Any previous proposed overlay remains separate from submitted evidence.</p>{/if}
+      {#if previewMessage}<p class="notice" role={previewFailed ? 'alert' : 'status'}>{previewMessage}</p>{/if}
+      {#if Object.keys(previewFields).length}<ul class="field-errors">{#each Object.entries(previewFields) as [field, message]}<li><b>{field}</b>: {message}</li>{/each}</ul>{/if}
+      {#if legPending}<p class="note" role="status">Canonical leg contribution pending.</p><button type="button" onclick={cancelLeg}>Cancel leg request</button>{/if}
+      {#if legMessage}<p class="note" role={legFailed ? 'alert' : 'status'}>{legMessage}</p>{/if}
+      {#if proposed}<p class="notice">PROPOSED backend analysis · submitted proposal spot {exactValue(proposed.request.spot)} USD · {proposed.request.strategy.name}. Dot-dash overlays are hypothetical proposed evidence, not an update to the submitted strategy.{proposed.horizon?.exact_terminal_available === false ? ' Mixed expiry: no exact terminal payoff overlay, roots or extrema are available.' : ''}</p>{/if}
+      {#if legAnalysis}<p class="note">SELECTED SUBMITTED L{(selectedLeg ?? 0) + 1} · long-dashed, thicker overlay · fixed original premiums and fees.{result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false ? ' Today only for mixed expiry; no isolated own-expiry line is compared to the multi-expiry strategy.' : ''}</p>{/if}
+      {#if ghost != null}<p class="note" role="status">Unpriced draft L{(selectedLeg ?? 0) + 1} strike: {exactValue(ghost)} USD{inView(ghost) ? '' : ' (outside current view)'}. {drag ? 'Release to apply, Escape to cancel.' : 'Preview explicitly for canonical pricing.'}</p>{/if}
+    </section>
 
     <form class="domain-controls" onsubmit={applyDomain} aria-label="Numeric price view">
       <label for={`${id}-minimum`}>From (USD)<input id={`${id}-minimum`} type="text" inputmode="decimal" bind:value={minimum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
@@ -128,10 +402,12 @@
       {#each curves as curve (curve.id)}
         <span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray={curve.dash} /></svg>{curve.label}</span>
       {/each}
+      {#each proposedCurves as curve (curve.id)}<span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray="3 2 1 2" /></svg>PROPOSED · {curve.label}</span>{/each}
+      {#each legCurves as curve (curve.id)}<span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray="14 5" /></svg>SUBMITTED L{(selectedLeg ?? 0) + 1} · {curve.label}</span>{/each}
     </div>
     <div class="graph" bind:clientWidth={containerWidth}>
       <div class="chart-control" role="slider" tabindex="0" aria-label="Inspect P&L at supplied price samples" aria-valuemin={domain.min} aria-valuemax={domain.max} aria-valuenow={sliderSpot()} aria-valuetext={activeSpot == null ? 'No sample selected' : `${exactValue(activeSpot)} USD; values in readout below`} aria-describedby={`${id}-instructions`} onkeydown={keydown}>
-        <svg viewBox={`0 0 ${width} 254`} role="img" aria-label={`Expiration, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
+        <svg bind:this={pnlSvg} viewBox={`0 0 ${width} 254`} role="img" aria-label={`Expiration, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
           <title>Options P&amp;L over numeric underlying price</title>
           <desc>Expiration connects canonical piecewise-linear vertices, including every in-domain strike and isolated breakeven. Today and scenarios connect backend grid samples only. Dashed vertical lines mark strikes, dotted lines mark expiration breakevens, solid line marks submitted spot. Exact values are below.</desc>
           <defs><clipPath id={`${id}-pnl-clip`}><rect x={left} y="24" width={plotWidth} height="184" /></clipPath></defs>
@@ -154,6 +430,11 @@
             {#each curves as curve, i (curve.id)}
               <path class={`curve ${curve.tone}`} d={svgPath(points[i], domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`} stroke-dasharray={curve.dash} />
             {/each}
+            {#each overlayCurves as curve, i (`${i}-${curve.id}`)}
+              <path class={`curve ${curve.tone}`} class:contribution={i >= proposedCurves.length} d={svgPath(overlayPoints[i], domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`} stroke-dasharray={i < proposedCurves.length ? '3 2 1 2' : '14 5'} />
+            {/each}
+            {#if ghost != null && inView(ghost)}<line class="draft-ghost" x1={x(ghost)} x2={x(ghost)} y1="24" y2="208"><title>Unpriced draft strike {exactValue(ghost)} USD; not payoff evidence</title></line>{/if}
+            {#if selectedLeg != null && validStrike(submittedLeg?.strike) && inView(submittedLeg.strike)}<line class="selected-strike" x1={x(submittedLeg.strike)} x2={x(submittedLeg.strike)} y1="24" y2="208" />{/if}
             {#if activeSpot != null && activeIndex != null}
               <line class="crosshair" x1={x(activeSpot)} x2={x(activeSpot)} y1="24" y2="208" />
               {#each curves as curve (curve.id)}
@@ -167,6 +448,17 @@
           <text class="axis" x={left+plotWidth/2} y="244" text-anchor="middle">Underlying price (USD)</text>
         </svg>
       </div>
+      <div class="strike-handles" aria-label="Submitted option strike handles">
+        {#each legRows.filter(row => row.leg.kind !== 'underlying' && row.leg.enabled && validStrike(row.leg.strike) && inView(handleStrike(row.index))) as row (row.index)}
+          <button type="button" class="strike-handle" class:chosen={selectedLeg === row.index} class:draggable={editable && matchingLayout} style:left={`${x(handleStrike(row.index)) / width * 100}%`} style:top={`${(34 + row.index % 6 * 28) / 254 * 100}%`}
+            aria-label={`L${row.index + 1} submitted ${row.leg.kind} strike ${row.leg.strike} USD. ${handleStrike(row.index) !== row.leg.strike ? `Unpriced draft strike ${handleStrike(row.index)} USD. ` : ''}Select contribution with Enter/Space; ${editable && matchingLayout ? 'drag or arrows to edit draft strike' : 'read-only strike'}.`}
+            aria-pressed={selectedLeg === row.index}
+            onkeydown={(event) => handleKey(event, row.index)}
+            onpointerdown={(event) => startDrag(event, row.index)} onpointermove={moveDrag} onpointerup={endDrag}
+            onpointercancel={() => cancelDrag()} onlostpointercapture={() => cancelDrag()}
+            onclick={(event) => markerClick(event, row.index)}>{handleStrike(row.index) !== row.leg.strike ? 'D' : 'L'}{row.index + 1}</button>
+        {/each}
+      </div>
     </div>
     <p class="marker-key">Solid vertical: submitted spot · dashed: strike · dotted: expiration breakeven · horizontal: zero P&amp;L</p>
     <p id={`${id}-instructions`} class="note">Hover or touch to inspect supplied samples or exact expiry vertices. Focus either chart: arrows, Home/End to select; Escape to clear. Values not returned at a selected price are unavailable, never interpolated. Axes use up to 4 significant digits or scientific notation; readouts and tables are unrounded. Lines identify series, not gain/loss.</p>
@@ -176,6 +468,8 @@
       {#if activeIndex != null && activeSpot != null}
         <strong>Returned spot {exactValue(activeSpot)} USD</strong>
         <dl>{#each curves as curve (curve.id)}<div><dt>{curve.label} P&amp;L</dt><dd>{exactValue(seriesValue(curve, activeSpot), true)} USD</dd></div>{/each}
+          {#each proposedCurves as curve (curve.id)}<div><dt>PROPOSED {curve.label} P&amp;L</dt><dd>{exactValue(seriesValue(curve, activeSpot), true)} USD</dd></div>{/each}
+          {#each legCurves as curve (curve.id)}<div><dt>SUBMITTED L{(selectedLeg ?? 0) + 1} {curve.label} P&amp;L</dt><dd>{exactValue(seriesValue(curve, activeSpot), true)} USD</dd></div>{/each}
           <div><dt>Today {greek}</dt><dd>{exactValue(greekCurves[0]?.values[greekIndex], true)} · {unit}</dd></div>
         </dl>
       {:else}<span>Select a price sample to inspect exact returned values. No sampled view is a maximum profit/loss estimate.</span>{/if}
@@ -294,7 +588,19 @@
   .legend-item { display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
   .swatch { width: 28px; height: 10px; flex: 0 0 28px; }
   .swatch path { stroke: currentColor; stroke-width: 2; fill: none; }
-  .graph { min-width: 0; width: 100%; }
+  .graph { position: relative; min-width: 0; width: 100%; }
+  .strike-editor { min-width: 0; padding-bottom: 8px; border-bottom: 1px solid oklch(var(--border)); }
+  .leg-selectors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .leg-selectors button { white-space: normal; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+  .strike-handles { position: absolute; inset: 0; pointer-events: none; }
+  .strike-handle { position: absolute; transform: translate(-50%, -50%); min-width: 28px; padding: 2px 4px; font-family: var(--font-mono); pointer-events: auto; z-index: 1; }
+  .strike-handle.draggable { cursor: ew-resize; touch-action: none; }
+  .strike-handle.chosen { z-index: 3; }
+  .chosen { border: 2px solid oklch(var(--foreground)); text-decoration: underline; text-underline-offset: 3px; }
+  .curve.contribution { stroke-width: 3.5; }
+  .draft-ghost { stroke: oklch(var(--foreground)); stroke-width: 2; stroke-dasharray: 1 5; }
+  .selected-strike { stroke: oklch(var(--foreground)); stroke-width: 2; stroke-dasharray: 12 3; }
+  button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: 0.6; }
   .chart-control { width: 100%; border-radius: 4px; background: oklch(var(--card)); }
   .chart-control > svg { display: block; width: 100%; touch-action: pan-y; }
   .grid { stroke: var(--chart-grid); stroke-width: 1; }
@@ -336,11 +642,12 @@
   @media (max-width: 420px) { header { align-items: flex-start; } .actions { flex-basis: 100%; } .pane-title > span { flex-basis: 100%; } }
   @media (pointer: coarse) { button, input, select { min-height: var(--control-touch-height); } }
   @media (forced-colors: active) {
-    .curve, .point, .marker, .zero-line, .crosshair, .swatch path { stroke: CanvasText; }
+    .curve, .point, .marker, .zero-line, .crosshair, .swatch path, .draft-ghost, .selected-strike { stroke: CanvasText; }
     .grid { stroke: GrayText; }
     .axis { fill: CanvasText; }
     .zero-interval { fill: Highlight; }
     button, input, select { border-color: ButtonText; }
+    .chosen { border-color: Highlight; }
     button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .chart-control:focus-visible, .table-scroll:focus-visible { outline-color: Highlight; }
   }
 </style>
