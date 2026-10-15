@@ -94,25 +94,35 @@ def _validated_analysis(value: Any) -> OptionsAnalysis:
     if (
         analysis.spot_grid != points
         or len(analysis.today_pnl) != len(points)
-        or len(analysis.expiry_pnl) != len(points)
+        or len(analysis.expiry_pnl)
+        != (len(points) if analysis.horizon.exact_terminal_available else 0)
+        or len(analysis.horizon_pnl) != len(points)
         or len(analysis.greeks_grid) != len(points)
         or len(analysis.scenarios) != len(analysis.request.scenarios)
         or any(len(s.pnl) != len(points) for s in analysis.scenarios)
     ):
         raise OptionsRunError("Result curves must match the analysis request")
-    vertices = sorted(
-        {
-            points[0],
-            points[-1],
-            *(
-                leg.strike
-                for leg in analysis.request.strategy.legs
-                if leg.enabled
-                and leg.strike is not None
-                and points[0] <= leg.strike <= points[-1]
-            ),
-            *(s for s in analysis.summary.breakevens if points[0] <= s <= points[-1]),
-        }
+    vertices = (
+        []
+        if not analysis.horizon.exact_terminal_available
+        else sorted(
+            {
+                points[0],
+                points[-1],
+                *(
+                    leg.strike
+                    for leg in analysis.request.strategy.legs
+                    if leg.enabled
+                    and leg.strike is not None
+                    and points[0] <= leg.strike <= points[-1]
+                ),
+                *(
+                    s
+                    for s in analysis.summary.breakevens
+                    if points[0] <= s <= points[-1]
+                ),
+            }
+        )
     )
     if [point.spot for point in analysis.expiry_curve] != vertices:
         raise OptionsRunError("Result expiry vertices must match the analysis domain")

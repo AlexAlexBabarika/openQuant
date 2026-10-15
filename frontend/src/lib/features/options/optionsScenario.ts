@@ -5,6 +5,7 @@ import type {
 } from './optionsTypes';
 import { exactValue, finiteValue } from './optionsChart';
 import { spotGrid } from './optionsTemplates';
+import { firstExpiryDays } from './optionsValidation';
 
 export interface SurfaceSettings {
   axis: OptionsSurfaceRequest['axis'];
@@ -39,12 +40,12 @@ export function scenarioInputError(
 ): string | null {
   const bounds = ivShiftBounds(draft);
   if (
-    !finiteValue(draft.strategy.days_to_expiry) ||
-    draft.strategy.days_to_expiry < 0 ||
-    draft.strategy.days_to_expiry > 3650 ||
+    !finiteValue(firstExpiryDays(draft)) ||
+    firstExpiryDays(draft) < 0 ||
+    firstExpiryDays(draft) > 3650 ||
     !finiteValue(elapsed) ||
     elapsed < 0 ||
-    elapsed > draft.strategy.days_to_expiry
+    elapsed > firstExpiryDays(draft)
   )
     return 'Elapsed days must be within the common 0–expiry horizon (up to 3650 days).';
   if (
@@ -74,7 +75,7 @@ export function surfaceSettings(draft: OptionsDraft): SurfaceSettings {
   const bounds = ivShiftBounds(draft);
   const axis =
     surface?.axis ??
-    (draft.strategy.days_to_expiry === 0 ? 'iv_shift_pp' : 'elapsed_days');
+    (firstExpiryDays(draft) === 0 ? 'iv_shift_pp' : 'elapsed_days');
   return {
     axis,
     spotStart: surface?.spots[0] ?? draft.spot_grid[0] ?? 0,
@@ -89,7 +90,7 @@ export function surfaceSettings(draft: OptionsDraft): SurfaceSettings {
     stepEnd:
       surface?.steps[surface.steps.length - 1] ??
       (axis === 'elapsed_days'
-        ? draft.strategy.days_to_expiry
+        ? firstExpiryDays(draft)
         : Math.min(10, bounds?.max ?? 0)),
     stepCount: surface?.steps.length ?? 7,
   };
@@ -118,7 +119,7 @@ export function surfaceSettingsErrors(
     errors.stepCount = 'Use 2–21 step rows (at most 861 cells).';
   const bounds =
     axis === 'elapsed_days'
-      ? { min: 0, max: draft.strategy.days_to_expiry }
+      ? { min: 0, max: firstExpiryDays(draft) }
       : ivShiftBounds(draft);
   if (
     !bounds ||
@@ -253,6 +254,9 @@ export function requestChanged(
         bid: l.bid ?? null,
         ask: l.ask ?? null,
         quote_as_of: l.quote_as_of ?? null,
+        days_to_expiry: l.days_to_expiry ?? null,
+        expiry_date: l.expiry_date ?? null,
+        source: l.source ?? null,
       })),
     },
   });

@@ -8,9 +8,27 @@ historical options prices.
 No account, provider key, network request or new dependency is required for the
 direct Python analysis shown here.
 
+### Multi-expiry extension
+
+Options may override `days_to_expiry` and/or `expiry_date` per leg, with dates
+anchored to `strategy.valuation_date`. Missing overrides inherit the strategy
+default; paired days/dates must agree exactly. Calendar/diagonal labels are
+supported. Every leg's current and scenario mark/Greeks uses its own time horizon.
+Ordinary scenarios/surfaces cannot cross the first active option expiry.
+
+The exact terminal geometry descriptions below apply **only to common expiry**.
+Mixed expiries return `horizon.exact_terminal_available=false`, sampled
+`horizon_pnl` at the first expiry, empty `expiry_curve`/`expiry_pnl` and empty
+breakevens/zero intervals. Maximum profit/loss and unbounded flags are null
+(unavailable, not zero or infinite). At the first expiry front options use intrinsic
+while later options remain model marks. Through-expiry settlement requires explicit
+lifecycle paths, not a later common-spot scenario. See
+[the frozen research/API and ownership contract](OPTIONS_RESEARCH_CONTRACT.md)
+for the downstream finder, lifecycle, hedge, probability and read-only chain tools.
+
 ## Supported scope and provenance
 
-- European, cash-settled, USD calls and puts with one shared expiry, plus explicit
+- European, cash-settled, USD calls and puts with default/per-leg expiry, plus explicit
   underlying share hedges. All prices and P&L amounts are USD.
 - Constant annual IV per option leg (falling back to the declared request IV),
   continuously compounded rate and continuous dividend yield;

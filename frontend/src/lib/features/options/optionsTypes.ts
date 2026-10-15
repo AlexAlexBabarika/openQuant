@@ -10,7 +10,21 @@ export type OptionTemplate =
   | 'iron_condor'
   | 'iron_butterfly'
   | 'covered_call'
-  | 'protective_put';
+  | 'protective_put'
+  | 'calendar'
+  | 'diagonal';
+
+export interface OptionsContractSource {
+  provider: 'tradier';
+  environment: 'production' | 'sandbox';
+  contract_symbol: string;
+  underlying: string;
+  fetched_at: string;
+  bid_as_of?: string | null;
+  ask_as_of?: string | null;
+  observed_exercise_style?: 'american' | 'european' | 'unknown';
+  observed_settlement?: 'cash' | 'physical' | 'unknown';
+}
 
 export interface OptionLeg {
   kind: 'call' | 'put' | 'underlying';
@@ -19,6 +33,9 @@ export interface OptionLeg {
   entry_premium: number;
   multiplier: number;
   enabled: boolean;
+  days_to_expiry?: number | null;
+  expiry_date?: string | null;
+  source?: OptionsContractSource | null;
   implied_volatility?: number | null;
   bid?: number | null;
   ask?: number | null;
@@ -107,8 +124,8 @@ export interface OptionsSummary {
   pnl_today: number;
   max_profit: number | null;
   max_loss: number | null;
-  profit_unbounded: boolean;
-  loss_unbounded: boolean;
+  profit_unbounded: boolean | null;
+  loss_unbounded: boolean | null;
   breakevens: number[];
   zero_intervals: ZeroInterval[];
 }
@@ -120,6 +137,28 @@ export interface OptionsScenarioAnalysis {
   volatility: number;
   pnl: number[];
   greeks: OptionsGreeks;
+  legs?: OptionsScenarioLegAnalysis[];
+}
+
+export interface OptionsLegHorizon {
+  leg_index: number;
+  remaining_days: number | null;
+  state: 'disabled' | 'underlying' | 'model_mark' | 'expiry_intrinsic';
+}
+
+export interface OptionsScenarioLegAnalysis extends OptionsLegHorizon {
+  theoretical_value: number;
+  pnl: number;
+  greeks: OptionsGreeks;
+}
+
+export interface OptionsHorizon {
+  kind: 'single_expiry' | 'mixed_expiry';
+  first_expiry_days: number;
+  last_expiry_days: number;
+  elapsed_days: number;
+  exact_terminal_available: boolean;
+  legs: OptionsLegHorizon[];
 }
 
 export interface OptionsExpiryPoint {
@@ -132,6 +171,7 @@ export interface OptionsLegAnalysis {
   leg_index: number;
   enabled: boolean;
   resolved_implied_volatility: number | null;
+  resolved_days_to_expiry?: number | null;
   gross_entry_cost: number;
   entry_fees: number;
   net_entry_cost: number;
@@ -152,6 +192,8 @@ export interface OptionsAnalysis {
   spot_grid: number[];
   today_pnl: number[];
   expiry_pnl: number[];
+  horizon?: OptionsHorizon;
+  horizon_pnl?: number[];
   /** Canonical vertices; independent of the regular aligned grid. */
   expiry_curve?: OptionsExpiryPoint[];
   legs?: OptionsLegAnalysis[];

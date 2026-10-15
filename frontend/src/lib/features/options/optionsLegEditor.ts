@@ -1,4 +1,5 @@
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
+import { optionsErrors } from './optionsValidation';
 
 export interface OptionsEditorProps {
   draft: OptionsDraft;
@@ -48,6 +49,9 @@ export function setLegKind(
     leg.bid = null;
     leg.ask = null;
     leg.quote_as_of = null;
+    leg.days_to_expiry = null;
+    leg.expiry_date = null;
+    leg.source = null;
   } else if (wasUnderlying) {
     leg.strike = spot;
     leg.multiplier = 100;
@@ -212,7 +216,7 @@ export function optionsEditorErrors(
       'Enter a nonblank manual identity up to 80 characters, or leave blank.';
   const valuation = strategy.valuation_date,
     expiry = strategy.expiry_date;
-  if (valuation != null || expiry != null) {
+  if (expiry != null) {
     for (const [key, value] of [
       ['valuation_date', valuation],
       ['expiry_date', expiry],
@@ -272,5 +276,12 @@ export function optionsEditorErrors(
       errors[`${key}.quote_as_of`] =
         'Enter an explicit ISO timestamp with Z or ±HH:MM offset (up to 64 characters).';
   });
+  for (const [key, value] of Object.entries(optionsErrors(draft)))
+    if (
+      key.includes('expiry') ||
+      key.endsWith('.source') ||
+      key === 'strategy.valuation_date'
+    )
+      errors[key] = value;
   return errors;
 }
