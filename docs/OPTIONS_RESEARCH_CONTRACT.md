@@ -212,6 +212,21 @@ truncated_probability, normalization_mass, nullable numerical_error_estimate and
 warnings. Nonzero-time integration uses a bounded symmetric normal-domain midpoint
 quadrature and discloses truncation/renormalization; numerical estimates are not
 confidence guarantees. Null error estimate is unknown, not exact zero. No historical
+The additive terminal-price view returns `terminal_price_bins`, 1–100 objects with
+`lower_spot`, `upper_spot`, `representative_spot` (actual terminal USD spot, not log
+coordinates) and `probability` (normalized bin mass, **not density**). Normal-domain
+bin boundaries are transformed to prices; unequal price widths do not imply equal
+density. `terminal_payoff_curve` contains 1–34 exact canonical `{spot,pnl}` vertices
+over that displayed domain: endpoints, active strike knots and isolated breakevens
+inside it. Linear interpolation between these vertices is exact common-expiry P&L,
+not a sampled BSM curve. Do not extrapolate the view beyond its returned endpoints.
+A deterministic atom returns one zero-width price bin of mass one and one payoff
+point; it is not a density spike. Reject nonfinite or unrepresentable terminal-price
+domains explicitly rather than silently clipping tails. Existing `bins` remain
+P&L probability masses. Both views are conditional on the disclosed retained normal
+domain; omitted probability mass is not an upper bound on omitted expected loss.
+
+No historical
 probability, risk-free-return or guaranteed-loss claim.
 
 ### Authenticated read-only chain GETs
