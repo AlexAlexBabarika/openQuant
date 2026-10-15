@@ -90,6 +90,12 @@ server process cancellation. HTTP errors: 422 validation, 400 unsupported/invali
 research assumptions, 408 timeout, 413 oversize, 429 rate limit, 503 saturation.
 Never relax sandbox/AST guards or security policies to pass these features.
 
+The point/leg bounds are independent structural ceilings, not a promise that their
+Cartesian product fits the byte cap. For example, 366 observations with 16 live
+legs can exceed 1 MiB once per-leg Greeks are included. Such a response returns
+413 with an action to reduce points/legs; it never drops leg marks or silently
+rounds financial values. Maximum-point single-leg paths remain supported.
+
 Trusted pure entrypoints accept their request model or a dict, revalidate before
 computation and return the named Pydantic response. They have no network, database,
 filesystem, provider key, import injection or execution callback. They are not new
@@ -211,7 +217,7 @@ drift, horizon, terminal_log_sigma, deterministic flag, integration method
 truncated_probability, normalization_mass, nullable numerical_error_estimate and
 warnings. Nonzero-time integration uses a bounded symmetric normal-domain midpoint
 quadrature and discloses truncation/renormalization; numerical estimates are not
-confidence guarantees. Null error estimate is unknown, not exact zero. No historical
+confidence guarantees. Null error estimate is unknown, not exact zero.
 The additive terminal-price view returns `terminal_price_bins`, 1–100 objects with
 `lower_spot`, `upper_spot`, `representative_spot` (actual terminal USD spot, not log
 coordinates) and `probability` (normalized bin mass, **not density**). Normal-domain
