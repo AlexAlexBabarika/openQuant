@@ -8,7 +8,7 @@ import json
 from math import fsum
 from typing import Any, Iterator
 
-from .analytics import analyze_options, terminal_payoff
+from .analytics import analyze_options, terminal_pnl
 from .models import OptionLeg, OptionStrategy, OptionsAnalysisRequest
 from .research_models import (
     FinderCandidate,
@@ -141,13 +141,7 @@ def find_strategies(request: FinderRequest | dict[str, Any]) -> FinderResponse:
             FinderEvidence(
                 spot=spot,
                 elapsed_days=strategy.first_expiry_days,
-                pnl=fsum(
-                    [
-                        leg.quantity * leg.multiplier * terminal_payoff(leg, spot)
-                        for leg in legs
-                    ]
-                    + [-summary.net_entry_cost]
-                ),
+                pnl=terminal_pnl(legs, spot, summary.net_entry_cost),
             )
             for spot in submitted.scenario_spots
         ]

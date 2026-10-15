@@ -6,7 +6,7 @@ from math import erfc, exp, fsum, isfinite, log, pi, sqrt
 from statistics import NormalDist
 from typing import Any
 
-from .analytics import analyze_options, terminal_payoff
+from .analytics import analyze_options, terminal_pnl
 from .models import OptionsAnalysisRequest
 from .research_models import (
     DistributionRequest,
@@ -92,10 +92,7 @@ def analyze_distribution(
     legs = [leg for leg in analysis.strategy.legs if leg.enabled]
 
     def pnl_at(spot: float) -> float:
-        pnl = fsum(
-            [leg.quantity * leg.multiplier * terminal_payoff(leg, spot) for leg in legs]
-            + [-entry]
-        )
+        pnl = terminal_pnl(legs, spot, entry)
         if not isfinite(pnl):
             raise ValueError("Terminal payoff exceeds finite output domain")
         return pnl

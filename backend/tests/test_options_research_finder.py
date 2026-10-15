@@ -39,6 +39,50 @@ def finder_payload():
     }
 
 
+def test_finder_put_vertical_evidence_respects_exact_zero_profit_interval():
+    data = finder_payload()
+    data["universe"] = [
+        dict(kind="put", strike=90, quantity=1, entry_premium=0),
+        dict(kind="put", strike=110, quantity=1, entry_premium=20),
+    ]
+    data["constraints"] = {"max_entry_debit": 2000, "max_loss": 2000}
+    data["scenario_spots"] = [0, 80.56882430542512, 110]
+    result = find_strategies(data)
+    vertical = next(
+        c
+        for c in result.candidates
+        if len(c.request.strategy.legs) == 2
+        and any(
+            leg.strike == 110 and leg.quantity == 1 for leg in c.request.strategy.legs
+        )
+    )
+    assert [row.pnl for row in vertical.evidence] == [0, 0, -2000]
+    assert vertical.summary.max_profit == 0
+    assert vertical.summary.max_loss == 2000
+
+
+def test_unequal_multipliers_cannot_disguise_unbounded_loss_as_a_vertical():
+    data = finder_payload()
+    data["universe"] = [
+        dict(kind="call", strike=100, quantity=1, multiplier=10, entry_premium=5),
+        dict(kind="call", strike=110, quantity=1, multiplier=20, entry_premium=2),
+    ]
+    data["constraints"] = {"max_entry_debit": 0, "max_loss": 90}
+    data["scenario_spots"] = [0, 110, 130]
+    result = find_strategies(data)
+    assert result.searched_count == 6
+    assert result.eligible_count == len(result.candidates) == 1
+    candidate = result.candidates[0]
+    assert {(leg.strike, leg.quantity) for leg in candidate.request.strategy.legs} == {
+        (100, -1),
+        (110, 1),
+    }
+    assert candidate.summary.entry_credit == 10
+    assert candidate.summary.max_loss == 90
+    assert candidate.summary.profit_unbounded is True
+    assert [row.pnl for row in candidate.evidence] == [10, -90, 110]
+
+
 def test_finder_unit_search_known_vertical_and_naked_loss_rejection():
     result = find_strategies(finder_payload())
     assert result.searched_count == 6

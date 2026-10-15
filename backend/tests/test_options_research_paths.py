@@ -50,6 +50,112 @@ def lifecycle_payload():
     }
 
 
+def test_dated_calendar_marks_later_iv_then_settles_each_leg_once():
+    data = analysis(
+        [
+            dict(
+                kind="call",
+                strike=90,
+                quantity=-2,
+                multiplier=10,
+                entry_premium=12,
+                expiry_date="2031-01-01",
+                implied_volatility=0,
+            ),
+            dict(
+                kind="call",
+                strike=100,
+                quantity=3,
+                multiplier=10,
+                entry_premium=15,
+                expiry_date="2032-01-01",
+                implied_volatility=0.4,
+            ),
+            dict(kind="underlying", quantity=-4, multiplier=1, entry_premium=100),
+        ],
+        volatility=0.9,
+    )
+    data["strategy"].update(valuation_date="2030-01-01", entry_fee_per_contract=2)
+    result = evaluate_lifecycle(
+        dict(
+            analysis=data,
+            path=dict(
+                source="supplied",
+                points=[
+                    dict(day=0, spot=100),
+                    dict(day=365, spot=100),
+                    dict(day=730, spot=80),
+                    dict(day=1095, spot=200),
+                ],
+            ),
+        )
+    )
+    assert result.net_entry_cost == -180  # -240 + 450 - 400 + 10 fees
+    front = result.ledger[1]
+    assert [leg.state for leg in front.legs] == ["settled", "model_mark", "underlying"]
+    assert [leg.remaining_days for leg in front.legs] == [0, 365, None]
+    # Independent ATM one-year BSM reference C(100,100,0.4,r=q=0)=15.8519418878206.
+    assert front.legs[1].value == pytest.approx(30 * 15.8519418878206)
+    assert front.total_pnl == pytest.approx(55.558256634618)
+    assert [(s.day, s.signed_cash_flow) for s in result.settlements] == [
+        (365, -200),
+        (730, 0),
+    ]
+    assert [step.cumulative_settlement_cash for step in result.ledger] == [
+        0,
+        -200,
+        -200,
+        -200,
+    ]
+    assert result.ledger[2].total_pnl == -340
+    assert result.final_pnl == -820
+
+
+def test_undefined_initial_delta_and_interpolated_expiry_never_signal_hedges():
+    data = analysis(
+        [
+            dict(
+                kind="call",
+                strike=100,
+                quantity=-1,
+                entry_premium=5,
+                days_to_expiry=1,
+                implied_volatility=0,
+            ),
+            dict(kind="underlying", quantity=10, multiplier=1, entry_premium=100),
+        ]
+    )
+    result = simulate_hedge(
+        dict(
+            analysis=data,
+            path=dict(
+                source="supplied",
+                points=[
+                    dict(day=0, spot=100),
+                    dict(day=2, spot=140),
+                    dict(day=3, spot=100),
+                ],
+            ),
+            policy=dict(mode="daily"),
+            costs=dict(per_share=1, fixed_per_trade=2),
+        )
+    )
+    assert [row.action for row in result.ledger] == [
+        "undefined_delta",
+        "hold",
+        "rebalance",
+        "liquidate",
+    ]
+    assert [row.traded_shares for row in result.ledger] == [0, 0, -10, 10]
+    assert [row.transaction_cost for row in result.ledger] == [0, 0, 12, 12]
+    assert result.lifecycle.settlements[0].signed_cash_flow == -2000
+    assert result.attribution.hedge_trading_pnl == 400
+    assert result.attribution.transaction_costs == 24
+    assert result.unhedged_final_pnl == -1500
+    assert result.hedged_final_pnl == -1124
+    assert result.ledger[-1].hedge_shares == 0
+
+
 def test_settlement_once_on_each_expiry_keeps_cash_and_signed_costs():
     result = evaluate_lifecycle(lifecycle_payload())
     assert [p.day for p in result.path] == [0, 1, 2, 3]

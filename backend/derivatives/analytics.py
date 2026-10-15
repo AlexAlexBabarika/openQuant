@@ -48,6 +48,31 @@ def terminal_payoff(leg: OptionLeg, spot: float) -> float:
     return max(leg.strike - spot, 0)
 
 
+def terminal_pnl(legs: list[OptionLeg], spot: float, entry_cost: float) -> float:
+    """Combine affine coefficients about a nearby strike to preserve flat payoffs."""
+    anchor = min(
+        (leg.strike for leg in legs if leg.strike is not None),
+        key=lambda strike: abs(spot - strike),
+        default=0.0,
+    )
+    slope = 0
+    constants = [-entry_cost]
+    for leg in legs:
+        weight = leg.quantity * leg.multiplier
+        if leg.kind == "underlying":
+            slope += weight
+            constants.append(weight * anchor)
+        else:
+            assert leg.strike is not None
+            if leg.kind == "call" and spot >= leg.strike:
+                slope += weight
+                constants.append(weight * (anchor - leg.strike))
+            elif leg.kind == "put" and spot < leg.strike:
+                slope -= weight
+                constants.append(weight * (leg.strike - anchor))
+    return fsum([slope * (spot - anchor), *constants])
+
+
 def _mark_and_greeks(
     leg: OptionLeg, spot: float, days: float, iv: float, rate: float, yield_: float
 ) -> tuple[float, OptionsGreeks]:
@@ -150,13 +175,7 @@ def _expiry_geometry(
     legs: list[OptionLeg], entry_cost: float
 ) -> tuple[float | None, float | None, list[float], list[ZeroInterval]]:
     knots = sorted({0.0, *(leg.strike for leg in legs if leg.strike is not None)})
-    values = [
-        fsum(
-            [leg.quantity * leg.multiplier * terminal_payoff(leg, s) for leg in legs]
-            + [-entry_cost]
-        )
-        for s in knots
-    ]
+    values = [terminal_pnl(legs, s, entry_cost) for s in knots]
     intervals: list[ZeroInterval] = []
     roots = {s for s, value in zip(knots, values) if value == 0}
     final_slope = 0
@@ -316,10 +335,7 @@ def analyze_options(
     )
 
     def expiry_pnl_at(spot: float) -> float:
-        return fsum(
-            leg.quantity * leg.multiplier * terminal_payoff(leg, spot) - cost
-            for leg, cost in zip(legs, entry_costs)
-        )
+        return terminal_pnl(legs, spot, entry_cost)
 
     scenarios = []
     for scenario in submitted.scenarios:
@@ -431,7 +447,10 @@ def analyze_options(
             exact_terminal_available=not mixed,
             legs=horizon_legs(days),
         ),
-        horizon_pnl=[value_at(s, days)[2] for s in submitted.spot_grid],
+        horizon_pnl=[
+            value_at(s, days)[2] if mixed else expiry_pnl_at(s)
+            for s in submitted.spot_grid
+        ],
         legs=leg_results,
         surface=surface,
         scenarios=scenarios,

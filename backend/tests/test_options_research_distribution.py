@@ -144,6 +144,36 @@ def test_zero_profit_is_not_positive_and_zero_iv_is_not_fallback():
     assert result.value_at_risk == result.expected_shortfall == 0
 
 
+@pytest.mark.parametrize("volatility", [0, 0.2, 2])
+@pytest.mark.parametrize("premium_change", [0, 2**-30, -(2**-30)])
+def test_box_has_exact_constant_pnl_without_erasing_tiny_profit_or_loss(
+    volatility, premium_change
+):
+    # C90 - C110 + P110 - P90 pays exactly 20 at every terminal spot.
+    data = distribution_payload(
+        [
+            dict(kind="call", strike=90, quantity=1, entry_premium=20 + premium_change),
+            dict(kind="call", strike=110, quantity=-1),
+            dict(kind="put", strike=110, quantity=1),
+            dict(kind="put", strike=90, quantity=-1),
+        ]
+    )
+    data["analysis"]["volatility"] = volatility
+    result = analyze_distribution(data)
+    expected = -100 * premium_change
+    assert result.expected_pnl == pytest.approx(expected, rel=1e-14, abs=0)
+    assert result.probability_positive_pnl == float(expected > 0)
+    assert result.value_at_risk == max(0, -expected)
+    assert result.expected_shortfall == pytest.approx(
+        max(0, -expected), rel=1e-14, abs=0
+    )
+    assert all(row.pnl == expected for row in result.quantiles)
+    assert all(row.pnl == expected for row in result.terminal_payoff_curve)
+    assert len(result.bins) == 1
+    assert result.bins[0].lower_pnl == result.bins[0].upper_pnl == expected
+    assert result.bins[0].probability == 1
+
+
 def test_exact_payoff_vertices_and_price_bins_have_actual_domain_and_mass():
     data = distribution_payload(
         [
