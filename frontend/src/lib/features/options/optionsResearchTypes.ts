@@ -184,6 +184,16 @@ export interface PnlQuantile {
   probability: number;
   pnl: number;
 }
+export interface TerminalPriceBin {
+  lower_spot: number;
+  upper_spot: number;
+  representative_spot: number;
+  probability: number;
+}
+export interface TerminalPayoffPoint {
+  spot: number;
+  pnl: number;
+}
 export interface DistributionResponse {
   request: DistributionRequest;
   provenance: ResearchProvenance;
@@ -192,6 +202,8 @@ export interface DistributionResponse {
   terminal_log_sigma: number;
   deterministic: boolean;
   bins: ProbabilityBin[];
+  terminal_price_bins: TerminalPriceBin[];
+  terminal_payoff_curve: TerminalPayoffPoint[];
   probability_positive_pnl: number;
   expected_pnl: number;
   quantiles: PnlQuantile[];
