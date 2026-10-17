@@ -97,6 +97,7 @@ def isolated(monkeypatch):
     monkeypatch.setattr(auth_deps, "_secret", lambda: _SIGNING_FIXTURE)
     monkeypatch.setattr(encryption, "_cached_key", b"\x13" * 32)
     monkeypatch.setattr(routes, "_windows", {})
+    monkeypatch.setattr(routes, "_inflight", {}, raising=False)
     monkeypatch.setattr(routes, "_slots", threading.BoundedSemaphore(8))
     monkeypatch.setattr(routes, "_key_slots", threading.BoundedSemaphore(4))
 
@@ -302,15 +303,27 @@ def test_key_errors_are_sanitized_and_never_reach_provider(
     assert not client.provider_calls
 
 
-def test_corrupt_ciphertext_is_sanitized(client, caplog):
+def test_undecryptable_key_asks_for_a_re_save_not_a_retry(client, caplog):
     client.database.encrypted["alice", "tradier"] = b"x" * 50
     response = client.get(
         "/options/chains/expirations?symbol=AAPL&environment=production",
         headers=headers(),
     )
-    assert response.status_code == 503
+    assert response.status_code == 409
+    assert "re-save" in response.json()["detail"]
+    assert "retry-after" not in response.headers
     assert "InvalidTag" not in response.text + caplog.text
     assert not client.provider_calls
+
+
+def test_status_reports_an_undecryptable_key_without_failing_the_other(client):
+    client.database.encrypted["alice", "tradier_sandbox"] = b"x" * 50
+    response = client.get("/options/chains/status", headers=headers())
+    assert response.status_code == 200
+    status = {s["environment"]: s for s in response.json()["environments"]}
+    assert status["production"]["configured"] and status["production"]["available"]
+    assert status["sandbox"]["configured"] and not status["sandbox"]["available"]
+    assert "re-save" in status["sandbox"]["message"]
 
 
 def test_provider_error_and_retry_header_are_public_only(client, monkeypatch, caplog):
@@ -354,12 +367,26 @@ def test_limiter_has_finite_identity_state_and_expires_idle_buckets(monkeypatch)
     monkeypatch.setattr(routes, "monotonic", lambda: clock[0])
     monkeypatch.setattr(routes, "MAX_RATE_KEYS", 2)
     assert routes._allow("alice", "production")
+    clock[0] += 1
     assert routes._allow("bob", "sandbox")
-    assert not routes._allow("charlie", "sandbox")
-    assert len(routes._windows) == 2
-    clock[0] += 60
+    clock[0] += 1
+    # A full table evicts the least-recently active window; it never locks out new users.
     assert routes._allow("charlie", "sandbox")
-    assert list(routes._windows) == [("charlie", "sandbox")]
+    assert list(routes._windows) == [("bob", "sandbox"), ("charlie", "sandbox")]
+    clock[0] += 60
+    assert routes._allow("dave", "sandbox")
+    assert list(routes._windows) == [("dave", "sandbox")]
+
+
+def test_one_account_cannot_hold_every_operation_slot(client, monkeypatch):
+    monkeypatch.setattr(routes, "_inflight", {"alice": routes.MAX_USER_INFLIGHT})
+    blocked = client.get("/options/chains/status", headers=headers())
+    assert blocked.status_code == 429
+    assert not client.database.lookups
+    assert (
+        client.get("/options/chains/status", headers=headers("bob")).status_code == 200
+    )
+    assert routes._inflight == {"alice": routes.MAX_USER_INFLIGHT}
 
 
 def test_active_operation_limit_fails_fast_before_db(client, monkeypatch):
