@@ -138,7 +138,7 @@ describe('submitted comparison and reproducibility helpers', () => {
     expect(report.result).toEqual(r);
     expect(report.submittedSource).toBe('# authored source');
     expect(report.stdout).toBe('printed output');
-    expect(report.provenance).toContain('Not provider verified');
+    expect(report.provenance).toContain('not refreshed/executable quotes');
   });
   it.each([
     'negative',

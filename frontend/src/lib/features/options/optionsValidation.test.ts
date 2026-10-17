@@ -219,6 +219,7 @@ describe('expanded canonical frontend bounds', () => {
     expect(workingDraftShape({ ...d, unexpected: true })).toBe(false);
     const leg = createOptionsDraft();
     Object.assign(leg.strategy.legs[0], { expiry_date: '2024-01-01' });
-    expect(optionsErrors(leg).draft).toBeTruthy();
+    expect(workingDraftShape(leg)).toBe(true);
+    expect(optionsErrors(leg)['legs.0.expiry_date']).toBeTruthy();
   });
 });

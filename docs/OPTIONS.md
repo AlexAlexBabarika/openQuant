@@ -8,9 +8,27 @@ historical options prices.
 No account, provider key, network request or new dependency is required for the
 direct Python analysis shown here.
 
+### Multi-expiry extension
+
+Options may override `days_to_expiry` and/or `expiry_date` per leg, with dates
+anchored to `strategy.valuation_date`. Missing overrides inherit the strategy
+default; paired days/dates must agree exactly. Calendar/diagonal labels are
+supported. Every leg's current and scenario mark/Greeks uses its own time horizon.
+Ordinary scenarios/surfaces cannot cross the first active option expiry.
+
+The exact terminal geometry descriptions below apply **only to common expiry**.
+Mixed expiries return `horizon.exact_terminal_available=false`, sampled
+`horizon_pnl` at the first expiry, empty `expiry_curve`/`expiry_pnl` and empty
+breakevens/zero intervals. Maximum profit/loss and unbounded flags are null
+(unavailable, not zero or infinite). At the first expiry front options use intrinsic
+while later options remain model marks. Through-expiry settlement requires explicit
+lifecycle paths, not a later common-spot scenario. See
+[the frozen research/API and ownership contract](OPTIONS_RESEARCH_CONTRACT.md)
+for the downstream finder, lifecycle, hedge, probability and read-only chain tools.
+
 ## Supported scope and provenance
 
-- European, cash-settled, USD calls and puts with one shared expiry, plus explicit
+- European, cash-settled, USD calls and puts with default/per-leg expiry, plus explicit
   underlying share hedges. All prices and P&L amounts are USD.
 - Constant annual IV per option leg (falling back to the declared request IV),
   continuously compounded rate and continuous dividend yield;
@@ -92,16 +110,71 @@ API. The native workbench and bounded HTTP worker use that same contract.
 Open **Strategy → Options** or choose **Open Options workbench** in the command
 palette. Templates are editable configurations, not special payoff formulas.
 Analyze the visual draft, or explicitly export it to the panel's Python mode.
-The price-domain charts show exact expiry P&L, theoretical today/scenario P&L,
+The price-domain charts show exact common-expiry P&L, theoretical today/scenario P&L,
 and selectable today-model Greek curves with keyboard and exact-value readouts.
 The result retains its submitted inputs; editing the draft marks it stale.
 
-The editor exposes underlying identity, common valuation/expiry dates, per-leg
-IV overrides and manual bid/ask timestamps. Quotes are unverified and never
+The editor exposes underlying identity, common valuation/expiry defaults, per-leg
+expiry/IV overrides and manual bid/ask timestamps. Quotes are unverified and never
 replace entry premiums unless explicitly applying a valid midpoint. Desktop leg
 rows reflow to mobile cards; Buy/Sell, duplicate/reorder and bounded undo/redo
 operate on signed canonical inputs. Submitted risk totals remain separate from
-current edits. Expiry paths use exact backend vertices, not sparse sampled lines.
+current edits. Common-expiry paths use exact backend vertices, not sparse sampled lines.
+Mixed-expiry first-expiry curves are backend model-marked samples for remaining
+legs, not terminal risk limits: maxima, breakevens, zero intervals and exact
+terminal vertices are unavailable. This distinction also appears in comparisons,
+risk readouts, CSV context and reproducibility reports.
+
+### Eight interactive research tools
+
+The payoff chart provides drag-to-edit strikes with per-leg selection, numeric and
+keyboard alternatives, snapping and explicit canonical proposal comparisons.
+Moving a handle does not reprice in the browser or overwrite submitted evidence;
+one completed changed edit uses the parent's undo/history and local draft flow.
+
+The compact **Research tools** selector mounts only one additional tool at a time:
+
+| Tool | Explicit action and scope |
+| --- | --- |
+| Volatility skew | Per-expiry/right IV points and parallel/twist/curvature transforms; compare declared flat IV against canonical skew marks before applying. Premiums are not rewritten. |
+| Hypothetical event stress | Editable event presets and bounded spot/time/IV shocks; compare signed P&L/Greek changes at submitted spots. These are assumptions, not event forecasts. |
+| Constrained strategy finder | Search a finite user-authored contract universe and explicit scenario spots under debit/loss/quantity limits, then apply a selected candidate. Score is arithmetic mean scenario P&L, not probability-weighted expected return. Neutral means **no directional delta filter**, not delta neutrality. |
+| Read-only provider chain | Signed-in users explicitly fetch configured Tradier production/sandbox expirations and chain observations. Select contracts and confirm hypothetical conversion; no executable order or account attachment. |
+| Multi-expiry lifecycle | Per-leg expiry authoring and explicit-premium calendar/diagonal presets; evaluate a bounded supplied or seeded synthetic spot path. Show expiry settlements, remaining marks and cash separately; scrub/playback navigates returned observations without repricing. |
+| Delta-hedging path | Compare one declared none/daily/interval/delta-threshold policy against unhedged on the same hypothetical path, including share/cash actions, costs and returned attribution. Not a live hedge or historical backtest. |
+| Probability & tail risk | Explicit risk-neutral or user-drift lognormal assumptions; returned terminal-price probability mass and exact payoff vertices, positive-P&L probability, quantiles, VaR and expected shortfall. Mixed-expiry terminal distributions are rejected. |
+
+All pricing, paths, rankings and distributions come from canonical backend
+calculations; charts only present returned data. Zero and unavailable remain
+distinct. Research evidence is session-local, not saved account research. Tools
+require explicit submissions and expose pending/cancel/error/stale evidence states.
+Account/guest, auth-session, loaded-document and source-mode changes remount/fence
+private tool state. Query changes cancel pending research; late replies cannot
+publish after scope changes or unmount. Python mode exposes only the successfully
+submitted request read-only, and hides tools when source diverges; it never runs
+tools against the unrelated visual draft.
+
+Provider status means configured requests may be attempted, not verified freshness,
+entitlement or redistribution rights. Independent side quote times, null bid/ask/IV,
+source and environment are preserved; fetch time is not quote time. Tokens stay in
+server-side encrypted key storage, never drafts or exported observations. Import
+requires explicit acknowledgement that real US American exercise and physical
+delivery are not modeled by the hypothetical European cash-settled contract. See
+[provider setup and limits](OPTIONS_CHAIN_PROVIDER.md).
+
+Research POST endpoints `/options/research/{finder,lifecycle,hedge,distribution}`
+are guest-accessible with the shared worker/rate/input budget and five-second
+worker deadline; their response envelope is capped at 1 MiB. The largest combined
+leg/path shapes may return an actionable 413 rather than truncate or round
+financial data. Reduce observations/legs and retry. Authenticated bounded GET
+routes are `/options/chains/{status,expirations,chain}`. Neither API is injected
+into untrusted Python. Legacy analysis/Python bounds below remain unchanged.
+
+Distribution statistics are conditional on the disclosed retained normal window.
+Omitted-tail mass and absolute-P&L/expected-P&L truncation bounds are reported;
+half-resolution expected-P&L sensitivity is not a rigorous probability, quantile,
+VaR or expected-shortfall error guarantee. No brokerage execution, subscriptions,
+live account attachment, historical options replay or American assignment model.
 
 The scenario lab provides explicit time/IV sliders and bounded spot/time or
 spot/IV heatmaps. Apply configures a draft; Analyze submits it. Python-mode

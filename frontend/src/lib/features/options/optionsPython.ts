@@ -42,37 +42,40 @@ export const OPTIONS_PYTHON_HELPERS: Completion[] = [
       label: 'OptionLeg',
       type: 'function',
       detail: '(**fields) → dict',
-      info: 'Injected validating helper, not a class or import. Signed option contracts (±1–10,000), USD/unit premium, units/contract multiplier. Underlying uses signed shares, strike=None, multiplier=1 and no option IV/quotes. Optional enabled, implied_volatility, bid/ask/quote_as_of.',
+      info: 'Injected validating helper, not a class or import. Signed option contracts (±1–10,000), USD/unit premium, units/contract multiplier. Underlying uses signed shares, strike=None, multiplier=1 and no option IV/quotes/expiry. Optional days_to_expiry and expiry_date overrides, enabled, implied_volatility, bid/ask/quote_as_of and bounded source provenance.',
     },
   ),
   snippetCompletion('OptionStrategy(legs=[${leg}], days_to_expiry=${30})', {
     label: 'OptionStrategy',
     type: 'function',
     detail: '(**fields) → dict',
-    info: 'Injected validating helper returns a dictionary with 1–16 explicit legs, ≥1 enabled. Common European cash-settled USD expiry only, ACT/365. Optional manual underlying, paired valuation_date/expiry_date matching days_to_expiry, name/template and once-only entry_fee_per_contract.',
+    info: 'Injected validating helper returns a dictionary with 1–16 explicit legs, ≥1 enabled. European cash-settled USD, ACT/365. Default days_to_expiry inherited by legs without overrides. Dates require valuation_date; supplied days and dates must agree. Calendar/diagonal labels do not change pricing. Optional underlying, name/template and once-only entry_fee_per_contract.',
   }),
   snippetCompletion('analyze_options(${request})', {
     label: 'analyze_options',
     type: 'function',
     detail: '(request: dict) → dict',
-    info: 'Assign result = analyze_options(request). Canonical Python BSM manual/synthetic research only; no provider, brokerage or historical execution. Returns summary, signed total Greeks (undefined is None), aligned curves, exact expiry_curve vertices, per-leg contributions, scenarios and optional surface. USD totals include fixed premiums and fees.',
+    info: 'Assign result = analyze_options(request). Canonical Python BSM research only; no provider lookup, brokerage or historical execution. Returns summary, signed Greeks (undefined is None), current marks, per-leg contributions, scenarios and optional surface bounded by first expiry. Common expiry returns exact vertices; mixed expiry withholds terminal extrema/curves/breakevens and returns sampled horizon_pnl with horizon metadata. USD totals include fixed premiums and fees.',
   }),
 ];
 
 const FIELD_DOCS: [string, string][] = [
   [
     'strategy',
-    'OptionStrategy dictionary; common European cash-settled USD expiry.',
+    'OptionStrategy dictionary; European cash-settled USD with default and optional per-leg expiries.',
   ],
   ['name', 'Nonblank strategy ≤120 characters; scenario ≤80 characters.'],
   [
     'template',
     'Descriptive template label only; explicit legs define the payoff.',
   ],
-  ['legs', '1–16 legs, at least one enabled. No per-leg expiry fields.'],
+  [
+    'legs',
+    '1–16 legs, at least one enabled; options may override days_to_expiry and/or expiry_date.',
+  ],
   [
     'days_to_expiry',
-    '0–3650 common calendar days, ACT/365. Dates never infer this value.',
+    '0–3650 default calendar days, ACT/365; optional per-leg override. A leg date alone resolves days using strategy.valuation_date.',
   ],
   [
     'underlying',
@@ -80,15 +83,19 @@ const FIELD_DOCS: [string, string][] = [
   ],
   [
     'valuation_date',
-    'Optional YYYY-MM-DD valid date, paired with expiry_date. Difference must equal days_to_expiry.',
+    'Optional YYYY-MM-DD valuation anchor for strategy and/or leg expiry_date. Common dates match default days; leg dates match explicit leg days if supplied.',
   ],
   [
     'expiry_date',
-    'Optional YYYY-MM-DD valid date, paired with valuation_date. No freshness claim.',
+    'Optional YYYY-MM-DD expiry. Strategy date matches default days; leg date overrides it and requires strategy.valuation_date. If leg days also supplied they must agree. No freshness claim.',
   ],
   ['currency', 'USD only.'],
   ['exercise_style', '"european" only; no early exercise model.'],
   ['settlement', '"cash" only; no physical settlement or brokerage.'],
+  [
+    'source',
+    'Optional bounded Tradier contract provenance; observed exercise/delivery may be unknown or incompatible with the European cash model. Never a token or raw response.',
+  ],
   [
     'entry_fee_per_contract',
     '0–10,000 USD × abs(enabled option quantity), charged once; stock fee is zero.',
@@ -141,7 +148,7 @@ const FIELD_DOCS: [string, string][] = [
   ],
   [
     'elapsed_days',
-    'Calendar days elapsed 0–common horizon; never beyond expiry.',
+    'Calendar days elapsed 0–first active option expiry; use lifecycle research for settlement beyond it.',
   ],
   [
     'iv_shift_pp',
@@ -261,7 +268,15 @@ export function exportOptionsPython(draft: OptionsDraft): string {
         'expiry_date',
       ]),
       legs: draft.strategy.legs.map(leg =>
-        omitOptional(leg, ['implied_volatility', 'bid', 'ask', 'quote_as_of']),
+        omitOptional(leg, [
+          'implied_volatility',
+          'bid',
+          'ask',
+          'quote_as_of',
+          'days_to_expiry',
+          'expiry_date',
+          'source',
+        ]),
       ),
     },
   };

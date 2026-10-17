@@ -119,7 +119,7 @@
       {/if}
     </fieldset>
   {/each}
-  <p class="hint">Buy/Sell is serialized as signed quantity. Zero size is invalid. Disabled legs stay editable and validated but contribute zero. Blank IV uses base IV; 0.20 = 20%. One common expiry; no per-leg dates.</p>
+  <p class="hint">Buy/Sell is serialized as signed quantity. Zero size is invalid. Disabled legs stay editable and validated but contribute zero. Blank IV uses base IV; 0.20 = 20%. Common expiry is the default; use the per-leg expiry controls for calendars and diagonals.</p>
 </section>
 
 <style>

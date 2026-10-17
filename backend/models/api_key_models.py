@@ -12,6 +12,8 @@ class ApiKeyProvider(str, Enum):
     alphavantage = "alphavantage"
     massive = "massive"
     binance = "binance"
+    tradier = "tradier"
+    tradier_sandbox = "tradier_sandbox"
 
 
 class ApiKeyCreateRequest(BaseModel):
