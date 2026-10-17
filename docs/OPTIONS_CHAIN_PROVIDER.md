@@ -25,8 +25,9 @@ An account token issued by OpenQuant is required for every chain GET:
 
 Requests only call `GET /v1/markets/options/expirations` and
 `GET /v1/markets/options/chains` on the fixed HTTPS hosts `api.tradier.com` or
-`sandbox.tradier.com`. Redirects, environment proxy credentials and cookies are
-disabled. There are no order/account/position/subscription/streaming endpoints,
+`sandbox.tradier.com`. Expirations are requested with `includeAllRoots=true`
+(Tradier marks it required), so weekly roots such as SPXW are listed. Redirects,
+environment proxy credentials and cookies are disabled. There are no order/account/position/subscription/streaming endpoints,
 no account attachment, historical replay, automatic polling, or broker execution.
 Do not treat configuring a data token as connecting a brokerage account.
 
@@ -34,7 +35,8 @@ Do not treat configuring a data token as connecting a brokerage account.
 
 - `bid_date` and `ask_date` are independently converted from documented epoch
   milliseconds to timezone-aware UTC ISO timestamps. Missing/invalid/future
-  times remain null. No unit guessing, trade-time substitution, or fetch-time
+  times, and times before 2000-01-01 (for example epoch seconds read as
+  milliseconds), remain null. No unit guessing, trade-time substitution, or fetch-time
   substitution occurs. `fetched_at` only describes this retrieval. There is no
   assertion that production quotes are currently fresh or executable.
 - Zero bid, IV, volume and open interest survive as zero. Missing, boolean,
@@ -43,6 +45,8 @@ Do not treat configuring a data token as connecting a brokerage account.
   is null, **not** 100. Invalid required identity/strike/expiry rows are omitted
   with a warning; mismatched underlying or expiration rows cannot be relabelled.
   Duplicate contract identities are omitted entirely, not arbitrarily merged.
+  Adjusted contracts, whose `root_symbol` is the underlying plus digits (AAPL1),
+  are omitted with a warning: their deliverable is not a standard 100 shares.
 - One-sided, crossed and untimed quotes remain visible with warnings; this does
   not authorize midpoint application. Side times remain separate in provenance.
   The legacy manual quote fields still require paired sides and a real shared

@@ -33,6 +33,8 @@ _SYMBOL = TypeAdapter(Symbol)
 _DATE = TypeAdapter(ChainDate)
 _CONTRACT = re.compile(r"^[A-Za-z0-9.^_ /-]{1,80}$")
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+# Earlier quote times are implausible: e.g. epoch seconds read as milliseconds land in 1970.
+_EARLIEST_QUOTE_MS = 946_684_800_000  # 2000-01-01T00:00:00Z
 _MODEL_WARNING = (
     "Tradier's documented chain fields do not establish exercise style or settlement; "
     "both are unknown. American exercise/physical delivery are not modeled by "
@@ -113,7 +115,7 @@ def _integer(value: Any, minimum: int, maximum: int) -> int | None:
 
 def _quote_time(value: Any, fetched_at: str) -> str | None:
     # Tradier documents bid_date/ask_date as epoch milliseconds, not seconds.
-    milliseconds = _integer(value, 1, 253_402_300_799_999)
+    milliseconds = _integer(value, _EARLIEST_QUOTE_MS, 253_402_300_799_999)
     if milliseconds is None:
         return None
     try:
@@ -165,7 +167,7 @@ def normalize_chain(
     rows = _records(payload, "options", "option")
     quotes: dict[str, ChainQuote] = {}
     duplicates: set[str] = set()
-    invalid = False
+    invalid = adjusted = False
     for row in rows:
         if not isinstance(row, dict):
             invalid = True
@@ -187,6 +189,15 @@ def normalize_chain(
             or row.get("type", "option") != "option"
         ):
             invalid = True
+            continue
+        root = row.get("root_symbol")
+        # OCC appends a digit to adjusted roots (AAPL1); their deliverable is not 100 shares.
+        if (
+            isinstance(root, str)
+            and root.upper().startswith(symbol)
+            and root[len(symbol) :].isdigit()
+        ):
+            adjusted = True
             continue
         if contract in quotes or contract in duplicates:
             quotes.pop(contract, None)
@@ -231,6 +242,10 @@ def normalize_chain(
         warnings.append("Invalid or mismatched provider contract records were omitted.")
     if duplicates:
         warnings.append("Duplicate provider contract identities were omitted entirely.")
+    if adjusted:
+        warnings.append(
+            "Adjusted contracts (option roots such as AAPL1) were omitted: their deliverables are not standard 100-share contracts and cannot be modeled here."
+        )
     if any(
         value is None
         for quote in quotes.values()
@@ -343,7 +358,9 @@ async def fetch_expirations(
     token: str, symbol: str, environment: Environment
 ) -> ChainExpirationsResponse:
     symbol = _SYMBOL.validate_python(symbol).upper()
-    payload = await _get_json(token, environment, "expirations", {"symbol": symbol})
+    payload = await _get_json(
+        token, environment, "expirations", {"symbol": symbol, "includeAllRoots": "true"}
+    )
     return normalize_expirations(payload, symbol, environment, utc_now())
 
 

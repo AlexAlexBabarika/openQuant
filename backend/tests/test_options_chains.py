@@ -143,10 +143,46 @@ def test_missing_invalid_or_future_side_times_never_use_fetch_time(value):
     assert quote.source.fetched_at == FETCHED
 
 
-def test_epoch_units_are_not_guessed_or_repaired():
+def test_epoch_seconds_are_not_guessed_into_quote_times():
+    # Read as milliseconds this is January 1970: invalid, not repaired into seconds.
     quote = normalized(option(bid_date=1_792_084_800)).quotes[0]
-    assert quote.bid_as_of.startswith("1970-")
-    assert quote.bid_as_of != quote.ask_as_of
+    assert quote.bid_as_of is None
+    assert quote.source.bid_as_of is None
+    assert quote.ask_as_of is not None
+
+
+@pytest.mark.parametrize(
+    "milliseconds,valid", [(946_684_799_999, False), (946_684_800_000, True)]
+)
+def test_quote_times_before_2000_are_invalid(milliseconds, valid):
+    quote = normalized(option(bid_date=milliseconds)).quotes[0]
+    assert (quote.bid_as_of is not None) is valid
+
+
+def test_adjusted_option_roots_are_omitted_with_a_warning():
+    result = normalized(
+        [
+            option(root_symbol="AAPL"),
+            option(symbol="AAPL1270115C00100000", root_symbol="AAPL1"),
+            option(symbol="AAPL270115P00100000", option_type="put"),
+        ]
+    )
+    assert [q.contract_symbol for q in result.quotes] == [
+        "AAPL270115C00100000",
+        "AAPL270115P00100000",
+    ]
+    assert any("Adjusted contracts" in warning for warning in result.warnings)
+
+
+def test_weekly_option_roots_remain_standard_contracts():
+    row = option(
+        symbol="SPXW270115C05000000", underlying="SPX", root_symbol="SPXW", strike=5000
+    )
+    result = chains.normalize_chain(
+        {"options": {"option": row}}, "spx", EXPIRATION, "production", FETCHED
+    )
+    assert [q.contract_symbol for q in result.quotes] == ["SPXW270115C05000000"]
+    assert not any("Adjusted contracts" in warning for warning in result.warnings)
 
 
 def test_missing_quote_side_cannot_retain_an_apparently_usable_time():
@@ -332,6 +368,11 @@ async def test_adapter_uses_only_documented_get_endpoints(transport, environment
         await chains.fetch_expirations(FIXTURE_TOKEN, "aapl", environment)
     ).expirations == [EXPIRATION]
     assert transport.requests[-1][0].endswith("/markets/options/expirations")
+    # Tradier marks includeAllRoots as required; without it weekly roots such as SPXW are missing.
+    assert transport.requests[-1][1]["params"] == {
+        "symbol": "AAPL",
+        "includeAllRoots": "true",
+    }
 
 
 @pytest.mark.asyncio
