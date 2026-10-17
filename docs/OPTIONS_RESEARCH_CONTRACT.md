@@ -222,7 +222,7 @@ The additive terminal-price view returns `terminal_price_bins`, 1–100 objects 
 `lower_spot`, `upper_spot`, `representative_spot` (actual terminal USD spot, not log
 coordinates) and `probability` (normalized bin mass, **not density**). Normal-domain
 bin boundaries are transformed to prices; unequal price widths do not imply equal
-density. `terminal_payoff_curve` contains 1–34 exact canonical `{spot,pnl}` vertices
+density. `terminal_payoff_curve` contains 1–35 exact canonical `{spot,pnl}` vertices
 over that displayed domain: endpoints, active strike knots and isolated breakevens
 inside it. Linear interpolation between these vertices is exact common-expiry P&L,
 not a sampled BSM curve. Do not extrapolate the view beyond its returned endpoints.

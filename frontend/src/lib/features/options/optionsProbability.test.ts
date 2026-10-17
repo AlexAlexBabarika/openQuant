@@ -314,6 +314,26 @@ describe('probability presentation, not financial computation', () => {
     ];
     expect(terminalProbabilityError(result)).toMatch(/invalid/);
   });
+  it('accepts the 35 payoff vertices of a 16-leg strategy with 17 breakevens', () => {
+    const result = response();
+    const curve = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        spot: 1 + (i * 34) / (n - 1),
+        pnl: i % 2 ? 100 : -100,
+      }));
+    result.terminal_price_bins = [
+      {
+        lower_spot: 1,
+        upper_spot: 35,
+        representative_spot: 18,
+        probability: 1,
+      },
+    ];
+    result.terminal_payoff_curve = curve(35);
+    expect(terminalProbabilityError(result)).toBeNull();
+    result.terminal_payoff_curve = curve(36);
+    expect(terminalProbabilityError(result)).toMatch(/missing/);
+  });
 });
 
 describe('explicit request lifecycle and privacy fencing', () => {

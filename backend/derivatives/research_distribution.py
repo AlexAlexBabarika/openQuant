@@ -97,8 +97,11 @@ def analyze_distribution(
             raise ValueError("Terminal payoff exceeds finite output domain")
         return pnl
 
+    levels = (0.01, 0.05, 0.5, 0.95, 0.99)
     alpha = 1 - submitted.confidence
-    probabilities = sorted({0.01, 0.05, alpha, 0.5, 0.95, 0.99})
+    # 1 - 0.95 is 0.050000000000000044; snap so the tail level is not listed twice.
+    alpha = next((level for level in levels if abs(level - alpha) <= 1e-12), alpha)
+    probabilities = sorted({*levels, alpha})
     warnings = [
         "Terminal spot uses declared analysis.volatility independently of each leg's pricing IV; premiums and entry fees are fixed. European cash-settled common expiry only.",
         "Risk-neutral probabilities are model-implied, not real-world forecasts. User drift is an explicit uncalibrated assumption. No historical replay or investment advice.",
@@ -223,12 +226,12 @@ def analyze_distribution(
             )
             for i, values in enumerate(masses)
         ]
+    # Outer edges are exactly +/-zmax so they equal the payoff curve's endpoints.
+    z_edges = [-zmax + 2 * zmax * i / submitted.bins for i in range(submitted.bins + 1)]
+    z_edges[0], z_edges[-1] = -zmax, zmax
     price_bins = []
     for i in range(submitted.bins):
-        left_z, right_z = (
-            -zmax + 2 * zmax * i / submitted.bins,
-            -zmax + 2 * zmax * (i + 1) / submitted.bins,
-        )
+        left_z, right_z = z_edges[i], z_edges[i + 1]
         mass = (_cdf(right_z) - _cdf(left_z)) / retained
         price_bins.append(
             TerminalPriceBin(
