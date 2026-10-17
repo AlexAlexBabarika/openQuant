@@ -54,9 +54,13 @@ def _observations(request: LifecycleRequest) -> list[PathPoint]:
                 "Synthetic path spot outside (0, 1000000]; no clipping applied"
             )
         spot = next_spot
-        points.append(
-            PathPoint(day=config.horizon_days * step / config.steps, spot=spot)
+        # The last day must equal horizon_days exactly so it covers the expiry it was set to.
+        day = (
+            config.horizon_days
+            if step == config.steps
+            else config.horizon_days * step / config.steps
         )
+        points.append(PathPoint(day=day, spot=spot))
     return points
 
 
@@ -216,7 +220,8 @@ def simulate_hedge(request: HedgeRequest | dict[str, Any]) -> HedgeResponse:
             due = (
                 last_review is None
                 or policy.mode == "delta_threshold"
-                or step.day - last_review >= interval
+                # Tolerance: 0.3 - 0.2 is 0.09999999999999998, which is one 0.1-day interval.
+                or step.day - last_review >= interval - 1e-9
             )
             if due:
                 last_review = step.day
