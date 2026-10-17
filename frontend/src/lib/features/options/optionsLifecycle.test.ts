@@ -317,6 +317,30 @@ describe('controlled per-leg expiry construction', () => {
     expect(context).toEqual(previous);
     expect(lifecycleRequest(draft, pathControls(draft)).errors).toEqual({});
   });
+  it('drops an observed contract when its expiry changes', () => {
+    const draft = createOptionsDraft();
+    Object.assign(draft.strategy.legs[0], {
+      expiry_date: '2026-12-18',
+      bid: 1,
+      ask: 2,
+      quote_as_of: '2026-10-17T15:00:00Z',
+      source: {
+        provider: 'tradier',
+        environment: 'sandbox',
+        contract_symbol: 'XYZ261218C00100000',
+        underlying: 'XYZ',
+        fetched_at: '2026-10-17T15:00:01Z',
+      },
+    });
+    setLegExpiry(draft, 0, 'expiry_date', '2027-01-15');
+    expect(draft.strategy.legs[0]).toMatchObject({
+      expiry_date: '2027-01-15',
+      source: null,
+      bid: null,
+      ask: null,
+      quote_as_of: null,
+    });
+  });
   it('clears conflicting override fields and keeps shares expiry-free', () => {
     const draft = createOptionsDraft();
     setLegExpiry(draft, 0, 'expiry_date', '2026-03-02');

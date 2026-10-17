@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import type { OptionLeg } from '$lib/features/options/optionsTypes';
   import {
-    MAX_OPTIONS_LEGS, addOptionLeg, editOptionLeg, legSide, manualQuoteAge,
+    MAX_OPTIONS_LEGS, addOptionLeg, editLegContract, editOptionLeg, legSide, manualQuoteAge,
     moveOptionLeg, optionsEditorErrors, quoteMidpoint, removeOptionLeg,
     setLegKind, setLegSize, useQuoteMidpoint, type OptionsEditorProps,
   } from '$lib/features/options/optionsLegEditor';
@@ -91,11 +91,11 @@
         <label class="field"><span>Side</span><select value={legSide(leg)} onchange={e => editLeg(i, l => setLegSize(l, Math.abs(l.quantity), e.currentTarget.value === 'sell' ? 'sell' : 'buy'))}><option value="buy">Buy / long</option><option value="sell">Sell / short</option></select></label>
         {@render numeric(leg.kind === 'underlying' ? 'Size · shares (1–1m)' : 'Size · contracts (1–10k)', `legs.${i}.quantity`, Math.abs(leg.quantity), 1, leg.kind === 'underlying' ? 1000000 : 10000, '1', v => editLeg(i, l => setLegSize(l, v ?? NaN)))}
         {#if leg.kind !== 'underlying'}
-          {@render numeric('Strike · USD (>0–1m)', `legs.${i}.strike`, leg.strike, 0, 1000000, 'any', v => editLeg(i, l => { l.strike = v ?? NaN; }))}
+          {@render numeric('Strike · USD (>0–1m)', `legs.${i}.strike`, leg.strike, 0, 1000000, 'any', v => editLeg(i, l => editLegContract(l, { strike: v ?? NaN })))}
         {:else}<div class="field"><span>Strike</span><span class="not-applicable">Not applicable</span>{@render error(`legs.${i}.strike`)}</div>{/if}
         {@render numeric(leg.kind === 'underlying' ? 'Entry · USD/share' : 'Premium · USD/unit', `legs.${i}.entry_premium`, leg.entry_premium, 0, 1000000, 'any', v => editLeg(i, l => { l.entry_premium = v ?? NaN; }))}
         {#if leg.kind !== 'underlying'}
-          {@render numeric('Multiplier · units', `legs.${i}.multiplier`, leg.multiplier, 1, 1000, '1', v => editLeg(i, l => { l.multiplier = v ?? NaN; }))}
+          {@render numeric('Multiplier · units', `legs.${i}.multiplier`, leg.multiplier, 1, 1000, '1', v => editLeg(i, l => editLegContract(l, { multiplier: v ?? NaN })))}
           {@render numeric('IV fraction · blank = base', `legs.${i}.implied_volatility`, leg.implied_volatility, 0, 5, 'any', v => editLeg(i, l => { l.implied_volatility = v; }), true)}
         {:else}<div class="field"><span>Multiplier</span><span class="not-applicable">1 · shares</span>{@render error(`legs.${i}.multiplier`)}</div>{/if}
       </div>

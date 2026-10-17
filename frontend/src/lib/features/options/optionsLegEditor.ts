@@ -35,13 +35,34 @@ export function editOptionLeg(
   draft.strategy.template = 'custom';
 }
 
+type ContractFields = Pick<
+  OptionLeg,
+  'kind' | 'strike' | 'multiplier' | 'days_to_expiry' | 'expiry_date'
+>;
+
+/** A changed contract is no longer the observed provider contract: drop its provenance and quotes. */
+export function editLegContract(
+  leg: OptionLeg,
+  update: Partial<ContractFields>,
+): void {
+  const keys = Object.keys(update) as (keyof ContractFields)[];
+  const changed = keys.some(k => !Object.is(leg[k] ?? null, update[k] ?? null));
+  Object.assign(leg, update);
+  if (changed) {
+    leg.source = null;
+    leg.bid = null;
+    leg.ask = null;
+    leg.quote_as_of = null;
+  }
+}
+
 export function setLegKind(
   leg: OptionLeg,
   kind: OptionLeg['kind'],
   spot: number,
 ): void {
   const wasUnderlying = leg.kind === 'underlying';
-  leg.kind = kind;
+  editLegContract(leg, { kind });
   if (kind === 'underlying') {
     leg.strike = null;
     leg.multiplier = 1;

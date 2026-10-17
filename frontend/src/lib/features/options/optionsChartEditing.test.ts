@@ -185,9 +185,14 @@ describe('one controlled history edit per gesture', () => {
     drag = null;
     expect(finishStrikeDrag(drag, 7, 'guest:document-a')).toBeNull();
     expect(onEdit).toHaveBeenCalledTimes(1);
+    // A different strike is a different contract: its observation and quotes no longer apply.
     expect(draft.strategy.legs[0]).toEqual({
       ...before.strategy.legs[0],
       strike: 106.25,
+      source: null,
+      bid: null,
+      ask: null,
+      quote_as_of: null,
     });
     expect(draft.strategy.template).toBe('custom');
   });
@@ -450,7 +455,7 @@ describe('native controlled chart rendering', () => {
     expect(body).toContain('Strike −');
     expect(body).toContain('Strike +');
     expect(body).toContain('Unpriced draft strike 103.125 USD');
-    expect(body).toContain('never change entry premiums');
+    expect(body).toContain('Strike edits keep entry premiums and IVs');
     expect(body).toContain('not payoff evidence');
     expect(onEdit).not.toHaveBeenCalled();
     for (const props of [
