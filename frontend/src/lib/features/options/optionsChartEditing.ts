@@ -6,6 +6,7 @@ import {
   scaleValue,
 } from './optionsChart';
 import type { ChartSeries, Domain } from './optionsChart';
+import { editLegContract } from './optionsLegEditor';
 import { requestChanged } from './optionsScenario';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 
@@ -122,7 +123,7 @@ export function applyStrikeEdit(
     strike === original
   )
     return false;
-  leg.strike = strike;
+  editLegContract(leg, { strike });
   draft.strategy.template = 'custom';
   return true;
 }

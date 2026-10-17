@@ -8,6 +8,7 @@ import {
   addOptionLeg,
   clearCommonDates,
   commonDateHorizon,
+  editLegContract,
   editOptionLeg,
   legSide,
   manualQuoteAge,
@@ -21,6 +22,7 @@ import {
   useQuoteMidpoint,
   validQuoteTimestamp,
 } from './optionsLegEditor';
+import type { OptionLeg } from './optionsTypes';
 import { createOptionsDraft } from './optionsTemplates';
 import { optionsErrors } from './optionsState.svelte';
 
@@ -407,4 +409,59 @@ describe('controlled editor shell rendering (not browser validation)', () => {
       expect(source).not.toContain('$state<OptionsDraft>');
     },
   );
+});
+
+describe('observed contract provenance', () => {
+  const observed = (): OptionLeg => ({
+    kind: 'call',
+    quantity: 1,
+    strike: 5000,
+    entry_premium: 10,
+    multiplier: 100,
+    enabled: true,
+    expiry_date: '2026-12-18',
+    bid: 9.5,
+    ask: 10.5,
+    quote_as_of: '2026-10-17T15:00:00Z',
+    source: {
+      provider: 'tradier',
+      environment: 'sandbox',
+      contract_symbol: 'SPX261218C05000000',
+      underlying: 'SPX',
+      fetched_at: '2026-10-17T15:00:01Z',
+    },
+  });
+  const cleared = { source: null, bid: null, ask: null, quote_as_of: null };
+  it.each([
+    ['strike', { strike: 5100 }],
+    ['kind', { kind: 'put' as const }],
+    ['multiplier', { multiplier: 10 }],
+    ['expiry', { expiry_date: '2027-01-15' }],
+  ])('drops provenance and quotes when the %s changes', (_, update) => {
+    const leg = observed();
+    editLegContract(leg, update);
+    expect(leg).toMatchObject({ ...update, ...cleared, entry_premium: 10 });
+  });
+  it('keeps provenance when the contract is unchanged', () => {
+    const leg = observed();
+    editLegContract(leg, { strike: 5000, days_to_expiry: null });
+    expect(leg.source?.contract_symbol).toBe('SPX261218C05000000');
+    expect(leg.bid).toBe(9.5);
+  });
+  it('drops provenance when a call is switched to a put', () => {
+    const leg = observed();
+    setLegKind(leg, 'put', 5000);
+    expect(leg).toMatchObject({ kind: 'put', ...cleared });
+  });
+  it('routes strike and multiplier typing through the same rule', () => {
+    const source = readFileSync(
+      new URL(
+        '../../../components/options/OptionsLegEditor.svelte',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    expect(source).toContain('editLegContract(l, { strike:');
+    expect(source).toContain('editLegContract(l, { multiplier:');
+  });
 });

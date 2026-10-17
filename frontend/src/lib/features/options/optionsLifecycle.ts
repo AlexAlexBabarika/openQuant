@@ -6,6 +6,7 @@ import type {
   ResearchPath,
   ResearchProvenance,
 } from './optionsResearchTypes';
+import { editLegContract } from './optionsLegEditor';
 import { optionsErrors, resolvedLegDays } from './optionsValidation';
 
 export const MAX_PATH_POINTS = 366;
@@ -171,13 +172,12 @@ export function setLegExpiry(
 ): void {
   const leg = draft.strategy.legs[index];
   if (!leg || leg.kind === 'underlying') return;
-  if (field === 'days_to_expiry') {
-    leg.days_to_expiry = value as number | null;
-    leg.expiry_date = null;
-  } else {
-    leg.expiry_date = value as string | null;
-    leg.days_to_expiry = null;
-  }
+  editLegContract(
+    leg,
+    field === 'days_to_expiry'
+      ? { days_to_expiry: value as number | null, expiry_date: null }
+      : { expiry_date: value as string | null, days_to_expiry: null },
+  );
   draft.strategy.template = 'custom';
 }
 export interface CalendarControls {

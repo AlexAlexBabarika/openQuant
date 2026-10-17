@@ -370,7 +370,7 @@
           </div>
         </form>
         <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError || `Numeric edits retain entered precision; drag/arrows snap to the chosen step within 0 < strike ≤ ${MAX_STRIKE} USD. Select an enabled option leg to edit.`}</p>
-        <p class="notice">Strike edits never change entry premiums, IVs, quotes, timestamps or source metadata. Premiums and quotes retain prior assumptions; the contract symbol may not match the proposed strike. Review explicitly. The draft ghost is unpriced, not payoff evidence.</p>
+        <p class="notice">Strike edits keep entry premiums and IVs. A different strike is a different contract, so its provider observation and quotes are cleared. Review explicitly. The draft ghost is unpriced, not payoff evidence.</p>
         <div class="actions">
           <button type="button" onclick={previewProposal} disabled={previewPending || !!drag}>Preview proposal</button>
           {#if previewPending}<button type="button" onclick={() => cancelPreview()}>Cancel preview</button>{/if}
