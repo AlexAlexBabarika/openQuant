@@ -3,7 +3,7 @@
   import { getAccessToken } from '$lib/core/api';
   import { getChainStatus, getChainExpirations, getOptionChain } from '$lib/features/options/optionsResearchApi';
   import type { ChainEnvironment, ChainExpirationsResponse, ChainQuote, ChainResponse, ChainStatusResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
-  import { applyChainImport, chainFilterErrors, chainPremium, chainRows, chainSpread, needsChainModelAcknowledgment, proposeChainImport, type ChainFilters, type ChainImportSettings } from '$lib/features/options/optionsChain';
+  import { applyChainImport, chainFailureMessage, chainFilterErrors, chainPremium, chainRows, chainSpread, needsChainModelAcknowledgment, proposeChainImport, type ChainFilters, type ChainImportSettings } from '$lib/features/options/optionsChain';
   import { OptionsToolFlight } from '$lib/features/options/optionsFinder';
   import { exactValue } from '$lib/features/options/optionsChart';
 
@@ -89,8 +89,8 @@
         pending = null; response = next; responseKey = submittedKey; selected = null; filters.page = 0;
         notice = next.quotes.length ? 'Read-only observations fetched. Buy/Sell below only prepares an explicit draft import, not an order.' : 'Chain fetched successfully: no contracts returned.';
       }
-    } catch {
-      if (run.current()) failure = 'Chain request failed. Check sign-in, API key settings and provider availability, then retry explicitly. No credentials or provider response bodies are shown.';
+    } catch (error) {
+      if (run.current()) failure = chainFailureMessage(error);
     } finally {
       if (run.current()) pending = null;
       run.finish();

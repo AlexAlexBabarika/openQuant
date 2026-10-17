@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import OptionsChainPicker from '../../../components/options/OptionsChainPicker.svelte';
 import {
   applyChainImport,
+  chainFailureMessage,
   chainFilterErrors,
   chainPremium,
   chainRows,
@@ -16,7 +17,7 @@ import {
 } from './optionsChain';
 import type { ChainQuote, ChainResponse } from './optionsResearchTypes';
 import { createOptionsDraft } from './optionsTemplates';
-import { optionsErrors } from './optionsValidation';
+import { optionsErrors, resolvedLegDays } from './optionsValidation';
 
 const quote = (): ChainQuote => ({
   contract_symbol: 'XYZ261218C00100000',
@@ -227,10 +228,12 @@ describe('hypothetical model imports through the controlled draft', () => {
       entry_premium: 0,
       multiplier: 100,
       implied_volatility: 0,
-      days_to_expiry: 64,
       expiry_date: '2026-12-18',
       enabled: true,
     });
+    // Days resolve from the dates; a stored copy would go stale when the valuation date moves.
+    expect(imported.days_to_expiry ?? null).toBeNull();
+    expect(resolvedLegDays(draft.strategy, imported)).toBe(64);
     expect(imported.bid).toBeUndefined();
     expect(imported.ask).toBeUndefined();
     expect(imported.quote_as_of).toBeUndefined();
@@ -340,7 +343,17 @@ describe('hypothetical model imports through the controlled draft', () => {
     draft.surface = null;
     const proposed = proposeChainImport(draft, q, s);
     expect(proposed.errors).toEqual({});
-    expect(proposed.draft?.strategy.legs[1].days_to_expiry).toBe(0);
+    const next = proposed.draft!.strategy;
+    expect(resolvedLegDays(next, next.legs[1])).toBe(0);
+  });
+  it('keeps imported legs valid when the valuation date changes afterwards', () => {
+    const draft = createOptionsDraft();
+    expect(applyChainImport(draft, quote(), choices())).toBe(true);
+    draft.strategy.valuation_date = '2026-10-20';
+    expect(Object.values(optionsErrors(draft)).join(' ')).not.toMatch(
+      /days override/,
+    );
+    expect(resolvedLegDays(draft.strategy, draft.strategy.legs[1])).toBe(59);
   });
   it('preserves existing anchors, enforces 16-leg cap including disabled rows and rejects out-of-horizon existing scenarios', () => {
     const draft = createOptionsDraft(),
@@ -379,6 +392,29 @@ describe('hypothetical model imports through the controlled draft', () => {
       expect(draft.strategy.legs).toHaveLength(1);
     },
   );
+});
+
+describe('chain failure messages', () => {
+  it("shows the backend's specific guidance instead of one generic sentence", () => {
+    const limited = 'Too many options chain requests. Try again in a minute.';
+    expect(chainFailureMessage(new Error(limited))).toBe(limited);
+    expect(chainFailureMessage(new Error(' '))).toMatch(
+      /^Chain request failed/,
+    );
+    expect(chainFailureMessage('not an error')).toMatch(
+      /^Chain request failed/,
+    );
+  });
+  it('is what the picker shows when a request fails', () => {
+    const source = readFileSync(
+      new URL(
+        '../../../components/options/OptionsChainPicker.svelte',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    expect(source).toContain('failure = chainFailureMessage(error)');
+  });
 });
 
 describe('native chain picker contract', () => {
