@@ -58,6 +58,31 @@ describe('manual options templates', () => {
     expect(d.strategy.settlement).toBe('cash');
     expect(d.strategy.currency).toBe('USD');
   });
+  it('rounds strikes to round steps and premiums to cents', () => {
+    const strikes = (spot: number) =>
+      templateStrategy('iron_condor', spot).legs.map(l => l.strike);
+    expect(strikes(100)).toEqual([80, 90, 110, 120]);
+    expect(strikes(343.46)).toEqual([275, 310, 380, 410]);
+    expect(
+      templateStrategy('iron_condor', 343.46).legs.map(l => l.entry_premium),
+    ).toEqual([3.43, 10.3, 10.3, 3.43]);
+  });
+  it.each(OPTIONS_TEMPLATES)(
+    'keeps %s strikes short decimals and distinct at any spot',
+    id => {
+      const options = (spot: number) =>
+        templateStrategy(id, spot).legs.filter(l => l.kind !== 'underlying');
+      const distinct = (spot: number) =>
+        new Set(options(spot).map(l => l.strike)).size;
+      for (const spot of [1, 17.3, 343.46, 5123.7]) {
+        for (const leg of options(spot)) {
+          expect(String(leg.strike)).toMatch(/^\d+(\.\d{1,3})?$/);
+          expect(String(leg.entry_premium)).toMatch(/^\d+(\.\d{1,2})?$/);
+        }
+        expect(distinct(spot)).toBe(distinct(100));
+      }
+    },
+  );
   it('has independent drafts without provider or stock context', () => {
     const a = createOptionsDraft();
     const b = createOptionsDraft();
