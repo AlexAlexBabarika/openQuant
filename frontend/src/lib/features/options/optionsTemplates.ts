@@ -31,6 +31,10 @@ export function templateStrategy(
   spot = 100,
 ): OptionsDraft['strategy'] {
   const s = Math.min(1000000 / 1.2, Math.max(1, spot));
+  // Round, chain-like strikes (not actual listings): the largest 1/2/2.5/5 x 10^n step
+  // within 2.5% of spot, so the 10% template offsets never collapse onto one strike.
+  const scale = 10 ** Math.floor(Math.log10(s * 0.025));
+  const step = [5, 2.5, 2, 1].map(m => m * scale).find(m => m <= s * 0.025)!;
   const option = (
     kind: 'call' | 'put',
     quantity: number,
@@ -39,8 +43,8 @@ export function templateStrategy(
   ): Leg => ({
     kind,
     quantity,
-    strike,
-    entry_premium,
+    strike: Number((Math.round(strike / step) * step).toPrecision(12)),
+    entry_premium: Math.round(entry_premium * 100) / 100,
     multiplier: 100,
     enabled: true,
   });
