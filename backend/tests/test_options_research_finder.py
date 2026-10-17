@@ -257,3 +257,24 @@ def test_extreme_finite_inputs_are_not_nonfinite_results():
     data["analysis"]["strategy"]["days_to_expiry"] = 3650
     result = find_strategies(data)
     json.dumps(result.model_dump(), allow_nan=False)
+
+
+def dated_finder_payload(date_universe):
+    data = finder_payload()
+    data["analysis"]["strategy"]["valuation_date"] = "2026-10-17"
+    data["analysis"]["strategy"]["legs"][0]["expiry_date"] = "2026-11-16"
+    for leg in data["universe"]:
+        if date_universe:
+            leg["expiry_date"] = "2026-11-16"
+    return data
+
+
+def test_undated_universe_with_dated_strategy_is_rejected_before_search():
+    with pytest.raises(ValidationError, match="universe contracts need an expiry_date"):
+        FinderRequest.model_validate(dated_finder_payload(date_universe=False))
+
+
+def test_dated_universe_with_dated_strategy_searches():
+    result = find_strategies(dated_finder_payload(date_universe=True))
+    assert result.searched_count > 0
+    assert result.candidates

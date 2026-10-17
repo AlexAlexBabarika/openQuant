@@ -85,6 +85,16 @@ describe('explicit bounded finder universe', () => {
     r.universe[0].entry_premium = 0;
     expect(finderErrors(r)).toEqual({});
   });
+  it('asks for contract expiry dates when the strategy is dated without a common expiry', () => {
+    const r = request();
+    r.analysis.strategy.valuation_date = '2026-10-17';
+    r.analysis.strategy.legs[0].expiry_date = '2026-11-16';
+    r.universe = [manualFinderContract(r.analysis)];
+    r.universe[0].entry_premium = 0;
+    expect(finderErrors(r)['universe.0.expiry_date']).toMatch(/expiry date/);
+    r.universe[0].expiry_date = '2026-11-16';
+    expect(finderErrors(r)).toEqual({});
+  });
   it('preserves provenance for premium/IV edits and removes it for identity edits', () => {
     const leg = request().universe[0];
     leg.source = {
