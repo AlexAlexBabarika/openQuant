@@ -279,3 +279,57 @@ def test_revalidation_catches_mutated_model_instances():
 def test_unrepresentable_tail_domain_is_rejected_not_clipped(log_spot):
     with pytest.raises(ValueError):
         _positive_exp(log_spot)
+
+
+@pytest.mark.parametrize("volatility", [0.3, 0.8, 1.5, 2.0])
+@pytest.mark.parametrize("days", [30, 90, 365])
+@pytest.mark.parametrize("bins", [12, 36, 60])
+def test_outer_price_bin_edges_are_the_exact_payoff_endpoints(volatility, days, bins):
+    data = distribution_payload(tail_probability=1e-4, bins=bins)
+    data["analysis"]["volatility"] = volatility
+    data["analysis"]["strategy"]["days_to_expiry"] = days
+    result = analyze_distribution(data)
+    curve = result.terminal_payoff_curve
+    assert result.terminal_price_bins[0].lower_spot == curve[0].spot
+    assert result.terminal_price_bins[-1].upper_spot == curve[-1].spot
+
+
+def zigzag_legs():
+    # 17 alternating slopes give 16 strikes and 17 isolated breakevens.
+    slopes = [-2, 1] + [-1 if i % 2 == 0 else 1 for i in range(15)]
+    weights = [slopes[i + 1] - slopes[i] for i in range(16)]
+    strikes, strike = [], 0.0
+    for slope in slopes[:16]:
+        strike += 10 / abs(slope)
+        strikes.append(strike)
+    legs = [
+        {
+            "kind": "put" if i == 2 else "call",
+            "quantity": weight,
+            "strike": strike,
+            "entry_premium": 0,
+        }
+        for i, (strike, weight) in enumerate(zip(strikes, weights))
+    ]
+    legs[2]["entry_premium"] = (200 * strikes[2] - 500) / 200
+    return legs, strikes
+
+
+def test_sixteen_leg_strategy_with_seventeen_breakevens_fits_the_payoff_curve():
+    legs, strikes = zigzag_legs()
+    data = distribution_payload(legs)
+    data["analysis"].update(spot=strikes[8], volatility=2.0, rate=0)
+    result = analyze_distribution(data)
+    assert len(result.request.analysis.strategy.legs) == 16
+    assert len(result.terminal_payoff_curve) == 35
+
+
+@pytest.mark.parametrize("confidence", [0.95, 0.99])
+def test_tail_level_is_not_duplicated_by_float_rounding(confidence):
+    result = analyze_distribution(distribution_payload(confidence=confidence))
+    levels = [q.probability for q in result.quantiles]
+    assert levels == [0.01, 0.05, 0.5, 0.95, 0.99]
+    tail = next(
+        q.pnl for q in result.quantiles if q.probability == round(1 - confidence, 2)
+    )
+    assert result.value_at_risk == max(0, -tail)

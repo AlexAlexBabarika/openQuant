@@ -187,7 +187,7 @@ export function terminalProbabilityError(
   if (
     !Array.isArray(curve) ||
     !curve.length ||
-    curve.length > 34 ||
+    curve.length > 35 ||
     curve.some(
       (point, i) =>
         !finiteValue(point.spot) ||

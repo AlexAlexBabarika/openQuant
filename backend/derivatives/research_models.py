@@ -326,8 +326,9 @@ class DistributionResponse(OptionsModel):
     deterministic: bool
     bins: list[ProbabilityBin] = Field(min_length=1, max_length=100)
     terminal_price_bins: list[TerminalPriceBin] = Field(min_length=1, max_length=100)
+    # 2 endpoints + up to 16 strikes + up to 17 isolated breakevens.
     terminal_payoff_curve: list[TerminalPayoffPoint] = Field(
-        min_length=1, max_length=34
+        min_length=1, max_length=35
     )
     probability_positive_pnl: Probability
     expected_pnl: float
