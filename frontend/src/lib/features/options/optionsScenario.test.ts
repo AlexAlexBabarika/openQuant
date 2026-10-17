@@ -111,6 +111,28 @@ it('renders submitted Python heatmaps without editor draft controls or callbacks
   expect(onAnalyze).not.toHaveBeenCalled();
 });
 
+it.each([
+  { common: 30, legDays: [7, 30], first: 7 },
+  { common: 0, legDays: [60, 60], first: 60 },
+])(
+  'bounds the scenario slider by the first active expiry ($first days), not the common default',
+  ({ common, legDays, first }) => {
+    const d = draft();
+    d.strategy.days_to_expiry = common;
+    d.strategy.legs = legDays.map(days => ({
+      ...d.strategy.legs[0],
+      days_to_expiry: days,
+    }));
+    const html = render(OptionsScenarioLab, {
+      props: { draft: d, result: null, onEdit: vi.fn(), onAnalyze: vi.fn() },
+    }).body;
+    const slider = html.match(/<input[^>]*type="range"[^>]*>/)![0];
+    expect(slider).toContain(`max="${first}"`);
+    expect(slider).not.toMatch(/\sdisabled/);
+    expect(html).toContain(`Elapsed days: 0–${first}.`);
+  },
+);
+
 describe('explicit scenario and bounded surface input helpers', () => {
   it('requires unique nonblank bounded scenario names without changing inputs', () => {
     const d = draft();

@@ -4,6 +4,7 @@
   import { buildSurface, ivShiftBounds, requestChanged, scenarioInputError, scenarioNameError, surfaceCellLabel, surfaceDataError, surfaceKeyboardCell, surfaceSettings, surfaceSettingsErrors, surfaceValue } from '$lib/features/options/optionsScenario';
   import type { SurfaceSettings } from '$lib/features/options/optionsScenario';
   import { heatmapColor, heatmapLegend, heatmapScale } from '$lib/features/sweep/heatmap';
+  import { firstExpiryDays } from '$lib/features/options/optionsValidation';
   import { untrack } from 'svelte';
 
   let { draft, result, onEdit, onAnalyze, pending = false, readOnly = false }: {
@@ -19,6 +20,8 @@
   let applied = $state('');
   let selected = $state({ row: 0, column: 0 });
   const bounds = $derived(ivShiftBounds(draft));
+  // Scenario time cannot cross the first active expiry, which per-leg overrides may set.
+  const horizon = $derived(firstExpiryDays(draft));
   const errors = $derived(surfaceSettingsErrors(draft, settings));
   const configValid = $derived(Object.keys(errors).length === 0);
   const surface = $derived(result?.surface ?? null);
@@ -28,7 +31,7 @@
   const scale = $derived(heatmapScale(cells));
   const legend = $derived(heatmapLegend(scale));
   const missing = $derived(cells.some(row => row.some(v => v == null)));
-  const configKey = $derived(JSON.stringify([draft.surface ?? null, draft.spot_grid, draft.strategy.days_to_expiry, bounds]));
+  const configKey = $derived(JSON.stringify([draft.surface ?? null, draft.spot_grid, horizon, bounds]));
   const active = $derived(surface && !dataError && selected.row < surface.steps.length && selected.column < surface.spots.length ? selected : { row: 0, column: 0 });
 
   $effect(() => { configKey; settings = untrack(() => surfaceSettings(draft)); });
@@ -50,7 +53,7 @@
   function changeAxis(axis: SurfaceSettings['axis']) {
     settings.axis = axis;
     settings.stepStart = axis === 'elapsed_days' ? 0 : Math.max(-10, bounds?.min ?? 0);
-    settings.stepEnd = axis === 'elapsed_days' ? draft.strategy.days_to_expiry : Math.min(10, bounds?.max ?? 0);
+    settings.stepEnd = axis === 'elapsed_days' ? horizon : Math.min(10, bounds?.max ?? 0);
     applied = '';
   }
 
@@ -84,7 +87,7 @@
     {#if applied}<p>{applied}</p>{/if}
   </div>
   <div class="section-title"><h4>Explicit scenarios · {draft.scenarios.length}/3</h4><button type="button" class="ot-workbench-ghost" disabled={pending || draft.scenarios.length >= 3} onclick={addScenario}>Add scenario</button></div>
-  <p class="note">Elapsed days: 0–{exactValue(draft.strategy.days_to_expiry)}. IV shift: {bounds ? `${exactValue(bounds.min, true)}–${exactValue(bounds.max, true)} pp` : 'unavailable until base and leg IVs are valid'}. A shift applies to every enabled option IV and the declared base, not their average. Undefined Greeks remain unavailable.</p>
+  <p class="note">Elapsed days: 0–{exactValue(horizon)}. IV shift: {bounds ? `${exactValue(bounds.min, true)}–${exactValue(bounds.max, true)} pp` : 'unavailable until base and leg IVs are valid'}. A shift applies to every enabled option IV and the declared base, not their average. Undefined Greeks remain unavailable.</p>
   {#if draft.scenarios.length === 0}<p class="note">No scenarios configured. Add one to set explicit time and IV shifts.</p>{/if}
   {#each draft.scenarios as scenario, i}
     {@const error = scenarioInputError(draft, scenario.elapsed_days, scenario.iv_shift_pp)}
@@ -93,7 +96,7 @@
       <label for={`${id}-name-${i}`}>Name · unique, 1–80 characters<input id={`${id}-name-${i}`} value={scenario.name} maxlength="80" aria-invalid={!!nameError} aria-describedby={`${id}-name-error-${i}`} oninput={e => onEdit(d => { d.scenarios[i].name = e.currentTarget.value; })} /></label>
       <p id={`${id}-name-error-${i}`} class:notice={!!nameError} class="note">{nameError ?? 'Names identify submitted scenario evidence.'}</p>
       <label for={`${id}-time-${i}`}>Elapsed calendar days · draft <output for={`${id}-time-${i}`}>{exactValue(scenario.elapsed_days)}</output>
-        <input id={`${id}-time-${i}`} type="range" min="0" max={Math.max(0, draft.strategy.days_to_expiry)} step="any" value={scenario.elapsed_days} disabled={!Number.isFinite(draft.strategy.days_to_expiry) || draft.strategy.days_to_expiry <= 0 || draft.strategy.days_to_expiry > 3650} aria-valuetext={`${exactValue(scenario.elapsed_days)} calendar days elapsed`} aria-invalid={!!error} aria-describedby={`${id}-scenario-${i}`} oninput={e => editScenario(i, 'elapsed_days', Number(e.currentTarget.value))} />
+        <input id={`${id}-time-${i}`} type="range" min="0" max={Math.max(0, horizon)} step="any" value={scenario.elapsed_days} disabled={!Number.isFinite(horizon) || horizon <= 0 || horizon > 3650} aria-valuetext={`${exactValue(scenario.elapsed_days)} calendar days elapsed`} aria-invalid={!!error} aria-describedby={`${id}-scenario-${i}`} oninput={e => editScenario(i, 'elapsed_days', Number(e.currentTarget.value))} />
       </label>
       <label for={`${id}-iv-${i}`}>IV shift · draft <output for={`${id}-iv-${i}`}>{exactValue(scenario.iv_shift_pp, true)} pp</output>
         <input id={`${id}-iv-${i}`} type="range" min={bounds?.min ?? 0} max={bounds?.max ?? 0} step="any" value={scenario.iv_shift_pp} disabled={!bounds || bounds.min === bounds.max} aria-valuetext={`${exactValue(scenario.iv_shift_pp, true)} volatility percentage points`} aria-invalid={!!error} aria-describedby={`${id}-scenario-${i}`} oninput={e => editScenario(i, 'iv_shift_pp', Number(e.currentTarget.value))} />
@@ -113,8 +116,8 @@
         <p id={`${id}-spots-error`} class="field-note">{errors.spots ?? 'Strictly increasing USD prices.'}</p>
         <label for={`${id}-spot-count`}>Spot columns (2–41)<input id={`${id}-spot-count`} type="number" min="2" max="41" step="1" bind:value={settings.spotCount} aria-invalid={!!errors.spotCount} aria-describedby={`${id}-columns-error`} /></label>
         <p id={`${id}-columns-error`} class="field-note">{errors.spotCount ?? 'Up to 41 columns.'}</p>
-        <label for={`${id}-step-start`}>Step start ({settings.axis === 'elapsed_days' ? 'calendar days' : 'IV shift pp'})<input id={`${id}-step-start`} type="number" min={settings.axis === 'elapsed_days' ? 0 : bounds?.min ?? 0} max={settings.axis === 'elapsed_days' ? draft.strategy.days_to_expiry : bounds?.max ?? 0} step="any" bind:value={settings.stepStart} aria-invalid={!!errors.steps} aria-describedby={`${id}-steps-error`} /></label>
-        <label for={`${id}-step-end`}>Step end ({settings.axis === 'elapsed_days' ? 'calendar days' : 'IV shift pp'})<input id={`${id}-step-end`} type="number" min={settings.axis === 'elapsed_days' ? 0 : bounds?.min ?? 0} max={settings.axis === 'elapsed_days' ? draft.strategy.days_to_expiry : bounds?.max ?? 0} step="any" bind:value={settings.stepEnd} aria-invalid={!!errors.steps} aria-describedby={`${id}-steps-error`} /></label>
+        <label for={`${id}-step-start`}>Step start ({settings.axis === 'elapsed_days' ? 'calendar days' : 'IV shift pp'})<input id={`${id}-step-start`} type="number" min={settings.axis === 'elapsed_days' ? 0 : bounds?.min ?? 0} max={settings.axis === 'elapsed_days' ? horizon : bounds?.max ?? 0} step="any" bind:value={settings.stepStart} aria-invalid={!!errors.steps} aria-describedby={`${id}-steps-error`} /></label>
+        <label for={`${id}-step-end`}>Step end ({settings.axis === 'elapsed_days' ? 'calendar days' : 'IV shift pp'})<input id={`${id}-step-end`} type="number" min={settings.axis === 'elapsed_days' ? 0 : bounds?.min ?? 0} max={settings.axis === 'elapsed_days' ? horizon : bounds?.max ?? 0} step="any" bind:value={settings.stepEnd} aria-invalid={!!errors.steps} aria-describedby={`${id}-steps-error`} /></label>
         <p id={`${id}-steps-error`} class="field-note">{errors.steps ?? (settings.axis === 'elapsed_days' ? 'Common horizon only; IVs held at their resolved input values.' : 'Current time only; shift each resolved enabled IV and the declared base.')}</p>
         <label for={`${id}-step-count`}>Step rows (2–21)<input id={`${id}-step-count`} type="number" min="2" max="21" step="1" bind:value={settings.stepCount} aria-invalid={!!errors.stepCount} aria-describedby={`${id}-rows-error`} /></label>
         <p id={`${id}-rows-error`} class="field-note">{errors.stepCount ?? 'Up to 21 rows.'}</p>
