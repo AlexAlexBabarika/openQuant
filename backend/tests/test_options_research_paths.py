@@ -362,3 +362,49 @@ def test_all_expiries_inserted_within_bounded_ledger_and_finite_output():
     assert len(result.path) == len(result.ledger) == 382
     assert len(result.settlements) == 16
     json.dumps(result.model_dump(), allow_nan=False)
+
+
+@pytest.mark.parametrize("days, steps", [(0.7, 3), (1.8571428571428572, 3)])
+def test_synthetic_horizon_at_a_fractional_expiry_settles_the_leg(days, steps):
+    data = {
+        "analysis": analysis(
+            [{"kind": "call", "strike": 100, "quantity": 1, "entry_premium": 1}],
+            strategy={
+                "days_to_expiry": days,
+                "legs": [
+                    {"kind": "call", "strike": 100, "quantity": 1, "entry_premium": 1}
+                ],
+            },
+        ),
+        "path": {"source": "synthetic", "horizon_days": days, "steps": steps},
+    }
+    result = evaluate_lifecycle(data)
+    assert result.path[-1].day == days
+    assert [s.day for s in result.settlements] == [days]
+    assert simulate_hedge(data).lifecycle.path[-1].day == days
+
+
+def test_interval_hedge_reviews_every_observation_at_fractional_spacing():
+    data = {
+        "analysis": analysis(
+            [
+                {
+                    "kind": "call",
+                    "strike": 100,
+                    "quantity": -1,
+                    "entry_premium": 3,
+                    "days_to_expiry": 1,
+                }
+            ]
+        ),
+        "path": {
+            "source": "supplied",
+            "points": [
+                {"day": i / 10, "spot": 100 + (3 if i % 2 else -3) * (i > 0)}
+                for i in range(11)
+            ],
+        },
+        "policy": {"mode": "interval", "interval_days": 0.1},
+    }
+    actions = [row.action for row in simulate_hedge(data).ledger]
+    assert actions[:-1] == ["rebalance"] * 10
