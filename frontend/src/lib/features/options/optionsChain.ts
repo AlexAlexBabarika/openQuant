@@ -44,6 +44,13 @@ export function chainSpread(quote: ChainQuote): number | null {
   return price(quote.bid) && price(quote.ask) ? quote.ask - quote.bid : null;
 }
 
+/** Backend chain errors carry fixed, credential-free guidance (re-save key, rate limit, timeout). */
+export function chainFailureMessage(error: unknown): string {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : 'Chain request failed. Check sign-in, API key settings and provider availability, then retry explicitly. No credentials or provider response bodies are shown.';
+}
+
 /** Quote arithmetic only, never theoretical pricing or an entry-price default. */
 export function chainPremium(
   quote: ChainQuote,
@@ -250,8 +257,9 @@ export function proposeChainImport(
     entry_premium: premium!,
     multiplier: settings.multiplier,
     enabled: true,
+    // Days resolve from expiry_date; storing them too breaks the leg when the valuation date moves.
     expiry_date: quote.expiration,
-    days_to_expiry: (expiry! - valuation!) / 86400000,
+    days_to_expiry: null,
     implied_volatility: iv,
     source: sourceFor(quote),
   };
