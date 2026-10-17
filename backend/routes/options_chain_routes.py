@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable, Coroutine
 from time import monotonic
 from typing import TypeVar
 
+from cryptography.exceptions import InvalidTag
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
@@ -31,9 +32,11 @@ from backend.models.auth_models import AuthUserInfo
 RATE_LIMIT = 30
 RATE_WINDOW = 60
 MAX_RATE_KEYS = 4096
+MAX_USER_INFLIGHT = 2
 REQUEST_TIMEOUT = 15
 BODY_READ_TIMEOUT = 1
 _windows: dict[tuple[str, str], deque[float]] = {}
+_inflight: dict[str, int] = {}
 _rate_lock = threading.Lock()
 _slots = threading.BoundedSemaphore(8)
 _key_slots = threading.BoundedSemaphore(4)
@@ -90,10 +93,13 @@ class ChainRoute(APIRoute):
                     ],
                 ) from None
             except chains.ChainError as exc:
+                # Only transient failures invite a retry; 409/422/424 need the user to act.
                 headers = (
                     {"Retry-After": "60"}
                     if exc.status_code == 429
                     else {"Retry-After": "1"}
+                    if exc.status_code >= 500
+                    else None
                 )
                 raise HTTPException(
                     exc.status_code, str(exc), headers=headers
@@ -121,7 +127,8 @@ def _allow(user_id: str, environment: str) -> bool:
         key = (user_id, environment)
         if key not in _windows:
             if len(_windows) >= MAX_RATE_KEYS:
-                return False
+                # Evict the least-recently active window; refusing would lock out new users.
+                del _windows[min(_windows, key=lambda k: _windows[k][-1])]
             _windows[key] = deque()
         window = _windows[key]
         while window and now - window[0] >= RATE_WINDOW:
@@ -130,6 +137,9 @@ def _allow(user_id: str, environment: str) -> bool:
             return False
         window.append(now)
         return True
+
+
+UNREADABLE_KEY = "The stored key for this Tradier environment can no longer be decrypted; re-save it in API Keys settings."
 
 
 def _read_key(user_id: str, environment: Environment) -> str | None:
@@ -141,6 +151,9 @@ def _read_key(user_id: str, environment: Environment) -> str | None:
             return fetch_api_key(user_id, chains.provider_key(environment))
         except ValueError:
             return None
+        except InvalidTag:
+            # Encrypted under a different API_KEYS_ENCRYPTION_KEY; retrying cannot help.
+            raise chains.ChainError(UNREADABLE_KEY, 409) from None
         except Exception:
             raise chains.ChainError(
                 "Options key configuration is unavailable. Try again shortly.", 503
@@ -174,6 +187,25 @@ async def _execute(
         raise chains.ChainError(
             "Too many options chain requests. Try again in a minute.", 429
         )
+    # A per-account cap keeps one account from holding every shared operation slot.
+    with _rate_lock:
+        if _inflight.get(user.id, 0) >= MAX_USER_INFLIGHT:
+            raise chains.ChainError(
+                "Too many options chain requests in progress. Wait for one to finish.",
+                429,
+            )
+        _inflight[user.id] = _inflight.get(user.id, 0) + 1
+    try:
+        return await _run_in_slot(request, operation)
+    finally:
+        with _rate_lock:
+            if _inflight[user.id] > 1:
+                _inflight[user.id] -= 1
+            else:
+                del _inflight[user.id]
+
+
+async def _run_in_slot(request: Request, operation: Callable[[], Awaitable[T]]) -> T:
     if not _slots.acquire(blocking=False):
         raise chains.ChainError(
             "Options chain service is busy. Try again shortly.", 503
@@ -208,7 +240,21 @@ async def chain_status(
     async def load() -> ChainStatusResponse:
         statuses = []
         for environment in ("production", "sandbox"):
-            key = await run_in_threadpool(_read_key, user.id, environment)
+            try:
+                key = await run_in_threadpool(_read_key, user.id, environment)
+            except chains.ChainError as exc:
+                if str(exc) != UNREADABLE_KEY:
+                    raise
+                # Report this environment; one unreadable key must not hide the other.
+                statuses.append(
+                    ChainStatus(
+                        environment=environment,
+                        configured=True,
+                        available=False,
+                        message=UNREADABLE_KEY,
+                    )
+                )
+                continue
             configured = key is not None
             statuses.append(
                 ChainStatus(
