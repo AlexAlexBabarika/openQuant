@@ -172,6 +172,14 @@ export function finderErrors(request: FinderRequest): Record<string, string> {
             : key.replace('legs.0.', `universe.${index}.`)
         ] = value;
     }
+    const strategy = request.analysis.strategy;
+    if (
+      strategy.valuation_date != null &&
+      strategy.expiry_date == null &&
+      leg.expiry_date == null
+    )
+      errors[`universe.${index}.expiry_date`] =
+        'Add an expiry date: this strategy has a valuation date but no common expiry date.';
     const underlying = request.analysis.strategy.underlying;
     if (
       leg.source &&

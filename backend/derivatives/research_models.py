@@ -87,6 +87,16 @@ class FinderRequest(OptionsModel):
             )
         for leg in self.universe:
             self.analysis.strategy.leg_days(leg)
+        strategy = self.analysis.strategy
+        # Candidates keep valuation_date; an all-undated candidate would then fail mid-search.
+        if (
+            strategy.valuation_date is not None
+            and strategy.expiry_date is None
+            and any(leg.expiry_date is None for leg in self.universe)
+        ):
+            raise ValueError(
+                "finder universe contracts need an expiry_date when the strategy has a valuation_date but no common expiry_date"
+            )
         if any(a >= b for a, b in zip(self.scenario_spots, self.scenario_spots[1:])):
             raise ValueError("scenario_spots must be strictly increasing")
         return self
