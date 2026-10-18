@@ -377,6 +377,40 @@ export function svgPath(
     .join(' ');
 }
 
+/** Ticks on round 1/2/2.5/5 × 10ⁿ steps inside the domain; zero is one whenever it is in range. */
+export function niceTicks(domain: Domain, count: number): number[] {
+  const span = domain.max - domain.min;
+  if (!finiteValue(span) || span <= 0 || count < 1) return [];
+  const magnitude = 10 ** Math.floor(Math.log10(span / count));
+  const step =
+    [1, 2, 2.5, 5, 10].map(m => m * magnitude).find(s => span / s <= count) ??
+    10 * magnitude;
+  const ticks: number[] = [];
+  for (
+    let i = Math.ceil(domain.min / step);
+    i * step <= domain.max + step * 1e-9;
+    i++
+  )
+    ticks.push(Number((i * step).toPrecision(12)) || 0);
+  return ticks;
+}
+
+/** A polyline closed against the zero line, for profit and loss fills; '' when it has gaps. */
+export function fillPath(
+  points: (ChartPoint | null)[],
+  x: Domain,
+  y: Domain,
+  width: number,
+  top: number,
+  bottom: number,
+): string {
+  if (points.length < 2 || points.some(p => !p)) return '';
+  const first = points[0]!,
+    last = points[points.length - 1]!;
+  const zero = scaleValue(0, y, bottom, top).toFixed(3);
+  return `${svgPath(points, x, y, width, top, bottom)} L${scaleValue(last.spot, x, 0, width).toFixed(3)},${zero} L${scaleValue(first.spot, x, 0, width).toFixed(3)},${zero} Z`;
+}
+
 export function domainTicks(domain: Domain, count = 3): number[] {
   return Array.from({ length: count }, (_, i) => {
     const fraction = i / (count - 1);
@@ -438,8 +472,10 @@ export function exactValue(
   return signed && value > 0 ? `+${value}` : String(value);
 }
 
-export function axisValue(value: number): string {
+/** `span` is the axis range: values within 1e-9 of it from zero print as 0, not 4.1e-57. */
+export function axisValue(value: number, span?: number): string {
   if (!finiteValue(value)) return '—';
+  if (finiteValue(span) && Math.abs(value) < Math.abs(span) * 1e-9) return '0';
   if (value !== 0 && (Math.abs(value) < 0.01 || Math.abs(value) >= 10000))
     return value.toExponential(1);
   return Number(value.toPrecision(4)).toString();
