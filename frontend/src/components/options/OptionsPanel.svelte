@@ -22,7 +22,11 @@
     workspaceSymbol?: string | null;
     workspaceSpot?: number | null;
   } = $props();
-  const options = new OptionsState();
+  const options = new OptionsState(undefined, undefined, 300);
+  const statusLabel = {
+    editor: { idle: 'Updating…', pending: 'Updating…', updating: 'Updating…', current: 'Up to date', invalid: 'Fix highlighted inputs', error: 'Analysis failed' },
+    python: { idle: 'Not run yet', pending: 'Source changed', updating: 'Running…', current: 'Up to date', invalid: 'Source changed', error: 'Run failed' },
+  } as const;
   let panel: HTMLElement;
   let exportConfirm = $state(false);
   let scopeLabel = $state('Guest drafts · this browser');
@@ -96,19 +100,16 @@
   <header class="panel-header">
     <div class="identity"><strong>Options research</strong><span>Manual / synthetic · European · cash-settled · USD</span></div>
     <div class="run-actions">
-      <span class="shortcut">Ctrl+Enter</span>
+      <span class="status" data-status={options.status} role="status"><i aria-hidden="true"></i><span>{statusLabel[options.mode][options.status]}</span></span>
+      {#if options.mode === 'python'}<span class="shortcut">Ctrl+Enter</span>{/if}
       {#if options.loading}<button type="button" class="ot-workbench-ghost" onclick={() => options.cancel()}>Cancel</button>{/if}
-      <button type="button" class="ot-workbench-primary" disabled={options.loading} onclick={() => options.run()}>
-        {options.loading ? (result ? 'Refreshing…' : 'Analyzing…') : 'Analyze'}
-      </button>
     </div>
   </header>
   <div class="panel-scroll">
     <p class="boundary">Theoretical European cash-settled analytics only. Optional authenticated read-only Tradier observations require explicit hypothetical conversion; real US exercise and physical delivery are not modeled. No historical options execution, brokerage or futures execution.</p>
     <div class="feedback" aria-live="polite" aria-atomic="true">
-      {#if options.loading}<p>{result ? 'Refreshing analysis; previous submitted evidence remains below.' : 'Running bounded options analysis…'}</p>{/if}
       {#if options.notice}<p>{options.notice}</p>{/if}
-      {#if options.stale}<p class="risk">Inputs changed. Charts and readouts are previous submitted evidence; Analyze to recalculate.</p>{/if}
+      {#if options.stale && options.mode === 'python'}<p class="risk">Source changed. The charts show the last run; Run to update them.</p>{/if}
     </div>
     {#if options.error}
       <div class="error-banner" role="alert"><span>{options.error}</span><button type="button" class="ot-workbench-ghost" disabled={options.loading} onclick={() => options.run()}>Retry current inputs</button></div>
@@ -124,7 +125,8 @@
             workspace={options.workspace} spotLinked={options.spotLinked} onSpot={spot => options.setSpot(spot)} onLink={() => options.linkWorkspace()} />
           <OptionsLegEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
             canUndo={options.canUndo} canRedo={options.canRedo}
-            onUndo={() => { options.undo(); syncGrid(); }} onRedo={() => { options.redo(); syncGrid(); }} />
+            onUndo={() => { options.undo(); syncGrid(); }} onRedo={() => { options.redo(); syncGrid(); }}
+            onTemplate={template => options.applyTemplate(template)} />
           <details class="configuration"><summary>Per-leg expiries · calendar / diagonal construction</summary>
             {#key toolKey}<OptionsExpiryEditor draft={options.draft} onEdit={update => options.editDraft(update)} documentKey={toolKey} />{/key}
           </details>
@@ -138,8 +140,7 @@
               {@render numeric('Grid points (2–201)', 'spot_grid', gridCount, 2, 201, '1', v => { gridCount = v; updateGrid(); })}
             </div>
           </details>
-          <OptionsScenarioLab draft={options.draft} {result} onEdit={update => options.editDraft(update)}
-            onAnalyze={() => { void options.run(); }} pending={options.loading} />
+          <OptionsScenarioLab draft={options.draft} {result} onEdit={update => options.editDraft(update)} />
         {:else}
           <OptionsPythonEditor source={options.source} onChange={source => options.setSource(source)}
             onRun={() => { void options.run(); }} pending={options.loading} stdout={options.stdout ?? ''}
@@ -166,7 +167,7 @@
         {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
         {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} />{/key}
         {#if options.mode === 'python' && result}
-          <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} onAnalyze={() => {}} readOnly />
+          <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} readOnly />
         {/if}
         {#if result}<button type="button" class="ot-workbench-ghost" disabled={options.comparisons.length >= 3} onclick={() => options.pin()}>Pin submitted analysis for comparison</button>{/if}
         <OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />
@@ -203,7 +204,7 @@
             {#if options.submittedSource !== null}<details><summary>Submitted Python source</summary><pre class="submitted-source">{options.submittedSource}</pre></details>{/if}
           </details>
           <ul class="warnings">{#each result.warnings as warning}<li>{warning}</li>{/each}</ul>
-        {:else}<p class="empty-state">Choose a synthetic template or enter manual legs, then Analyze. No analysis runs automatically.</p>{/if}
+        {:else}<p class="empty-state">{options.mode === 'editor' ? 'Choose a template or enter legs; the analysis updates as you edit.' : 'Run the Python source to see its analysis. Python never runs by itself.'}</p>{/if}
       </div>
     </div>
   </div>
@@ -216,6 +217,11 @@
   .identity strong { font-size: 13px; }
   .identity span, .shortcut, .hint, .boundary, .feedback, .evidence-heading span { color: oklch(var(--muted-foreground)); }
   .identity span { font-family: var(--font-mono); font-size: 11px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: oklch(var(--muted-foreground)); }
+  .status i { width: 7px; height: 7px; border-radius: 50%; background: oklch(var(--muted-foreground)); }
+  .status[data-status="current"] i { background: oklch(var(--up-color)); }
+  .status[data-status="invalid"] i, .status[data-status="error"] i { background: oklch(var(--down-color)); }
+  .status[data-status="invalid"], .status[data-status="error"] { color: oklch(var(--foreground)); }
   .run-actions, .mode-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .panel-scroll { min-height: 0; flex: 1; overflow: auto; padding: 12px; scrollbar-gutter: stable; }
   p { line-height: 1.5; margin: 8px 0; overflow-wrap: anywhere; }

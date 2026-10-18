@@ -1,6 +1,10 @@
 import { apiJson } from '$lib/core/api';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
-import { applyOptionsTemplate, createOptionsDraft } from './optionsTemplates';
+import {
+  applyOptionsTemplate,
+  createOptionsDraft,
+  type OptionsTemplate,
+} from './optionsTemplates';
 import { matchTemplate, quotedSpot } from './optionsInputs';
 import { fittedSpotGrid, needsRefit, sameGrid } from './optionsGrid';
 import { exportOptionsPython, OPTIONS_SOURCE_LIMIT } from './optionsPython';
@@ -30,6 +34,13 @@ import {
 } from './optionsComparison';
 export { optionsErrors } from './optionsValidation';
 export type { OptionsMode, OptionsSavedDraft } from './optionsPersistence';
+export type OptionsStatus =
+  | 'idle'
+  | 'updating'
+  | 'current'
+  | 'pending'
+  | 'invalid'
+  | 'error';
 const REQUEST_TIMEOUT = 15000;
 const HISTORY_LIMIT = 50;
 type AnalysisResponse = OptionsAnalysis & { stdout?: string };
@@ -72,10 +83,14 @@ export class OptionsState {
   #autosave: ReturnType<typeof setTimeout> | null = null;
   #analyze: Analyze;
   #pinId = 0;
+  /** Editor drafts re-analyze this long after the last edit; null keeps analysis explicit. */
+  #autoDelay: number | null;
+  #autoTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     storage?: Storage | null,
     analyze: Analyze = apiJson<AnalysisResponse>,
+    autoDelay: number | null = null,
   ) {
     try {
       this.#storage =
@@ -88,6 +103,16 @@ export class OptionsState {
       this.#storage = null;
     }
     this.#analyze = analyze;
+    this.#autoDelay = autoDelay;
+  }
+  get status(): OptionsStatus {
+    if (this.loading) return 'updating';
+    if (this.error) return 'error';
+    if (this.mode === 'editor' && Object.keys(optionsErrors(this.draft)).length)
+      return 'invalid';
+    if (this.result === null)
+      return this.mode === 'editor' ? 'pending' : 'idle';
+    return this.stale ? 'pending' : 'current';
   }
   get stale(): boolean {
     return this.result !== null && this.#submittedKey !== this.#inputKey();
@@ -171,6 +196,7 @@ export class OptionsState {
           ? e.message
           : 'Local options drafts could not be read. Existing data is unchanged.';
     }
+    this.#scheduleAnalysis();
   }
   editDraft(update: (draft: OptionsDraft) => void): void {
     const before = structuredClone($state.snapshot(this.draft));
@@ -183,6 +209,10 @@ export class OptionsState {
     this.#future = [];
     this.draft = next;
     this.#scheduleRecovery();
+    this.#scheduleAnalysis();
+  }
+  applyTemplate(id: OptionsTemplate): void {
+    this.editDraft(d => applyOptionsTemplate(d, id));
   }
   syncWorkspace(symbol: string | null, spot: number | null): void {
     this.workspace = {
@@ -228,6 +258,7 @@ export class OptionsState {
       next.spot_grid = fittedSpotGrid(next);
     this.draft = next;
     this.#scheduleRecovery();
+    this.#scheduleAnalysis();
   }
   setGrid(grid: number[]): void {
     this.gridAuto = false;
@@ -252,6 +283,7 @@ export class OptionsState {
     this.#past = this.#past.slice(0, -1);
     this.draft = structuredClone(previous);
     this.#scheduleRecovery();
+    this.#scheduleAnalysis();
     return true;
   }
   redo(): boolean {
@@ -265,6 +297,7 @@ export class OptionsState {
     this.#future = this.#future.slice(0, -1);
     this.draft = structuredClone(next);
     this.#scheduleRecovery();
+    this.#scheduleAnalysis();
     return true;
   }
   setSource(source: string): void {
@@ -277,6 +310,7 @@ export class OptionsState {
     this.changed();
     this.mode = mode;
     this.#scheduleRecovery();
+    this.#scheduleAnalysis();
   }
   changed(): void {
     if (this.loading) this.cancel();
@@ -321,7 +355,28 @@ export class OptionsState {
   dispose(): void {
     this.flushRecovery();
     this.#stopAutosave();
+    this.#stopAnalysis();
     this.cancel(false);
+  }
+  #stopAnalysis(): void {
+    if (this.#autoTimer !== null) clearTimeout(this.#autoTimer);
+    this.#autoTimer = null;
+  }
+  /** Validated editor data only: Python source never runs by itself. */
+  #scheduleAnalysis(): void {
+    this.#stopAnalysis();
+    if (this.#autoDelay === null || this.mode !== 'editor') return;
+    this.#autoTimer = setTimeout(() => {
+      this.#autoTimer = null;
+      if (
+        this.mode !== 'editor' ||
+        this.loading ||
+        (this.result !== null && !this.stale) ||
+        Object.keys(optionsErrors(this.draft)).length
+      )
+        return;
+      void this.run();
+    }, this.#autoDelay);
   }
 
   async run(): Promise<void> {
@@ -457,6 +512,7 @@ export class OptionsState {
     this.documentKey++;
     this.#submittedKey = '';
     this.#scheduleRecovery();
+    this.#scheduleAnalysis();
     this.notice = notice;
   }
   recover(): boolean {

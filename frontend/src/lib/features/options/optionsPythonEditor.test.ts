@@ -61,9 +61,7 @@ describe('options Python editor contract (SSR and pure callbacks)', () => {
       const html = render(OptionsPythonEditor, {
         props: { ...props, onChange: vi.fn(), onRun: vi.fn() },
       }).body;
-      expect(html).toMatch(
-        /<button[^>]*disabled[^>]*>\s*(?:Analyze Python|Analyzing…)/,
-      );
+      expect(html).toMatch(/<button[^>]*disabled[^>]*>\s*(?:Run|Running…)\s*</);
       expect(html).toMatch(/<button[^>]*>Copy Python<\/button>/);
       expect(html).toMatch(/<button[^>]*>Export \.py<\/button>/);
     },

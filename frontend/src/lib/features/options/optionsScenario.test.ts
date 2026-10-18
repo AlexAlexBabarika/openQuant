@@ -99,16 +99,14 @@ function analysis(): OptionsAnalysis {
 it('renders submitted Python heatmaps without editor draft controls or callbacks', () => {
   const result = analysis();
   const onEdit = vi.fn();
-  const onAnalyze = vi.fn();
   const html = render(OptionsScenarioLab, {
-    props: { draft: result.request, result, onEdit, onAnalyze, readOnly: true },
+    props: { draft: result.request, result, onEdit, readOnly: true },
   }).body;
   expect(html).toContain('Canonical heatmap');
   expect(html).toContain('-123.123456789');
   expect(html).not.toContain('Analyze draft');
   expect(html).not.toContain('Apply heatmap grid');
   expect(onEdit).not.toHaveBeenCalled();
-  expect(onAnalyze).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -124,7 +122,7 @@ it.each([
       days_to_expiry: days,
     }));
     const html = render(OptionsScenarioLab, {
-      props: { draft: d, result: null, onEdit: vi.fn(), onAnalyze: vi.fn() },
+      props: { draft: d, result: null, onEdit: vi.fn() },
     }).body;
     const slider = html.match(/<input[^>]*type="range"[^>]*>/)![0];
     expect(slider).toContain(`max="${first}"`);
@@ -469,23 +467,17 @@ describe('submitted versus edited request context', () => {
 });
 
 describe('scenario lab markup (shell SSR only; not browser/UI validation)', () => {
-  const markup = (
-    current: OptionsDraft,
-    result: OptionsAnalysis | null,
-    pending = false,
-  ) => {
-    const onAnalyze = vi.fn(),
-      onEdit = vi.fn();
+  const markup = (current: OptionsDraft, result: OptionsAnalysis | null) => {
+    const onEdit = vi.fn();
     const html = render(OptionsScenarioLab, {
-      props: { draft: current, result, pending, onAnalyze, onEdit },
+      props: { draft: current, result, onEdit },
     }).body;
-    expect(onAnalyze).not.toHaveBeenCalled();
     expect(onEdit).not.toHaveBeenCalled();
     return html;
   };
-  it('offers explicit Analyze/apply, labelled sliders and empty states without automatic execution', () => {
+  it('offers apply, labelled sliders and empty states, with analysis following edits', () => {
     const html = markup(draft(), null);
-    expect(html).toContain('Analyze draft');
+    expect(html).not.toContain('Analyze draft');
     expect(html).toContain('Apply heatmap grid');
     expect(html).toContain('No analysis yet');
     expect(html).toContain('no automatic Python execution');
@@ -507,7 +499,9 @@ describe('scenario lab markup (shell SSR only; not browser/UI validation)', () =
       steps: [-10, 10],
     };
     const html = markup(current, result);
-    expect(html).toContain('Previous submitted results below are stale');
+    expect(html).toContain(
+      'The results below update when the new analysis returns',
+    );
     expect(html).toContain('Submitted Submitted call · spot 100 USD');
     expect(html).toContain('Returned axis: elapsed calendar days');
     expect(html).toContain(
@@ -527,7 +521,9 @@ describe('scenario lab markup (shell SSR only; not browser/UI validation)', () =
     expect(html).toContain('Ctrl+Home/End');
     expect(html.match(/data-cell="[^"]+" tabindex="0"/g)).toHaveLength(1);
     expect(html.match(/data-cell="[^"]+" tabindex="-1"/g)).toHaveLength(3);
-    expect(html).not.toContain('Previous submitted results below are stale');
+    expect(html).not.toContain(
+      'The results below update when the new analysis returns',
+    );
   });
   it('renders missing/nonfinite cells distinctly from zero, including IV axis and constant legend', () => {
     const result = analysis();
@@ -554,12 +550,11 @@ describe('scenario lab markup (shell SSR only; not browser/UI validation)', () =
     expect(html).toContain('returned axes or matrix bounds are invalid');
     expect(html).not.toContain('data-cell=');
   });
-  it('disables draft controls and duplicate Analyze while pending, retaining previous evidence', () => {
+  it('keeps draft controls editable (an edit cancels any pending update) and retains evidence', () => {
     const result = analysis(),
-      html = markup(result.request, result, true);
-    expect(html).toMatch(/disabled[^>]*>Analyzing/);
-    expect(html).toMatch(/<fieldset disabled/);
-    expect(html).toContain('previous submitted evidence remains below');
+      html = markup(result.request, result);
+    expect(html).not.toContain('Analyzing…</button>');
+    expect(html).not.toMatch(/<fieldset disabled/);
     expect(html).toContain('-123.123456789');
   });
   it('renders all 861 backend cells without dropping precision, axes or keyboard access', () => {

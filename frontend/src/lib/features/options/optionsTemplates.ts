@@ -176,3 +176,35 @@ export function applyOptionsTemplate(
   const { name, template, legs } = templateStrategy(id, spot);
   Object.assign(draft.strategy, { name, template, legs });
 }
+
+/** A template's expiry payoff shape as an SVG path in a 100 × 18 box, from its own legs at spot 100. */
+export function templateGlyph(id: OptionsTemplate): string {
+  const legs = templateStrategy(id).legs;
+  const strikes = legs.flatMap(l => (l.strike === null ? [] : [l.strike]));
+  const lo = Math.min(100, ...strikes) * 0.85,
+    hi = Math.max(100, ...strikes) * 1.15;
+  const values = Array.from({ length: 41 }, (_, i) => {
+    const spot = lo + ((hi - lo) * i) / 40;
+    return legs.reduce((total, l) => {
+      const value =
+        l.kind === 'underlying'
+          ? spot - 100
+          : Math.max(
+              0,
+              l.kind === 'call' ? spot - l.strike! : l.strike! - spot,
+            );
+      return total + l.quantity * l.multiplier * value;
+    }, 0);
+  });
+  const min = Math.min(...values),
+    span = Math.max(...values) - min || 1;
+  return (
+    'M' +
+    values
+      .map(
+        (v, i) =>
+          `${((i / 40) * 100).toFixed(1)},${(16 - ((v - min) / span) * 14).toFixed(1)}`,
+      )
+      .join('L')
+  );
+}

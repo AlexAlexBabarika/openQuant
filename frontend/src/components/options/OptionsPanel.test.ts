@@ -181,6 +181,27 @@ describe('integrated options workbench', () => {
     expect(html).toContain('Pricing assumptions');
   });
 
+  it('shows analysis status instead of an Analyze button in editor mode', () => {
+    let html = render(OptionsPanel).body;
+    expect(html).not.toMatch(/>\s*Analyze\s*<\/button>/);
+    expect(html).toContain('role="status"');
+    expect(html).toContain('Updating…');
+    state.error = 'Options analysis timed out.';
+    html = render(OptionsPanel).body;
+    expect(html).toContain('Analysis failed');
+  });
+
+  it('picks templates from chips that show their payoff shape', () => {
+    const html = render(OptionsPanel).body;
+    expect(html).not.toContain('Replace legs');
+    expect(html).toMatch(
+      /<button[^>]*aria-pressed="true"[^>]*>\s*<svg[^>]*>.*?<\/svg>\s*Long call/s,
+    );
+    expect(html).toMatch(
+      /<button[^>]*aria-pressed="false"[^>]*>\s*<svg[^>]*>.*?<\/svg>\s*Iron condor/s,
+    );
+  });
+
   it('shows the risk totals in the evidence column, above the chart', () => {
     state.result = result();
     const html = render(OptionsPanel).body;
