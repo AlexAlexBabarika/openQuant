@@ -22,19 +22,41 @@ export function addDays(iso: string, days: number): string {
     .slice(0, 10);
 }
 
-/** The template whose legs (kind, size, strike) the draft still has at its spot, if any. */
-export function matchTemplate(draft: OptionsDraft): OptionsTemplate | null {
+/**
+ * The template whose legs the draft still has untouched at its spot, if any: same kind,
+ * size, strike and multiplier, no IV, expiry, quote or source overrides and, when model
+ * tags are given, every premium still following the model.
+ */
+export function matchTemplate(
+  draft: OptionsDraft,
+  modelLegs?: boolean[],
+): OptionsTemplate | null {
   const legs = draft.strategy.legs;
+  if (modelLegs && !legs.every((_, i) => modelLegs[i])) return null;
+  const untouched = legs.every(
+    l =>
+      l.enabled &&
+      [
+        l.implied_volatility,
+        l.days_to_expiry,
+        l.expiry_date,
+        l.bid,
+        l.ask,
+        l.quote_as_of,
+        l.source,
+      ].every(v => v == null),
+  );
+  if (!untouched) return null;
   for (const [id] of OPTIONS_TEMPLATES) {
     const template = templateStrategy(id, draft.spot).legs;
     if (
       template.length === legs.length &&
       template.every(
         (t, i) =>
-          legs[i].enabled &&
           t.kind === legs[i].kind &&
           t.quantity === legs[i].quantity &&
-          t.strike === legs[i].strike,
+          t.strike === legs[i].strike &&
+          t.multiplier === legs[i].multiplier,
       )
     )
       return id;

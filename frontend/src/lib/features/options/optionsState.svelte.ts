@@ -88,6 +88,10 @@ export class OptionsState {
     symbol: null,
     spot: null,
   });
+  /** The workspace symbol the draft last followed; ticks of the same symbol don't move it. */
+  #followedSymbol = $state<string | null>(null);
+  /** Hidden panels never analyze by themselves; they catch up when shown. */
+  #active = true;
   /** Frontend-only, one per leg: true while that premium follows the model price. */
   modelLegs = $state.raw<boolean[]>(this.draft.strategy.legs.map(() => true));
   #past = $state.raw<Snapshot[]>([]);
@@ -137,6 +141,17 @@ export class OptionsState {
   get stale(): boolean {
     return this.result !== null && this.#submittedKey !== this.#inputKey();
   }
+  /** Following the chart, but its price has moved since: offer an explicit update. */
+  get workspaceDrift(): boolean {
+    const { symbol, spot } = this.workspace;
+    return (
+      this.spotLinked &&
+      spot !== null &&
+      symbol !== null &&
+      symbol === this.#followedSymbol &&
+      spot !== this.draft.spot
+    );
+  }
   get canUndo(): boolean {
     return this.#past.length > 0;
   }
@@ -177,6 +192,7 @@ export class OptionsState {
     this.#priceCache.clear();
     this.gridAuto = true;
     this.spotLinked = true;
+    this.#followedSymbol = null;
     this.#followWorkspace();
     this.source = exportOptionsPython(this.draft);
     this.mode = 'editor';
@@ -296,12 +312,19 @@ export class OptionsState {
       tags => tags.map((tag, i) => (i === index ? true : tag)),
     );
   }
+  /** Called on every chart update; the draft follows only a new symbol, not price ticks. */
   syncWorkspace(symbol: string | null, spot: number | null): void {
     this.workspace = {
       symbol: symbol?.trim() || null,
       spot: spot !== null && Number.isFinite(spot) ? quotedSpot(spot) : null,
     };
-    this.#followWorkspace();
+    if (this.workspace.symbol !== this.#followedSymbol) this.#followWorkspace();
+  }
+  setActive(active: boolean): void {
+    if (active === this.#active) return;
+    this.#active = active;
+    if (active) this.#scheduleAnalysis();
+    else this.#stopAnalysis();
   }
   /** Typing a spot stops following the workspace. */
   setSpot(spot: number): void {
@@ -329,7 +352,9 @@ export class OptionsState {
       return;
     const before = structuredClone($state.snapshot(this.draft));
     const next = structuredClone(before);
-    const template = matchTemplate(before);
+    const template = matchTemplate(before, this.modelLegs);
+    this.#followedSymbol = symbol;
+    if (this.loading) this.cancel(false);
     next.spot = spot;
     if (symbol) next.strategy.underlying = symbol.slice(0, 80);
     if (template) {
@@ -363,6 +388,7 @@ export class OptionsState {
     this.#past = this.#past.slice(0, -1);
     this.draft = structuredClone(previous.draft);
     this.modelLegs = previous.modelLegs;
+    this.#unlinkIfElsewhere();
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
     return true;
@@ -375,9 +401,16 @@ export class OptionsState {
     this.#future = this.#future.slice(0, -1);
     this.draft = structuredClone(next.draft);
     this.modelLegs = next.modelLegs;
+    this.#unlinkIfElsewhere();
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
     return true;
+  }
+  /** History can bring back another instrument; then the draft no longer follows the chart. */
+  #unlinkIfElsewhere(): void {
+    const { symbol } = this.workspace;
+    if (this.spotLinked && symbol && this.draft.strategy.underlying !== symbol)
+      this.spotLinked = false;
   }
   #snapshot(): Snapshot {
     return {
@@ -450,12 +483,14 @@ export class OptionsState {
   /** Validated editor data only: Python source never runs by itself. */
   #scheduleAnalysis(): void {
     this.#stopAnalysis();
-    if (this.#autoDelay === null || this.mode !== 'editor') return;
+    if (this.#autoDelay === null || this.mode !== 'editor' || !this.#active)
+      return;
     this.#autoTimer = setTimeout(() => {
       this.#autoTimer = null;
+      // A request for an older draft is still running: try again once it settles.
+      if (this.loading) return this.#scheduleAnalysis();
       if (
         this.mode !== 'editor' ||
-        this.loading ||
         (this.result !== null && !this.stale) ||
         Object.keys(optionsErrors(this.draft)).length
       )
@@ -641,6 +676,7 @@ export class OptionsState {
     this.#future = [];
     this.draft = structuredClone(value.draft);
     this.modelLegs = this.draft.strategy.legs.map(() => false);
+    this.spotLinked = false;
     this.gridAuto = sameGrid(this.draft.spot_grid, fittedSpotGrid(this.draft));
     this.source = value.source;
     this.mode = value.mode;

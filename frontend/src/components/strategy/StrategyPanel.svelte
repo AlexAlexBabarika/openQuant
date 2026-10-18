@@ -49,6 +49,7 @@
     tab = $bindable<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor'),
     workspaceSymbol = null,
     workspaceSpot = null,
+    optionsLink = 0,
   }: {
     open?: boolean;
     embedded?: boolean;
@@ -68,6 +69,8 @@
     /** Loaded chart symbol and last close, for the options workbench's spot. */
     workspaceSymbol?: string | null;
     workspaceSpot?: number | null;
+    /** Incremented to make the options draft follow the chart symbol again. */
+    optionsLink?: number;
   } = $props();
 
   const strat = $derived(strategy);
@@ -290,7 +293,7 @@
       class:options-mode={tab === 'options'}
       class:library-collapsed={!libraryOpen}
     >
-      <div class="options-host" hidden={tab !== 'options'}><OptionsPanel {workspaceSymbol} {workspaceSpot} /></div>
+      <div class="options-host" hidden={tab !== 'options'}><OptionsPanel {workspaceSymbol} {workspaceSpot} active={open && tab === 'options'} linkRequest={optionsLink} /></div>
       {#if tab === 'docs'}
         <StrategyDocs />
       {:else if tab === 'portfolio'}
