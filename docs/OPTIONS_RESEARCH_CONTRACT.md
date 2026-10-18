@@ -23,9 +23,9 @@ must not replace these contracts without coordinating with integration.
 | Payoff editing | New controlled interactive-payoff component/helpers/tests; no edits to shared core or OptionsCharts/OptionsPanel |
 | Volatility skew | New controlled skew component/helpers/tests; no frontend pricing approximations |
 | Event stress | New controlled stress presets component/helpers/tests; presets are hypothetical assumptions, not event forecasts |
-| Finder | `backend/derivatives/finder.py`, finder component/helpers/tests; pure `find_strategies` entrypoint |
-| Lifecycle/hedge | `backend/derivatives/lifecycle.py`, `hedge.py`, lifecycle/hedge components/helpers/tests; pure `evaluate_lifecycle`, `simulate_hedge` |
-| Probability/tail risk | `backend/derivatives/distribution.py`, distribution component/helpers/tests; pure `analyze_distribution` |
+| Finder | `backend/derivatives/research_finder.py`, finder component/helpers/tests; pure `find_strategies` entrypoint |
+| Lifecycle/hedge | `backend/derivatives/research_paths.py`, lifecycle/hedge components/helpers/tests; pure `evaluate_lifecycle`, `simulate_hedge` |
+| Probability/tail risk | `backend/derivatives/research_distribution.py`, distribution component/helpers/tests; pure `analyze_distribution` |
 | Provider chain | Chain adapter/route implementation, encrypted-key provider enum/migration/settings registration for `tradier` and `tradier_sandbox`, chain component/helpers/tests |
 | Parent/integration | Register research routes, wire OptionsPanel/OptionsCharts and expiry authoring, submitted exports/readouts, integration tests/full suites/build and approved browser validation |
 
@@ -104,7 +104,7 @@ helpers from `analytics.py`; do not copy pricing formulas into JS or other modul
 
 ### POST /options/research/finder
 
-`find_strategies(FinderRequest|dict) -> FinderResponse` in `finder.py`.
+`find_strategies(FinderRequest|dict) -> FinderResponse` in `research_finder.py`.
 Request: `analysis` (canonical context including explicit premiums/fees), `universe`
 (1–24 enabled quantity=+1 option legs, no underlying), `thesis` bullish/bearish/neutral,
 `constraints` with required nonnegative `max_entry_debit`, `max_loss` (≤1e12 USD),
@@ -144,7 +144,7 @@ Paths must cover every active option expiry. Zero-day expiry settles at day zero
 
 ### POST /options/research/lifecycle
 
-`evaluate_lifecycle(LifecycleRequest|dict) -> LifecycleResponse` in `lifecycle.py`.
+`evaluate_lifecycle(LifecycleRequest|dict) -> LifecycleResponse` in `research_paths.py`.
 Request: `{analysis,path}`. Insert every active option expiry in the path. For an
 expiry between supplied/generated observations, linearly interpolate **spot**,
 record `left_day`, `right_day` and `observation="linear_interpolation"`; exact
@@ -164,7 +164,7 @@ dividend cash flows, assignment, reinvestment or fee duplication.
 
 ### POST /options/research/hedge
 
-`simulate_hedge(HedgeRequest|dict) -> HedgeResponse` in `hedge.py`. Request extends
+`simulate_hedge(HedgeRequest|dict) -> HedgeResponse` in `research_paths.py`. Request extends
 lifecycle with `policy` (mode none/daily/interval/delta_threshold; default daily,
 `interval_days` >0–3650 default 1, `delta_threshold` >0–1e6 equivalent shares
 default 10, `max_abs_shares` >0–1e7 default 1e6) and `costs` (`per_share` 0–1000,
@@ -196,7 +196,7 @@ accuracy or historical execution evidence.
 ### POST /options/research/distribution
 
 `analyze_distribution(DistributionRequest|dict) -> DistributionResponse` in
-`distribution.py`. Request `analysis`, explicit `measure` risk_neutral/user_drift,
+`research_distribution.py`. Request `analysis`, explicit `measure` risk_neutral/user_drift,
 `annual_drift` required only for user_drift (−1–1); `confidence` (.5,1), default .95;
 `bins` 10–100 default 40; `integration_points` 256–16384 default 4096;
 `tail_probability` 1e−9–.01 default 1e−6. Reject mixed active expiries explicitly.
