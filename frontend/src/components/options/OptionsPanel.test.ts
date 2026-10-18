@@ -132,6 +132,17 @@ describe('integrated options workbench', () => {
     expect(html).not.toContain('One common expiry; no per-leg dates.');
   });
 
+  it('shows the risk totals in the evidence column, above the chart', () => {
+    state.result = result();
+    const html = render(OptionsPanel).body;
+    const evidence = html.indexOf('evidence-column');
+    const summary = html.indexOf('risk-summary');
+    const charts = html.indexOf('options-charts');
+    expect(evidence).toBeGreaterThan(-1);
+    expect(summary).toBeGreaterThan(evidence);
+    expect(charts).toBeGreaterThan(summary);
+  });
+
   it('never offers visual-draft research in Python mode without submitted evidence', () => {
     state.mode = 'python';
     const html = render(OptionsPanel).body;
