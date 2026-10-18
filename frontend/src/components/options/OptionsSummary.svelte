@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
   import { exactTerminalAvailable, exactValue } from '$lib/features/options/optionsChart';
-  import { formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
+  import { formatUsd } from '$lib/features/options/optionsFormat';
 
   let { result, stale = false, pending = false }: {
     result: Pick<OptionsAnalysis, 'request' | 'summary' | 'horizon'>;
@@ -13,7 +13,7 @@
 
 <section class="risk-summary" aria-label="Submitted options risk totals" class:stale>
   <header>
-    <div><strong>{result.request.strategy.name}</strong><span>Submitted spot {formatPrice(result.request.spot)} USD · {terminal ? `${formatNumber(result.request.strategy.days_to_expiry)} default days` : `mixed expiry ${formatNumber(result.horizon?.first_expiry_days)}–${formatNumber(result.horizon?.last_expiry_days)} days`} · theoretical</span></div>
+    <strong>{result.request.strategy.name}</strong>
     <span class="status">{stale ? 'STALE INPUTS' : pending ? 'REFRESHING' : 'SUBMITTED EVIDENCE'}</span>
   </header>
   <dl>
@@ -30,7 +30,6 @@
   .risk-summary { position: sticky; top: 0; z-index: 2; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--card)); padding: 8px; margin-bottom: 12px; }
   .risk-summary.stale { border-style: dashed; }
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-bottom: 8px; }
-  header > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
   strong { font-size: 12px; overflow-wrap: anywhere; }
   header span { font-size: 11px; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
   dl { margin: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
