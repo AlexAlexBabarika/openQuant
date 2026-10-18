@@ -12,7 +12,6 @@
   import OptionsLegEditor from './OptionsLegEditor.svelte';
   import OptionsAssumptionsEditor from './OptionsAssumptionsEditor.svelte';
   import OptionsPythonEditor from './OptionsPythonEditor.svelte';
-  import OptionsScenarioLab from './OptionsScenarioLab.svelte';
   import OptionsLibrary from './OptionsLibrary.svelte';
   import OptionsComparison from './OptionsComparison.svelte';
   import OptionsExpiryEditor from './OptionsExpiryEditor.svelte';
@@ -38,6 +37,7 @@
   const result = $derived(options.result);
   const toolKey = $derived(`${sessionKey}:${options.documentKey}:${options.mode}`);
   const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
+  const analysisLabel = $derived(result ? `Analysis of ${result.request.strategy.name} · ${options.mode === 'python' ? 'submitted Python request' : options.status === 'current' ? 'up to date' : 'updating'}` : '');
   const submittedPython = $derived(options.mode === 'python' && result !== null && options.submittedSource !== null && options.source === options.submittedSource);
 
   function syncGrid() {
@@ -143,19 +143,11 @@
               {@render numeric('Grid points (2–201)', 'spot_grid', gridCount, 2, 201, '1', v => { gridCount = v; updateGrid(); })}
             </div>
           </details>
-          <OptionsScenarioLab draft={options.draft} {result} onEdit={update => options.editDraft(update)} />
         {:else}
           <OptionsPythonEditor source={options.source} onChange={source => options.setSource(source)}
             onRun={() => { void options.run(); }} pending={options.loading} stdout={options.stdout ?? ''}
             error={options.error} documentKey={options.documentKey} />
         {/if}
-        {#key toolKey}
-          {#if options.mode === 'editor'}
-            <OptionsResearchTools draft={options.draft} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
-          {:else if submittedPython && result}
-            {#key result}<OptionsResearchTools draft={result.request} onEdit={() => {}} documentKey={toolKey} readOnly />{/key}
-          {:else}<p class="hint">Analyze the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
-        {/key}
         <div class="export-controls">
           <button type="button" class="ot-workbench-ghost" onclick={() => { exportConfirm = true; }}>Replace Python from editor…</button>
           {#if exportConfirm}
@@ -169,9 +161,13 @@
       <div class="evidence-column" aria-busy={options.loading}>
         {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
         {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} pending={options.loading} />{/key}
-        {#if options.mode === 'python' && result}
-          <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} readOnly />
-        {/if}
+        {#key toolKey}
+          {#if options.mode === 'editor'}
+            <OptionsResearchTools draft={options.draft} {result} {analysisLabel} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
+          {:else if submittedPython && result}
+            {#key result}<OptionsResearchTools draft={result.request} {result} {analysisLabel} onEdit={() => {}} documentKey={toolKey} readOnly />{/key}
+          {:else}<p class="hint">Run the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
+        {/key}
         {#if result}<button type="button" class="ot-workbench-ghost" disabled={options.comparisons.length >= 3} onclick={() => options.pin()}>Pin submitted analysis for comparison</button>{/if}
         <OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />
         {#if result}

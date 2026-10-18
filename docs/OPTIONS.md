@@ -157,7 +157,9 @@ today and scenario curves are never priced in the browser. Releasing applies one
 edit through the parent's undo/history; the draft then re-analyzes and
 model-priced premiums follow the new strike.
 
-The compact **Research tools** selector mounts only one additional tool at a time:
+Research tools are tabs under the payoff chart, starting with the scenario lab
+(Scenarios, Skew, Stress, Probability, Lifecycle, Hedging, Find a trade, Live
+chain). One tool is mounted at a time, and each names the analysis it reads:
 
 | Tool | Explicit action and scope |
 | --- | --- |
