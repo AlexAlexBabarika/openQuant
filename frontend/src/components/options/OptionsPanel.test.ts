@@ -108,16 +108,22 @@ describe('integrated options workbench', () => {
         documentKey: 'guest:1:editor',
       },
     }).body;
+    expect(html.match(/role="tab"/g)).toHaveLength(8);
+    expect(html.slice(0, html.indexOf('role="tabpanel"'))).not.toContain(
+      '<select',
+    );
     for (const label of [
-      'Volatility skew',
-      'Hypothetical event stress',
-      'Constrained strategy finder',
-      'Read-only provider chain',
-      'Multi-expiry lifecycle',
-      'Delta-hedging path',
-      'Probability &amp; tail risk',
+      'Scenarios',
+      'Skew',
+      'Stress',
+      'Probability',
+      'Lifecycle',
+      'Hedging',
+      'Find a trade',
+      'Live chain',
     ])
-      expect(html).toContain(label);
+      expect(html).toMatch(new RegExp(`role="tab"[^>]*>${label}</button>`));
+    expect(html).toMatch(/role="tab"[^>]*aria-selected="true"[^>]*>Scenarios/);
     expect(html).not.toContain('Search strategies');
     expect(html).not.toContain('Simulate hedge path');
     expect(onEdit).not.toHaveBeenCalled();
@@ -211,6 +217,17 @@ describe('integrated options workbench', () => {
     html = render(OptionsPanel).body;
     expect(html).toMatch(/class="premium-source[^"]*"[^>]*>\s*Manual/);
     expect(html).toMatch(/<button[^>]*>Use model price<\/button>/);
+  });
+
+  it('puts the research tools under the chart, labelled with the analysis they read', () => {
+    state.result = result();
+    const html = render(OptionsPanel).body;
+    const charts = html.indexOf('options-charts');
+    const tools = html.indexOf('aria-label="Research tools"');
+    expect(tools).toBeGreaterThan(charts);
+    expect(html.indexOf('evidence-column')).toBeLessThan(charts);
+    expect(html).toMatch(/Analysis of Long call · (up to date|updating)/);
+    expect(html.match(/aria-label="Options scenario lab"/g)).toHaveLength(1);
   });
 
   it('shows the risk totals in the evidence column, above the chart', () => {
