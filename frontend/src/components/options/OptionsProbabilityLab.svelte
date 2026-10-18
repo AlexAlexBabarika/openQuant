@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatUsd } from '$lib/features/options/optionsFormat';
   import { onDestroy, untrack } from 'svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { analyzeDistribution } from '$lib/features/options/optionsResearchApi';
@@ -108,10 +109,10 @@
       <p class="note">{result.request.measure === 'risk_neutral' ? 'Risk-neutral model' : 'Hypothetical user-drift model'} · {exactValue(result.horizon_days)} calendar days (ACT/365) · USD total strategy P&amp;L · {result.provenance.exercise_style}, {result.provenance.settlement}-settled.</p>
       {#if result.deterministic}<p class="notice">Deterministic point mass: zero volatility and/or zero time removes model randomness. One exact outcome is not a calibrated forecast or a claim that a real position has zero risk.</p>{/if}
       <dl class="metrics">
-        <div><dt>Strictly positive P&amp;L · P(P&amp;L &gt; 0)</dt><dd>{probabilityPercent(result.probability_positive_pnl)} <small>fraction {exactValue(result.probability_positive_pnl)}</small></dd></div>
-        <div><dt>Expected P&amp;L · USD</dt><dd>{exactValue(result.expected_pnl, true)}</dd></div>
-        <div><dt>Value at risk · {probabilityPercent(result.confidence)} · USD loss</dt><dd>{exactValue(result.value_at_risk)}</dd></div>
-        <div><dt>Expected shortfall · {probabilityPercent(result.confidence)} · USD loss</dt><dd>{exactValue(result.expected_shortfall)}</dd></div>
+        <div><dt>Strictly positive P&amp;L · P(P&amp;L &gt; 0)</dt><dd title={exactValue(result.probability_positive_pnl)}>{probabilityPercent(result.probability_positive_pnl)}</dd></div>
+        <div><dt>Expected P&amp;L · USD</dt><dd title={exactValue(result.expected_pnl)}>{formatUsd(result.expected_pnl, { signed: true })}</dd></div>
+        <div><dt>Value at risk · {probabilityPercent(result.confidence)} · USD loss</dt><dd title={exactValue(result.value_at_risk)}>{formatUsd(result.value_at_risk)}</dd></div>
+        <div><dt>Expected shortfall · {probabilityPercent(result.confidence)} · USD loss</dt><dd title={exactValue(result.expected_shortfall)}>{formatUsd(result.expected_shortfall)}</dd></div>
       </dl>
       <p class="note">Loss convention: VaR = max(0, −P&amp;L quantile at 1 − confidence); expected shortfall = max(0, −mean P&amp;L in that lower tail), with fractional point-mass allocation at its boundary. Profitable lower tails floor these loss metrics at zero, not a negative loss. Zero does not establish risk-free returns. Confidence is a tail definition, not a forecast accuracy guarantee.</p>
 
@@ -236,11 +237,11 @@
   label { display: grid; align-content: start; gap: 4px; min-width: 0; }
   input, select { width: 100%; min-width: 0; min-height: 28px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); color: inherit; padding: 4px 6px; font: inherit; }
   .actions button { min-height: 28px; height: auto; white-space: normal; }
-  .note, label span, small { font-size: 11px; color: oklch(var(--muted-foreground)); line-height: 1.5; }
+  .note, label span { font-size: 11px; color: oklch(var(--muted-foreground)); line-height: 1.5; }
   .notice { border-left: 2px solid oklch(var(--foreground)); padding-left: 8px; line-height: 1.5; }
   .metrics > div { min-width: 0; padding: 6px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
   dt { font-size: 11px; color: oklch(var(--muted-foreground)); } dd { margin: 4px 0 0; overflow-wrap: anywhere; }
-  dd, td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; } small { display: block; }
+  dd, td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   figure { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
   figcaption { margin-bottom: 8px; } svg { display: block; width: 100%; min-height: 120px; overflow: visible; }
   svg text { fill: currentColor; font-family: var(--font-mono); font-size: 11px; }

@@ -4,6 +4,8 @@
   import { getSessionGeneration } from '$lib/core/api';
   import { OptionsState } from '$lib/features/options/optionsState.svelte';
   import { spotGrid } from '$lib/features/options/optionsTemplates';
+  import { exactValue } from '$lib/features/options/optionsChart';
+  import { formatGreek, formatPrice } from '$lib/features/options/optionsFormat';
   import OptionsCharts from './OptionsCharts.svelte';
   import OptionsSummary from './OptionsSummary.svelte';
   import OptionsLegEditor from './OptionsLegEditor.svelte';
@@ -163,17 +165,17 @@
         <OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />
         {#if result}
           <div class="evidence-heading"><h3>{result.request.strategy.name} · submitted evidence</h3><span>{options.stale ? 'STALE' : options.loading ? 'REFRESHING' : 'SUBMITTED'} · manual / synthetic</span></div>
-          {#if terminalAvailable}<p class="breakevens"><strong>Expiry breakevens · USD spot:</strong> {result.summary.breakevens.length ? result.summary.breakevens.map(v => number(v)).join(', ') : 'No isolated breakevens'}.</p>
+          {#if terminalAvailable}<p class="breakevens"><strong>Expiry breakevens · USD spot:</strong> {result.summary.breakevens.length ? result.summary.breakevens.map(v => formatPrice(v)).join(', ') : 'No isolated breakevens'}.</p>
           {:else}<p class="risk">Mixed-expiry horizon: exact terminal payoff, maxima, breakevens and zero intervals are unavailable. First-expiry marks are not terminal risk limits. Use lifecycle research for settlement transitions.</p>{/if}
           {#if result.summary.zero_intervals.length}<p class="breakevens"><strong>Zero-P&amp;L intervals · USD spot:</strong> {result.summary.zero_intervals.map(i => `${number(i.start)} to ${i.end === null ? '∞' : number(i.end)} (inclusive)`).join('; ')}.</p>{/if}
           <h3>Signed strategy Greeks · at submitted spot {number(result.request.spot)} USD</h3>
           <dl class="greeks-grid">
             {#each ['delta', 'gamma', 'theta', 'vega', 'rho'] as greek}
               {@const key = greek as keyof typeof result.greeks}
-              <div><dt>{greek}</dt><dd>{number(result.greeks[key], true)}</dd><small>{result.greek_units[key]}</small></div>
+              <div><dt>{greek}</dt><dd title={exactValue(result.greeks[key])}>{formatGreek(result.greeks[key], { signed: true })}</dd><small>{result.greek_units[key]}</small></div>
             {/each}
           </dl>
-          <p class="hint">Quantity × multiplier exposures, not per-contract Greeks. 6 significant digits; small nonzero values use scientific notation. — means undefined/not reported, never zero.</p>
+          <p class="hint">Quantity × multiplier exposures, not per-contract Greeks. 4 significant figures; hover for the exact value. Unavailable means undefined or not reported, never zero.</p>
           <details class="configuration submitted" open>
             <summary>Submitted assumptions &amp; provenance</summary>
             <p>Manual / synthetic · European · cash-settled · {result.request.strategy.currency}. BSM {result.model.version} · {result.model.day_basis} · no stock-provider data.</p>
@@ -189,7 +191,7 @@
             <p class="hint">Display grid: {number(result.spot_grid[0])}–{number(result.spot_grid[result.spot_grid.length - 1])} USD · {result.spot_grid.length} points. {terminalAvailable ? 'Exact expiry maximum risk/reward is not clipped to this range.' : 'Mixed-expiry first-horizon marks are not exact terminal payoff or risk limits.'}</p>
             {#each result.scenarios as scenario, i}
               <p class="hint">{scenario.name}: +{number(scenario.elapsed_days)} days elapsed · {number(scenario.remaining_days)} days remaining · IV shift {number(result.request.scenarios[i].iv_shift_pp, true)} pp · declared base IV {number(scenario.volatility * 100)}%. Per-leg overrides shift in parallel. Greeks below use the same submitted spot.</p>
-              <dl class="greeks-grid">{#each ['delta', 'gamma', 'theta', 'vega', 'rho'] as greek}{@const key = greek as keyof typeof scenario.greeks}<div><dt>{scenario.name} · {greek}</dt><dd>{number(scenario.greeks[key], true)}</dd><small>{result.greek_units[key]}</small></div>{/each}</dl>
+              <dl class="greeks-grid">{#each ['delta', 'gamma', 'theta', 'vega', 'rho'] as greek}{@const key = greek as keyof typeof scenario.greeks}<div><dt>{scenario.name} · {greek}</dt><dd title={exactValue(scenario.greeks[key])}>{formatGreek(scenario.greeks[key], { signed: true })}</dd><small>{result.greek_units[key]}</small></div>{/each}</dl>
             {/each}
             {#if options.submittedSource !== null}<details><summary>Submitted Python source</summary><pre class="submitted-source">{options.submittedSource}</pre></details>{/if}
           </details>
