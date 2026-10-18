@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiJson } from '$lib/core/api';
 import { OptionsState, optionsErrors } from './optionsState.svelte';
-import { createOptionsDraft } from './optionsTemplates';
+import {
+  applyOptionsTemplate,
+  createOptionsDraft,
+  spotGrid,
+} from './optionsTemplates';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 import {
   exportOptionsBundle,
@@ -1011,5 +1015,49 @@ describe('session-only immutable canonical comparison pins', () => {
     expect(s.comparisons).toEqual([]);
     s.dispose();
     reload.dispose();
+  });
+});
+
+describe('options chart grid auto-fit', () => {
+  it('frames a template applied at a real spot', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.editDraft(d => {
+      d.spot = 343.46;
+      applyOptionsTemplate(d, 'iron_condor');
+    });
+    expect(s.gridAuto).toBe(true);
+    expect(s.draft.spot_grid[0]).toBeLessThan(275);
+    expect(s.draft.spot_grid[s.draft.spot_grid.length - 1]).toBeGreaterThan(
+      410,
+    );
+  });
+
+  it('stops fitting after a manual grid edit and resumes on fitGrid', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.setGrid(spotGrid(50, 150));
+    expect(s.gridAuto).toBe(false);
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 149;
+    });
+    expect(s.draft.spot_grid[0]).toBe(50);
+    expect(s.draft.spot_grid[s.draft.spot_grid.length - 1]).toBe(150);
+    s.fitGrid();
+    expect(s.gridAuto).toBe(true);
+    expect(s.draft.spot_grid[s.draft.spot_grid.length - 1]).toBeGreaterThan(
+      154,
+    );
+    expect(s.draft.spot_grid[0]).toBeGreaterThan(50);
+  });
+
+  it('keeps the stored grid when restoring a saved draft', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.setGrid(spotGrid(10, 300, 11));
+    expect(s.save('wide grid')).toBe(true);
+    s.fitGrid();
+    expect(s.restore(0)).toBe(true);
+    expect(s.draft.spot_grid).toEqual(spotGrid(10, 300, 11));
   });
 });

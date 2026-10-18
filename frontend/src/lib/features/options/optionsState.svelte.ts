@@ -1,6 +1,7 @@
 import { apiJson } from '$lib/core/api';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 import { createOptionsDraft } from './optionsTemplates';
+import { fittedSpotGrid, needsRefit, sameGrid } from './optionsGrid';
 import { exportOptionsPython, OPTIONS_SOURCE_LIMIT } from './optionsPython';
 import { optionsErrors } from './optionsValidation';
 import {
@@ -50,6 +51,8 @@ export class OptionsState {
   comparisons = $state.raw<OptionsComparisonSnapshot[]>([]);
   storageError = $state<string | null>(null);
   scopeLabel = $state('Guest · this browser only');
+  /** Frontend-only: refit the display grid to strikes, spot and breakevens on edits. */
+  gridAuto = $state(true);
   #past = $state.raw<OptionsDraft[]>([]);
   #future = $state.raw<OptionsDraft[]>([]);
   #submittedKey = $state('');
@@ -118,6 +121,7 @@ export class OptionsState {
       ? 'Account · this browser only'
       : 'Guest · this browser only';
     this.draft = createOptionsDraft();
+    this.gridAuto = true;
     this.source = exportOptionsPython(this.draft);
     this.mode = 'editor';
     this.result = null;
@@ -163,11 +167,25 @@ export class OptionsState {
     const before = structuredClone($state.snapshot(this.draft));
     const next = structuredClone(before);
     update(next);
+    if (this.gridAuto && needsRefit(before, next))
+      next.spot_grid = fittedSpotGrid(next);
     this.changed();
     this.#past = [...this.#past, before].slice(-HISTORY_LIMIT);
     this.#future = [];
     this.draft = next;
     this.#scheduleRecovery();
+  }
+  setGrid(grid: number[]): void {
+    this.gridAuto = false;
+    this.editDraft(d => {
+      d.spot_grid = grid;
+    });
+  }
+  fitGrid(): void {
+    this.gridAuto = true;
+    this.editDraft(d => {
+      d.spot_grid = fittedSpotGrid(d);
+    });
   }
   undo(): boolean {
     const previous = this.#past[this.#past.length - 1];
@@ -379,6 +397,7 @@ export class OptionsState {
     ].slice(-HISTORY_LIMIT);
     this.#future = [];
     this.draft = structuredClone(value.draft);
+    this.gridAuto = sameGrid(this.draft.spot_grid, fittedSpotGrid(this.draft));
     this.source = value.source;
     this.mode = value.mode;
     this.documentKey++;

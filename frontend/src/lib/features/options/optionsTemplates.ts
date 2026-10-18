@@ -1,4 +1,5 @@
 import type { OptionsDraft } from './optionsTypes';
+import { fittedSpotGrid, spotGrid } from './optionsGrid';
 
 type Leg = OptionsDraft['strategy']['legs'][number];
 export const OPTIONS_TEMPLATES = [
@@ -20,11 +21,7 @@ export const OPTIONS_TEMPLATES = [
 ] as const;
 export type OptionsTemplate = (typeof OPTIONS_TEMPLATES)[number][0];
 
-export function spotGrid(start: number, end: number, count = 81): number[] {
-  return Array.from({ length: count }, (_, i) =>
-    i === count - 1 ? end : start + ((end - start) * i) / (count - 1),
-  );
-}
+export { spotGrid } from './optionsGrid';
 
 export function templateStrategy(
   id: OptionsTemplate,
@@ -146,7 +143,7 @@ export function templateStrategy(
 }
 
 export function createOptionsDraft(): OptionsDraft {
-  return {
+  const draft: OptionsDraft = {
     strategy: templateStrategy('long_call'),
     spot: 100,
     volatility: 0.2,
@@ -155,6 +152,8 @@ export function createOptionsDraft(): OptionsDraft {
     spot_grid: spotGrid(50, 150),
     scenarios: [],
   };
+  draft.spot_grid = fittedSpotGrid(draft);
+  return draft;
 }
 
 /** Replace explicit synthetic legs, not common contract or request assumptions. */
