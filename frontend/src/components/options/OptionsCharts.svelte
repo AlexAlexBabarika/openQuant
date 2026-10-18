@@ -6,9 +6,10 @@
   import {
     STRIKE_STEPS, MAX_STRIKE, validStrike, snapStrike, strikeAtClientX,
     moveStrikeDrag, finishStrikeDrag, applyStrikeEdit, isolatedLegRequest,
-    canonicalOverlay, requestChartAnalysis, ChartRequestGate, chartContextKey,
+    canonicalOverlay, requestChartAnalysis, chartContextKey,
   } from '$lib/features/options/optionsChartEditing';
   import type { StrikeDrag } from '$lib/features/options/optionsChartEditing';
+  import { RequestFlight } from '$lib/features/options/optionsRequest';
   import {
     GREEK_KEYS, axisValue, niceTicks, fillPath, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
@@ -58,7 +59,7 @@
     hintDismissed = true;
     try { localStorage.setItem(HINT_KEY, '1'); } catch { /* the hint simply shows again next time */ }
   }
-  const legGate = new ChartRequestGate();
+  const legGate = new RequestFlight();
   interface Evidence { analysis: OptionsAnalysis; context: string; baseline: OptionsAnalysis; legIndex?: number }
   let contribution = $state.raw<Evidence | null>(null);
   let legPending = $state(false);
@@ -263,10 +264,9 @@
     const base = result, key = context;
     const request = isolatedLegRequest($state.snapshot(base), index);
     if (!request) { legMessage = 'This leg is disabled; its canonical contribution is zero.'; return; }
-    const flight = legGate.begin(key, base);
+    const flight = legGate.start(() => context, () => { legPending = false; legFailed = true; legMessage = 'Leg curve timed out. Retry explicitly.'; });
     legPending = true; legMessage = ''; legFailed = false;
-    const current = () => flight.current(context, result) && selectedLeg === index;
-    const timer = setTimeout(() => { if (current()) { legGate.cancel(); legPending = false; legFailed = true; legMessage = 'Leg curve timed out. Retry explicitly.'; } }, 15000);
+    const current = () => flight.current() && result === base && selectedLeg === index;
     try {
       const analysis = await requestChartAnalysis(request, flight.signal);
       if (!current()) return;
@@ -276,7 +276,7 @@
       legMessage = `Canonical submitted leg ${index + 1} contribution loaded; other legs are disabled for this request.`;
     } catch {
       if (current()) { legFailed = true; legMessage = 'Leg contribution request failed. Retry explicitly; submitted strategy evidence is unchanged.'; }
-    } finally { clearTimeout(timer); if (current()) legPending = false; }
+    } finally { flight.finish(); if (current()) legPending = false; }
   }
 
   $effect(() => {

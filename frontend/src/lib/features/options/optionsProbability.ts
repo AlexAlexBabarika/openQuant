@@ -4,6 +4,7 @@ import type {
   DistributionResponse,
   ProbabilityBin,
 } from './optionsResearchTypes';
+import { RequestFlight } from './optionsRequest';
 import { optionsErrors, resolvedLegDays } from './optionsValidation';
 import {
   axisValue,
@@ -323,12 +324,10 @@ function freezeSnapshot<T>(value: T): T {
 
 /** Abort saves client work; generation fencing also rejects non-cooperative late replies. */
 export class ProbabilityRunner {
-  #generation = 0;
-  #controller: AbortController | null = null;
+  #flight = new RequestFlight();
   #document: string | null = null;
   #inputKey = '';
   #disposed = false;
-  #timer: ReturnType<typeof setTimeout> | null = null;
   #state = emptyProbabilityState();
 
   constructor(
@@ -337,11 +336,7 @@ export class ProbabilityRunner {
   ) {}
 
   #stop() {
-    this.#generation++;
-    if (this.#timer !== null) clearTimeout(this.#timer);
-    this.#timer = null;
-    this.#controller?.abort();
-    this.#controller = null;
+    this.#flight.cancel();
   }
 
   context(documentKey: string, inputKey: string) {
@@ -384,10 +379,18 @@ export class ProbabilityRunner {
   ) {
     if (this.#disposed) return;
     this.context(documentKey, inputKey);
-    this.#stop();
-    const generation = this.#generation;
-    const controller = new AbortController();
-    this.#controller = controller;
+    const flight = this.#flight.start(
+      () => this.#document ?? '',
+      () => {
+        this.#state = {
+          ...this.#state,
+          pending: false,
+          error:
+            'Distribution request timed out after 15 seconds. Retry explicitly; client abort does not guarantee server cancellation.',
+        };
+        this.publish(this.#state);
+      },
+    );
     const snapshot = freezeSnapshot(structuredClone(request));
     this.#state = {
       ...this.#state,
@@ -396,20 +399,9 @@ export class ProbabilityRunner {
       error: null,
     };
     this.publish(this.#state);
-    this.#timer = setTimeout(() => {
-      if (generation !== this.#generation || this.#disposed) return;
-      this.#stop();
-      this.#state = {
-        ...this.#state,
-        pending: false,
-        error:
-          'Distribution request timed out after 15 seconds. Retry explicitly; client abort does not guarantee server cancellation.',
-      };
-      this.publish(this.#state);
-    }, 15000);
     try {
-      const result = await this.compute(snapshot, controller.signal);
-      if (generation !== this.#generation || this.#disposed) return;
+      const result = await this.compute(snapshot, flight.signal);
+      if (!flight.current()) return;
       const error = probabilityDataError(result);
       this.#state = error
         ? { ...this.#state, error }
@@ -420,17 +412,15 @@ export class ProbabilityRunner {
             resultKey: inputKey,
           };
     } catch {
-      if (generation !== this.#generation || this.#disposed) return;
+      if (!flight.current()) return;
       this.#state = {
         ...this.#state,
         error:
           'Distribution computation failed. Check the strategy and model assumptions, then retry explicitly. The server may be busy, unavailable, or have rejected the request. No failed result was published.',
       };
     } finally {
-      if (generation === this.#generation && !this.#disposed) {
-        if (this.#timer !== null) clearTimeout(this.#timer);
-        this.#timer = null;
-        this.#controller = null;
+      flight.finish();
+      if (flight.current()) {
         this.#state = { ...this.#state, pending: false };
         this.publish(this.#state);
       }

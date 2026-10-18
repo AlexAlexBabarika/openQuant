@@ -4,11 +4,12 @@
   import type { FinderRequest, FinderResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import type { OptionLeg } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
-  import { applyFinderCandidate, editFinderContract, finderErrors, manualFinderContract, OptionsToolFlight, parseFinderSpots, seedFinderUniverse } from '$lib/features/options/optionsFinder';
+  import { applyFinderCandidate, editFinderContract, finderErrors, manualFinderContract, parseFinderSpots, seedFinderUniverse } from '$lib/features/options/optionsFinder';
+  import { RequestFlight } from '$lib/features/options/optionsRequest';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const id = $props.id();
-  const flight = new OptionsToolFlight();
+  const flight = new RequestFlight();
   let universe = $state<OptionLeg[]>([]);
   let thesis = $state<FinderRequest['thesis']>('neutral');
   let maxDebit = $state(1000), maxLoss = $state(1000), maxContracts = $state(4), maxLegs = $state(4);

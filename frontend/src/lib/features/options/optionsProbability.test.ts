@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
+import { clearAccessToken, setAccessToken } from '$lib/core/api';
 import OptionsProbabilityLab from '../../../components/options/OptionsProbabilityLab.svelte';
 import { createOptionsDraft } from './optionsTemplates';
 import type {
@@ -524,6 +525,25 @@ describe('explicit request lifecycle and privacy fencing', () => {
     await task;
     expect(state.result).toBeNull();
     expect(state.cancelled).toBe(true);
+  });
+  it('discards a reply that lands after the account session changes', async () => {
+    let state = emptyProbabilityState();
+    const late = deferred<DistributionResponse>();
+    const runner = new ProbabilityRunner(
+      () => late.promise,
+      next => {
+        state = next;
+      },
+    );
+    const task = runner.run('doc', 'key', request());
+    try {
+      setAccessToken('test-only');
+      late.resolve(response());
+      await task;
+    } finally {
+      clearAccessToken();
+    }
+    expect(state.result).toBeNull();
   });
 });
 

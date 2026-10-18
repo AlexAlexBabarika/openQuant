@@ -14,10 +14,10 @@ import {
   isolatedLegRequest,
   canonicalOverlay,
   requestChartAnalysis,
-  ChartRequestGate,
   chartContextKey,
 } from './optionsChartEditing';
 import type { StrikeDrag } from './optionsChartEditing';
+import { RequestFlight } from './optionsRequest';
 import { createOptionsDraft } from './optionsTemplates';
 import type { OptionsAnalysis } from './optionsTypes';
 import { seriesValue } from './optionsChart';
@@ -354,59 +354,47 @@ describe('canonical isolated-leg and proposed evidence', () => {
 });
 
 describe('request generation, privacy and replacement fences', () => {
-  it('fences document/account, draft, source-mode and result replacement before effect cleanup', () => {
+  it('fences document/account, draft and source-mode changes before effect cleanup', () => {
     const result = evidence(),
       draft = structuredClone(result.request);
-    const key = chartContextKey('guest:a', draft, result, false, true);
-    const gate = new ChartRequestGate();
-    const flight = gate.begin(key, result);
-    expect(flight.current(key, result)).toBe(true);
-    expect(
-      flight.current(
-        chartContextKey('account:b', draft, result, false, true),
-        result,
-      ),
-    ).toBe(false);
-    expect(
-      flight.current(
-        chartContextKey('guest:a', draft, result, true, false),
-        result,
-      ),
-    ).toBe(false);
-    expect(flight.current(key, structuredClone(result))).toBe(false);
+    let key = chartContextKey('guest:a', draft, result, false, true);
+    const gate = new RequestFlight();
+    const flight = gate.start(() => key, vi.fn());
+    expect(flight.current()).toBe(true);
+    const submitted = key;
+    key = chartContextKey('account:b', draft, result, false, true);
+    expect(flight.current()).toBe(false);
+    key = chartContextKey('guest:a', draft, result, true, false);
+    expect(flight.current()).toBe(false);
     draft.strategy.legs[0].strike = 101;
-    expect(
-      flight.current(
-        chartContextKey('guest:a', draft, result, false, true),
-        result,
-      ),
-    ).toBe(false);
+    key = chartContextKey('guest:a', draft, result, false, true);
+    expect(flight.current()).toBe(false);
+    key = submitted;
     gate.cancel();
     expect(flight.signal.aborted).toBe(true);
-    expect(flight.current(key, result)).toBe(false);
+    expect(flight.current()).toBe(false);
   });
   it.each(['success', 'error', 'finally'])(
     'discards obsolete %s after replacement even if transport ignores abort',
     async phase => {
-      const result = evidence(),
-        gate = new ChartRequestGate();
+      const gate = new RequestFlight();
       let release!: () => void;
       const delayed = new Promise<void>(resolve => {
         release = resolve;
       });
-      const old = gate.begin('old', result),
+      const old = gate.start(() => 'old', vi.fn()),
         publish = vi.fn();
       const work = delayed.then(() => {
-        if (old.current('old', result)) publish(phase);
+        if (old.current()) publish(phase);
       });
-      const current = gate.begin('new', result);
+      const current = gate.start(() => 'new', vi.fn());
       release();
       await work;
       expect(old.signal.aborted).toBe(true);
       expect(publish).not.toHaveBeenCalled();
-      expect(current.current('new', result)).toBe(true);
+      expect(current.current()).toBe(true);
       gate.cancel();
-      expect(current.current('new', result)).toBe(false);
+      expect(current.current()).toBe(false);
     },
   );
 });

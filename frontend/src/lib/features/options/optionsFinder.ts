@@ -1,51 +1,6 @@
-import { getSessionGeneration } from '$lib/core/api';
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
 import type { FinderCandidate, FinderRequest } from './optionsResearchTypes';
 import { optionsErrors } from './optionsValidation';
-
-/** A flight is valid only in the document/query/session that explicitly started it. */
-export class OptionsToolFlight {
-  private generation = 0;
-  private controller: AbortController | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
-
-  cancel(): void {
-    this.generation++;
-    this.controller?.abort();
-    this.controller = null;
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = null;
-  }
-
-  start(key: () => string, onTimeout: () => void) {
-    this.cancel();
-    const generation = this.generation;
-    const session = getSessionGeneration();
-    const submittedKey = key();
-    const controller = (this.controller = new AbortController());
-    const current = () =>
-      generation === this.generation &&
-      session === getSessionGeneration() &&
-      key() === submittedKey &&
-      !controller.signal.aborted;
-    this.timer = setTimeout(() => {
-      if (current()) {
-        this.cancel();
-        onTimeout();
-      }
-    }, 15000);
-    return {
-      signal: controller.signal,
-      current,
-      finish: () => {
-        if (generation === this.generation && this.timer !== null) {
-          clearTimeout(this.timer);
-          this.timer = null;
-        }
-      },
-    };
-  }
-}
 
 export function seedFinderUniverse(draft: OptionsDraft): OptionLeg[] {
   return structuredClone(

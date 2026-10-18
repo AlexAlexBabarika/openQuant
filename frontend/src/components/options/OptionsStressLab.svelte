@@ -1,7 +1,7 @@
 <script lang="ts">
   import { formatGreek, formatUsd } from '$lib/features/options/optionsFormat';
   import { untrack } from 'svelte';
-  import { getSessionGeneration } from '$lib/core/api';
+  import { RequestFlight } from '$lib/features/options/optionsRequest';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { firstExpiryDays } from '$lib/features/options/optionsValidation';
@@ -27,10 +27,10 @@
   const stale = $derived(!!result && inputKey !== submittedKey);
   const evidence = $derived(result ? stressEvidence(result) : null);
   let pending = $state(false), error = $state(''), notice = $state('');
-  let controller: AbortController | null = null, generation = 0;
+  const flight = new RequestFlight();
   const display = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? exactValue(value, true) : 'Unavailable';
 
-  function stop() { generation++; controller?.abort(); controller = null; pending = false; }
+  function stop() { flight.cancel(); pending = false; }
   function cancel() { stop(); notice = 'Stress run cancelled. Previous submitted evidence is unchanged.'; }
   function loadPreset(index: number) {
     if (readOnly) return;
@@ -50,22 +50,17 @@
     event.preventDefault(); if (readOnly || pending) return;
     const snapshot = structuredClone($state.snapshot(draft)), submitted = { ...settings };
     try { stressRequests(snapshot, submitted); } catch (e) { error = e instanceof Error ? e.message : 'Correct draft inputs before running.'; return; }
-    stop(); const flight = ++generation, scope = documentKey, session = getSessionGeneration(), key = inputKey;
-    const abort = new AbortController(); controller = abort; pending = true; error = ''; notice = '';
-    const current = () => flight === generation && scope === documentKey && session === getSessionGeneration() && key === inputKey;
-    let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; abort.abort(); }, 15000);
+    const key = inputKey;
+    const run = flight.start(() => `${documentKey}:${inputKey}`, () => { pending = false; error = 'Stress analysis timed out. Retry explicitly.'; });
+    pending = true; error = ''; notice = '';
     try {
-      const response = await runStress(snapshot, submitted, abort.signal);
-      if (current() && !abort.signal.aborted) { result = response; submittedSettings = submitted; submittedKey = key; }
+      const response = await runStress(snapshot, submitted, run.signal);
+      if (run.current()) { result = response; submittedSettings = submitted; submittedKey = key; }
     } catch {
-      if (current()) { error = timedOut ? 'Stress analysis timed out. Retry explicitly.' : 'Canonical stress analysis failed. Check inputs and retry; draft and premiums are unchanged.'; abort.abort(); }
+      if (run.current()) error = 'Canonical stress analysis failed. Check inputs and retry; draft and premiums are unchanged.';
     } finally {
-      clearTimeout(timer);
-      if (flight === generation) {
-        pending = false; controller = null;
-        if (session !== getSessionGeneration()) { result = null; submittedSettings = null; submittedKey = ''; error = ''; notice = 'Account scope changed; submit explicitly in the current scope.'; }
-      }
+      if (run.current()) pending = false;
+      run.finish();
     }
   }
   function apply() {

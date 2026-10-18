@@ -7,6 +7,7 @@ import type {
   ResearchProvenance,
 } from './optionsResearchTypes';
 import { editLegContract } from './optionsLegEditor';
+import { RequestFlight } from './optionsRequest';
 import { optionsErrors, resolvedLegDays } from './optionsValidation';
 
 export const MAX_PATH_POINTS = 366;
@@ -313,9 +314,7 @@ export function researchError(error: unknown): string {
 /** No result may cross a document/account boundary, even if abort is ignored. */
 export class ResearchJob<Q, R> {
   state: ResearchState<R>;
-  #generation = 0;
-  #controller: AbortController | null = null;
-  #timer: ReturnType<typeof setTimeout> | null = null;
+  #flight = new RequestFlight();
   constructor(
     documentKey: string,
     private currentDocument: () => string,
@@ -329,20 +328,12 @@ export class ResearchJob<Q, R> {
     this.publish(this.state);
   }
   reset(documentKey: string): void {
-    if (this.#timer !== null) clearTimeout(this.#timer);
-    this.#timer = null;
-    this.#generation++;
-    this.#controller?.abort();
-    this.#controller = null;
+    this.#flight.cancel();
     this.state = emptyResearchState(documentKey);
     this.publish(this.state);
   }
   cancel(): void {
-    if (this.#timer !== null) clearTimeout(this.#timer);
-    this.#timer = null;
-    this.#generation++;
-    this.#controller?.abort();
-    this.#controller = null;
+    this.#flight.cancel();
     this.#update({
       pending: false,
       error: '',
@@ -356,32 +347,26 @@ export class ResearchJob<Q, R> {
     call: (request: Q, signal: AbortSignal) => Promise<R>,
     validate: (result: R) => boolean,
   ): Promise<void> {
-    if (this.#timer !== null) clearTimeout(this.#timer);
-    this.#controller?.abort();
-    const generation = ++this.#generation;
+    const flight = this.#flight.start(
+      () => this.currentDocument(),
+      () => {
+        this.cancel();
+        this.#update({
+          error:
+            'Research timed out after 15 seconds. Reduce path steps and retry explicitly.',
+        });
+      },
+    );
     const documentKey = this.currentDocument();
     if (this.state.documentKey !== documentKey) {
       this.state = emptyResearchState(documentKey);
     }
-    const controller = new AbortController();
-    this.#controller = controller;
     const snapshot = structuredClone(request);
     this.#update({ pending: true, error: '', notice: '', documentKey });
     const current = () =>
-      generation === this.#generation &&
-      documentKey === this.currentDocument() &&
-      (!this.currentInput || key === this.currentInput()) &&
-      !controller.signal.aborted;
-    this.#timer = setTimeout(() => {
-      if (!current()) return;
-      this.cancel();
-      this.#update({
-        error:
-          'Research timed out after 15 seconds. Reduce path steps and retry explicitly.',
-      });
-    }, 15000);
+      flight.current() && (!this.currentInput || key === this.currentInput());
     try {
-      const result = await call(snapshot, controller.signal);
+      const result = await call(snapshot, flight.signal);
       if (!current()) return;
       if (!validate(result)) throw new Error('Invalid research response');
       this.#update({
@@ -393,14 +378,8 @@ export class ResearchJob<Q, R> {
     } catch (error) {
       if (current()) this.#update({ error: researchError(error) });
     } finally {
-      if (generation === this.#generation && this.#timer !== null) {
-        clearTimeout(this.#timer);
-        this.#timer = null;
-      }
-      if (current()) {
-        this.#controller = null;
-        this.#update({ pending: false });
-      }
+      flight.finish();
+      if (current()) this.#update({ pending: false });
     }
   }
 }
