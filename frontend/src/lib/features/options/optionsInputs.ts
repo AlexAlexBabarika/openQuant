@@ -1,0 +1,60 @@
+import type { OptionsDraft } from './optionsTypes';
+import {
+  OPTIONS_TEMPLATES,
+  templateStrategy,
+  type OptionsTemplate,
+} from './optionsTemplates';
+
+/** IV, rate and yield are edited as percentages and sent as annual fractions. */
+export const percentInput = (fraction: number): number =>
+  Number((fraction * 100).toPrecision(12));
+export const fractionInput = (percent: number): number =>
+  Number((percent / 100).toPrecision(12));
+
+export function localIsoDate(now: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+export function addDays(iso: string, days: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86400000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** The template whose legs (kind, size, strike) the draft still has at its spot, if any. */
+export function matchTemplate(draft: OptionsDraft): OptionsTemplate | null {
+  const legs = draft.strategy.legs;
+  for (const [id] of OPTIONS_TEMPLATES) {
+    const template = templateStrategy(id, draft.spot).legs;
+    if (
+      template.length === legs.length &&
+      template.every(
+        (t, i) =>
+          legs[i].enabled &&
+          t.kind === legs[i].kind &&
+          t.quantity === legs[i].quantity &&
+          t.strike === legs[i].strike,
+      )
+    )
+      return id;
+  }
+  return null;
+}
+
+/** Range errors are written in fractions; fields edited as percentages restate them in percent. */
+export function percentFieldError(
+  key: string,
+  message: string | undefined,
+): string | undefined {
+  if (!message) return message;
+  if (key === 'volatility') return 'Use 0–500%.';
+  if (key === 'rate' || key === 'dividend_yield') return 'Use −100% to 100%.';
+  if (/^legs\.\d+\.implied_volatility$/.test(key))
+    return 'Use 0–500%, or leave blank for the base IV.';
+  return message;
+}
+
+/** Chart closes arrive as float32 noise (343.4599914550781); quote them in cents, or 4 figures below $1. */
+export const quotedSpot = (spot: number): number =>
+  spot >= 1 ? Math.round(spot * 100) / 100 : Number(spot.toPrecision(4));

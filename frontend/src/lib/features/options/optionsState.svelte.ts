@@ -1,6 +1,7 @@
 import { apiJson } from '$lib/core/api';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
-import { createOptionsDraft } from './optionsTemplates';
+import { applyOptionsTemplate, createOptionsDraft } from './optionsTemplates';
+import { matchTemplate, quotedSpot } from './optionsInputs';
 import { fittedSpotGrid, needsRefit, sameGrid } from './optionsGrid';
 import { exportOptionsPython, OPTIONS_SOURCE_LIMIT } from './optionsPython';
 import { optionsErrors } from './optionsValidation';
@@ -35,9 +36,9 @@ type AnalysisResponse = OptionsAnalysis & { stdout?: string };
 type Analyze = (path: string, init: RequestInit) => Promise<AnalysisResponse>;
 
 export class OptionsState {
-  draft = $state<OptionsDraft>(createOptionsDraft());
+  draft = $state<OptionsDraft>(createOptionsDraft(new Date()));
   mode = $state<OptionsMode>('editor');
-  source = $state(exportOptionsPython(createOptionsDraft()));
+  source = $state(exportOptionsPython(createOptionsDraft(new Date())));
   documentKey = $state(0);
   result = $state<OptionsAnalysis | null>(null);
   submittedSource = $state<string | null>(null);
@@ -53,6 +54,12 @@ export class OptionsState {
   scopeLabel = $state('Guest · this browser only');
   /** Frontend-only: refit the display grid to strikes, spot and breakevens on edits. */
   gridAuto = $state(true);
+  /** Frontend-only: spot and underlying follow the workspace chart until a spot is typed. */
+  spotLinked = $state(true);
+  workspace = $state<{ symbol: string | null; spot: number | null }>({
+    symbol: null,
+    spot: null,
+  });
   #past = $state.raw<OptionsDraft[]>([]);
   #future = $state.raw<OptionsDraft[]>([]);
   #submittedKey = $state('');
@@ -120,8 +127,10 @@ export class OptionsState {
     this.scopeLabel = id
       ? 'Account · this browser only'
       : 'Guest · this browser only';
-    this.draft = createOptionsDraft();
+    this.draft = createOptionsDraft(new Date());
     this.gridAuto = true;
+    this.spotLinked = true;
+    this.#followWorkspace();
     this.source = exportOptionsPython(this.draft);
     this.mode = 'editor';
     this.result = null;
@@ -172,6 +181,51 @@ export class OptionsState {
     this.changed();
     this.#past = [...this.#past, before].slice(-HISTORY_LIMIT);
     this.#future = [];
+    this.draft = next;
+    this.#scheduleRecovery();
+  }
+  syncWorkspace(symbol: string | null, spot: number | null): void {
+    this.workspace = {
+      symbol: symbol?.trim() || null,
+      spot: spot !== null && Number.isFinite(spot) ? quotedSpot(spot) : null,
+    };
+    this.#followWorkspace();
+  }
+  /** Typing a spot stops following the workspace. */
+  setSpot(spot: number): void {
+    this.spotLinked = false;
+    this.editDraft(d => {
+      d.spot = spot;
+    });
+  }
+  linkWorkspace(): void {
+    this.spotLinked = true;
+    this.#followWorkspace();
+  }
+  /** Not an undoable edit: the workspace moved, not the user. Untouched templates re-center on the new spot. */
+  #followWorkspace(): void {
+    const { symbol, spot } = this.workspace;
+    if (
+      !this.spotLinked ||
+      spot === null ||
+      !Number.isFinite(spot) ||
+      spot <= 0 ||
+      spot > 1000000 ||
+      (spot === this.draft.spot &&
+        (symbol === null || symbol === this.draft.strategy.underlying))
+    )
+      return;
+    const before = structuredClone($state.snapshot(this.draft));
+    const next = structuredClone(before);
+    const template = matchTemplate(before);
+    next.spot = spot;
+    if (symbol) next.strategy.underlying = symbol.slice(0, 80);
+    if (template) {
+      applyOptionsTemplate(next, template);
+      next.strategy.name = before.strategy.name;
+    }
+    if (this.gridAuto && needsRefit(before, next))
+      next.spot_grid = fittedSpotGrid(next);
     this.draft = next;
     this.#scheduleRecovery();
   }

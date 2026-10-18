@@ -1,5 +1,6 @@
 import type { OptionsDraft } from './optionsTypes';
 import { fittedSpotGrid, spotGrid } from './optionsGrid';
+import { addDays, localIsoDate } from './optionsInputs';
 
 type Leg = OptionsDraft['strategy']['legs'][number];
 export const OPTIONS_TEMPLATES = [
@@ -142,9 +143,16 @@ export function templateStrategy(
   };
 }
 
-export function createOptionsDraft(): OptionsDraft {
+/** Undated (days-only) by default; pass `now` for the workbench's dated draft valued today. */
+export function createOptionsDraft(now?: Date): OptionsDraft {
+  const valuation = now ? localIsoDate(now) : null;
   const draft: OptionsDraft = {
-    strategy: templateStrategy('long_call'),
+    strategy: {
+      ...templateStrategy('long_call'),
+      ...(valuation
+        ? { valuation_date: valuation, expiry_date: addDays(valuation, 30) }
+        : {}),
+    },
     spot: 100,
     volatility: 0.2,
     rate: 0.03,

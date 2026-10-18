@@ -17,6 +17,11 @@
   import OptionsExpiryEditor from './OptionsExpiryEditor.svelte';
   import OptionsResearchTools from './OptionsResearchTools.svelte';
 
+  let { workspaceSymbol = null, workspaceSpot = null }: {
+    /** The workspace chart's loaded symbol and last close; spot follows them until typed. */
+    workspaceSymbol?: string | null;
+    workspaceSpot?: number | null;
+  } = $props();
   const options = new OptionsState();
   let panel: HTMLElement;
   let exportConfirm = $state(false);
@@ -59,6 +64,7 @@
   });
 
   $effect(() => { options.documentKey; untrack(syncGrid); });
+  $effect(() => { const symbol = workspaceSymbol, spot = workspaceSpot; untrack(() => options.syncWorkspace(symbol, spot)); });
   $effect(() => { if (options.gridAuto) { options.draft.spot_grid; untrack(syncGrid); } });
 
   function updateGrid() {
@@ -114,7 +120,8 @@
           <button type="button" class="ot-workbench-ghost" aria-pressed={options.mode === 'python'} onclick={() => options.setMode('python')}>Python</button>
         </div>
         {#if options.mode === 'editor'}
-          <OptionsAssumptionsEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors} />
+          <OptionsAssumptionsEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
+            workspace={options.workspace} spotLinked={options.spotLinked} onSpot={spot => options.setSpot(spot)} onLink={() => options.linkWorkspace()} />
           <OptionsLegEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
             canUndo={options.canUndo} canRedo={options.canRedo}
             onUndo={() => { options.undo(); syncGrid(); }} onRedo={() => { options.redo(); syncGrid(); }} />

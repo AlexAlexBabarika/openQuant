@@ -355,9 +355,8 @@ describe('controlled editor shell rendering (not browser validation)', () => {
     expect(html.match(/type="date"/g)).toHaveLength(2);
     expect(html).toContain('Manual test index');
     expect(html).toContain('nonnegative common days to expiry');
-    expect(html).toContain('Clear both dates');
-    expect(html).toContain('value="30"');
-    expect(html).toContain('disabled');
+    expect(html).toContain('Use days instead of dates');
+    expect(html).toContain('Choose a date on or after the valuation date.');
     expect(onEdit).not.toHaveBeenCalled();
     const legs = render(OptionsLegEditor, { props: { draft, onEdit } }).body;
     expect(legs).not.toContain('type="date"');

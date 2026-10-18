@@ -7,6 +7,7 @@
     setLegKind, setLegSize, useQuoteMidpoint, type OptionsEditorProps,
   } from '$lib/features/options/optionsLegEditor';
   import { OPTIONS_TEMPLATES, applyOptionsTemplate, type OptionsTemplate } from '$lib/features/options/optionsTemplates';
+  import { fractionInput, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
 
   let { draft, onEdit, fieldErrors = {}, canUndo = false, canRedo = false, onUndo, onRedo }: OptionsEditorProps = $props();
   const uid = $props.id();
@@ -36,7 +37,7 @@
 </script>
 
 {#snippet error(key: string)}
-  {#if errors[key]}<small id={errorId(key)} class="field-error">{errors[key]}</small>{/if}
+  {#if errors[key]}<small id={errorId(key)} class="field-error">{percentFieldError(key, errors[key])}</small>{/if}
 {/snippet}
 {#snippet numeric(label: string, key: string, value: number | null | undefined, min: number, max: number, step: string, update: (value: number | null) => void, optional = false)}
   <label class="field">
@@ -96,7 +97,7 @@
         {@render numeric(leg.kind === 'underlying' ? 'Entry · USD/share' : 'Premium · USD/unit', `legs.${i}.entry_premium`, leg.entry_premium, 0, 1000000, 'any', v => editLeg(i, l => { l.entry_premium = v ?? NaN; }))}
         {#if leg.kind !== 'underlying'}
           {@render numeric('Multiplier · units', `legs.${i}.multiplier`, leg.multiplier, 1, 1000, '1', v => editLeg(i, l => editLegContract(l, { multiplier: v ?? NaN })))}
-          {@render numeric('IV fraction · blank = base', `legs.${i}.implied_volatility`, leg.implied_volatility, 0, 5, 'any', v => editLeg(i, l => { l.implied_volatility = v; }), true)}
+          {@render numeric('IV % · blank = base', `legs.${i}.implied_volatility`, leg.implied_volatility == null ? null : percentInput(leg.implied_volatility), 0, 500, 'any', v => editLeg(i, l => { l.implied_volatility = v == null ? null : fractionInput(v); }), true)}
         {:else}<div class="field"><span>Multiplier</span><span class="not-applicable">1 · shares</span>{@render error(`legs.${i}.multiplier`)}</div>{/if}
       </div>
       {#if leg.kind === 'underlying' && (leg.strike !== null || leg.multiplier !== 1 || [leg.implied_volatility, leg.bid, leg.ask, leg.quote_as_of].some(v => v != null))}
@@ -119,7 +120,7 @@
       {/if}
     </fieldset>
   {/each}
-  <p class="hint">Buy/Sell is serialized as signed quantity. Zero size is invalid. Disabled legs stay editable and validated but contribute zero. Blank IV uses base IV; 0.20 = 20%. Common expiry is the default; use the per-leg expiry controls for calendars and diagonals.</p>
+  <p class="hint">Buy/Sell is serialized as signed quantity. Zero size is invalid. Disabled legs stay editable and validated but contribute zero. Blank IV uses the base IV. Common expiry is the default; use the per-leg expiry controls for calendars and diagonals.</p>
 </section>
 
 <style>

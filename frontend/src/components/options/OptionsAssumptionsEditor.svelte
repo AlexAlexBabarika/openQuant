@@ -1,48 +1,87 @@
 <script lang="ts">
   import { clearCommonDates, commonDateHorizon, optionsEditorErrors, setCommonDate, type OptionsEditorProps } from '$lib/features/options/optionsLegEditor';
-  let { draft, onEdit, fieldErrors = {} }: OptionsEditorProps = $props();
+  import { addDays, fractionInput, localIsoDate, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
+  import { formatPrice } from '$lib/features/options/optionsFormat';
+  let { draft, onEdit, fieldErrors = {}, workspace, spotLinked = false, onSpot, onLink }: OptionsEditorProps & {
+    /** The workspace chart's loaded symbol and last close; spot follows it while linked. */
+    workspace?: { symbol: string | null; spot: number | null };
+    spotLinked?: boolean;
+    onSpot?: (spot: number) => void;
+    onLink?: () => void;
+  } = $props();
   const uid = $props.id();
   const errors = $derived({ ...optionsEditorErrors(draft), ...fieldErrors });
   const dated = $derived(draft.strategy.expiry_date != null);
   const horizon = $derived(commonDateHorizon(draft.strategy.valuation_date, draft.strategy.expiry_date));
+  const pricingErrors = $derived(['strategy.valuation_date', 'rate', 'dividend_yield', 'strategy.entry_fee_per_contract', 'strategy.underlying'].some(k => errors[k]));
   const errorId = (key: string) => `${uid}-${key.replace(/\./g, '-')}-error`;
+  const message = (key: string) => percentFieldError(key, errors[key]);
+
+  function useDates() {
+    onEdit(d => {
+      const valuation = localIsoDate(new Date());
+      d.strategy.valuation_date = valuation;
+      d.strategy.expiry_date = addDays(valuation, d.strategy.days_to_expiry);
+    });
+  }
 </script>
 
 {#snippet error(key: string)}
-  {#if errors[key]}<small id={errorId(key)} class="field-error">{errors[key]}</small>{/if}
+  {#if message(key)}<small id={errorId(key)} class="field-error">{message(key)}</small>{/if}
 {/snippet}
 {#snippet numeric(label: string, key: string, value: number, min: number, max: number, update: (value: number) => void, disabled = false)}
-  <label class="field"><span>{label}</span><input type="number" value={Number.isFinite(value) ? value : ''} {min} {max} step="any" {disabled}
+  <label class="field"><span>{label}</span><input type="number" name={key} autocomplete="off" value={Number.isFinite(value) ? value : ''} {min} {max} step="any" {disabled}
     aria-invalid={!!errors[key]} aria-describedby={errors[key] ? errorId(key) : undefined}
     oninput={e => update(e.currentTarget.valueAsNumber)} />{@render error(key)}</label>
 {/snippet}
 
 <section class="assumptions" aria-label="Common options assumptions">
-  <h3>Common contract &amp; assumptions</h3>
-  <p class="hint">European · cash-settled · USD · ACT/365. Common expiry is the default; per-leg overrides support calendars and diagonals. Optional read-only provider observations require explicit hypothetical conversion in Research tools.</p>
+  <h3>Instrument &amp; assumptions</h3>
   {@render error('strategy')}
-  <label class="field"><span>Underlying identity · manual, optional (up to 80 characters)</span><input value={draft.strategy.underlying ?? ''} maxlength="80" placeholder="e.g. SPX · manual identifier"
-    aria-invalid={!!errors['strategy.underlying']} aria-describedby={errors['strategy.underlying'] ? errorId('strategy.underlying') : undefined}
-    oninput={e => onEdit(d => { d.strategy.underlying = e.currentTarget.value || null; })} />{@render error('strategy.underlying')}</label>
   <div class="inputs-grid">
-    <label class="field"><span>Valuation date · UTC</span><input type="date" value={draft.strategy.valuation_date ?? ''} min="0001-01-01" max="9999-12-31"
-      aria-invalid={!!errors['strategy.valuation_date']} aria-describedby={errors['strategy.valuation_date'] ? errorId('strategy.valuation_date') : undefined}
-      oninput={e => onEdit(d => setCommonDate(d, 'valuation_date', e.currentTarget.value))} />{@render error('strategy.valuation_date')}</label>
-    <label class="field"><span>Common expiry date · UTC</span><input type="date" value={draft.strategy.expiry_date ?? ''} min="0001-01-01" max="9999-12-31"
-      aria-invalid={!!errors['strategy.expiry_date']} aria-describedby={errors['strategy.expiry_date'] ? errorId('strategy.expiry_date') : undefined}
-      oninput={e => onEdit(d => setCommonDate(d, 'expiry_date', e.currentTarget.value))} />{@render error('strategy.expiry_date')}</label>
-    {@render numeric('Common expiry · calendar days (0–3650)', 'strategy.days_to_expiry', draft.strategy.days_to_expiry, 0, 3650, v => onEdit(d => { d.strategy.days_to_expiry = v; }), dated)}
-    {@render numeric('Spot · USD (>0–1m)', 'spot', draft.spot, 0, 1000000, v => onEdit(d => { d.spot = v; }))}
-    {@render numeric('Base annual IV · fraction (0–5)', 'volatility', draft.volatility, 0, 5, v => onEdit(d => { d.volatility = v; }))}
-    {@render numeric('Annual rate · fraction (−1–1)', 'rate', draft.rate, -1, 1, v => onEdit(d => { d.rate = v; }))}
-    {@render numeric('Dividend yield · fraction (−1–1)', 'dividend_yield', draft.dividend_yield, -1, 1, v => onEdit(d => { d.dividend_yield = v; }))}
-    {@render numeric('Entry fee · USD/contract (0–10k)', 'strategy.entry_fee_per_contract', draft.strategy.entry_fee_per_contract, 0, 10000, v => onEdit(d => { d.strategy.entry_fee_per_contract = v; }))}
+    <div class="field">
+      {@render numeric('Spot · USD', 'spot', draft.spot, 0, 1000000, v => onSpot ? onSpot(v) : onEdit(d => { d.spot = v; }))}
+      {#if workspace?.spot != null && workspace.symbol}
+        {#if spotLinked}<small class="hint">From the {workspace.symbol} chart</small>
+        {:else}<button type="button" class="link" onclick={() => onLink?.()}>Use {workspace.symbol} {formatPrice(workspace.spot)}</button>{/if}
+      {/if}
+    </div>
+    {#if dated}
+      <div class="field">
+        <label class="field"><span>Expiry</span><input type="date" name="strategy.expiry_date" value={draft.strategy.expiry_date ?? ''} min="0001-01-01" max="9999-12-31"
+          aria-invalid={!!errors['strategy.expiry_date']} aria-describedby={errors['strategy.expiry_date'] ? errorId('strategy.expiry_date') : `${uid}-days`}
+          oninput={e => onEdit(d => setCommonDate(d, 'expiry_date', e.currentTarget.value))} /></label>
+        <small id={`${uid}-days`} class="hint">{horizon === null ? 'Choose a date on or after the valuation date.' : `${horizon} days`}</small>
+        {@render error('strategy.expiry_date')}{@render error('strategy.days_to_expiry')}
+      </div>
+    {:else}
+      <div class="field">
+        {@render numeric('Expiry · days', 'strategy.days_to_expiry', draft.strategy.days_to_expiry, 0, 3650, v => onEdit(d => { d.strategy.days_to_expiry = v; }))}
+        <button type="button" class="link" disabled={!Number.isInteger(draft.strategy.days_to_expiry)} onclick={useDates}>Use dates</button>
+      </div>
+    {/if}
+    {@render numeric('IV · %', 'volatility', percentInput(draft.volatility), 0, 500, v => onEdit(d => { d.volatility = fractionInput(v); }))}
   </div>
-  {#if dated}
-    <p class="hint">{horizon === null ? 'Date pair incomplete or invalid: correct both dates before analysis.' : `Paired dates define ${horizon} UTC calendar days for legs without overrides.`} Dates are user-declared, not market freshness. Expiry before valuation is invalid; past calendar dates may be hypothetical research, not historical execution.</p>
-    <button type="button" class="ot-workbench-ghost" onclick={() => onEdit(clearCommonDates)}>Clear both dates · use days horizon</button>
-  {:else}<p class="hint">Dates are optional. Use the legacy default days horizon, or a valuation date with common/per-leg expiry dates. Paired common dates must exactly match default days; no silent clamping.</p>{/if}
-  <p class="hint">0.20 IV = 20%; 0.03 rate = 3%. Option IV overrides resolve per leg. Fees are charged once per enabled absolute option quantity, not multiplied; no share fee. Scenario/surface times must not cross the first active expiry.</p>
+  <details class="pricing" open={pricingErrors}>
+    <summary>Pricing assumptions</summary>
+    <div class="inputs-grid">
+      {#if dated}
+        <label class="field"><span>Valuation date</span><input type="date" name="strategy.valuation_date" value={draft.strategy.valuation_date ?? ''} min="0001-01-01" max="9999-12-31"
+          aria-invalid={!!errors['strategy.valuation_date']} aria-describedby={errors['strategy.valuation_date'] ? errorId('strategy.valuation_date') : undefined}
+          oninput={e => onEdit(d => setCommonDate(d, 'valuation_date', e.currentTarget.value))} />{@render error('strategy.valuation_date')}</label>
+      {/if}
+      {@render numeric('Interest rate · %', 'rate', percentInput(draft.rate), -100, 100, v => onEdit(d => { d.rate = fractionInput(v); }))}
+      {@render numeric('Dividend yield · %', 'dividend_yield', percentInput(draft.dividend_yield), -100, 100, v => onEdit(d => { d.dividend_yield = fractionInput(v); }))}
+      {@render numeric('Fee · USD per contract', 'strategy.entry_fee_per_contract', draft.strategy.entry_fee_per_contract, 0, 10000, v => onEdit(d => { d.strategy.entry_fee_per_contract = v; }))}
+      <label class="field"><span>Underlying name · optional</span><input name="strategy.underlying" autocomplete="off" value={draft.strategy.underlying ?? ''} maxlength="80" placeholder="e.g. SPX…"
+        aria-invalid={!!errors['strategy.underlying']} aria-describedby={errors['strategy.underlying'] ? errorId('strategy.underlying') : undefined}
+        oninput={e => onEdit(d => { d.strategy.underlying = e.currentTarget.value || null; })} />{@render error('strategy.underlying')}</label>
+    </div>
+    {#if dated}
+      <p class="hint">Dates are UTC calendar days and set the time to expiry for legs without their own expiry. Fees are charged once per option contract.</p>
+      <button type="button" class="ot-workbench-ghost" onclick={() => onEdit(clearCommonDates)}>Use days instead of dates</button>
+    {:else}<p class="hint">Fees are charged once per option contract. Per-leg expiries are set in the legs' expiry controls.</p>{/if}
+  </details>
 </section>
 
 <style>
@@ -50,15 +89,20 @@
   h3 { margin: 0; font-size: 12px; }
   .hint { margin: 0; color: oklch(var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
-  .inputs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .inputs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
   input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 32px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
   input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  input:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
+  input:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
   button { justify-self: start; white-space: normal; height: auto; min-height: 28px; overflow-wrap: anywhere; }
-  @container (min-width: 650px) { .inputs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-  @container (max-width: 280px) { .inputs-grid { grid-template-columns: minmax(0, 1fr); } }
-  @media (pointer: coarse) { button, input { min-height: var(--control-touch-height); } }
-  @media (forced-colors: active) { input { border-color: CanvasText; } input:focus-visible { outline-color: Highlight; } input[aria-invalid="true"] { outline: 1px solid CanvasText; } }
+  .link { align-self: start; min-height: 24px; padding: 0; border: 0; background: none; color: oklch(var(--ring)); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .link:disabled { color: oklch(var(--muted-foreground)); cursor: not-allowed; text-decoration: none; }
+  .pricing { border-top: 1px solid oklch(var(--border)); padding-top: 4px; }
+  .pricing > :not(summary) { margin-top: 8px; }
+  summary { cursor: pointer; min-height: 28px; line-height: 28px; font-weight: 700; }
+  @container (max-width: 340px) { .inputs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (max-width: 220px) { .inputs-grid { grid-template-columns: minmax(0, 1fr); } }
+  @media (pointer: coarse) { button, input, summary { min-height: var(--control-touch-height); } }
+  @media (forced-colors: active) { input { border-color: CanvasText; } input:focus-visible { outline-color: Highlight; } input[aria-invalid="true"] { outline: 1px solid CanvasText; } .link { color: LinkText; } }
 </style>

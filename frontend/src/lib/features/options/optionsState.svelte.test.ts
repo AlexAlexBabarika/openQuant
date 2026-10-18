@@ -269,7 +269,7 @@ describe('options explicit request lifecycle', () => {
     await s.run();
     expect(analyze.mock.calls[0][0]).toBe('/options/analyze');
     expect(JSON.parse(analyze.mock.calls[0][1].body)).toEqual(
-      createOptionsDraft(),
+      createOptionsDraft(new Date()),
     );
     expect(s.stale).toBe(false);
     s.editDraft(d => {
@@ -459,7 +459,7 @@ describe('options explicit request lifecycle', () => {
     await run;
     expect(s.error).toContain('timed out');
     expect(s.loading).toBe(false);
-    expect(s.draft).toEqual(createOptionsDraft());
+    expect(s.draft).toEqual(createOptionsDraft(new Date()));
   });
   it('discards completion on disposal', async () => {
     const pending = deferred();
@@ -1059,5 +1059,58 @@ describe('options chart grid auto-fit', () => {
     s.fitGrid();
     expect(s.restore(0)).toBe(true);
     expect(s.draft.spot_grid).toEqual(spotGrid(10, 300, 11));
+  });
+});
+
+describe('options workspace instrument', () => {
+  it('rebuilds an untouched template at the workspace spot', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.4599914550781);
+    expect(s.spotLinked).toBe(true);
+    expect(s.draft.spot).toBe(343.46);
+    expect(s.draft.strategy.underlying).toBe('AAPL');
+    expect(s.draft.strategy.legs[0].strike).toBe(345);
+    expect(s.draft.spot_grid[0]).toBeLessThan(343.46);
+  });
+
+  it('moves only spot when the legs were edited', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 120;
+    });
+    s.syncWorkspace('AAPL', 343.46);
+    expect(s.draft.spot).toBe(343.46);
+    expect(s.draft.strategy.legs[0].strike).toBe(120);
+  });
+
+  it('stops following the workspace after a typed spot until relinked', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.setSpot(250);
+    expect(s.spotLinked).toBe(false);
+    s.syncWorkspace('AAPL', 343.46);
+    expect(s.draft.spot).toBe(250);
+    s.linkWorkspace();
+    expect(s.spotLinked).toBe(true);
+    expect(s.draft.spot).toBe(343.46);
+  });
+
+  it('ignores a workspace without a price', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    const before = structuredClone($state.snapshot(s.draft));
+    s.syncWorkspace('AAPL', null);
+    expect($state.snapshot(s.draft)).toEqual(before);
+  });
+
+  it('never edits Python source', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.setMode('python');
+    s.setSource('# custom');
+    s.syncWorkspace('AAPL', 343.46);
+    expect(s.source).toBe('# custom');
   });
 });

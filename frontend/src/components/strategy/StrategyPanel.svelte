@@ -47,6 +47,8 @@
     editorShare = $bindable(50),
     recoverySavedAt = null,
     tab = $bindable<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor'),
+    workspaceSymbol = null,
+    workspaceSpot = null,
   }: {
     open?: boolean;
     embedded?: boolean;
@@ -63,6 +65,9 @@
     editorShare?: number;
     recoverySavedAt?: string | null;
     tab?: 'editor' | 'options' | 'sweep' | 'portfolio' | 'docs';
+    /** Loaded chart symbol and last close, for the options workbench's spot. */
+    workspaceSymbol?: string | null;
+    workspaceSpot?: number | null;
   } = $props();
 
   const strat = $derived(strategy);
@@ -285,7 +290,7 @@
       class:options-mode={tab === 'options'}
       class:library-collapsed={!libraryOpen}
     >
-      <div class="options-host" hidden={tab !== 'options'}><OptionsPanel /></div>
+      <div class="options-host" hidden={tab !== 'options'}><OptionsPanel {workspaceSymbol} {workspaceSpot} /></div>
       {#if tab === 'docs'}
         <StrategyDocs />
       {:else if tab === 'portfolio'}
