@@ -18,6 +18,7 @@ import OptionsSummary from './OptionsSummary.svelte';
 import OptionsCharts from './OptionsCharts.svelte';
 import OptionsResearchTools from './OptionsResearchTools.svelte';
 import OptionsChainPicker from './OptionsChainPicker.svelte';
+import OptionsLibrary from './OptionsLibrary.svelte';
 
 vi.mock('$lib/features/options/optionsState.svelte', async importOriginal => ({
   ...(await importOriginal<
@@ -296,6 +297,22 @@ describe('integrated options workbench', () => {
     });
     const html = render(OptionsPanel).body;
     expect(visibleText(html).match(/Inputs changed/g)).toHaveLength(1);
+  });
+
+  it('offers a save retry only after a failed save, and shows recovery time for people', () => {
+    let html = render(OptionsLibrary, { props: { state } }).body;
+    expect(html).not.toContain('Retry working save');
+    state.recovery = {
+      draft: structuredClone(state.draft),
+      mode: 'editor',
+      source: state.source,
+      updatedAt: '2026-10-18T09:00:00.000Z',
+    };
+    state.storageError = 'Options draft was not saved.';
+    html = render(OptionsLibrary, { props: { state } }).body;
+    expect(html).toContain('Retry working save');
+    expect(html).not.toContain('2026-10-18T09:00:00.000Z');
+    expect(html).toMatch(/>Discard recovery…<\/button>/);
   });
 
   it('shows the risk totals in the evidence column, above the chart', () => {

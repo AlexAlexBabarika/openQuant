@@ -54,6 +54,7 @@
     onaddnote,
     oneditnote,
     ondeletenote,
+    onoptions,
   }: {
     sheet?: boolean;
     symbol?: string;
@@ -80,6 +81,8 @@
     onaddnote: (symbol: string) => void;
     oneditnote: (note: TickerNote) => void;
     ondeletenote: (id: string) => void;
+    /** Open the options workbench on the current symbol. */
+    onoptions?: (symbol: string) => void;
   } = $props();
 
   let aggregateFilterActive = $derived(
@@ -293,6 +296,13 @@
           >
             {symbolExchange}
           </div>
+        {/if}
+        {#if symbol && onoptions}
+          <button
+            type="button"
+            class="mt-1.5 inline-flex min-h-7 items-center rounded border border-border px-2 text-xs text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            onclick={() => onoptions(symbol)}
+          >Options on {symbol}</button>
         {/if}
       </div>
       <div class="shrink-0 text-right min-w-0">

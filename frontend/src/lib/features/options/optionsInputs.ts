@@ -58,3 +58,28 @@ export function percentFieldError(
 /** Chart closes arrive as float32 noise (343.4599914550781); quote them in cents, or 4 figures below $1. */
 export const quotedSpot = (spot: number): number =>
   spot >= 1 ? Math.round(spot * 100) / 100 : Number(spot.toPrecision(4));
+
+/** The run shortcut as people press it: ⌘↵ on Apple platforms. */
+export const shortcutLabel = (platform: string): string =>
+  /Mac|iPhone|iPad|iPod/.test(platform) ? '⌘↵' : 'Ctrl+Enter';
+
+/** "Oct 18, 2026, 9:00 AM (5 minutes ago)" in the viewer's time zone. */
+export function formatSavedAt(iso: string, now = new Date()): string {
+  const time = Date.parse(iso);
+  if (!Number.isFinite(time)) return 'an unknown time';
+  const date = new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(time);
+  const seconds = Math.round((time - now.getTime()) / 1000);
+  const [value, unit] =
+    Math.abs(seconds) < 3600
+      ? [Math.round(seconds / 60), 'minute' as const]
+      : Math.abs(seconds) < 86400
+        ? [Math.round(seconds / 3600), 'hour' as const]
+        : [Math.round(seconds / 86400), 'day' as const];
+  const relative = new Intl.RelativeTimeFormat('en', {
+    numeric: 'auto',
+  }).format(value, unit);
+  return `${date} (${relative})`;
+}

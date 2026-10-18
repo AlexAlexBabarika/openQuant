@@ -1096,6 +1096,7 @@
         symbolFullName={symbolFullName}
         symbolExchange={symbolExchangeLabel}
         closePrice={lastClose}
+        onoptions={() => { portfolioRunId = null; strategyTab = 'options'; openStrategy(); }}
         {groups}
         {selectedGroupName}
         {selectedPriority}

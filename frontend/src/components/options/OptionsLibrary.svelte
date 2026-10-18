@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { OptionsState } from '$lib/features/options/optionsState.svelte';
   import { downloadOptionsFile, MAX_OPTIONS_STORAGE } from '$lib/features/options/optionsPersistence';
+  import { formatSavedAt } from '$lib/features/options/optionsInputs';
 
   let { state: options }: { state: OptionsState } = $props();
   let name = $state('');
@@ -8,12 +9,14 @@
   let revision = $state('');
   let applyImport = $state(false);
   let importing = $state(false);
+  /** Destructive actions ask once, inline, before they run. */
+  let confirming = $state<'discard' | 'delete' | null>(null);
   let feedback = $state<string | null>(null);
   const selectedIndex = $derived(options.saved.findIndex((saved, i) => (saved.id ?? `legacy-${i}`) === selected));
   const item = $derived(options.saved[selectedIndex] ?? null);
   $effect(() => {
     options.documentKey;
-    name = ''; selected = ''; revision = ''; feedback = null; applyImport = false;
+    name = ''; selected = ''; revision = ''; feedback = null; applyImport = false; confirming = null;
   });
   function download(get: () => string | null, suffix: string, mime: string) {
     try {
@@ -47,15 +50,19 @@
   <p>Local inputs and Python only; not encrypted, cloud-synced or backed up by the server. Guest records are never adopted on sign-in. Recovery autosaves after 500 ms; restore is explicit and never executes Python.</p>
   {#if options.recovery}
     <div class="actions" role="group" aria-label="Working recovery">
-      <span>Working recovery · {options.recovery.updatedAt}</span>
+      <span>Unsaved working inputs from {formatSavedAt(options.recovery.updatedAt)}</span>
       <button type="button" class="ot-workbench-ghost" onclick={() => options.recover()}>Recover inputs & source</button>
-      <button type="button" class="ot-workbench-ghost" onclick={() => options.discardRecovery()}>Discard recovery</button>
+      {#if confirming === 'discard'}
+        <span class="risk">Discard them? This can't be undone.</span>
+        <button type="button" class="ot-workbench-ghost" onclick={() => { if (options.discardRecovery()) confirming = null; }}>Discard</button>
+        <button type="button" class="ot-workbench-ghost" onclick={() => { confirming = null; }}>Keep</button>
+      {:else}<button type="button" class="ot-workbench-ghost" onclick={() => { confirming = 'discard'; }}>Discard recovery…</button>{/if}
     </div>
   {:else}<p>No working recovery in this browser scope.</p>{/if}
   <div class="actions">
     <label>Draft name <input maxlength="120" value={name} oninput={e => name = e.currentTarget.value} /></label>
     <button type="button" class="ot-workbench-ghost" disabled={!name.trim()} onclick={() => options.save(name)}>Save new draft</button>
-    <button type="button" class="ot-workbench-ghost" onclick={() => options.flushRecovery()}>Retry working save</button>
+    {#if options.storageError}<button type="button" class="ot-workbench-ghost" onclick={() => options.flushRecovery()}>Retry working save</button>{/if}
   </div>
   <p>Up to 10 named drafts; updates/renames retain the last 3 prior revisions. Named saves require valid canonical editor fields and Python up to 20,000 characters.</p>
   <div class="actions">
@@ -68,13 +75,17 @@
     <label>Revision
       <select value={revision} disabled={!item} onchange={e => revision = e.currentTarget.value}>
         <option value="">Current</option>
-        {#each item?.revisions ?? [] as prior}<option value={String(prior.revision)}>{prior.revision} · {prior.name} · {prior.updatedAt}</option>{/each}
+        {#each item?.revisions ?? [] as prior}<option value={String(prior.revision)}>{prior.revision} · {prior.name} · {formatSavedAt(prior.updatedAt)}</option>{/each}
       </select>
     </label>
     <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => options.restore(selectedIndex, revision ? Number(revision) : undefined)}>Restore inputs & source</button>
     <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => options.updateSaved(selectedIndex)}>Update from working inputs</button>
     <button type="button" class="ot-workbench-ghost" disabled={!item || !name.trim()} onclick={() => options.renameSaved(selectedIndex, name)}>Rename saved draft</button>
-    <button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => { options.remove(selectedIndex); selected = ''; revision = ''; }}>Delete saved draft</button>
+    {#if confirming === 'delete' && item}
+      <span class="risk">Delete “{item.name}” and its revisions? Export it first if you may need it.</span>
+      <button type="button" class="ot-workbench-ghost" onclick={() => { if (options.remove(selectedIndex)) { selected = ''; revision = ''; } confirming = null; }}>Delete</button>
+      <button type="button" class="ot-workbench-ghost" onclick={() => { confirming = null; }}>Keep</button>
+    {:else}<button type="button" class="ot-workbench-ghost" disabled={!item} onclick={() => { confirming = 'delete'; }}>Delete saved draft…</button>{/if}
   </div>
   <div class="actions" role="group" aria-label="Portable draft files">
     <button type="button" class="ot-workbench-ghost" disabled={!options.saved.length} onclick={() => download(() => options.exportBundle(), 'drafts.json', 'application/json')}>Export named JSON bundle</button>
@@ -94,6 +105,7 @@
 </section>
 
 <style>
+  .risk { color: oklch(var(--risk)); }
   .library { display: grid; gap: 8px; min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
   header, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
   header span, p { color: oklch(var(--muted-foreground)); }
