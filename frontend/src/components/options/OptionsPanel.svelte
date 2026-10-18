@@ -168,9 +168,9 @@
             </div>
           </details>
         {:else}
-          <OptionsPythonEditor source={options.source} onChange={source => options.setSource(source)}
+          <div class="slot-source"><OptionsPythonEditor source={options.source} onChange={source => options.setSource(source)}
             onRun={() => { void options.run(); }} pending={options.loading} stdout={options.stdout ?? ''}
-            error={options.error} documentKey={options.documentKey} />
+            error={options.error} documentKey={options.documentKey} /></div>
         {/if}
         <details class="configuration" open={!!options.recovery || !!options.storageError || exportConfirm}><summary>Saved drafts &amp; exports</summary>
         <div class="export-controls">
@@ -310,7 +310,7 @@
     .workbench-grid { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
     .editor-column, .evidence-column { display: contents; }
     .editor-column > *, .evidence-column > * { order: 7; }
-    .slot-summary { order: 1; } .slot-chart { order: 2; } .slot-legs { order: 3; }
+    .slot-summary { order: 1; } .slot-chart { order: 2; } .slot-legs, .slot-source { order: 3; }
     .slot-assumptions { order: 4; } .mode-row { order: 5; } .slot-tools { order: 6; }
   }
   @media (forced-colors: active) { input, .summary-grid > div, .greeks-grid > div { border-color: CanvasText; } .mode-row button[aria-pressed="true"] { outline: 1px solid Highlight; } input:focus-visible, summary:focus-visible { outline-color: Highlight; } }
