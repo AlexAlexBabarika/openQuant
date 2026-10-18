@@ -125,6 +125,11 @@ export function probabilityBinLabel(bin: ProbabilityBin): string {
     : `${exactValue(bin.lower_pnl, true)} to ${exactValue(bin.upper_pnl, true)} USD P&L`;
 }
 
+/** Largest returned bin mass; bars scale to it, the table keeps exact fractions. */
+export function tallestProbability(bins: { probability: number }[]): number {
+  return Math.max(0, ...bins.map(bin => bin.probability));
+}
+
 /** Presentation coordinates only; never calculate option payoffs or probabilities. */
 export function probabilityBars(bins: ProbabilityBin[], width = 600) {
   if (
@@ -144,6 +149,7 @@ export function probabilityBars(bins: ProbabilityBin[], width = 600) {
   const min = Math.min(...bins.map(bin => bin.lower_pnl));
   const max = Math.max(...bins.map(bin => bin.upper_pnl));
   const domain = { min, max };
+  const scale = tallestProbability(bins) || 1;
   return bins.map(bin => {
     const atom = bin.lower_pnl === bin.upper_pnl;
     const x =
@@ -153,8 +159,8 @@ export function probabilityBars(bins: ProbabilityBin[], width = 600) {
       atom,
       x,
       width: atom ? 0 : scaleValue(bin.upper_pnl, domain, 0, width) - x,
-      y: 160 * (1 - bin.probability),
-      height: 160 * bin.probability,
+      y: 160 * (1 - bin.probability / scale),
+      height: (160 * bin.probability) / scale,
     };
   });
 }
@@ -218,7 +224,10 @@ export function terminalProbabilityPlot(
   const maxPnl = Math.max(0, ...curve.map(p => p.pnl));
   const pad = Math.max(Number.MIN_VALUE, (maxPnl - minPnl) * 0.08 || 1);
   const yDomain = { min: minPnl - pad, max: maxPnl + pad };
+  const maxProbability = tallestProbability(bins);
+  const scale = maxProbability || 1;
   return {
+    maxProbability,
     lower,
     upper,
     minPnl,
@@ -232,8 +241,8 @@ export function terminalProbabilityPlot(
         bin,
         x,
         width: atom ? 0 : scaleValue(bin.upper_spot, xDomain, 0, width) - x,
-        y: 134 - 100 * bin.probability,
-        height: 100 * bin.probability,
+        y: 134 - (100 * bin.probability) / scale,
+        height: (100 * bin.probability) / scale,
       };
     }),
     payoffPath: atom

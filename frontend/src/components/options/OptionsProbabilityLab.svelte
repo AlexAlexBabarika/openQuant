@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { formatUsd } from '$lib/features/options/optionsFormat';
+  import { formatPercent, formatUsd } from '$lib/features/options/optionsFormat';
   import { onDestroy, untrack } from 'svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { analyzeDistribution } from '$lib/features/options/optionsResearchApi';
   import { axisValue, exactValue } from '$lib/features/options/optionsChart';
   import {
-    ProbabilityRunner, emptyProbabilityState, probabilityBars, probabilityBinLabel,
+    ProbabilityRunner, emptyProbabilityState, probabilityBars, probabilityBinLabel, tallestProbability,
     probabilityErrors, probabilityKey, probabilityPercent, probabilityRequest,
     probabilitySettings, terminalProbabilityPlot,
   } from '$lib/features/options/optionsProbability';
@@ -122,8 +122,8 @@
           <div class="plot-container" bind:clientWidth={chartWidth}>
             <svg viewBox={`-4 -8 ${width + 8} 380`} role="img" aria-labelledby={`${id}-terminal-title ${id}-terminal-desc`}>
               <title id={`${id}-terminal-title`}>Terminal price mass and canonical exact payoff</title>
-              <desc id={`${id}-terminal-desc`}>Both panels share returned terminal spot in USD on the X axis. Top panel bar height is probability mass from zero to one, not density. Bottom panel is signed total strategy payoff in USD, drawn only from exact canonical backend vertices; no extrapolation. Deterministic atoms use a stem and a single payoff point. Exact table follows.</desc>
-              <text x="0" y="12">Probability mass · 0–1</text>
+              <desc id={`${id}-terminal-desc`}>Both panels share returned terminal spot in USD on the X axis. Top panel bar height is probability mass scaled to the tallest bar, {formatPercent(terminal.maxProbability)}, not density. Bottom panel is signed total strategy payoff in USD, drawn only from exact canonical backend vertices; no extrapolation. Deterministic atoms use a stem and a single payoff point. Exact table follows.</desc>
+              <text x="0" y="12">Probability mass · tallest bar {formatPercent(terminal.maxProbability)}</text>
               <line x1="0" y1="134" x2={width} y2="134" class="axis" />
               {#each terminal.bins as bar}
                 {#if bar.bin.lower_spot === bar.bin.upper_spot}
@@ -164,7 +164,7 @@
         <figcaption>Returned total P&amp;L probability mass · not probability density</figcaption>
         <svg viewBox={`-4 -10 ${width + 8} 208`} role="img" aria-labelledby={`${id}-pnl-plot-title ${id}-pnl-plot-desc`}>
           <title id={`${id}-pnl-plot-title`}>P&amp;L probability histogram</title>
-          <desc id={`${id}-pnl-plot-desc`}>X axis is total P&amp;L in USD; Y height is returned probability mass from zero to one for each bin, not density per USD. Point masses use a vertical stem. Exact values follow in a keyboard-scrollable table.</desc>
+          <desc id={`${id}-pnl-plot-desc`}>X axis is total P&amp;L in USD; Y height is returned probability mass for each bin, scaled to the tallest bar, not density per USD. Point masses use a vertical stem. Exact values follow in a keyboard-scrollable table.</desc>
           <line x1="0" y1="160" x2={width} y2="160" class="axis" />
           {#each bars as bar}
             {#if bar.atom}
@@ -176,7 +176,7 @@
           {/each}
           <text x="0" y="184">{axisValue(result.bins[0].lower_pnl)} USD</text>
           <text x={width} y="184" text-anchor="end">{axisValue(result.bins[result.bins.length - 1].upper_pnl)} USD</text>
-          <text x="0" y="-1">Mass height: 0–1 (0–100%)</text>
+          <text x="0" y="-1">Mass height · tallest bar {formatPercent(tallestProbability(result.bins))}</text>
         </svg>
         <p class="note">Bin heights are probability mass, even for unequal USD widths. Atoms have zero width and nonzero mass; they have no finite probability density. Axis labels are abbreviated; exact returned fractions and USD bounds are in the table.</p>
       </figure>
