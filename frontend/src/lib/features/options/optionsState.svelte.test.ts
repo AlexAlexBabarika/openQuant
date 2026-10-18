@@ -23,6 +23,14 @@ function storage(): Storage {
     },
   } as Storage;
 }
+/** Request-lifecycle tests use manual premiums, so no model-pricing request joins them. */
+function manualPremiums(s: OptionsState): void {
+  s.editDraft(
+    () => {},
+    tags => tags.map(() => false),
+  );
+}
+
 function response(draft = createOptionsDraft()): OptionsAnalysis {
   const greeks = { delta: 50, gamma: 0.1, theta: -1, vega: 3, rho: 0.2 };
   return {
@@ -265,6 +273,7 @@ describe('options explicit request lifecycle', () => {
     const analyze = vi.fn().mockResolvedValue(response());
     const s = new OptionsState(storage(), analyze);
     s.setAccount(null);
+    manualPremiums(s);
     expect(analyze).not.toHaveBeenCalled();
     await s.run();
     expect(analyze.mock.calls[0][0]).toBe('/options/analyze');
@@ -299,6 +308,7 @@ describe('options explicit request lifecycle', () => {
       .mockResolvedValueOnce(response());
     const s = new OptionsState(storage(), analyze);
     s.setAccount(null);
+    manualPremiums(s);
     await s.run();
     const evidence = s.result;
     s.editDraft(d => {
@@ -353,6 +363,7 @@ describe('options explicit request lifecycle', () => {
         .mockReturnValueOnce(current.promise);
       const s = new OptionsState(storage(), analyze);
       s.setAccount(null);
+      manualPremiums(s);
       const first = s.run();
       s.cancel();
       const second = s.run();
@@ -664,6 +675,7 @@ describe('explicit working recovery and scoped migration', () => {
     const analyze = vi.fn().mockResolvedValue(response());
     const s = new OptionsState(db, analyze);
     s.setAccount('a');
+    manualPremiums(s);
     await s.run();
     s.editDraft(d => {
       d.spot = NaN;
@@ -956,6 +968,7 @@ describe('named revisions, validated additive imports and submitted exports', ()
     const analyze = vi.fn().mockResolvedValue(response());
     const s = new OptionsState(storage(), analyze);
     s.setAccount('a');
+    manualPremiums(s);
     await s.run();
     s.save('Identical');
     expect(s.stale).toBe(false);
@@ -1124,6 +1137,7 @@ describe('automatic analysis in editor mode', () => {
     vi.useFakeTimers();
     const s = new OptionsState(storage(), analyze, 300);
     s.setAccount(null);
+    manualPremiums(s);
     return { s, analyze };
   }
 
@@ -1205,6 +1219,161 @@ describe('automatic analysis in editor mode', () => {
     s.applyTemplate('iron_condor');
     expect(s.draft.strategy.legs).toHaveLength(4);
     await vi.advanceTimersByTimeAsync(300);
+    // Template legs are model-priced first, then analyzed.
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(analyze.mock.calls[1][0]).toBe('/options/analyze');
+  });
+});
+
+describe('model-priced premiums', () => {
+  const price = (strike: number | null) => (strike === 105 ? 3.5 : 2.41);
+  function modelResponse(init: RequestInit): OptionsAnalysis {
+    const request = JSON.parse(String(init.body)) as OptionsDraft;
+    const greeks = { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 };
+    return {
+      ...response(request),
+      legs: request.strategy.legs.map((l, i) => ({
+        leg_index: i,
+        enabled: l.enabled,
+        resolved_implied_volatility: 0.2,
+        gross_entry_cost: 0,
+        entry_fees: 0,
+        net_entry_cost: 0,
+        theoretical_value_today: l.enabled
+          ? l.quantity * l.multiplier * price(l.strike)
+          : 0,
+        pnl_today: 0,
+        greeks,
+      })),
+    };
+  }
+  const isPricing = (init: RequestInit) =>
+    (JSON.parse(String(init.body)) as OptionsDraft).spot_grid.length === 2;
+  async function priced() {
+    const analyze = vi.fn(async (_path: string, init: RequestInit) =>
+      modelResponse(init),
+    );
+    const s = new OptionsState(storage(), analyze);
+    s.setAccount(null);
+    s.applyTemplate('long_call');
+    await s.run();
+    return { s, analyze };
+  }
+
+  it('prices template legs at the model before analyzing', async () => {
+    const { s, analyze } = await priced();
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(isPricing(analyze.mock.calls[0][1])).toBe(true);
+    const sent = JSON.parse(String(analyze.mock.calls[1][1].body));
+    expect(sent.strategy.legs[0].entry_premium).toBe(2.41);
+    expect(s.draft.strategy.legs[0].entry_premium).toBe(2.41);
+    expect(s.modelLegs).toEqual([true]);
+    expect(s.stale).toBe(false);
+  });
+
+  it('keeps a typed premium through later contract edits', async () => {
+    const { s, analyze } = await priced();
+    s.editDraft(d => {
+      d.strategy.legs[0].entry_premium = 3;
+    });
+    expect(s.modelLegs).toEqual([false]);
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 105;
+    });
+    analyze.mockClear();
+    await s.run();
     expect(analyze).toHaveBeenCalledTimes(1);
+    expect(s.draft.strategy.legs[0].entry_premium).toBe(3);
+  });
+
+  it('reprices a model leg when its strike moves', async () => {
+    const { s, analyze } = await priced();
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 105;
+    });
+    analyze.mockClear();
+    await s.run();
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(s.draft.strategy.legs[0].entry_premium).toBe(3.5);
+  });
+
+  it('skips pricing when no priced input changed', async () => {
+    const { s, analyze } = await priced();
+    s.editDraft(d => {
+      d.strategy.name = 'Renamed';
+    });
+    analyze.mockClear();
+    await s.run();
+    expect(analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a pricing reply that lands after a newer edit', async () => {
+    const pending: (() => void)[] = [];
+    const analyze = vi.fn(
+      (_path: string, init: RequestInit) =>
+        new Promise<OptionsAnalysis>(resolve =>
+          pending.push(() => resolve(modelResponse(init))),
+        ),
+    );
+    const s = new OptionsState(storage(), analyze);
+    s.setAccount(null);
+    const run = s.run();
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 110;
+    });
+    pending[0]();
+    await run;
+    expect(s.draft.strategy.legs[0].strike).toBe(110);
+    expect(s.draft.strategy.legs[0].entry_premium).toBe(5);
+    expect(analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('undoes a reprice without another pricing call', async () => {
+    const { s, analyze } = await priced();
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 105;
+    });
+    await s.run();
+    expect(s.undo()).toBe(true);
+    expect(s.draft.strategy.legs[0].strike).toBe(100);
+    expect(s.draft.strategy.legs[0].entry_premium).toBe(2.41);
+    expect(s.modelLegs).toEqual([true]);
+    analyze.mockClear();
+    await s.run();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(s.canRedo).toBe(true);
+  });
+
+  it('adds legs priced at the model and can return a manual leg to the model', async () => {
+    const { s } = await priced();
+    s.addLeg();
+    expect(s.modelLegs).toEqual([true, true]);
+    s.editDraft(d => {
+      d.strategy.legs[0].entry_premium = 9;
+    });
+    expect(s.modelLegs).toEqual([false, true]);
+    s.useModelPremium(0);
+    expect(s.modelLegs).toEqual([true, true]);
+  });
+
+  it('never prices Python runs', async () => {
+    const { s, analyze } = await priced();
+    s.setMode('python');
+    analyze.mockClear();
+    analyze.mockResolvedValueOnce(response());
+    await s.run();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(analyze.mock.calls[0][0]).toBe('/options/python');
+  });
+
+  it('cancels a superseded request without a notice', async () => {
+    const s = new OptionsState(storage(), () => new Promise(() => {}));
+    s.setAccount(null);
+    void s.run();
+    s.editDraft(d => {
+      d.spot = 101;
+    });
+    expect(s.loading).toBe(false);
+    expect(s.notice).toBeNull();
   });
 });
