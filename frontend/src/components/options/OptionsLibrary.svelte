@@ -60,20 +60,20 @@
     </div>
   {:else}<p>No working recovery in this browser scope.</p>{/if}
   <div class="actions">
-    <label>Draft name <input maxlength="120" value={name} oninput={e => name = e.currentTarget.value} /></label>
+    <label>Draft name <input name="library-name" autocomplete="off" maxlength="120" value={name} oninput={e => name = e.currentTarget.value} /></label>
     <button type="button" class="ot-workbench-ghost" disabled={!name.trim()} onclick={() => options.save(name)}>Save new draft</button>
     {#if options.storageError}<button type="button" class="ot-workbench-ghost" onclick={() => options.flushRecovery()}>Retry working save</button>{/if}
   </div>
   <p>Up to 10 named drafts; updates/renames retain the last 3 prior revisions. Named saves require valid canonical editor fields and Python up to 20,000 characters.</p>
   <div class="actions">
     <label>Saved draft
-      <select value={selected} onchange={e => { selected = e.currentTarget.value; name = item?.name ?? ''; revision = ''; }}>
+      <select name="library-draft" value={selected} onchange={e => { selected = e.currentTarget.value; name = item?.name ?? ''; revision = ''; }}>
         <option value="">Select a draft</option>
         {#each options.saved as saved, i}<option value={saved.id ?? `legacy-${i}`}>{saved.name} · revision {saved.revision ?? 1}</option>{/each}
       </select>
     </label>
     <label>Revision
-      <select value={revision} disabled={!item} onchange={e => revision = e.currentTarget.value}>
+      <select name="library-revision" value={revision} disabled={!item} onchange={e => revision = e.currentTarget.value}>
         <option value="">Current</option>
         {#each item?.revisions ?? [] as prior}<option value={String(prior.revision)}>{prior.revision} · {prior.name} · {formatSavedAt(prior.updatedAt)}</option>{/each}
       </select>
@@ -89,8 +89,8 @@
   </div>
   <div class="actions" role="group" aria-label="Portable draft files">
     <button type="button" class="ot-workbench-ghost" disabled={!options.saved.length} onclick={() => download(() => options.exportBundle(), 'drafts.json', 'application/json')}>Export named JSON bundle</button>
-    <label>Import JSON bundle <input type="file" accept=".json,application/json" disabled={importing} onchange={importFile} /></label>
-    <label class="checkbox"><input type="checkbox" bind:checked={applyImport} />Also restore first imported draft (replaces working inputs & source)</label>
+    <label>Import JSON bundle <input type="file" name="library-import" accept=".json,application/json" disabled={importing} onchange={importFile} /></label>
+    <label class="checkbox"><input type="checkbox" name="library-apply-import" bind:checked={applyImport} />Also restore first imported draft (replaces working inputs & source)</label>
   </div>
   <p>Import appends validated records into this scope; invalid imports never replace existing records. Back up before deleting. Exports may contain private strategy source and manual quote metadata.</p>
   <div class="actions" role="group" aria-label="Submitted evidence exports">

@@ -28,15 +28,15 @@
   {#if readOnly}<p role="note">Read-only source mode. Switch explicitly to the visual draft editor to change expiry inputs.</p>{/if}
   <fieldset disabled={readOnly}>
     <legend>Date anchor · optional</legend>
-    <label>Valuation date · UTC<input type="date" value={draft.strategy.valuation_date ?? ''} aria-invalid={!!errors['strategy.valuation_date']} aria-describedby={`${uid}-valuation-error`} oninput={e => { const value = e.currentTarget.value; if (!readOnly) onEdit(d => { d.strategy.valuation_date = value || null; }); }} /></label>
+    <label>Valuation date · UTC<input type="date" name="strategy.valuation_date" value={draft.strategy.valuation_date ?? ''} aria-invalid={!!errors['strategy.valuation_date']} aria-describedby={`${uid}-valuation-error`} oninput={e => { const value = e.currentTarget.value; if (!readOnly) onEdit(d => { d.strategy.valuation_date = value || null; }); }} /></label>
     <small id={`${uid}-valuation-error`}>{errors['strategy.valuation_date'] ?? 'Existing common dates/days are not silently changed. Resolve paired-date errors in the common assumptions editor.'}</small>
     {#each draft.strategy.legs as leg, i}
       {#if leg.kind !== 'underlying'}
         <div class="leg">
           <h4>Leg {i + 1} · {leg.kind} · {leg.quantity} signed contracts{!leg.enabled ? ' · disabled (still validated)' : ''}</h4>
           <div class="fields">
-            <label>Override · calendar days (0–3650)<input type="number" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
-            <label>Override · expiry date (UTC)<input type="date" value={leg.expiry_date ?? ''} aria-invalid={!!errors[`legs.${i}.expiry_date`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'expiry_date', e.currentTarget.value || null)} /></label>
+            <label>Override · calendar days (0–3650)<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
+            <label>Override · expiry date (UTC)<input type="date" name={`legs.${i}.expiry_date`} value={leg.expiry_date ?? ''} aria-invalid={!!errors[`legs.${i}.expiry_date`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'expiry_date', e.currentTarget.value || null)} /></label>
           </div>
           <p id={`${uid}-leg-${i}`}>{errors[`legs.${i}.days_to_expiry`] ?? errors[`legs.${i}.expiry_date`] ?? `Resolved horizon: ${researchValue(resolvedLegDays(draft.strategy, leg))} calendar days.`}</p>
           <button class="ot-workbench-ghost" type="button" onclick={() => expiry(i, 'days_to_expiry', null)}>Use common expiry · leg {i + 1}</button>
@@ -50,11 +50,11 @@
     <fieldset disabled={readOnly}>
       <legend>Explicit construction inputs</legend>
       <div class="fields">
-        <label>Construction<select bind:value={construction.template}><option value="calendar">Calendar · equal strikes</option><option value="diagonal">Diagonal · different strikes</option></select></label>
-        <label>Option kind<select bind:value={construction.kind}><option value="call">Call</option><option value="put">Put</option></select></label>
+        <label>Construction<select name="construction-template" bind:value={construction.template}><option value="calendar">Calendar · equal strikes</option><option value="diagonal">Diagonal · different strikes</option></select></label>
+        <label>Option kind<select name="construction-kind" bind:value={construction.kind}><option value="call">Call</option><option value="put">Put</option></select></label>
         {#each ([['nearDays', 'Near expiry · calendar days', 0, 3650], ['farDays', 'Far expiry · calendar days', 0, 3650], ['nearStrike', 'Near strike · USD', 0, 1000000], ['farStrike', 'Far strike · USD', 0, 1000000], ['nearPremium', 'Near entry premium · USD/unit', 0, 1000000], ['farPremium', 'Far entry premium · USD/unit', 0, 1000000], ['contracts', 'Size · contracts per leg', 1, 10000], ['multiplier', 'Multiplier · units/contract', 1, 1000]] as const) as [key, label, min, max]}
           {#if key !== 'farStrike' || construction.template === 'diagonal'}
-            <label>{label}<input type="number" {min} {max} step={key === 'contracts' || key === 'multiplier' ? '1' : 'any'} value={construction[key]} aria-invalid={!!proposal.errors[key]} aria-describedby={`${uid}-${key}`} oninput={e => { construction[key] = e.currentTarget.value; }} /><small id={`${uid}-${key}`}>{proposal.errors[key] ?? (key.includes('Premium') ? 'Required; explicit zero is allowed.' : '')}</small></label>
+            <label>{label}<input type="number" name={`construction-${key}`} autocomplete="off" {min} {max} step={key === 'contracts' || key === 'multiplier' ? '1' : 'any'} value={construction[key]} aria-invalid={!!proposal.errors[key]} aria-describedby={`${uid}-${key}`} oninput={e => { construction[key] = e.currentTarget.value; }} /><small id={`${uid}-${key}`}>{proposal.errors[key] ?? (key.includes('Premium') ? 'Required; explicit zero is allowed.' : '')}</small></label>
           {/if}
         {/each}
       </div>

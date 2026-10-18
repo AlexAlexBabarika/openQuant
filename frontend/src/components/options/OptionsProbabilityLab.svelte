@@ -53,19 +53,19 @@
   <form onsubmit={compute} aria-label="Probability model assumptions">
     <div class="controls">
       <label for={`${id}-measure`}>Probability measure
-        <select id={`${id}-measure`} bind:value={settings.measure} aria-describedby={`${id}-measure-help`}>
+        <select name="probability-measure" id={`${id}-measure`} bind:value={settings.measure} aria-describedby={`${id}-measure-help`}>
           <option value="risk_neutral">Risk-neutral · rate minus yield</option>
           <option value="user_drift">User drift · hypothetical assumption</option>
         </select>
       </label>
       {#if settings.measure === 'user_drift'}
         <label for={`${id}-drift`}>Annual spot drift · fraction, −1 to 1
-          <input id={`${id}-drift`} type="number" min="-1" max="1" step="any" required bind:value={settings.annualDrift} aria-invalid={!!errors.annualDrift} aria-describedby={`${id}-drift-error`} />
+          <input id={`${id}-drift`} type="number" name="probability-drift" autocomplete="off" min="-1" max="1" step="any" required bind:value={settings.annualDrift} aria-invalid={!!errors.annualDrift} aria-describedby={`${id}-drift-error`} />
           <span id={`${id}-drift-error`} class:notice={!!errors.annualDrift}>{errors.annualDrift ?? '0 means no expected annual spot growth, not zero uncertainty.'}</span>
         </label>
       {/if}
       <label for={`${id}-confidence`}>Tail confidence · fraction, 0.5 &lt; c &lt; 1
-        <input id={`${id}-confidence`} type="number" min="0.5" max="1" step="any" required bind:value={settings.confidence} aria-invalid={!!errors.confidence} aria-describedby={`${id}-confidence-error`} />
+        <input id={`${id}-confidence`} type="number" name="probability-confidence" autocomplete="off" min="0.5" max="1" step="any" required bind:value={settings.confidence} aria-invalid={!!errors.confidence} aria-describedby={`${id}-confidence-error`} />
         <span id={`${id}-confidence-error`} class:notice={!!errors.confidence}>{errors.confidence ?? 'Tail loss at c; lower P&L tail has mass 1 − c.'}</span>
       </label>
     </div>
@@ -74,15 +74,15 @@
       <summary>Bounded numerical resolution</summary>
       <div class="controls">
         <label for={`${id}-bins`}>Histogram bins · integer, 10–100
-          <input id={`${id}-bins`} type="number" min="10" max="100" step="1" required bind:value={settings.bins} aria-invalid={!!errors.bins} aria-describedby={`${id}-bins-error`} />
+          <input id={`${id}-bins`} type="number" name="probability-bins" autocomplete="off" min="10" max="100" step="1" required bind:value={settings.bins} aria-invalid={!!errors.bins} aria-describedby={`${id}-bins-error`} />
           <span id={`${id}-bins-error`} class:notice={!!errors.bins}>{errors.bins ?? 'A deterministic atom returns one bin regardless of this count.'}</span>
         </label>
         <label for={`${id}-points`}>Integration points · integer, 256–16384
-          <input id={`${id}-points`} type="number" min="256" max="16384" step="1" required bind:value={settings.integrationPoints} aria-invalid={!!errors.integrationPoints} aria-describedby={`${id}-points-error`} />
+          <input id={`${id}-points`} type="number" name="probability-integration-points" autocomplete="off" min="256" max="16384" step="1" required bind:value={settings.integrationPoints} aria-invalid={!!errors.integrationPoints} aria-describedby={`${id}-points-error`} />
           <span id={`${id}-points-error`} class:notice={!!errors.integrationPoints}>{errors.integrationPoints ?? 'Bounded normal midpoint quadrature, not historical sampling.'}</span>
         </label>
         <label for={`${id}-tail`}>Truncated tail probability · fraction, 1e−9–0.01
-          <input id={`${id}-tail`} type="number" min="0.000000001" max="0.01" step="any" required bind:value={settings.tailProbability} aria-invalid={!!errors.tailProbability} aria-describedby={`${id}-tail-error`} />
+          <input id={`${id}-tail`} type="number" name="probability-tail" autocomplete="off" min="0.000000001" max="0.01" step="any" required bind:value={settings.tailProbability} aria-invalid={!!errors.tailProbability} aria-describedby={`${id}-tail-error`} />
           <span id={`${id}-tail-error`} class:notice={!!errors.tailProbability}>{errors.tailProbability ?? 'Omitted tails are disclosed and retained mass is renormalized.'}</span>
         </label>
       </div>
