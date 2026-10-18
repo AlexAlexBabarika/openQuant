@@ -101,7 +101,7 @@
 {#snippet numeric(label: string, key: string, value: number, min: number, max: number, step: string, update: (v: number) => void)}
   <label class="field">
     <span>{label}</span>
-    <input type="number" value={Number.isFinite(value) ? value : ''} {min} {max} {step}
+    <input type="number" name={key} autocomplete="off" value={Number.isFinite(value) ? value : ''} {min} {max} {step}
       aria-invalid={!!options.fieldErrors[key]} aria-describedby={options.fieldErrors[key] ? errorId(key + label) : undefined}
       oninput={e => update(e.currentTarget.valueAsNumber)} />
     {#if options.fieldErrors[key]}<small id={errorId(key + label)} class="field-error">{options.fieldErrors[key]}</small>{/if}

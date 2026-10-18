@@ -87,7 +87,7 @@
   {#if attempted && errors[field]}<small class="error" id={errorId(field)}>{errors[field]}</small>{/if}
 {/snippet}
 {#snippet numberField(label: string, field: string, value: number, min: number, max: number, update: (n: number) => void, step = 'any')}
-  <label><span>{label}</span><input type="number" value={Number.isFinite(value) ? value : ''} {min} {max} {step} oninput={e => update(e.currentTarget.valueAsNumber)} aria-invalid={attempted && !!errors[field]} aria-describedby={attempted && errors[field] ? errorId(field) : undefined} />{@render error(field)}</label>
+  <label><span>{label}</span><input type="number" name={`finder-${field}`} autocomplete="off" value={Number.isFinite(value) ? value : ''} {min} {max} {step} oninput={e => update(e.currentTarget.valueAsNumber)} aria-invalid={attempted && !!errors[field]} aria-describedby={attempted && errors[field] ? errorId(field) : undefined} />{@render error(field)}</label>
 {/snippet}
 
 <section class="finder" aria-label="Constrained options strategy finder">
@@ -108,13 +108,13 @@
           <legend>Contract {i + 1} · +1 enabled</legend>
           {#if leg.source}<p>{leg.source.contract_symbol} · {leg.source.underlying} · {leg.source.provider}/{leg.source.environment}. Model approximation remains European/cash. Fetched {leg.source.fetched_at}.</p>{:else}<p>Manual/synthetic contract · not provider verified</p>{/if}
           <div class="grid">
-            <label><span>Kind</span><select value={leg.kind} onchange={e => edit(i, { kind: e.currentTarget.value as 'call' | 'put' })}><option value="call">Call</option><option value="put">Put</option></select></label>
+            <label><span>Kind</span><select name={`universe.${i}.kind`} value={leg.kind} onchange={e => edit(i, { kind: e.currentTarget.value as 'call' | 'put' })}><option value="call">Call</option><option value="put">Put</option></select></label>
             {@render numberField('Strike · USD (>0–1m)', `universe.${i}.strike`, leg.strike ?? NaN, 0, 1e6, n => edit(i, { strike: n }))}
             {@render numberField('Entry premium · USD/unit (0–1m)', `universe.${i}.entry_premium`, leg.entry_premium, 0, 1e6, n => edit(i, { entry_premium: n }))}
             {@render numberField('Multiplier · units/contract (1–1000)', `universe.${i}.multiplier`, leg.multiplier, 1, 1000, n => edit(i, { multiplier: n }), '1')}
-            <label><span>Days override · blank inherits, 0–3650</span><input type="number" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} oninput={e => edit(i, { days_to_expiry: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.days_to_expiry`)}</label>
-            <label><span>Expiry date · optional UTC, uses draft valuation</span><input type="date" min="0001-01-01" max="9999-12-31" value={leg.expiry_date ?? ''} oninput={e => edit(i, { expiry_date: e.currentTarget.value || null })} />{@render error(`universe.${i}.expiry_date`)}</label>
-            <label><span>Annual IV fraction · blank inherits, 0–5</span><input type="number" min="0" max="5" step="any" value={leg.implied_volatility ?? ''} oninput={e => edit(i, { implied_volatility: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.implied_volatility`)}</label>
+            <label><span>Days override · blank inherits, 0–3650</span><input type="number" name={`universe.${i}.days_to_expiry`} autocomplete="off" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} oninput={e => edit(i, { days_to_expiry: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.days_to_expiry`)}</label>
+            <label><span>Expiry date · optional UTC, uses draft valuation</span><input type="date" name={`universe.${i}.expiry_date`} min="0001-01-01" max="9999-12-31" value={leg.expiry_date ?? ''} oninput={e => edit(i, { expiry_date: e.currentTarget.value || null })} />{@render error(`universe.${i}.expiry_date`)}</label>
+            <label><span>Annual IV fraction · blank inherits, 0–5</span><input type="number" name={`universe.${i}.implied_volatility`} autocomplete="off" min="0" max="5" step="any" value={leg.implied_volatility ?? ''} oninput={e => edit(i, { implied_volatility: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.implied_volatility`)}</label>
           </div>
           {@render error(`universe.${i}`)}{@render error(`universe.${i}.source`)}
           <button type="button" class="ot-workbench-ghost" onclick={() => { if (!readOnly) universe.splice(i, 1); }} aria-label={`Remove finder contract ${i + 1}`}>Remove contract {i + 1}</button>
@@ -124,8 +124,8 @@
     <fieldset disabled={readOnly}>
       <legend>Search assumptions and limits</legend>
       <div class="grid">
-        <label><span>Thesis · current canonical delta sign</span><select bind:value={thesis}><option value="bullish">Bullish · delta &gt; 0</option><option value="bearish">Bearish · delta &lt; 0</option><option value="neutral">Neutral · no directional filter</option></select>{@render error('thesis')}</label>
-        <label><span>Scenario spots · USD, 1–9 increasing values</span><input bind:value={scenarioText} maxlength="256" placeholder="80, 100, 120" aria-invalid={attempted && !!errors.scenario_spots} aria-describedby={attempted && errors.scenario_spots ? errorId('scenario_spots') : undefined} />{@render error('scenario_spots')}</label>
+        <label><span>Thesis · current canonical delta sign</span><select name="finder-thesis" bind:value={thesis}><option value="bullish">Bullish · delta &gt; 0</option><option value="bearish">Bearish · delta &lt; 0</option><option value="neutral">Neutral · no directional filter</option></select>{@render error('thesis')}</label>
+        <label><span>Scenario spots · USD, 1–9 increasing values</span><input name="finder-scenario-spots" autocomplete="off" bind:value={scenarioText} maxlength="256" placeholder="80, 100, 120" aria-invalid={attempted && !!errors.scenario_spots} aria-describedby={attempted && errors.scenario_spots ? errorId('scenario_spots') : undefined} />{@render error('scenario_spots')}</label>
         {@render numberField('Maximum entry debit · total USD', 'constraints.max_entry_debit', maxDebit, 0, 1e12, n => maxDebit = n)}
         {@render numberField('Maximum finite expiry loss · total USD', 'constraints.max_loss', maxLoss, 0, 1e12, n => maxLoss = n)}
         {@render numberField('Maximum absolute contracts · 1–100', 'constraints.max_total_contracts', maxContracts, 1, 100, n => maxContracts = n, '1')}

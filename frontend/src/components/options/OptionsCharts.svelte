@@ -485,10 +485,10 @@
         {#if !matchingLayout}<p class="notice">Draft leg layout changed. Analyze explicitly before editing chart strikes; submitted leg selection still inspects the original evidence.</p>{/if}
         <form class="domain-controls" onsubmit={numericStrike} aria-label="Edit selected draft strike">
           <label for={`${id}-strike`}>Draft L{selectedLeg == null ? '—' : selectedLeg + 1} strike (USD)
-            <input id={`${id}-strike`} type="text" inputmode="decimal" bind:value={strikeText} disabled={!canEditLeg || !!drag} aria-invalid={!!strikeError} aria-describedby={`${id}-strike-note`} />
+            <input id={`${id}-strike`} type="text" name="chart-strike" autocomplete="off" inputmode="decimal" bind:value={strikeText} disabled={!canEditLeg || !!drag} aria-invalid={!!strikeError} aria-describedby={`${id}-strike-note`} />
           </label>
           <label for={`${id}-snap`}>Drag/arrow step (USD)
-            <select id={`${id}-snap`} bind:value={step} disabled={!!drag}>{#each STRIKE_STEPS as s}<option value={s}>{s}</option>{/each}</select>
+            <select name="chart-snap-step" id={`${id}-snap`} bind:value={step} disabled={!!drag}>{#each STRIKE_STEPS as s}<option value={s}>{s}</option>{/each}</select>
           </label>
           <div class="actions">
             <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, -1)}>Strike −</button>
@@ -506,8 +506,8 @@
     </section>
 
     <form class="domain-controls" onsubmit={applyDomain} aria-label="Numeric price view">
-      <label for={`${id}-minimum`}>From (USD)<input id={`${id}-minimum`} type="text" inputmode="decimal" bind:value={minimum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
-      <label for={`${id}-maximum`}>To (USD)<input id={`${id}-maximum`} type="text" inputmode="decimal" bind:value={maximum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
+      <label for={`${id}-minimum`}>From (USD)<input id={`${id}-minimum`} type="text" name="chart-view-min" autocomplete="off" inputmode="decimal" bind:value={minimum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
+      <label for={`${id}-maximum`}>To (USD)<input id={`${id}-maximum`} type="text" name="chart-view-max" autocomplete="off" inputmode="decimal" bind:value={maximum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
       <div class="actions">
         <button type="submit">Apply view</button>
         <button type="button" onclick={() => setDomain(zoomDomain(domain, full, 0.5, activeSpot ?? undefined))} aria-label="Zoom in price domain">Zoom +</button>
@@ -518,7 +518,7 @@
     <p id={`${id}-domain-note`} class:notice={!!domainError} class="note" role={domainError ? 'alert' : undefined}>{domainError || `View ${formatPrice(domain.min)}–${formatPrice(domain.max)} USD. Zoom changes display only, not the analysis.`}</p>
 
     <div class="pane-title greek-heading"><div><h4>Greek exposure by price</h4><p class="note">Today only · signed, quantity × multiplier weighted</p></div>
-      <label for={`${id}-greek`}>Greek<select id={`${id}-greek`} bind:value={greek}>{#each GREEK_KEYS as key}<option value={key}>{key}</option>{/each}</select></label>
+      <label for={`${id}-greek`}>Greek<select name="chart-greek" id={`${id}-greek`} bind:value={greek}>{#each GREEK_KEYS as key}<option value={key}>{key}</option>{/each}</select></label>
     </div>
     <p class="unit">{greek} · {unit}</p>
     {#if greekError}<p class="notice" role="status">{greekError}</p>{/if}

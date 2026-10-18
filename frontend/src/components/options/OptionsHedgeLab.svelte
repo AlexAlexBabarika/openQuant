@@ -48,10 +48,10 @@
   <fieldset disabled={readOnly}>
     <legend>Rebalancing and execution-cost assumptions</legend>
     <div class="fields">
-      <label>Hedge policy<select bind:value={settings.mode}><option value="none">None · no hedge</option><option value="daily">Daily · observation-constrained</option><option value="interval">Calendar-day interval</option><option value="delta_threshold">Residual delta threshold</option></select></label>
+      <label>Hedge policy<select name="hedge-mode" bind:value={settings.mode}><option value="none">None · no hedge</option><option value="daily">Daily · observation-constrained</option><option value="interval">Calendar-day interval</option><option value="delta_threshold">Residual delta threshold</option></select></label>
       {#each ([['interval', 'Interval · calendar days (>0–3650)', 0, 3650], ['threshold', 'Residual delta threshold · equivalent shares (>0–1m)', 0, 1000000], ['maxShares', 'Maximum absolute hedge · shares (>0–10m)', 0, 10000000], ['perShare', 'Cost · USD per share (0–1000)', 0, 1000], ['fixed', 'Fixed cost · USD per nonzero trade (0–10k)', 0, 10000], ['slippage', 'Slippage · basis points (0–1000)', 0, 1000]] as const) as [field, label, min, max]}
         {#if (field !== 'interval' || settings.mode === 'interval') && (field !== 'threshold' || settings.mode === 'delta_threshold')}
-          <label>{label}<input type="number" {min} {max} step="any" value={settings[field]} aria-invalid={!!prepared.errors[field]} aria-describedby={`${uid}-${field}-error`} oninput={e => { settings[field] = e.currentTarget.value; }} />{#if prepared.errors[field]}<small id={`${uid}-${field}-error`} class="error">{prepared.errors[field]}</small>{/if}</label>
+          <label>{label}<input type="number" name={`hedge-${field}`} autocomplete="off" {min} {max} step="any" value={settings[field]} aria-invalid={!!prepared.errors[field]} aria-describedby={`${uid}-${field}-error`} oninput={e => { settings[field] = e.currentTarget.value; }} />{#if prepared.errors[field]}<small id={`${uid}-${field}-error`} class="error">{prepared.errors[field]}</small>{/if}</label>
         {/if}
       {/each}
     </div>
@@ -92,7 +92,7 @@
       <button type="button" class="ot-workbench-ghost" disabled={index <= 0} onclick={() => move('ArrowLeft')}>Previous</button>
       <button type="button" class="ot-workbench-ghost" disabled={index >= result.ledger.length - 1} onclick={() => move('ArrowRight')}>Next</button>
     </div>
-    <label>Chart observation · arrows / Home / End<input type="range" min="0" max={result.ledger.length - 1} step="1" value={index} aria-valuetext={active ? `Day ${active.day}, spot ${active.spot} USD, unhedged P and L ${active.unhedged_pnl} USD, hedged P and L ${active.hedged_pnl} USD` : 'No observation'} oninput={e => { playing = false; index = e.currentTarget.valueAsNumber; }} /></label>
+    <label>Chart observation · arrows / Home / End<input type="range" name="hedge-day" min="0" max={result.ledger.length - 1} step="1" value={index} aria-valuetext={active ? `Day ${active.day}, spot ${active.spot} USD, unhedged P and L ${active.unhedged_pnl} USD, hedged P and L ${active.hedged_pnl} USD` : 'No observation'} oninput={e => { playing = false; index = e.currentTarget.valueAsNumber; }} /></label>
     {#if active}<p class="readout" aria-live="polite">Observation {index + 1}/{result.ledger.length} · day {value(active.day)} · spot {value(active.spot)} USD · unhedged {value(active.unhedged_pnl)} USD · hedged {value(active.hedged_pnl)} USD · delta {value(active.strategy_delta)} equivalent shares · hedge {value(active.hedge_shares)} shares · cash {value(active.hedge_cash)} USD · marked hedge value {value(active.hedge_value)} USD · action {active.action}.</p>{/if}
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to bounded two-dimensional data scrolling.) -->
       <div class="table-scroll" tabindex="0" role="region" aria-label="Hedge P and L attribution">

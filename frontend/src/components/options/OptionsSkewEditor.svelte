@@ -113,7 +113,7 @@
         {#each group.points as point}
           <div class="point-row">
             <label for={`${id}-point-${point.legIndex}`}>Leg {point.legIndex + 1} · {point.right} · K {exactValue(point.strike)} USD · {point.expiry}<span class="note">{point.inherited ? 'Inherited base' : 'Explicit override'}: {exactValue(point.iv * 100)}% IV</span>
-              <input id={`${id}-point-${point.legIndex}`} type="number" min="0" max="500" step="any" value={edits[point.legIndex] ?? String(point.iv * 100)} oninput={e => edits[point.legIndex] = e.currentTarget.value} aria-invalid={!!pointErrors[point.legIndex]} aria-describedby={`${id}-point-error-${point.legIndex}`} />
+              <input id={`${id}-point-${point.legIndex}`} type="number" name={`skew-iv-${point.legIndex}`} autocomplete="off" min="0" max="500" step="any" value={edits[point.legIndex] ?? String(point.iv * 100)} oninput={e => edits[point.legIndex] = e.currentTarget.value} aria-invalid={!!pointErrors[point.legIndex]} aria-describedby={`${id}-point-error-${point.legIndex}`} />
             </label>
             <div class="actions"><button type="button" class="ot-workbench-ghost" onclick={() => applyPoint(point.legIndex)}>Apply IV %</button><button type="button" class="ot-workbench-ghost" onclick={() => reset(point.legIndex)}>Use base IV</button></div>
             <p id={`${id}-point-error-${point.legIndex}`} class="note">{pointErrors[point.legIndex] || '0–500% IV; blank + Apply resets to base.'}</p>
@@ -126,9 +126,9 @@
     <fieldset disabled={readOnly || !points.length}><legend>Atomic IV transform · percentage points</legend>
       <p class="note">Declared base {exactValue(draft.volatility * 100)}% IV. Parallel shifts base and active IVs; twist adds pp × x, curvature pp × x². x = (strike − spot) / largest enabled strike distance from spot; x = 0 when all strikes equal spot. Inherited IVs stay inherited unless a wing changes them.</p>
       <div class="fields">
-        <label for={`${id}-parallel`}>Parallel shift · pp<input id={`${id}-parallel`} type="number" min="-500" max="500" step="any" value={parallel} oninput={e => parallel = e.currentTarget.value} /></label>
-        <label for={`${id}-twist`}>Skew twist · wing pp<input id={`${id}-twist`} type="number" min="-500" max="500" step="any" value={twist} oninput={e => twist = e.currentTarget.value} /></label>
-        <label for={`${id}-curvature`}>Smile curvature · wing pp<input id={`${id}-curvature`} type="number" min="-500" max="500" step="any" value={curvature} oninput={e => curvature = e.currentTarget.value} /></label>
+        <label for={`${id}-parallel`}>Parallel shift · pp<input id={`${id}-parallel`} type="number" name="skew-parallel" autocomplete="off" min="-500" max="500" step="any" value={parallel} oninput={e => parallel = e.currentTarget.value} /></label>
+        <label for={`${id}-twist`}>Skew twist · wing pp<input id={`${id}-twist`} type="number" name="skew-twist" autocomplete="off" min="-500" max="500" step="any" value={twist} oninput={e => twist = e.currentTarget.value} /></label>
+        <label for={`${id}-curvature`}>Smile curvature · wing pp<input id={`${id}-curvature`} type="number" name="skew-curvature" autocomplete="off" min="-500" max="500" step="any" value={curvature} oninput={e => curvature = e.currentTarget.value} /></label>
       </div>
       <p class="note">Each transform: −500 to +500 pp. Resulting base and all active IVs must remain 0–500%; nothing is clipped.</p>
       {#if editError}<p role="alert">{editError}</p>{/if}
