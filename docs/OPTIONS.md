@@ -107,8 +107,8 @@ API. The native workbench and bounded HTTP worker use that same contract.
 
 ## Workbench and HTTP API
 
-Open **Strategy → Options** or choose **Open Options workbench** in the command
-palette. Templates are editable configurations, not special payoff formulas.
+Open **Strategy → Options**, choose **Open Options workbench** in the command
+palette, or use **Options on <symbol>** under the chart's current symbol. Templates are editable configurations, not special payoff formulas.
 The visual draft re-analyzes 300 ms after edits settle, once its inputs are valid;
 template chips apply at once and Undo restores the previous legs. Python source
 never runs by itself: use Run or Ctrl/⌘+Enter, or explicitly export the editor

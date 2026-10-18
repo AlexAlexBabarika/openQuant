@@ -7,6 +7,7 @@
   import { exactValue } from '$lib/features/options/optionsChart';
   import { formatGreek, formatNumber, formatPrice } from '$lib/features/options/optionsFormat';
   import { modelUnitPrices } from '$lib/features/options/optionsPricing';
+  import { shortcutLabel } from '$lib/features/options/optionsInputs';
   import OptionsCharts from './OptionsCharts.svelte';
   import OptionsSummary from './OptionsSummary.svelte';
   import OptionsLegEditor from './OptionsLegEditor.svelte';
@@ -23,6 +24,7 @@
     workspaceSpot?: number | null;
   } = $props();
   const options = new OptionsState(undefined, undefined, 300);
+  const shortcut = shortcutLabel(typeof navigator === 'undefined' ? '' : navigator.platform);
   const statusLabel = {
     editor: { idle: 'Updating…', pending: 'Updating…', updating: 'Updating…', current: 'Up to date', invalid: 'Fix highlighted inputs', error: 'Analysis failed' },
     python: { idle: 'Not run yet', pending: 'Source changed', updating: 'Running…', current: 'Up to date', invalid: 'Source changed', error: 'Run failed' },
@@ -119,7 +121,7 @@
     <div class="identity"><strong>Options research</strong></div>
     <div class="run-actions">
       <span class="status" data-status={options.status} role="status"><i aria-hidden="true"></i><span>{statusLabel[options.mode][options.status]}</span></span>
-      {#if options.mode === 'python'}<span class="shortcut">Ctrl+Enter</span>{/if}
+      {#if options.mode === 'python'}<span class="shortcut">{shortcut}</span>{/if}
       {#if options.loading}<button type="button" class="ot-workbench-ghost" onclick={() => options.cancel()}>Cancel</button>{/if}
     </div>
   </header>

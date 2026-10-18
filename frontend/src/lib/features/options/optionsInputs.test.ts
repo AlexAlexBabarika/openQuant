@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  formatSavedAt,
+  shortcutLabel,
   fractionInput,
   localIsoDate,
   matchTemplate,
@@ -75,5 +77,27 @@ describe('quotedSpot', () => {
   it('rounds a chart close to cents, keeping small prices significant', () => {
     expect(quotedSpot(343.4599914550781)).toBe(343.46);
     expect(quotedSpot(0.000123456)).toBe(0.0001235);
+  });
+});
+
+describe('shortcutLabel', () => {
+  it('shows the Command key on Apple platforms', () => {
+    expect(shortcutLabel('MacIntel')).toBe('⌘↵');
+    expect(shortcutLabel('iPhone')).toBe('⌘↵');
+    expect(shortcutLabel('Win32')).toBe('Ctrl+Enter');
+    expect(shortcutLabel('')).toBe('Ctrl+Enter');
+  });
+});
+
+describe('formatSavedAt', () => {
+  it('reads as a date and a relative time, never a raw ISO string', () => {
+    const text = formatSavedAt(
+      '2026-10-18T09:00:00.000Z',
+      new Date('2026-10-18T09:05:00.000Z'),
+    );
+    expect(text).toContain('5 minutes ago');
+    expect(text).toContain('2026');
+    expect(text).not.toContain('T09:00');
+    expect(formatSavedAt('not a date')).toBe('an unknown time');
   });
 });
