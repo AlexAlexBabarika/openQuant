@@ -135,9 +135,12 @@ ordinary `/options/analyze` request, and are repriced the same way, before
 analysis, whenever their contract or the assumptions change. A typed premium, an
 applied midpoint or an imported contract is manual and never changes by itself;
 **Use model price** returns a leg to the model. These tags live only in the
-browser and are never sent. Desktop leg
-rows reflow to mobile cards; Buy/Sell, duplicate/reorder and bounded undo/redo
-operate on signed canonical inputs. Submitted risk totals remain separate from
+browser and are never sent. Legs are a
+compact table with one header row: a Buy/Sell toggle coloured by side, size,
+type, strike and premium, and a row menu for reordering, duplicating, disabling
+and removing. Multiplier, IV override and manual quotes open per row. Narrow
+panels show each leg as a two-line card. Buy/Sell, duplicate/reorder and bounded
+undo/redo operate on signed canonical inputs. Submitted risk totals remain separate from
 current edits. Common-expiry paths use exact backend vertices, not sparse sampled lines.
 Mixed-expiry first-expiry curves are backend model-marked samples for remaining
 legs, not terminal risk limits: maxima, breakevens, zero intervals and exact
