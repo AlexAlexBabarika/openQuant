@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fitPriceDomain, fittedSpotGrid, needsRefit } from './optionsGrid';
-import { expiryBreakevens } from './optionsPayoff';
+import { expiryBreakevens, expiryPayoffPoints } from './optionsPayoff';
 import {
   applyOptionsTemplate,
   createOptionsDraft,
@@ -119,5 +119,42 @@ describe('needsRefit', () => {
     const after = structuredClone(before);
     after.strategy.legs[0].strike = 146;
     expect(needsRefit(before, after)).toBe(true);
+  });
+});
+
+describe('expiryPayoffPoints', () => {
+  it('draws the long call hockey stick through its strike', () => {
+    expect(
+      expiryPayoffPoints(createOptionsDraft(), { min: 80, max: 120 }),
+    ).toEqual([
+      { spot: 80, value: -500 },
+      { spot: 100, value: -500 },
+      { spot: 120, value: 1500 },
+    ]);
+  });
+
+  it('includes shares linearly and skips strikes outside the view', () => {
+    const draft = draftWith(d => applyOptionsTemplate(d, 'covered_call'));
+    expect(expiryPayoffPoints(draft, { min: 90, max: 105 })).toEqual([
+      { spot: 90, value: -800 },
+      { spot: 105, value: 700 },
+    ]);
+  });
+
+  it('ignores disabled legs and refuses mixed expiries', () => {
+    const disabled = draftWith(d => {
+      applyOptionsTemplate(d, 'straddle');
+      d.strategy.legs[1].enabled = false;
+    });
+    expect(expiryPayoffPoints(disabled, { min: 80, max: 120 })).toEqual([
+      { spot: 80, value: -500 },
+      { spot: 100, value: -500 },
+      { spot: 120, value: 1500 },
+    ]);
+    const mixed = draftWith(d => {
+      applyOptionsTemplate(d, 'straddle');
+      d.strategy.legs[1].days_to_expiry = 60;
+    });
+    expect(expiryPayoffPoints(mixed, { min: 80, max: 120 })).toBeNull();
   });
 });

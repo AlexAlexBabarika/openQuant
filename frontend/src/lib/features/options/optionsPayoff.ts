@@ -82,3 +82,18 @@ export function expiryBreakevens(draft: OptionsDraft): number[] {
   if (slope !== 0 && last * slope < 0) roots.push(top - last / slope);
   return roots;
 }
+
+/** Exact expiration vertices across a price view: its edges plus every enabled strike inside it. */
+export function expiryPayoffPoints(
+  draft: OptionsDraft,
+  domain: { min: number; max: number },
+): { spot: number; value: number }[] | null {
+  const f = expiryPayoff(draft);
+  if (!f) return null;
+  const spots = [
+    domain.min,
+    ...enabledStrikes(draft).filter(k => k > domain.min && k < domain.max),
+    domain.max,
+  ];
+  return spots.map(spot => ({ spot, value: f(spot) }));
+}
