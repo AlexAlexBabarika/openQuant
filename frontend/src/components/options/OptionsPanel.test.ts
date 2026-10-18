@@ -98,6 +98,54 @@ function result(mixed = false): OptionsAnalysis {
   };
 }
 
+/** Text a person sees: closed <details> show only their summary; hidden and sr-only text is skipped. */
+function visibleText(html: string): string {
+  const out: string[] = [];
+  const stack: number[] = [];
+  let hidden = 0;
+  const source = html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style|title|desc)\b[\s\S]*?<\/\1>/g, '');
+  for (const [, tag, text] of source.matchAll(/(<[^>]+>)|([^<]+)/g)) {
+    if (text) {
+      if (hidden <= 0) out.push(text);
+      continue;
+    }
+    const name = /^<\/?([a-z0-9-]+)/i.exec(tag)?.[1]?.toLowerCase();
+    if (
+      !name ||
+      tag.endsWith('/>') ||
+      ['input', 'img', 'br', 'hr', 'path', 'line', 'rect', 'circle'].includes(
+        name,
+      )
+    )
+      continue;
+    if (tag.startsWith('</')) {
+      hidden -= stack.pop() ?? 0;
+      continue;
+    }
+    const parentHidesDetails =
+      stack[stack.length - 1] === 1 && name === 'summary';
+    const delta = parentHidesDetails
+      ? -1
+      : / hidden(=|\s|>)/.test(tag) ||
+          /class="[^"]*\bsr-only\b/.test(tag) ||
+          (name === 'details' && !/ open(=|\s|>)/.test(tag))
+        ? 1
+        : 0;
+    stack.push(delta);
+    hidden += delta;
+  }
+  return out
+    .join(' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&[a-z#0-9]+;/gi, ' ');
+}
+const words = (html: string) =>
+  visibleText(html)
+    .split(/\s+/)
+    .filter(w => /[A-Za-z0-9]/.test(w)).length;
+
 describe('integrated options workbench', () => {
   it('renders compact research navigation without submitting or editing', () => {
     const onEdit = vi.fn();
@@ -133,9 +181,9 @@ describe('integrated options workbench', () => {
     const html = render(OptionsPanel).body;
     expect(html).toContain('calendar / diagonal');
     expect(html).toContain('Research tools');
-    expect(html).toContain('US exercise and physical delivery are not modeled');
+    expect(html).toContain('physical delivery are not modeled');
     expect(html).not.toContain('One common expiry, ACT/365');
-    expect(html).toContain('Common expiry is the default');
+    expect(html).toContain('set per-leg expiries below');
     expect(html).not.toContain('One common expiry; no per-leg dates.');
   });
 
@@ -228,6 +276,17 @@ describe('integrated options workbench', () => {
     expect(html.indexOf('evidence-column')).toBeLessThan(charts);
     expect(html).toMatch(/Analysis of Long call · (up to date|updating)/);
     expect(html.match(/aria-label="Options scenario lab"/g)).toHaveLength(1);
+  });
+
+  it('states the model once, with what it leaves out, in under 300 words before analysis', () => {
+    const html = render(OptionsPanel).body;
+    const text = visibleText(html);
+
+    expect(
+      text.match(/Black-Scholes values for European, cash-settled options/g),
+    ).toHaveLength(1);
+    expect(html.match(/What the model leaves out/g)).toHaveLength(1);
+    expect(words(html)).toBeLessThan(300);
   });
 
   it('shows the risk totals in the evidence column, above the chart', () => {

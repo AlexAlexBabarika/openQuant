@@ -114,7 +114,7 @@
       </button>
     {/each}
   </div>
-  <p class="hint">A template replaces the legs; Undo brings them back. Assumptions stay as they are.</p>
+  <p class="hint">Undo brings back the previous legs.</p>
   <label class="field name"><span>Strategy name</span><input name="strategy.name" autocomplete="off" value={draft.strategy.name} maxlength="120"
     aria-invalid={!!errors['strategy.name']} aria-describedby={errors['strategy.name'] ? errorId('strategy.name') : undefined}
     oninput={e => onEdit(d => { d.strategy.name = e.currentTarget.value; })} />{@render error('strategy.name')}</label>
@@ -190,7 +190,7 @@
       </tbody>
     {/each}
   </table>
-  <p class="hint">Disabled legs stay validated but contribute zero. Blank IV uses the base IV. Common expiry is the default; use the per-leg expiry controls for calendars and diagonals.</p>
+  <p class="hint">Legs share one expiry; set per-leg expiries below for calendars and diagonals.</p>
 </section>
 
 <style>

@@ -455,7 +455,8 @@ describe('native controlled chart rendering', () => {
     expect(body).toContain('Strike −');
     expect(body).toContain('Strike +');
     expect(body).toContain('Edited strike 103.125 USD');
-    expect(body).toContain('A different strike is a different contract');
+    // Only a leg imported from a chain loses provider provenance; manual legs get no notice.
+    expect(body).not.toContain('A different strike is a different contract');
     expect(body).toMatch(/class="curve expiry live/);
     expect(onEdit).not.toHaveBeenCalled();
     for (const props of [
