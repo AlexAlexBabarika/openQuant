@@ -8,12 +8,20 @@
   } from '$lib/features/options/optionsLegEditor';
   import { OPTIONS_TEMPLATES, applyOptionsTemplate, templateGlyph, type OptionsTemplate } from '$lib/features/options/optionsTemplates';
   import { fractionInput, matchTemplate, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
+  import { formatUsd } from '$lib/features/options/optionsFormat';
 
   const glyphs = new Map(OPTIONS_TEMPLATES.map(([template]) => [template, templateGlyph(template)]));
 
-  let { draft, onEdit, fieldErrors = {}, canUndo = false, canRedo = false, onUndo, onRedo, onTemplate }: OptionsEditorProps & {
+  let { draft, onEdit, fieldErrors = {}, canUndo = false, canRedo = false, onUndo, onRedo, onTemplate, legs, modelLegs, modelPrices = [], onUseModel }: OptionsEditorProps & {
     /** Replace the legs with a template; defaults to a plain draft edit. */
     onTemplate?: (template: OptionsTemplate) => void;
+    /** Leg operations that keep each leg's model tag with it; default to plain draft edits. */
+    legs?: { add: (copyIndex?: number) => void; remove: (index: number) => void; move: (index: number, direction: -1 | 1) => void };
+    /** Per leg: true while the premium follows the model price. */
+    modelLegs?: boolean[];
+    /** Current model price per unit for each leg, when the analysis is up to date. */
+    modelPrices?: (number | null)[];
+    onUseModel?: (index: number) => void;
   } = $props();
   const uid = $props.id();
   let root: HTMLElement;
@@ -28,15 +36,15 @@
   }
   function add(copyIndex?: number) {
     const index = copyIndex === undefined ? draft.strategy.legs.length : copyIndex + 1;
-    onEdit(d => { addOptionLeg(d, copyIndex); });
+    if (legs) legs.add(copyIndex); else onEdit(d => { addOptionLeg(d, copyIndex); });
     void focusLeg(index);
   }
   function remove(index: number) {
-    onEdit(d => { removeOptionLeg(d, index); });
+    if (legs) legs.remove(index); else onEdit(d => { removeOptionLeg(d, index); });
     void focusLeg(Math.min(index, draft.strategy.legs.length - 1));
   }
   function move(index: number, direction: -1 | 1) {
-    onEdit(d => { moveOptionLeg(d, index, direction); });
+    if (legs) legs.move(index, direction); else onEdit(d => { moveOptionLeg(d, index, direction); });
     void focusLeg(index + direction);
   }
 </script>
@@ -103,7 +111,13 @@
         {#if leg.kind !== 'underlying'}
           {@render numeric('Strike · USD (>0–1m)', `legs.${i}.strike`, leg.strike, 0, 1000000, 'any', v => editLeg(i, l => editLegContract(l, { strike: v ?? NaN })))}
         {:else}<div class="field"><span>Strike</span><span class="not-applicable">Not applicable</span>{@render error(`legs.${i}.strike`)}</div>{/if}
-        {@render numeric(leg.kind === 'underlying' ? 'Entry · USD/share' : 'Premium · USD/unit', `legs.${i}.entry_premium`, leg.entry_premium, 0, 1000000, 'any', v => editLeg(i, l => { l.entry_premium = v ?? NaN; }))}
+        <div class="premium">
+          {@render numeric(leg.kind === 'underlying' ? 'Entry · USD/share' : 'Premium · USD/unit', `legs.${i}.entry_premium`, leg.entry_premium, 0, 1000000, 'any', v => editLeg(i, l => { l.entry_premium = v ?? NaN; }))}
+          {#if modelLegs}
+            {#if modelLegs[i]}<small class="premium-source">Model price</small>
+            {:else}<small class="premium-source manual">Manual{#if onUseModel} · <button type="button" class="link" onclick={() => onUseModel(i)}>Use model price</button>{#if modelPrices[i] != null} ({formatUsd(modelPrices[i])}){/if}{/if}</small>{/if}
+          {/if}
+        </div>
         {#if leg.kind !== 'underlying'}
           {@render numeric('Multiplier · units', `legs.${i}.multiplier`, leg.multiplier, 1, 1000, '1', v => editLeg(i, l => editLegContract(l, { multiplier: v ?? NaN })))}
           {@render numeric('IV % · blank = base', `legs.${i}.implied_volatility`, leg.implied_volatility == null ? null : percentInput(leg.implied_volatility), 0, 500, 'any', v => editLeg(i, l => { l.implied_volatility = v == null ? null : fractionInput(v); }), true)}
@@ -135,6 +149,10 @@
 <style>
   .leg-editor { container-type: inline-size; min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font-family: var(--font-family-lato); font-size: 12px; }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+  .premium { display: grid; gap: 4px; min-width: 0; }
+  .premium-source { color: oklch(var(--muted-foreground)); font-size: 11px; line-height: 1.4; }
+  .premium-source.manual { color: oklch(var(--risk)); }
+  .link { min-height: 0; padding: 0; border: 0; background: none; color: oklch(var(--ring)); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
   .chip { display: grid; gap: 4px; justify-items: start; min-height: 48px; padding: 6px 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
   .chip svg { width: 100%; height: 18px; overflow: visible; }

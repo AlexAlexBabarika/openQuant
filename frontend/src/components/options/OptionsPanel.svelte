@@ -6,6 +6,7 @@
   import { spotGrid } from '$lib/features/options/optionsTemplates';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { formatGreek, formatPrice } from '$lib/features/options/optionsFormat';
+  import { modelUnitPrices } from '$lib/features/options/optionsPricing';
   import OptionsCharts from './OptionsCharts.svelte';
   import OptionsSummary from './OptionsSummary.svelte';
   import OptionsLegEditor from './OptionsLegEditor.svelte';
@@ -126,7 +127,9 @@
           <OptionsLegEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
             canUndo={options.canUndo} canRedo={options.canRedo}
             onUndo={() => { options.undo(); syncGrid(); }} onRedo={() => { options.redo(); syncGrid(); }}
-            onTemplate={template => options.applyTemplate(template)} />
+            onTemplate={template => options.applyTemplate(template)}
+            legs={{ add: copyIndex => options.addLeg(copyIndex), remove: index => options.removeLeg(index), move: (index, direction) => options.moveLeg(index, direction) }}
+            modelLegs={options.modelLegs} modelPrices={result && !options.stale ? modelUnitPrices(result) : []} onUseModel={index => options.useModelPremium(index)} />
           <details class="configuration"><summary>Per-leg expiries · calendar / diagonal construction</summary>
             {#key toolKey}<OptionsExpiryEditor draft={options.draft} onEdit={update => options.editDraft(update)} documentKey={toolKey} />{/key}
           </details>

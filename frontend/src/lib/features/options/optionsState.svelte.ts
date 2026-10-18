@@ -6,6 +6,17 @@ import {
   type OptionsTemplate,
 } from './optionsTemplates';
 import { matchTemplate, quotedSpot } from './optionsInputs';
+import {
+  carryModelTags,
+  modelPricingRequest,
+  modelUnitPrices,
+  pricingKey,
+} from './optionsPricing';
+import {
+  addOptionLeg,
+  moveOptionLeg,
+  removeOptionLeg,
+} from './optionsLegEditor';
 import { fittedSpotGrid, needsRefit, sameGrid } from './optionsGrid';
 import { exportOptionsPython, OPTIONS_SOURCE_LIMIT } from './optionsPython';
 import { optionsErrors } from './optionsValidation';
@@ -43,6 +54,12 @@ export type OptionsStatus =
   | 'error';
 const REQUEST_TIMEOUT = 15000;
 const HISTORY_LIMIT = 50;
+const PRICE_CACHE_LIMIT = 32;
+/** A history entry: the draft and which of its premiums follow the model. */
+interface Snapshot {
+  draft: OptionsDraft;
+  modelLegs: boolean[];
+}
 type AnalysisResponse = OptionsAnalysis & { stdout?: string };
 type Analyze = (path: string, init: RequestInit) => Promise<AnalysisResponse>;
 
@@ -71,8 +88,11 @@ export class OptionsState {
     symbol: null,
     spot: null,
   });
-  #past = $state.raw<OptionsDraft[]>([]);
-  #future = $state.raw<OptionsDraft[]>([]);
+  /** Frontend-only, one per leg: true while that premium follows the model price. */
+  modelLegs = $state.raw<boolean[]>(this.draft.strategy.legs.map(() => true));
+  #past = $state.raw<Snapshot[]>([]);
+  #future = $state.raw<Snapshot[]>([]);
+  #priceCache = new Map<string, (number | null)[]>();
   #submittedKey = $state('');
   #scope = '';
   #generation = 0;
@@ -126,7 +146,7 @@ export class OptionsState {
   #inputKey(): string {
     return this.mode === 'python'
       ? `python:${this.source}`
-      : `editor:${JSON.stringify(this.draft)}`;
+      : `editor:${JSON.stringify(this.draft)}:${JSON.stringify(this.modelLegs)}`;
   }
   #working(): OptionsWorkingDraft {
     return {
@@ -153,6 +173,8 @@ export class OptionsState {
       ? 'Account · this browser only'
       : 'Guest · this browser only';
     this.draft = createOptionsDraft(new Date());
+    this.modelLegs = this.draft.strategy.legs.map(() => true);
+    this.#priceCache.clear();
     this.gridAuto = true;
     this.spotLinked = true;
     this.#followWorkspace();
@@ -198,21 +220,81 @@ export class OptionsState {
     }
     this.#scheduleAnalysis();
   }
-  editDraft(update: (draft: OptionsDraft) => void): void {
+  /** One undoable edit. `tags` maps model tags explicitly; otherwise they follow the legs. */
+  editDraft(
+    update: (draft: OptionsDraft) => void,
+    tags?: (previous: boolean[], draft: OptionsDraft) => boolean[],
+  ): void {
     const before = structuredClone($state.snapshot(this.draft));
     const next = structuredClone(before);
     update(next);
     if (this.gridAuto && needsRefit(before, next))
       next.spot_grid = fittedSpotGrid(next);
+    const previous = this.modelLegs;
     this.changed();
-    this.#past = [...this.#past, before].slice(-HISTORY_LIMIT);
+    this.#past = [...this.#past, { draft: before, modelLegs: previous }].slice(
+      -HISTORY_LIMIT,
+    );
     this.#future = [];
     this.draft = next;
+    this.modelLegs = tags
+      ? tags(previous, next)
+      : carryModelTags(before, next, previous);
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
   }
   applyTemplate(id: OptionsTemplate): void {
-    this.editDraft(d => applyOptionsTemplate(d, id));
+    this.editDraft(
+      d => applyOptionsTemplate(d, id),
+      (_, d) => d.strategy.legs.map(() => true),
+    );
+  }
+  /** A new leg starts at the model price; a duplicate copies its source's tag. */
+  addLeg(copyIndex?: number): void {
+    this.editDraft(
+      d => {
+        addOptionLeg(d, copyIndex);
+      },
+      (tags, d) => {
+        if (d.strategy.legs.length === tags.length) return tags;
+        const at = copyIndex === undefined ? tags.length : copyIndex + 1;
+        const tag = copyIndex === undefined ? true : (tags[copyIndex] ?? false);
+        return [...tags.slice(0, at), tag, ...tags.slice(at)];
+      },
+    );
+  }
+  removeLeg(index: number): void {
+    this.editDraft(
+      d => {
+        removeOptionLeg(d, index);
+      },
+      (tags, d) =>
+        d.strategy.legs.length === tags.length
+          ? tags
+          : tags.filter((_, i) => i !== index),
+    );
+  }
+  moveLeg(index: number, direction: -1 | 1): void {
+    this.editDraft(
+      d => {
+        moveOptionLeg(d, index, direction);
+      },
+      tags => {
+        const target = index + direction;
+        if (tags[index] === undefined || tags[target] === undefined)
+          return tags;
+        const next = [...tags];
+        [next[index], next[target]] = [next[target], next[index]];
+        return next;
+      },
+    );
+  }
+  /** Return a manual premium to the model price; the next analysis reprices it. */
+  useModelPremium(index: number): void {
+    this.editDraft(
+      () => {},
+      tags => tags.map((tag, i) => (i === index ? true : tag)),
+    );
   }
   syncWorkspace(symbol: string | null, spot: number | null): void {
     this.workspace = {
@@ -253,6 +335,7 @@ export class OptionsState {
     if (template) {
       applyOptionsTemplate(next, template);
       next.strategy.name = before.strategy.name;
+      this.modelLegs = next.strategy.legs.map(() => true);
     }
     if (this.gridAuto && needsRefit(before, next))
       next.spot_grid = fittedSpotGrid(next);
@@ -276,12 +359,10 @@ export class OptionsState {
     const previous = this.#past[this.#past.length - 1];
     if (!previous) return false;
     this.changed();
-    this.#future = [
-      ...this.#future,
-      structuredClone($state.snapshot(this.draft)),
-    ].slice(-HISTORY_LIMIT);
+    this.#future = [...this.#future, this.#snapshot()].slice(-HISTORY_LIMIT);
     this.#past = this.#past.slice(0, -1);
-    this.draft = structuredClone(previous);
+    this.draft = structuredClone(previous.draft);
+    this.modelLegs = previous.modelLegs;
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
     return true;
@@ -290,15 +371,19 @@ export class OptionsState {
     const next = this.#future[this.#future.length - 1];
     if (!next) return false;
     this.changed();
-    this.#past = [
-      ...this.#past,
-      structuredClone($state.snapshot(this.draft)),
-    ].slice(-HISTORY_LIMIT);
+    this.#past = [...this.#past, this.#snapshot()].slice(-HISTORY_LIMIT);
     this.#future = this.#future.slice(0, -1);
-    this.draft = structuredClone(next);
+    this.draft = structuredClone(next.draft);
+    this.modelLegs = next.modelLegs;
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
     return true;
+  }
+  #snapshot(): Snapshot {
+    return {
+      draft: structuredClone($state.snapshot(this.draft)),
+      modelLegs: this.modelLegs,
+    };
   }
   setSource(source: string): void {
     this.changed();
@@ -313,7 +398,7 @@ export class OptionsState {
     this.#scheduleAnalysis();
   }
   changed(): void {
-    if (this.loading) this.cancel();
+    if (this.loading) this.cancel(false);
     this.error = null;
     this.fieldErrors = {};
   }
@@ -395,11 +480,8 @@ export class OptionsState {
       this.error = `Python needs 1–${OPTIONS_SOURCE_LIMIT.toLocaleString()} characters.`;
       return;
     }
-    const key = this.#inputKey();
     const source = this.mode === 'python' ? this.source : null;
     const path = source === null ? '/options/analyze' : '/options/python';
-    const body =
-      source === null ? JSON.stringify(this.draft) : JSON.stringify({ source });
     const controller = new AbortController();
     const generation = ++this.#generation;
     this.#controller = controller;
@@ -410,6 +492,17 @@ export class OptionsState {
       controller.abort();
     }, REQUEST_TIMEOUT);
     try {
+      if (
+        source === null &&
+        this.modelLegs.some(Boolean) &&
+        !(await this.#priceModelLegs(controller.signal, generation))
+      )
+        return;
+      const key = this.#inputKey();
+      const body =
+        source === null
+          ? JSON.stringify(this.draft)
+          : JSON.stringify({ source });
       const result = await this.#analyze(path, {
         method: 'POST',
         body,
@@ -441,6 +534,50 @@ export class OptionsState {
           this.error = 'Options analysis timed out. Retry explicitly.';
       }
     }
+  }
+  /**
+   * Set model-tagged premiums to the backend model price (in cents) before analysis.
+   * Not an undoable edit: the history keeps the premiums that matched its contracts.
+   * False when a newer edit superseded the request.
+   */
+  async #priceModelLegs(
+    signal: AbortSignal,
+    generation: number,
+  ): Promise<boolean> {
+    const tags = this.modelLegs;
+    const draft = structuredClone($state.snapshot(this.draft));
+    const key = pricingKey(draft, tags);
+    let prices = this.#priceCache.get(key);
+    if (!prices) {
+      const result = await this.#analyze('/options/analyze', {
+        method: 'POST',
+        body: JSON.stringify(modelPricingRequest(draft)),
+        signal,
+      });
+      if (
+        generation !== this.#generation ||
+        signal.aborted ||
+        key !== pricingKey($state.snapshot(this.draft), this.modelLegs)
+      )
+        return false;
+      prices = modelUnitPrices(result);
+      this.#priceCache.set(key, prices);
+      if (this.#priceCache.size > PRICE_CACHE_LIMIT)
+        this.#priceCache.delete(this.#priceCache.keys().next().value!);
+    }
+    let changed = false;
+    draft.strategy.legs.forEach((leg, i) => {
+      const price = prices[i];
+      if (tags[i] && price != null && leg.entry_premium !== price) {
+        leg.entry_premium = price;
+        changed = true;
+      }
+    });
+    if (changed) {
+      this.draft = draft;
+      this.#scheduleRecovery();
+    }
+    return true;
   }
   #scheduleRecovery(): void {
     this.#dirty = true;
@@ -500,12 +637,10 @@ export class OptionsState {
   }
   #apply(value: OptionsWorkingDraft, notice: string): void {
     this.changed();
-    this.#past = [
-      ...this.#past,
-      structuredClone($state.snapshot(this.draft)),
-    ].slice(-HISTORY_LIMIT);
+    this.#past = [...this.#past, this.#snapshot()].slice(-HISTORY_LIMIT);
     this.#future = [];
     this.draft = structuredClone(value.draft);
+    this.modelLegs = this.draft.strategy.legs.map(() => false);
     this.gridAuto = sameGrid(this.draft.spot_grid, fittedSpotGrid(this.draft));
     this.source = value.source;
     this.mode = value.mode;

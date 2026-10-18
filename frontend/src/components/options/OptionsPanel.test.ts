@@ -202,6 +202,17 @@ describe('integrated options workbench', () => {
     );
   });
 
+  it('tags each premium as model-priced or manual', () => {
+    let html = render(OptionsPanel).body;
+    expect(html).toMatch(/class="premium-source[^"]*"[^>]*>\s*Model price/);
+    state.editDraft(d => {
+      d.strategy.legs[0].entry_premium = 3;
+    });
+    html = render(OptionsPanel).body;
+    expect(html).toMatch(/class="premium-source[^"]*"[^>]*>\s*Manual/);
+    expect(html).toMatch(/<button[^>]*>Use model price<\/button>/);
+  });
+
   it('shows the risk totals in the evidence column, above the chart', () => {
     state.result = result();
     const html = render(OptionsPanel).body;

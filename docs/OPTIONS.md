@@ -129,7 +129,13 @@ are entered as percentages and sent as annual fractions.
 
 The editor exposes underlying identity, common valuation/expiry defaults, per-leg
 expiry/IV overrides and manual bid/ask timestamps. Quotes are unverified and never
-replace entry premiums unless explicitly applying a valid midpoint. Desktop leg
+replace entry premiums unless explicitly applying a valid midpoint. Template and added
+legs start at the model price, read from the per-leg theoretical value of an
+ordinary `/options/analyze` request, and are repriced the same way, before
+analysis, whenever their contract or the assumptions change. A typed premium, an
+applied midpoint or an imported contract is manual and never changes by itself;
+**Use model price** returns a leg to the model. These tags live only in the
+browser and are never sent. Desktop leg
 rows reflow to mobile cards; Buy/Sell, duplicate/reorder and bounded undo/redo
 operate on signed canonical inputs. Submitted risk totals remain separate from
 current edits. Common-expiry paths use exact backend vertices, not sparse sampled lines.
