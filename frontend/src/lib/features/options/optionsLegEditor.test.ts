@@ -281,23 +281,47 @@ describe('manual unverified quotes and IV', () => {
 });
 
 describe('controlled editor shell rendering (not browser validation)', () => {
-  it('renders one labelled set of controls with signed quantities presented as Buy/Sell and nonnegative size', () => {
+  it('renders one header row and one compact row per leg, with signed quantities as Buy/Sell', () => {
     const draft = createOptionsDraft();
     draft.strategy.legs[0].quantity = -2;
     addOptionLeg(draft);
     const onEdit = vi.fn();
     const html = render(OptionsLegEditor, { props: { draft, onEdit } }).body;
-    expect(html.match(/<fieldset/g)).toHaveLength(2);
-    expect(html.match(/<span>Side<\/span>/g)).toHaveLength(2);
-    expect(html).toContain('Sell / short');
+    expect(html.match(/<thead/g)).toHaveLength(1);
+    expect(html.match(/<tbody/g)).toHaveLength(2);
+    expect(html.match(/>Side<\/th>/g)).toHaveLength(1);
+    expect(html).toMatch(
+      /<button[^>]*class="side sell[^"]*"[^>]*>Sell<\/button>/,
+    );
+    expect(html).toMatch(
+      /<button[^>]*class="side buy[^"]*"[^>]*>Buy<\/button>/,
+    );
     expect(html).toContain('value="2"');
     expect(html).not.toContain('value="-2"');
-    expect(html).toContain('Move leg 2 up');
-    expect(html).toContain('Duplicate leg 1');
+    expect(html).not.toContain('<fieldset');
+    for (const action of [
+      'Move leg 2 up',
+      'Move leg 1 down',
+      'Duplicate leg 1',
+      'Disable leg 1',
+      'Remove leg 2',
+      'Multiplier, IV and quotes for leg 1',
+    ])
+      expect(html).toContain(action);
+    expect(html).not.toContain('Manual quote inputs');
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+  it('opens the contract details of a leg that has quotes', () => {
+    const draft = createOptionsDraft();
+    draft.strategy.legs[0].bid = 4;
+    draft.strategy.legs[0].ask = 5;
+    const html = render(OptionsLegEditor, {
+      props: { draft, onEdit: vi.fn() },
+    }).body;
     expect(html).toContain('Manual quote inputs · unverified');
     expect(html).toContain('not real-time');
     expect(html).toContain('not executable fills');
-    expect(onEdit).not.toHaveBeenCalled();
+    expect(html).toContain('Multiplier');
   });
   it('renders unique error IDs with valid descriptions even for maximum legs', () => {
     const draft = createOptionsDraft();
@@ -316,7 +340,7 @@ describe('controlled editor shell rendering (not browser validation)', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const [, description] of html.matchAll(/aria-describedby="([^"]+)"/g))
       expect(ids).toContain(description);
-    expect(html.match(/<fieldset/g)).toHaveLength(16);
+    expect(html.match(/<tbody/g)).toHaveLength(16);
     expect(html).toMatch(/disabled[^>]*>Add leg/);
   });
   it('accepts undo/redo callbacks from parent without owning history', () => {
@@ -370,7 +394,7 @@ describe('controlled editor shell rendering (not browser validation)', () => {
     }).body;
     expect(html).not.toContain('Manual quote inputs');
     expect(html).not.toContain('IV fraction');
-    expect(html).toContain('Entry · USD/share');
+    expect(html).toContain('entry price per share');
     expect(html).toContain('Not applicable');
   });
   it('offers an explicit repair path for imported share legs with forbidden option fields', () => {
