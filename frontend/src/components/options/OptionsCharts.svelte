@@ -47,6 +47,15 @@
   let capture: HTMLButtonElement | null = null;
   let suppressMarkerClick = false;
   let dragStartX = 0;
+  const HINT_KEY = 'openquant.options.chartHint.v1';
+  let hintDismissed = $state(readHint());
+  function readHint(): boolean {
+    try { return localStorage.getItem(HINT_KEY) === '1'; } catch { return false; }
+  }
+  function dismissHint() {
+    hintDismissed = true;
+    try { localStorage.setItem(HINT_KEY, '1'); } catch { /* the hint simply shows again next time */ }
+  }
   const legGate = new ChartRequestGate();
   interface Evidence { analysis: OptionsAnalysis; context: string; baseline: OptionsAnalysis; legIndex?: number }
   let contribution = $state.raw<Evidence | null>(null);
@@ -330,7 +339,7 @@
 
 <section class="options-charts" aria-label="Options research charts">
   {#if !result}
-    <div class="empty"><strong>Price-domain research</strong><p>Analyze manual inputs to see expiration, today and scenario P&amp;L, plus theoretical Greek exposures.</p></div>
+    <div class="empty"><strong>Payoff</strong><p>The chart appears when the analysis returns.</p></div>
   {:else if error}
     <div class="empty" role="alert"><strong>Chart data unavailable</strong><p>{error} Edit the inputs and analyze again.</p></div>
   {:else if domain && full}
@@ -432,7 +441,7 @@
         {/each}
       </div>
     </div>
-    <p id={`${id}-instructions`} class="note">Hover or touch to inspect supplied samples or exact expiry vertices. Focus either chart: arrows, Home/End to select; Escape to clear. Expiration values between exact vertices are linear, so they are exact; other lines show returned samples only. Axes use up to 4 significant digits or scientific notation; readouts and tables are unrounded. Lines identify series, not gain/loss.</p>
+    <p id={`${id}-instructions`} class="note">Hover the chart, or focus it and use the arrow keys, to read values; Escape clears.</p>
     {#if !inspectGrid.some(s => inView(s))}<p class="notice">No supplied samples or vertices inside this zoomed view. Lines may show clipped connections between neighboring points; zoom out or reset to inspect exact values.</p>{/if}
     {#if curves.some(c => c.values.some(v => !finiteValue(v)))}<p class="notice">Some returned P&amp;L values are unavailable. Paths break at missing/nonfinite values; see exact-value data.</p>{/if}
     <div class="readout" aria-live="polite" aria-atomic="true">
@@ -442,13 +451,13 @@
           {#each legCurves as curve (curve.id)}<div><dt>SUBMITTED L{(selectedLeg ?? 0) + 1} {curve.label} P&amp;L</dt><dd title={exactValue(seriesValue(curve, activeSpot))}>{formatUsd(seriesValue(curve, activeSpot), { signed: true })}</dd></div>{/each}
           <div><dt>Today {greek}</dt><dd title={exactValue(greekCurves[0]?.values[greekIndex])}>{formatGreek(greekCurves[0]?.values[greekIndex], { signed: true })} · {unit}</dd></div>
         </dl>
-      {:else}<span>Select a price sample to inspect exact returned values. No sampled view is a maximum profit/loss estimate.</span>{/if}
+      {:else}<span>No price selected.</span>{/if}
     </div>
 
     <section class="strike-editor" aria-label="Strike proposals and submitted leg contribution">
-      <div class="pane-title"><h4>Strike proposals</h4><span>Submitted evidence stays fixed</span></div>
-      {#if !editable}<p class="note">Read-only chart. Python source is never changed by chart controls. Visual editing requires an editable draft, parent edit callback and an active document key.</p>{:else}
-        <p class="note">Drag a strike handle, or select a leg and use the arrows or the strike field. The expiry line moves as you drag; the analysis updates when you let go. Escape cancels a drag.</p>
+      <div class="pane-title"><h4>Strikes and legs</h4></div>
+      {#if !editable}<p class="note">Read-only chart: its controls never change Python source.</p>{:else}
+        {#if !hintDismissed}<p class="first-run">Drag a strike tag along the rail, or select a leg and use the arrow keys or the strike field. The expiry line follows as you drag, and the analysis updates when you let go; Escape cancels. <button type="button" onclick={dismissHint}>Got it</button></p>{/if}
       {/if}
       <div class="leg-selectors" aria-label="Select submitted leg">
         {#each legRows as row (row.index)}
@@ -457,7 +466,7 @@
           </button>
         {/each}
       </div>
-      <p class="note">Select/Enter/Space explicitly requests the submitted leg's canonical contribution (other legs disabled), not the draft. Arrows edit draft strike when enabled. L = submitted strike; D = unpriced draft strike.</p>
+      <p class="note">Select a leg to compare its own curve.</p>
       {#if selectedLeg != null && submittedLeg}
         <p class="note">Selected submitted L{selectedLeg + 1}: {submittedLeg.kind}, premium {formatUsd(submittedLeg.entry_premium)}/unit, multiplier {exactValue(submittedLeg.multiplier)}{submittedLeg.source ? ` · source ${submittedLeg.source.provider}/${submittedLeg.source.environment} · ${submittedLeg.source.contract_symbol}` : ' · manual inputs'}.</p>
         {#if result.legs?.find(l => l.leg_index === selectedLeg)}
@@ -480,8 +489,8 @@
             <button type="submit" disabled={!canEditLeg || !!drag}>Apply strike</button>
           </div>
         </form>
-        <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError || `Numeric edits retain entered precision; drag/arrows snap to the chosen step within 0 < strike ≤ ${MAX_STRIKE} USD. Select an enabled option leg to edit.`}</p>
-        <p class="note">A different strike is a different contract: its provider observation and quotes are cleared.</p>
+        <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError}</p>
+        {#if draftLeg?.source || submittedLeg?.source}<p class="note">A different strike is a different contract: its provider observation and quotes are cleared.</p>{/if}
       {/if}
       {#if legPending}<p class="note" role="status">Canonical leg contribution pending.</p><button type="button" onclick={cancelLeg}>Cancel leg request</button>{/if}
       {#if legMessage}<p class="note" role={legFailed ? 'alert' : 'status'}>{legMessage}</p>{/if}
@@ -533,7 +542,7 @@
     <div class="aggregate"><strong>{greek} at submitted spot {formatPrice(result.request.spot)} USD</strong><dl>
       <div><dt>Today</dt><dd title={exactValue(result.greeks[greek])}>{formatGreek(result.greeks[greek], { signed: true })} · {unit}</dd></div>
       {#each result.scenarios as scenario}<div><dt>{scenario.name}</dt><dd title={exactValue(scenario.greeks[greek])}>{formatGreek(scenario.greeks[greek], { signed: true })} · {unit}</dd></div>{/each}
-    </dl><p class="note">Scenario Greeks are point exposures, not curves. Unavailable means undefined or not reported, never zero.</p></div>
+    </dl></div>
 
     <details class="evidence"><summary>Expiry geometry · exact backend values</summary>
       {#if !terminalAvailable}<p class="note">{expiryError}</p>{:else}
@@ -611,6 +620,7 @@
   button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .chart-control:focus-visible, .table-scroll:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   .note, .marker-key { font-size: 11px; line-height: 1.55; margin: 6px 0; overflow-wrap: anywhere; }
   .offscreen { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .first-run { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0; padding: 8px; border-radius: 4px; background: oklch(var(--accent)); line-height: 1.5; font-size: 12px; }
   .notice { padding: 8px; margin: 8px 0; border: 1px dashed oklch(var(--input)); border-radius: 4px; color: oklch(var(--foreground)); background: oklch(var(--background)); line-height: 1.5; overflow-wrap: anywhere; }
   .pane-title { margin-top: 14px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; }

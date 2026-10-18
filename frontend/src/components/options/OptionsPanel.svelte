@@ -99,7 +99,7 @@
 
 <section class="options-panel" aria-label="Options research" bind:this={panel}>
   <header class="panel-header">
-    <div class="identity"><strong>Options research</strong><span>Manual / synthetic · European · cash-settled · USD</span></div>
+    <div class="identity"><strong>Options research</strong></div>
     <div class="run-actions">
       <span class="status" data-status={options.status} role="status"><i aria-hidden="true"></i><span>{statusLabel[options.mode][options.status]}</span></span>
       {#if options.mode === 'python'}<span class="shortcut">Ctrl+Enter</span>{/if}
@@ -107,7 +107,6 @@
     </div>
   </header>
   <div class="panel-scroll">
-    <p class="boundary">Theoretical European cash-settled analytics only. Optional authenticated read-only Tradier observations require explicit hypothetical conversion; real US exercise and physical delivery are not modeled. No historical options execution, brokerage or futures execution.</p>
     <div class="feedback" aria-live="polite" aria-atomic="true">
       {#if options.notice}<p>{options.notice}</p>{/if}
       {#if options.stale && options.mode === 'python'}<p class="risk">Source changed. The charts show the last run; Run to update them.</p>{/if}
@@ -148,6 +147,7 @@
             onRun={() => { void options.run(); }} pending={options.loading} stdout={options.stdout ?? ''}
             error={options.error} documentKey={options.documentKey} />
         {/if}
+        <details class="configuration" open={!!options.recovery || !!options.storageError || exportConfirm}><summary>Saved drafts &amp; exports</summary>
         <div class="export-controls">
           <button type="button" class="ot-workbench-ghost" onclick={() => { exportConfirm = true; }}>Replace Python from editor…</button>
           {#if exportConfirm}
@@ -157,10 +157,22 @@
         </div>
         <p class="hint">{scopeLabel}. Browser-local only; guest records are never adopted by an account.</p>
         <OptionsLibrary state={options} />
+        </details>
       </div>
       <div class="evidence-column" aria-busy={options.loading}>
         {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
         {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} pending={options.loading} />{/key}
+        <div class="model-line">
+          <p>Theoretical Black-Scholes values for European, cash-settled options. Not quotes and not orders.</p>
+          <details><summary>What the model leaves out</summary>
+            <ul>
+              <li>US-style early exercise, assignment and physical delivery are not modeled.</li>
+              <li>Bid/ask spreads, slippage and fills. Chain observations become hypothetical European contracts only when you confirm the conversion.</li>
+              <li>Margin, financing, taxes and dividends paid as cash.</li>
+              <li>Historical options execution, brokerage and futures execution.</li>
+            </ul>
+          </details>
+        </div>
         {#key toolKey}
           {#if options.mode === 'editor'}
             <OptionsResearchTools draft={options.draft} {result} {analysisLabel} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
@@ -169,7 +181,7 @@
           {:else}<p class="hint">Run the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
         {/key}
         {#if result}<button type="button" class="ot-workbench-ghost" disabled={options.comparisons.length >= 3} onclick={() => options.pin()}>Pin submitted analysis for comparison</button>{/if}
-        <OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />
+        {#if options.comparisons.length}<OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />{/if}
         {#if result}
           <div class="evidence-heading"><h3>{result.request.strategy.name} · submitted evidence</h3><span>{options.stale ? 'STALE' : options.loading ? 'REFRESHING' : 'SUBMITTED'} · manual / synthetic</span></div>
           {#if terminalAvailable}<p class="breakevens"><strong>Expiry breakevens · USD spot:</strong> {result.summary.breakevens.length ? result.summary.breakevens.map(v => formatPrice(v)).join(', ') : 'No isolated breakevens'}.</p>
@@ -182,8 +194,8 @@
               <div><dt>{greek}</dt><dd title={exactValue(result.greeks[key])}>{formatGreek(result.greeks[key], { signed: true })}</dd><small>{result.greek_units[key]}</small></div>
             {/each}
           </dl>
-          <p class="hint">Quantity × multiplier exposures, not per-contract Greeks. 4 significant figures; hover for the exact value. Unavailable means undefined or not reported, never zero.</p>
-          <details class="configuration submitted" open>
+          <p class="hint">Position totals (quantity × multiplier); hover for exact values.</p>
+          <details class="configuration submitted">
             <summary>Submitted assumptions &amp; provenance</summary>
             <p>Manual / synthetic · European · cash-settled · {result.request.strategy.currency}. BSM {result.model.version} · {result.model.day_basis} · no stock-provider data.</p>
             <dl class="summary-grid assumptions-readout">
@@ -214,8 +226,11 @@
   .panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); flex: none; }
   .identity { display: grid; gap: 4px; min-width: 0; }
   .identity strong { font-size: 13px; }
-  .identity span, .shortcut, .hint, .boundary, .feedback, .evidence-heading span { color: oklch(var(--muted-foreground)); }
-  .identity span { font-family: var(--font-mono); font-size: 11px; }
+  .shortcut, .hint, .feedback, .evidence-heading span, .model-line { color: oklch(var(--muted-foreground)); }
+  .model-line { margin-top: 10px; font-size: 12px; }
+  .model-line p { margin: 0; }
+  .model-line summary { color: oklch(var(--ring)); min-height: 24px; line-height: 24px; }
+  .model-line ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.5; }
   .status { display: inline-flex; align-items: center; gap: 6px; color: oklch(var(--muted-foreground)); }
   .status i { width: 7px; height: 7px; border-radius: 50%; background: oklch(var(--muted-foreground)); }
   .status[data-status="current"] i { background: oklch(var(--up-color)); }
@@ -224,7 +239,6 @@
   .run-actions, .mode-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .panel-scroll { min-height: 0; flex: 1; overflow: auto; padding: 12px; scrollbar-gutter: stable; }
   p { line-height: 1.5; margin: 8px 0; overflow-wrap: anywhere; }
-  .boundary { margin-top: 0; }
   .workbench-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
   .editor-column, .evidence-column { min-width: 0; }
   .evidence-column { grid-row: 1; }

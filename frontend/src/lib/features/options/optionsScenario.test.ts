@@ -102,7 +102,7 @@ it('renders submitted Python heatmaps without editor draft controls or callbacks
   const html = render(OptionsScenarioLab, {
     props: { draft: result.request, result, onEdit, readOnly: true },
   }).body;
-  expect(html).toContain('Canonical heatmap');
+  expect(html).toContain('>Heatmap</h4>');
   expect(html).toContain('-123.123456789');
   expect(html).not.toContain('Analyze draft');
   expect(html).not.toContain('Apply heatmap grid');
@@ -127,7 +127,7 @@ it.each([
     const slider = html.match(/<input[^>]*type="range"[^>]*>/)![0];
     expect(slider).toContain(`max="${first}"`);
     expect(slider).not.toMatch(/\sdisabled/);
-    expect(html).toContain(`Elapsed days: 0–${first}.`);
+    expect(html).toContain(`Elapsed days 0–${first} ·`);
   },
 );
 
@@ -479,8 +479,6 @@ describe('scenario lab markup (shell SSR only; not browser/UI validation)', () =
     const html = markup(draft(), null);
     expect(html).not.toContain('Analyze draft');
     expect(html).toContain('Apply heatmap grid');
-    expect(html).toContain('No analysis yet');
-    expect(html).toContain('no automatic Python execution');
     expect(html.match(/type="range"/g)).toHaveLength(
       draft().scenarios.length * 2,
     );

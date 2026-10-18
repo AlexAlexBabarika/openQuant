@@ -77,33 +77,32 @@
 <section class="scenario-lab" aria-label="Options scenario lab">
   {#if !readOnly}
   <header><h3>Scenario lab</h3></header>
-  <p class="note">Manual European cash-settled USD research. Controls edit inputs only; no automatic Python execution. Premiums and entry fees stay fixed. No probability forecast or provider verification.</p>
   <div class="feedback" aria-live="polite" aria-atomic="true">
     {#if stale}<p class="notice">Inputs changed. The results below update when the new analysis returns; new slider or grid inputs are never applied to old values.</p>{/if}
     {#if applied}<p>{applied}</p>{/if}
   </div>
   <div class="section-title"><h4>Explicit scenarios · {draft.scenarios.length}/3</h4><button type="button" class="ot-workbench-ghost" disabled={draft.scenarios.length >= 3} onclick={addScenario}>Add scenario</button></div>
-  <p class="note">Elapsed days: 0–{exactValue(horizon)}. IV shift: {bounds ? `${exactValue(bounds.min, true)}–${exactValue(bounds.max, true)} pp` : 'unavailable until base and leg IVs are valid'}. A shift applies to every enabled option IV and the declared base, not their average. Undefined Greeks remain unavailable.</p>
-  {#if draft.scenarios.length === 0}<p class="note">No scenarios configured. Add one to set explicit time and IV shifts.</p>{/if}
+  <p class="note">Elapsed days 0–{exactValue(horizon)} · IV shift {bounds ? `${exactValue(bounds.min, true)} to ${exactValue(bounds.max, true)} pp` : 'unavailable until the IVs are valid'}. A shift moves the base and every leg IV together.</p>
+  {#if draft.scenarios.length === 0}<p class="note">No scenarios yet.</p>{/if}
   {#each draft.scenarios as scenario, i}
     {@const error = scenarioInputError(draft, scenario.elapsed_days, scenario.iv_shift_pp)}
     {@const nameError = scenarioNameError(draft, i)}
     <fieldset class="scenario"><legend>Scenario {i + 1}</legend>
       <label for={`${id}-name-${i}`}>Name · unique, 1–80 characters<input id={`${id}-name-${i}`} value={scenario.name} maxlength="80" aria-invalid={!!nameError} aria-describedby={`${id}-name-error-${i}`} oninput={e => onEdit(d => { d.scenarios[i].name = e.currentTarget.value; })} /></label>
-      <p id={`${id}-name-error-${i}`} class:notice={!!nameError} class="note">{nameError ?? 'Names identify submitted scenario evidence.'}</p>
+      <p id={`${id}-name-error-${i}`} class:notice={!!nameError} class="note">{nameError ?? ''}</p>
       <label for={`${id}-time-${i}`}>Elapsed calendar days · draft <output for={`${id}-time-${i}`}>{exactValue(scenario.elapsed_days)}</output>
         <input id={`${id}-time-${i}`} type="range" min="0" max={Math.max(0, horizon)} step="any" value={scenario.elapsed_days} disabled={!Number.isFinite(horizon) || horizon <= 0 || horizon > 3650} aria-valuetext={`${exactValue(scenario.elapsed_days)} calendar days elapsed`} aria-invalid={!!error} aria-describedby={`${id}-scenario-${i}`} oninput={e => editScenario(i, 'elapsed_days', Number(e.currentTarget.value))} />
       </label>
       <label for={`${id}-iv-${i}`}>IV shift · draft <output for={`${id}-iv-${i}`}>{exactValue(scenario.iv_shift_pp, true)} pp</output>
         <input id={`${id}-iv-${i}`} type="range" min={bounds?.min ?? 0} max={bounds?.max ?? 0} step="any" value={scenario.iv_shift_pp} disabled={!bounds || bounds.min === bounds.max} aria-valuetext={`${exactValue(scenario.iv_shift_pp, true)} volatility percentage points`} aria-invalid={!!error} aria-describedby={`${id}-scenario-${i}`} oninput={e => editScenario(i, 'iv_shift_pp', Number(e.currentTarget.value))} />
       </label>
-      <p id={`${id}-scenario-${i}`} class:notice={!!error} class="note">{error ?? 'Draft inputs only. Analyze to produce a new scenario curve.'}</p>
+      <p id={`${id}-scenario-${i}`} class:notice={!!error} class="note">{error ?? ''}</p>
       <button type="button" class="ot-workbench-ghost" onclick={() => onEdit(d => { d.scenarios.splice(i, 1); })} aria-label={`Remove scenario ${i + 1}`}>Remove scenario</button>
     </fieldset>
   {/each}
 
-  <details class="configuration" open><summary>Spot–time / spot–IV heatmap configuration</summary>
-    <p class="note">Stage a uniform grid, then Apply heatmap grid to the draft and Analyze. Spots: 2–41 columns in 0–1,000,000 USD. Steps: 2–21 distinct increasing rows; at most 861 cells. Changing axis does not run analysis.</p>
+  <details class="configuration" open={!!draft.surface}><summary>Heatmap · spot by time or IV</summary>
+    <p class="note">Apply a uniform grid to the draft and the analysis returns its cells: 2–41 spot columns by 2–21 rows.</p>
     <form onsubmit={applySurface}>
       <fieldset class="grid-fields"><legend>Requested surface · draft inputs</legend>
         <label for={`${id}-axis`}>Step axis<select id={`${id}-axis`} value={settings.axis} onchange={e => changeAxis(e.currentTarget.value as SurfaceSettings['axis'])}><option value="elapsed_days">Spot × elapsed calendar days</option><option value="iv_shift_pp">Spot × IV shift (pp)</option></select></label>
@@ -124,11 +123,10 @@
   </details>
 
   {/if}
-  <div class="section-title"><h4>Canonical heatmap · submitted evidence</h4></div>
-  {#if !result}<p class="notice">No analysis yet. Apply a heatmap grid and Analyze explicitly.</p>
-  {:else}
-    <p class="note">Submitted {result.request.strategy.name} · spot {exactValue(result.request.spot)} USD · {exactValue(result.request.strategy.days_to_expiry)} days to common expiry · base IV {exactValue(result.request.volatility)} annual fraction · rate {exactValue(result.request.rate)} · yield {exactValue(result.request.dividend_yield)}. Manual inputs, not live quotes.</p>
-    {#if !surface}<p class="notice">Heatmap unavailable: this submitted result contains no canonical surface. Missing is not zero; no browser pricing or reconstructed cells.</p>
+  {#if result}
+  {#if surface || draft.surface || result.request.surface}<div class="section-title"><h4>Heatmap</h4></div>{/if}
+    {#if surface}<p class="note">Submitted {result.request.strategy.name} · spot {exactValue(result.request.spot)} USD · {exactValue(result.request.strategy.days_to_expiry)} days to common expiry · base IV {exactValue(result.request.volatility)} annual fraction · rate {exactValue(result.request.rate)} · yield {exactValue(result.request.dividend_yield)}. Manual inputs, not live quotes.</p>{/if}
+    {#if !surface}{#if result.request.surface}<p class="notice">Heatmap unavailable: this submitted result contains no canonical surface. Missing is not zero; no browser pricing or reconstructed cells.</p>{:else if draft.surface}<p class="note">The heatmap appears when the analysis returns.</p>{/if}
     {:else if dataError}<p class="notice" role="alert">{dataError}</p>
     {:else}
       <p class="note">Returned axis: {surface.axis === 'elapsed_days' ? 'elapsed calendar days, current resolved IV per leg' : 'IV shift in percentage points, current time'}. Rows and columns below come only from the returned backend surface. Signed total P&amp;L in USD; unrounded raw values.</p>

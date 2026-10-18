@@ -307,7 +307,9 @@ describe('options chart markup (shell SSR, not browser validation)', () => {
     render(OptionsCharts, { props: { result: analysis, spot } }).body;
 
   it('provides empty and misaligned-data feedback rather than empty chart success', () => {
-    expect(markup(null)).toContain('Analyze manual inputs');
+    expect(markup(null)).toContain(
+      'The chart appears when the analysis returns',
+    );
     expect(markup({ ...result, today_pnl: [] })).toContain(
       'Chart data unavailable',
     );
@@ -471,9 +473,6 @@ describe('canonical expiry vertices and per-series exact inspection', () => {
     const html = render(OptionsCharts, { props: { result: sparse } }).body;
     expect(html).toMatch(/class="curve expiry/);
     expect(html).toContain('preserving strike kinks');
-    expect(html).toContain(
-      'Expiration values between exact vertices are linear',
-    );
   });
   it.each([
     undefined,
