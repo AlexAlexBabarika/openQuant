@@ -113,7 +113,7 @@
     Set <code>result = analyze_options(request)</code>. Injected <code>OptionLeg</code> and <code>OptionStrategy</code>
     return validated dictionaries; no imports needed. Manual/synthetic European cash-settled USD research,
      with per-leg expiry overrides. No arbitrary imports, live quotes, brokerage or historical option execution.
-    Switching modes does not replace source; replacing from editor fields is a separate confirmed action.
+    Until you edit it, the source follows the editor's strategy when you switch modes; once edited, only a confirmed replace from the editor overwrites it.
   </p>
   {#if error}<p class="editor-error" role="alert">{error}</p>{/if}
   <div class="console">

@@ -435,6 +435,29 @@ describe('options explicit request lifecycle', () => {
     expect(s.exportPython()).toBe(true);
     expect(s.source).toContain('"spot": 110');
   });
+  it('seeds untouched Python from the current editor strategy, never edited source', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.editDraft(d => {
+      d.spot = 343.46;
+    });
+    s.setMode('python');
+    expect(s.source).toContain('"spot": 343.46');
+    s.setMode('editor');
+    s.editDraft(d => {
+      d.spot = NaN;
+    });
+    s.setMode('python');
+    expect(s.source).toContain('"spot": 343.46');
+    s.setSource(s.source.replace('"spot": 343.46', '"spot": 200'));
+    s.setMode('editor');
+    s.editDraft(d => {
+      d.spot = 150;
+    });
+    s.setMode('python');
+    expect(s.source).toContain('"spot": 200');
+    s.dispose();
+  });
   it('rejects blank/oversize Python and invalid export without replacing custom code', async () => {
     const analyze = vi.fn();
     const s = new OptionsState(storage(), analyze);
