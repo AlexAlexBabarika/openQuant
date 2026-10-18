@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatGreek, formatUsd } from '$lib/features/options/optionsFormat';
   import { untrack } from 'svelte';
   import { getSessionGeneration } from '$lib/core/api';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
@@ -111,8 +112,8 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable data region) -->
     <div class="results" role="region" tabindex="0" aria-label="Matched baseline versus hypothetical stress signed results">
       <table><thead><tr><th>Metric / units</th><th>Today baseline</th><th>Hypothetical stress</th><th>Stress − baseline</th></tr></thead><tbody>
-        <tr><th>P&amp;L · USD</th><td>{display(result.baseline.summary.pnl_today)}</td><td>{display(evidence.pnl)}</td><td>{display(evidence.pnlDifference)}</td></tr>
-        {#each GREEK_KEYS as key}<tr><th>{key} · {result.baseline.greek_units[key]}</th><td>{display(result.baseline.greeks[key])}</td><td>{display(evidence.greeks?.[key])}</td><td>{display(researchDifference(evidence.greeks?.[key], result.baseline.greeks[key]))}</td></tr>{/each}
+        <tr><th>P&amp;L · USD</th><td title={exactValue(result.baseline.summary.pnl_today)}>{formatUsd(result.baseline.summary.pnl_today, { signed: true })}</td><td title={exactValue(evidence.pnl)}>{formatUsd(evidence.pnl, { signed: true })}</td><td title={exactValue(evidence.pnlDifference)}>{formatUsd(evidence.pnlDifference, { signed: true })}</td></tr>
+        {#each GREEK_KEYS as key}<tr><th>{key} · {result.baseline.greek_units[key]}</th><td title={exactValue(result.baseline.greeks[key])}>{formatGreek(result.baseline.greeks[key], { signed: true })}</td><td title={exactValue(evidence.greeks?.[key])}>{formatGreek(evidence.greeks?.[key], { signed: true })}</td><td title={exactValue(researchDifference(evidence.greeks?.[key], result.baseline.greeks[key]))}>{formatGreek(researchDifference(evidence.greeks?.[key], result.baseline.greeks[key]), { signed: true })}</td></tr>{/each}
       </tbody></table>
     </div>
     {#if result.stress.scenarios[0]?.legs}

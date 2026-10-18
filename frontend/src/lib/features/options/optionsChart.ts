@@ -15,6 +15,8 @@ export interface ChartSeries {
   dash: string;
   spots: number[];
   values: (number | null)[];
+  /** Exact piecewise-linear vertices: values between them are linear, not estimated. */
+  exactPolyline?: boolean;
 }
 export interface PriceMarker {
   spot: number;
@@ -118,6 +120,7 @@ export function optionsSeries(result: OptionsAnalysis): ChartSeries[] {
             dash: '',
             spots: result.expiry_curve!.map(p => p.spot),
             values: result.expiry_curve!.map(p => p.pnl),
+            exactPolyline: true,
           },
         ]
       : []),
@@ -228,12 +231,21 @@ export function expiryTraceError(result: OptionsAnalysis): string | null {
     : null;
 }
 
-/** Exact lookup only: no interpolation or pricing in browser readouts. */
+/** Exact lookup, plus linear values between the vertices of an exact polyline; never extrapolates. */
 export function seriesValue(
   series: ChartSeries,
   spot: number,
 ): number | null | undefined {
-  return series.values[series.spots.indexOf(spot)];
+  const index = series.spots.indexOf(spot);
+  if (index >= 0 || !series.exactPolyline) return series.values[index];
+  const next = series.spots.findIndex(s => s > spot);
+  if (next <= 0) return undefined;
+  const a = series.values[next - 1],
+    b = series.values[next];
+  if (!finiteValue(a) || !finiteValue(b)) return undefined;
+  const x0 = series.spots[next - 1],
+    x1 = series.spots[next];
+  return a + ((b - a) * (spot - x0)) / (x1 - x0);
 }
 
 export function inspectionGrid(result: OptionsAnalysis): number[] {

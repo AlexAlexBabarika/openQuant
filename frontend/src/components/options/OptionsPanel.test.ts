@@ -132,6 +132,26 @@ describe('integrated options workbench', () => {
     expect(html).not.toContain('One common expiry; no per-leg dates.');
   });
 
+  it('formats risk totals for people and keeps exact values in titles', () => {
+    const r = result();
+    r.summary.pnl_today = 2024.6332556364023;
+    r.summary.entry_debit = 259.04;
+    const html = render(OptionsSummary, { props: { result: r } }).body;
+    expect(html).toContain('+$2,024.63');
+    expect(html).toContain('title="2024.6332556364023"');
+    expect(html).toContain('$259.04');
+  });
+
+  it('formats Greeks and breakevens in the evidence column', () => {
+    const r = result();
+    r.greeks = { ...r.greeks, delta: 99.99630519765367 };
+    r.summary.breakevens = [105.01234];
+    state.result = r;
+    const html = render(OptionsPanel).body;
+    expect(html).toMatch(/<dt[^>]*>delta<\/dt><dd[^>]*>\+100<\/dd>/);
+    expect(html).toContain('USD spot:</strong> 105.01.');
+  });
+
   it('shows the risk totals in the evidence column, above the chart', () => {
     state.result = result();
     const html = render(OptionsPanel).body;

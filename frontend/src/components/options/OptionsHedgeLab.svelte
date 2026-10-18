@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatUsd } from '$lib/features/options/optionsFormat';
   import { onDestroy, untrack } from 'svelte';
   import OptionsLifecycle from './OptionsLifecycle.svelte';
   import type { HedgeRequest, HedgeResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
@@ -96,7 +97,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to bounded two-dimensional data scrolling.) -->
       <div class="table-scroll" tabindex="0" role="region" aria-label="Hedge P and L attribution">
       <table><caption>Canonical reconciliation · strategy P&amp;L + hedge trading P&amp;L − costs = total P&amp;L. Financing and dividend cash flows are excluded (zero), not observed income.</caption><thead><tr><th>Component</th><th>Signed USD (costs shown positive)</th></tr></thead><tbody>
-        <tr><th>Strategy P&amp;L</th><td>{value(result.attribution.strategy_pnl)}</td></tr><tr><th>Hedge trading P&amp;L</th><td>{value(result.attribution.hedge_trading_pnl)}</td></tr><tr><th>Subtract transaction costs</th><td>{value(result.attribution.transaction_costs)}</td></tr><tr><th>Total P&amp;L</th><td>{value(result.attribution.total_pnl)}</td></tr><tr><th>Financing · excluded</th><td>{value(result.attribution.financing)}</td></tr><tr><th>Dividend cash flows · excluded</th><td>{value(result.attribution.dividends)}</td></tr>
+        <tr><th>Strategy P&amp;L</th><td title={value(result.attribution.strategy_pnl)}>{formatUsd(result.attribution.strategy_pnl)}</td></tr><tr><th>Hedge trading P&amp;L</th><td title={value(result.attribution.hedge_trading_pnl)}>{formatUsd(result.attribution.hedge_trading_pnl)}</td></tr><tr><th>Subtract transaction costs</th><td title={value(result.attribution.transaction_costs)}>{formatUsd(result.attribution.transaction_costs)}</td></tr><tr><th>Total P&amp;L</th><td title={value(result.attribution.total_pnl)}>{formatUsd(result.attribution.total_pnl)}</td></tr><tr><th>Financing · excluded</th><td title={value(result.attribution.financing)}>{formatUsd(result.attribution.financing)}</td></tr><tr><th>Dividend cash flows · excluded</th><td title={value(result.attribution.dividends)}>{formatUsd(result.attribution.dividends)}</td></tr>
       </tbody></table>
     </div>
     <details open><summary>Hedge trades and exposure ledger · chronological</summary>

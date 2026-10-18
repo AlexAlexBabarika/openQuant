@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
+  import { exactValue } from '$lib/features/options/optionsChart';
+  import { formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
 
   let { result, stale = false, pending = false }: {
     result: Pick<OptionsAnalysis, 'request' | 'summary' | 'horizon'>;
@@ -7,29 +9,20 @@
     pending?: boolean;
   } = $props();
   const terminal = $derived(result.horizon?.kind !== 'mixed_expiry' && result.horizon?.exact_terminal_available !== false);
-
-  function money(value: number | null, signed = false): string {
-    if (value === null || !Number.isFinite(value)) return 'Unavailable';
-    return new Intl.NumberFormat('en-US', {
-      maximumSignificantDigits: 6,
-      notation: value !== 0 && Math.abs(value) < 0.0001 ? 'scientific' : 'standard',
-      signDisplay: signed ? 'exceptZero' : 'auto',
-    }).format(value);
-  }
 </script>
 
 <section class="risk-summary" aria-label="Submitted options risk totals" class:stale>
   <header>
-    <div><strong>{result.request.strategy.name}</strong><span>Submitted spot {money(result.request.spot)} USD · {terminal ? `${money(result.request.strategy.days_to_expiry)} default days` : `mixed expiry ${money(result.horizon?.first_expiry_days ?? null)}–${money(result.horizon?.last_expiry_days ?? null)} days`} · theoretical</span></div>
+    <div><strong>{result.request.strategy.name}</strong><span>Submitted spot {formatPrice(result.request.spot)} USD · {terminal ? `${formatNumber(result.request.strategy.days_to_expiry)} default days` : `mixed expiry ${formatNumber(result.horizon?.first_expiry_days)}–${formatNumber(result.horizon?.last_expiry_days)} days`} · theoretical</span></div>
     <span class="status">{stale ? 'STALE INPUTS' : pending ? 'REFRESHING' : 'SUBMITTED EVIDENCE'}</span>
   </header>
   <dl>
-    <div><dt>Entry debit · USD</dt><dd>{money(result.summary.entry_debit)}</dd></div>
-    <div><dt>Entry credit · USD</dt><dd>{money(result.summary.entry_credit)}</dd></div>
-    <div><dt>Expiry max profit · USD</dt><dd>{!terminal ? 'Unavailable · mixed expiry' : result.summary.profit_unbounded ? 'Unbounded' : money(result.summary.max_profit)}</dd></div>
-    <div><dt>Expiry max loss · USD</dt><dd>{!terminal ? 'Unavailable · mixed expiry' : result.summary.loss_unbounded ? 'Unbounded' : money(result.summary.max_loss)}</dd></div>
-    <div><dt>Today model P&amp;L · USD</dt><dd>{money(result.summary.pnl_today, true)}</dd></div>
-    <div><dt>Entry fees · USD</dt><dd>{money(result.summary.entry_fees)}</dd></div>
+    <div><dt>Entry debit · USD</dt><dd title={exactValue(result.summary.entry_debit)}>{formatUsd(result.summary.entry_debit)}</dd></div>
+    <div><dt>Entry credit · USD</dt><dd title={exactValue(result.summary.entry_credit)}>{formatUsd(result.summary.entry_credit)}</dd></div>
+    <div><dt>Expiry max profit · USD</dt><dd title={exactValue(result.summary.max_profit)}>{!terminal ? 'Unavailable · mixed expiry' : result.summary.profit_unbounded ? 'Unbounded' : formatUsd(result.summary.max_profit)}</dd></div>
+    <div><dt>Expiry max loss · USD</dt><dd title={exactValue(result.summary.max_loss)}>{!terminal ? 'Unavailable · mixed expiry' : result.summary.loss_unbounded ? 'Unbounded' : formatUsd(result.summary.max_loss)}</dd></div>
+    <div><dt>Today model P&amp;L · USD</dt><dd title={exactValue(result.summary.pnl_today)}>{formatUsd(result.summary.pnl_today, { signed: true })}</dd></div>
+    <div><dt>Entry fees · USD</dt><dd title={exactValue(result.summary.entry_fees)}>{formatUsd(result.summary.entry_fees)}</dd></div>
   </dl>
 </section>
 

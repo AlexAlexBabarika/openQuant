@@ -461,13 +461,16 @@ describe('canonical expiry vertices and per-series exact inspection', () => {
     ).toBe('M0.000,100.000 L100.000,100.000 L110.000,90.000 L200.000,0.000');
     expect(inspectionGrid(sparse)).toEqual([50, 100, 105, 150]);
     expect(seriesValue(series, 105)).toBe(0);
-    expect(seriesValue(series, 102)).toBeUndefined();
+    expect(seriesValue(series, 102)).toBe(-300);
+    expect(seriesValue(series, 104)).toBe(-100);
     expect(seriesValue(optionsSeries(sparse)[1], 100)).toBeUndefined();
     expect(seriesValue(optionsSeries(sparse)[1], 150)).toBe(4500);
     const html = render(OptionsCharts, { props: { result: sparse } }).body;
     expect(html).toMatch(/class="curve expiry/);
     expect(html).toContain('preserving strike kinks');
-    expect(html).toContain('never interpolated');
+    expect(html).toContain(
+      'Expiration values between exact vertices are linear',
+    );
   });
   it.each([
     undefined,
@@ -561,5 +564,41 @@ describe('positions outside the visible price range', () => {
     }).body;
     expect(html).toContain('Outside this view: spot 343.46 USD');
     expect(html).toMatch(/<button[^>]*>Fit<\/button>/);
+  });
+});
+
+describe('hover values on the exact expiry polyline', () => {
+  const curves = optionsSeries(result);
+  const expiry = curves.find(s => s.id === 'expiry')!;
+  const today = curves.find(s => s.id === 'today')!;
+
+  it('interpolates expiry between exact vertices, which is exact for a piecewise-linear payoff', () => {
+    expect(seriesValue(expiry, 110)).toBeCloseTo((1499 * 4.99) / 14.99, 9);
+    expect(seriesValue(expiry, 90)).toBe(-501);
+    expect(seriesValue(expiry, 100)).toBe(-501);
+  });
+
+  it('never interpolates sampled series or extrapolates past the vertices', () => {
+    expect(seriesValue(today, 110)).toBeUndefined();
+    expect(seriesValue(expiry, 79)).toBeUndefined();
+  });
+});
+
+describe('chart readouts for people', () => {
+  it('formats the submitted spot and aggregate Greeks, keeping exact titles', () => {
+    const request = structuredClone(result.request);
+    request.spot = 343.4567891;
+    const html = render(OptionsCharts, {
+      props: {
+        result: {
+          ...result,
+          request,
+          greeks: { ...result.greeks, delta: 99.99630519765367 },
+        },
+      },
+    }).body;
+    expect(html).toContain('343.46 USD');
+    expect(html).toContain('title="343.4567891"');
+    expect(html).toMatch(/>\+100 · USD per USD spot/);
   });
 });

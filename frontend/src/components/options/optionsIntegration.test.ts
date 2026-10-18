@@ -46,7 +46,7 @@ describe('submitted options risk strip', () => {
     expect(html).toContain('Unbounded');
     expect(html).toContain('Expiry max loss · USD');
     expect(html).toContain('Today model P&amp;L · USD');
-    expect(html).toContain('+20');
+    expect(html).toContain('+$20.00');
     expect(html).toContain('Entry fees · USD');
     expect(html).toContain('SUBMITTED EVIDENCE');
   });
