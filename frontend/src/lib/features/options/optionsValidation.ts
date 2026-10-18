@@ -213,7 +213,8 @@ export function workingDraftShape(
   );
 }
 
-function calendar(v: unknown): number | null {
+/** UTC epoch milliseconds of a strict YYYY-MM-DD calendar date, or null. */
+export function calendar(v: unknown): number | null {
   if (
     typeof v !== 'string' ||
     !/^\d{4}-\d{2}-\d{2}$/.test(v) ||

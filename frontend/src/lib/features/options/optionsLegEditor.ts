@@ -1,5 +1,5 @@
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
-import { optionsErrors } from './optionsValidation';
+import { calendar, optionsErrors } from './optionsValidation';
 
 export interface OptionsEditorProps {
   draft: OptionsDraft;
@@ -124,23 +124,13 @@ export function moveOptionLeg(
   return true;
 }
 
-function utcDate(value: string): number | null {
-  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value) || value.startsWith('0000'))
-    return null;
-  const time = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(time) &&
-    new Date(time).toISOString().slice(0, 10) === value
-    ? time
-    : null;
-}
-
 export function commonDateHorizon(
   valuation?: string | null,
   expiry?: string | null,
 ): number | null {
   if (!valuation || !expiry) return null;
-  const start = utcDate(valuation),
-    end = utcDate(expiry);
+  const start = calendar(valuation),
+    end = calendar(expiry);
   if (start === null || end === null) return null;
   const days = (end - start) / 86400000;
   return days >= 0 && days <= 3650 ? days : null;
@@ -172,7 +162,7 @@ export function validQuoteTimestamp(value?: string | null): boolean {
     );
   return (
     !!match &&
-    utcDate(match[1]) !== null &&
+    calendar(match[1]) !== null &&
     +match[2] < 24 &&
     +match[3] < 60 &&
     +(match[4] ?? 0) < 60 &&
