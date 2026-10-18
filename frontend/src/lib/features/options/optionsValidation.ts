@@ -227,7 +227,8 @@ export function calendar(v: unknown): number | null {
     ? value
     : null;
 }
-function quoteTimestamp(v: unknown): boolean {
+/** A zoned ISO-8601 time on a strict calendar date, at most 64 characters. */
+export function quoteTimestamp(v: unknown): boolean {
   if (
     typeof v !== 'string' ||
     v.length > 64 ||
