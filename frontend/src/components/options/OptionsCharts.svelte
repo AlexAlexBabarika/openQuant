@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import type { GreekKey, OptionsAnalysis, OptionsDraft } from '$lib/features/options/optionsTypes';
   import { requestChanged } from '$lib/features/options/optionsScenario';
   import { expiryPayoffPoints } from '$lib/features/options/optionsPayoff';
@@ -13,7 +13,7 @@
     GREEK_KEYS, axisValue, niceTicks, fillPath, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
     priceMarkers, sampledYDomain, scaleValue, seriesPoints, svgPath, validateDomain,
-    zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError, outsideView,
+    zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError, outsideView, keepView,
   } from '$lib/features/options/optionsChart';
   import type { Domain } from '$lib/features/options/optionsChart';
   import { formatGreek, formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
@@ -128,11 +128,13 @@
   const drift = $derived(result && finiteValue(spot) && spot !== result.request.spot);
   const unit = $derived(result?.greek_units[greek] ?? '');
 
+  // A new result or reprice can land mid-gesture: keep the drag (its release re-checks the live
+  // draft in commitStrike) and reset everything else once no drag is active.
   $effect(() => {
     context; result;
-    untrack(resetEditing);
-    return () => untrack(resetEditing);
+    untrack(() => { if (drag) drag = { ...drag, context }; else resetEditing(); });
   });
+  onDestroy(resetEditing);
 
   $effect(() => {
     selectedLeg;
@@ -280,12 +282,15 @@
   $effect(() => {
     const grid = result?.spot_grid;
     result?.expiry_curve;
-    view = null;
-    selected = null;
-    domainError = '';
     const bounds = grid ? priceDomain(grid) : null;
-    minimum = bounds ? String(bounds.min) : '';
-    maximum = bounds ? String(bounds.max) : '';
+    untrack(() => {
+      view = keepView(view, bounds);
+      selected = null;
+      domainError = '';
+      const shown = view ?? bounds;
+      minimum = shown ? String(shown.min) : '';
+      maximum = shown ? String(shown.max) : '';
+    });
   });
 
   function setDomain(next: Domain) {
@@ -347,10 +352,9 @@
   {:else if domain && full}
     <header>
       <div><span class="eyebrow">THEORETICAL · EUROPEAN · CASH SETTLED</span><h3>{result.request.strategy.name}</h3></div>
-      <div class="context">Submitted spot <b title={exactValue(result.request.spot)}>{formatPrice(result.request.spot)} USD</b><br />{terminalAvailable ? `${formatNumber(result.horizon?.first_expiry_days ?? result.request.strategy.days_to_expiry)} calendar days` : `Mixed expiry · ${exactValue(result.horizon?.first_expiry_days)}–${exactValue(result.horizon?.last_expiry_days)} days`} · ACT/365</div>
+      <div class="context">Submitted spot <b title={exactValue(result.request.spot)}>{formatPrice(result.request.spot)} USD</b><br />{terminalAvailable ? `${formatNumber(result.horizon?.first_expiry_days ?? result.request.strategy.days_to_expiry)} calendar days` : `Mixed expiry · ${exactValue(result.horizon?.first_expiry_days)}–${exactValue(result.horizon?.last_expiry_days)} days`} · ACT/365<span class="update-note" role="status">{stale ? 'Inputs changed · faded lines show the last analysis' : ''}</span></div>
     </header>
     {#if drift && !stale}<p class="notice">Draft spot changed. Charts still show the returned analysis at {formatPrice(result.request.spot)} USD; analyze again to refresh.</p>{/if}
-    {#if stale}<p class="notice" role="status">Inputs changed. Faded lines show the last analysis until the new one arrives.</p>{/if}
 
     {#if offscreen?.spot || offscreen?.strikes.length}
       <p class="notice offscreen" role="status">
@@ -613,6 +617,7 @@
   .eyebrow, .context, .note, .marker-key, .unit, .pane-title > span { color: oklch(var(--muted-foreground)); }
   .eyebrow { font: 10px var(--font-mono); }
   .context { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+  .update-note { display: block; height: 1.6em; overflow-wrap: normal; white-space: nowrap; color: oklch(var(--risk)); }
   .context b { color: oklch(var(--foreground)); font-family: var(--font-mono); }
   .domain-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0 6px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
