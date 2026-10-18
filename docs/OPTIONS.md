@@ -109,7 +109,10 @@ API. The native workbench and bounded HTTP worker use that same contract.
 
 Open **Strategy → Options** or choose **Open Options workbench** in the command
 palette. Templates are editable configurations, not special payoff formulas.
-Analyze the visual draft, or explicitly export it to the panel's Python mode.
+The visual draft re-analyzes 300 ms after edits settle, once its inputs are valid;
+template chips apply at once and Undo restores the previous legs. Python source
+never runs by itself: use Run or Ctrl/⌘+Enter, or explicitly export the editor
+draft to the panel's Python mode.
 The price-domain charts show exact common-expiry P&L, theoretical today/scenario P&L,
 and selectable today-model Greek curves with keyboard and exact-value readouts.
 The result retains its submitted inputs; editing the draft marks it stale.
@@ -187,7 +190,7 @@ VaR or expected-shortfall error guarantee. No brokerage execution, subscriptions
 live account attachment, historical options replay or American assignment model.
 
 The scenario lab provides explicit time/IV sliders and bounded spot/time or
-spot/IV heatmaps. Apply configures a draft; Analyze submits it. Python-mode
+spot/IV heatmaps. Apply configures the draft, which then re-analyzes. Python-mode
 heatmaps render submitted cells read-only, without submitting editor assumptions.
 Per-leg monetary/Greek tables and session-only pins (up to three) expose signed
 contributions and comparison contexts. Different assumptions are not presented

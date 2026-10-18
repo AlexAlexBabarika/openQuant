@@ -1114,3 +1114,97 @@ describe('options workspace instrument', () => {
     expect(s.source).toBe('# custom');
   });
 });
+
+describe('automatic analysis in editor mode', () => {
+  afterEach(() => vi.useRealTimers());
+
+  function auto(
+    analyze = vi.fn(async (_path: string, _init: RequestInit) => response()),
+  ) {
+    vi.useFakeTimers();
+    const s = new OptionsState(storage(), analyze, 300);
+    s.setAccount(null);
+    return { s, analyze };
+  }
+
+  it('analyzes once, 300 ms after the last edit', async () => {
+    const { s, analyze } = auto();
+    await vi.advanceTimersByTimeAsync(300);
+    analyze.mockClear();
+    s.editDraft(d => {
+      d.spot = 101;
+    });
+    await vi.advanceTimersByTimeAsync(299);
+    expect(analyze).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('debounces bursts of edits into one request', async () => {
+    const { s, analyze } = auto();
+    await vi.advanceTimersByTimeAsync(300);
+    analyze.mockClear();
+    for (const spot of [101, 102, 103]) {
+      s.editDraft(d => {
+        d.spot = spot;
+      });
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    await vi.advanceTimersByTimeAsync(300);
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(analyze.mock.calls[0][1].body)).spot).toBe(103);
+  });
+
+  it('keeps only the latest draft when an edit lands mid-request', async () => {
+    const pending: ((value: OptionsAnalysis) => void)[] = [];
+    const analyze = vi.fn(
+      () => new Promise<OptionsAnalysis>(resolve => pending.push(resolve)),
+    );
+    const { s } = auto(analyze);
+    await vi.advanceTimersByTimeAsync(300);
+    s.editDraft(d => {
+      d.spot = 120;
+    });
+    await vi.advanceTimersByTimeAsync(300);
+    expect(analyze).toHaveBeenCalledTimes(2);
+    const latest = structuredClone($state.snapshot(s.draft));
+    pending[0](response());
+    pending[1](response(latest));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(s.result?.request.spot).toBe(120);
+    expect(s.status).toBe('current');
+  });
+
+  it('never runs Python by itself', async () => {
+    const { s, analyze } = auto();
+    await vi.advanceTimersByTimeAsync(300);
+    analyze.mockClear();
+    s.setMode('python');
+    s.setSource('# changed');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('waits on invalid inputs without an error banner', async () => {
+    const { s, analyze } = auto();
+    await vi.advanceTimersByTimeAsync(300);
+    analyze.mockClear();
+    s.editDraft(d => {
+      d.spot = Number.NaN;
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(analyze).not.toHaveBeenCalled();
+    expect(s.status).toBe('invalid');
+    expect(s.error).toBeNull();
+  });
+
+  it('applies a template and analyzes it', async () => {
+    const { s, analyze } = auto();
+    await vi.advanceTimersByTimeAsync(300);
+    analyze.mockClear();
+    s.applyTemplate('iron_condor');
+    expect(s.draft.strategy.legs).toHaveLength(4);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(analyze).toHaveBeenCalledTimes(1);
+  });
+});

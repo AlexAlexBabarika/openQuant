@@ -6,13 +6,18 @@
     moveOptionLeg, optionsEditorErrors, quoteMidpoint, removeOptionLeg,
     setLegKind, setLegSize, useQuoteMidpoint, type OptionsEditorProps,
   } from '$lib/features/options/optionsLegEditor';
-  import { OPTIONS_TEMPLATES, applyOptionsTemplate, type OptionsTemplate } from '$lib/features/options/optionsTemplates';
-  import { fractionInput, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
+  import { OPTIONS_TEMPLATES, applyOptionsTemplate, templateGlyph, type OptionsTemplate } from '$lib/features/options/optionsTemplates';
+  import { fractionInput, matchTemplate, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
 
-  let { draft, onEdit, fieldErrors = {}, canUndo = false, canRedo = false, onUndo, onRedo }: OptionsEditorProps = $props();
+  const glyphs = new Map(OPTIONS_TEMPLATES.map(([template]) => [template, templateGlyph(template)]));
+
+  let { draft, onEdit, fieldErrors = {}, canUndo = false, canRedo = false, onUndo, onRedo, onTemplate }: OptionsEditorProps & {
+    /** Replace the legs with a template; defaults to a plain draft edit. */
+    onTemplate?: (template: OptionsTemplate) => void;
+  } = $props();
   const uid = $props.id();
   let root: HTMLElement;
-  let nextTemplate = $state<OptionsTemplate>('long_call');
+  const current = $derived(matchTemplate(draft));
   const errors = $derived({ ...optionsEditorErrors(draft), ...fieldErrors });
   const errorId = (key: string) => `${uid}-${key.replace(/\./g, '-')}-error`;
   const editLeg = (i: number, update: (leg: OptionLeg) => void) => onEdit(d => editOptionLeg(d, i, update));
@@ -59,11 +64,15 @@
       <button type="button" class="ot-workbench-ghost" disabled={draft.strategy.legs.length >= MAX_OPTIONS_LEGS} onclick={() => add()}>Add leg</button>
     </div>
   </header>
-  <div class="template-row">
-    <label class="field"><span>Next synthetic template</span><select bind:value={nextTemplate}>{#each OPTIONS_TEMPLATES as [id, name]}<option value={id}>{name}</option>{/each}</select></label>
-    <button type="button" class="ot-workbench-ghost" onclick={() => onEdit(d => applyOptionsTemplate(d, nextTemplate))}>Replace legs</button>
+  <div class="templates" role="group" aria-label="Strategy templates">
+    {#each OPTIONS_TEMPLATES as [template, name] (template)}
+      <button type="button" class="chip" aria-pressed={current === template}
+        onclick={() => onTemplate ? onTemplate(template) : onEdit(d => applyOptionsTemplate(d, template))}>
+        <svg viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><path d={glyphs.get(template)} /></svg>{name}
+      </button>
+    {/each}
   </div>
-  <p class="hint">Templates replace legs and name explicitly; synthetic premiums are not quotes. Common assumptions stay unchanged. Explicit legs—not the template label—define exposure.</p>
+  <p class="hint">A template replaces the legs; Undo brings them back. Assumptions stay as they are.</p>
   <label class="field"><span>Strategy name · up to 120 characters</span><input value={draft.strategy.name} maxlength="120"
     aria-invalid={!!errors['strategy.name']} aria-describedby={errors['strategy.name'] ? errorId('strategy.name') : undefined}
     oninput={e => onEdit(d => { d.strategy.name = e.currentTarget.value; })} />{@render error('strategy.name')}</label>
@@ -125,10 +134,16 @@
 
 <style>
   .leg-editor { container-type: inline-size; min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font-family: var(--font-family-lato); font-size: 12px; }
-  .actions, .template-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+  .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .chip { display: grid; gap: 4px; justify-items: start; min-height: 48px; padding: 6px 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
+  .chip svg { width: 100%; height: 18px; overflow: visible; }
+  .chip path { fill: none; stroke: oklch(var(--muted-foreground)); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  .chip:hover { border-color: oklch(var(--input)); }
+  .chip[aria-pressed="true"] { border-color: oklch(var(--ring)); background: oklch(var(--accent)); }
+  .chip[aria-pressed="true"] path { stroke: oklch(var(--foreground)); }
+  .chip:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   header, .leg-actions { justify-content: space-between; }
-  .template-row .field { flex: 1 1 180px; }
-  .template-row button { align-self: end; }
   h3 { margin: 0; font-size: 12px; }
   h3 span { color: oklch(var(--muted-foreground)); font-family: var(--font-mono); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
@@ -153,5 +168,5 @@
   @container (min-width: 900px) { .leg-fields { grid-template-columns: 1.2fr 1fr .9fr 1fr 1fr 1fr 1.2fr; } }
   @container (max-width: 280px) { .leg-fields, .quote-fields { grid-template-columns: minmax(0, 1fr); } }
   @media (pointer: coarse) { button, input:not([type="checkbox"]), select, summary { min-height: var(--control-touch-height); } }
-  @media (forced-colors: active) { input, select, .leg-row { border-color: CanvasText; } input:focus-visible, select:focus-visible, summary:focus-visible { outline-color: Highlight; } [aria-invalid="true"] { outline: 1px solid CanvasText; } }
+  @media (forced-colors: active) { .chip[aria-pressed="true"] { outline: 2px solid Highlight; } input, select, .leg-row { border-color: CanvasText; } input:focus-visible, select:focus-visible, summary:focus-visible { outline-color: Highlight; } [aria-invalid="true"] { outline: 1px solid CanvasText; } }
 </style>

@@ -93,7 +93,7 @@
   <div class="actions">
     <span class="heading">Options Python</span>
     <button type="button" class="ot-workbench-primary" disabled={!canRun} onclick={run}>
-      {pending ? 'Analyzing…' : 'Analyze Python'}
+      {pending ? 'Running…' : 'Run'}
     </button>
     <button type="button" class="ot-workbench-ghost" onclick={() => copy(source, 'Python')}>Copy Python</button>
     <button type="button" class="ot-workbench-ghost" onclick={() => download(source, 'options-research.py')}>Export .py</button>

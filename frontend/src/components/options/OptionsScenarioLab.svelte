@@ -7,12 +7,10 @@
   import { firstExpiryDays } from '$lib/features/options/optionsValidation';
   import { untrack } from 'svelte';
 
-  let { draft, result, onEdit, onAnalyze, pending = false, readOnly = false }: {
+  let { draft, result, onEdit, readOnly = false }: {
     draft: OptionsDraft;
     result: OptionsAnalysis | null;
     onEdit: (update: (draft: OptionsDraft) => void) => void;
-    onAnalyze: () => void;
-    pending?: boolean;
     readOnly?: boolean;
   } = $props();
   const id = $props.id();
@@ -38,7 +36,7 @@
   $effect(() => { result; selected = { row: 0, column: 0 }; });
 
   function addScenario() {
-    if (pending || draft.scenarios.length >= 3) return;
+    if (draft.scenarios.length >= 3) return;
     onEdit(d => {
       let n = 1;
       while (d.scenarios.some(s => s.name === `Scenario ${n}`)) n++;
@@ -47,7 +45,7 @@
   }
 
   function editScenario(index: number, key: 'elapsed_days' | 'iv_shift_pp', value: number) {
-    if (!pending) onEdit(d => { d.scenarios[index][key] = value; });
+    onEdit(d => { d.scenarios[index][key] = value; });
   }
 
   function changeAxis(axis: SurfaceSettings['axis']) {
@@ -59,11 +57,10 @@
 
   function applySurface(event: SubmitEvent) {
     event.preventDefault();
-    if (pending) return;
     const next = buildSurface(draft, settings);
     if (!next) return;
     onEdit(d => { d.surface = next; });
-    applied = 'Heatmap grid applied to draft. Analyze explicitly to request backend cells.';
+    applied = 'Heatmap grid applied to the draft; the analysis requests its cells.';
   }
 
   function cellKey(event: KeyboardEvent, row: number, column: number) {
@@ -79,20 +76,19 @@
 
 <section class="scenario-lab" aria-label="Options scenario lab">
   {#if !readOnly}
-  <header><h3>Scenario lab</h3><button type="button" class="ot-workbench-primary" disabled={pending} onclick={() => { if (!pending) onAnalyze(); }}>{pending ? 'Analyzing…' : 'Analyze draft'}</button></header>
+  <header><h3>Scenario lab</h3></header>
   <p class="note">Manual European cash-settled USD research. Controls edit inputs only; no automatic Python execution. Premiums and entry fees stay fixed. No probability forecast or provider verification.</p>
   <div class="feedback" aria-live="polite" aria-atomic="true">
-    {#if pending}<p>{result ? 'Analyzing current inputs; previous submitted evidence remains below.' : 'Analyzing current inputs; no results yet.'}</p>{/if}
-    {#if stale}<p class="notice">Inputs changed. Previous submitted results below are stale; Analyze explicitly to refresh. New slider or grid inputs are never applied to old values.</p>{/if}
+    {#if stale}<p class="notice">Inputs changed. The results below update when the new analysis returns; new slider or grid inputs are never applied to old values.</p>{/if}
     {#if applied}<p>{applied}</p>{/if}
   </div>
-  <div class="section-title"><h4>Explicit scenarios · {draft.scenarios.length}/3</h4><button type="button" class="ot-workbench-ghost" disabled={pending || draft.scenarios.length >= 3} onclick={addScenario}>Add scenario</button></div>
+  <div class="section-title"><h4>Explicit scenarios · {draft.scenarios.length}/3</h4><button type="button" class="ot-workbench-ghost" disabled={draft.scenarios.length >= 3} onclick={addScenario}>Add scenario</button></div>
   <p class="note">Elapsed days: 0–{exactValue(horizon)}. IV shift: {bounds ? `${exactValue(bounds.min, true)}–${exactValue(bounds.max, true)} pp` : 'unavailable until base and leg IVs are valid'}. A shift applies to every enabled option IV and the declared base, not their average. Undefined Greeks remain unavailable.</p>
   {#if draft.scenarios.length === 0}<p class="note">No scenarios configured. Add one to set explicit time and IV shifts.</p>{/if}
   {#each draft.scenarios as scenario, i}
     {@const error = scenarioInputError(draft, scenario.elapsed_days, scenario.iv_shift_pp)}
     {@const nameError = scenarioNameError(draft, i)}
-    <fieldset disabled={pending} class="scenario"><legend>Scenario {i + 1}</legend>
+    <fieldset class="scenario"><legend>Scenario {i + 1}</legend>
       <label for={`${id}-name-${i}`}>Name · unique, 1–80 characters<input id={`${id}-name-${i}`} value={scenario.name} maxlength="80" aria-invalid={!!nameError} aria-describedby={`${id}-name-error-${i}`} oninput={e => onEdit(d => { d.scenarios[i].name = e.currentTarget.value; })} /></label>
       <p id={`${id}-name-error-${i}`} class:notice={!!nameError} class="note">{nameError ?? 'Names identify submitted scenario evidence.'}</p>
       <label for={`${id}-time-${i}`}>Elapsed calendar days · draft <output for={`${id}-time-${i}`}>{exactValue(scenario.elapsed_days)}</output>
@@ -109,7 +105,7 @@
   <details class="configuration" open><summary>Spot–time / spot–IV heatmap configuration</summary>
     <p class="note">Stage a uniform grid, then Apply heatmap grid to the draft and Analyze. Spots: 2–41 columns in 0–1,000,000 USD. Steps: 2–21 distinct increasing rows; at most 861 cells. Changing axis does not run analysis.</p>
     <form onsubmit={applySurface}>
-      <fieldset disabled={pending} class="grid-fields"><legend>Requested surface · draft inputs</legend>
+      <fieldset class="grid-fields"><legend>Requested surface · draft inputs</legend>
         <label for={`${id}-axis`}>Step axis<select id={`${id}-axis`} value={settings.axis} onchange={e => changeAxis(e.currentTarget.value as SurfaceSettings['axis'])}><option value="elapsed_days">Spot × elapsed calendar days</option><option value="iv_shift_pp">Spot × IV shift (pp)</option></select></label>
         <label for={`${id}-spot-start`}>Spot start (USD)<input id={`${id}-spot-start`} type="number" min="0" max="1000000" step="any" bind:value={settings.spotStart} aria-invalid={!!errors.spots} aria-describedby={`${id}-spots-error`} /></label>
         <label for={`${id}-spot-end`}>Spot end (USD)<input id={`${id}-spot-end`} type="number" min="0" max="1000000" step="any" bind:value={settings.spotEnd} aria-invalid={!!errors.spots} aria-describedby={`${id}-spots-error`} /></label>

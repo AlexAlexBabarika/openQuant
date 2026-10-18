@@ -5,6 +5,7 @@ import {
   spotGrid,
   templateStrategy,
   applyOptionsTemplate,
+  templateGlyph,
 } from './optionsTemplates';
 import { optionsErrors } from './optionsState.svelte';
 
@@ -139,5 +140,35 @@ describe('manual options templates', () => {
     expect(grid[0]).toBe(0);
     expect(grid[200]).toBe(1000000);
     expect(grid.slice(1).every((s, i) => s > grid[i])).toBe(true);
+  });
+});
+
+describe('templateGlyph', () => {
+  const ys = (path: string) =>
+    path
+      .slice(1)
+      .split('L')
+      .map(p => Number(p.split(',')[1]));
+
+  it('draws each template by its own expiry payoff shape', () => {
+    const call = ys(templateGlyph('long_call'));
+    expect(call[0]).toBe(16);
+    expect(call[1]).toBe(16);
+    expect(call[call.length - 1]).toBe(2);
+    const put = ys(templateGlyph('long_put'));
+    expect(put[0]).toBe(2);
+    expect(put[put.length - 1]).toBe(16);
+    const condor = ys(templateGlyph('iron_condor'));
+    expect(Math.min(...condor)).toBe(2);
+    expect(condor[0]).toBe(16);
+    expect(condor[condor.length - 1]).toBe(16);
+  });
+
+  it('stays inside its 100 × 18 box', () => {
+    for (const [id] of OPTIONS_TEMPLATES) {
+      const path = templateGlyph(id);
+      expect(path).toMatch(/^M[\d.]+,[\d.]+(L[\d.]+,[\d.]+)+$/);
+      for (const y of ys(path)) expect(y >= 2 && y <= 16).toBe(true);
+    }
   });
 });
