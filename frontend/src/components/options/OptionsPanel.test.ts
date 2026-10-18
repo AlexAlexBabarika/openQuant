@@ -289,6 +289,15 @@ describe('integrated options workbench', () => {
     expect(words(html)).toBeLessThan(300);
   });
 
+  it('says inputs changed once, not once per section', () => {
+    state.result = result();
+    state.editDraft(d => {
+      d.spot = 101;
+    });
+    const html = render(OptionsPanel).body;
+    expect(visibleText(html).match(/Inputs changed/g)).toHaveLength(1);
+  });
+
   it('shows the risk totals in the evidence column, above the chart', () => {
     state.result = result();
     const html = render(OptionsPanel).body;

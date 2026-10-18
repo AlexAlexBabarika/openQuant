@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { OptionsDraft, OptionsAnalysis } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
-  import { buildSurface, ivShiftBounds, requestChanged, scenarioInputError, scenarioNameError, surfaceCellLabel, surfaceDataError, surfaceKeyboardCell, surfaceSettings, surfaceSettingsErrors, surfaceValue } from '$lib/features/options/optionsScenario';
+  import { buildSurface, ivShiftBounds, scenarioInputError, scenarioNameError, surfaceCellLabel, surfaceDataError, surfaceKeyboardCell, surfaceSettings, surfaceSettingsErrors, surfaceValue } from '$lib/features/options/optionsScenario';
   import type { SurfaceSettings } from '$lib/features/options/optionsScenario';
   import { heatmapColor, heatmapLegend, heatmapScale } from '$lib/features/sweep/heatmap';
   import { firstExpiryDays } from '$lib/features/options/optionsValidation';
@@ -24,7 +24,6 @@
   const configValid = $derived(Object.keys(errors).length === 0);
   const surface = $derived(result?.surface ?? null);
   const dataError = $derived(surface ? surfaceDataError(surface) : null);
-  const stale = $derived(result && requestChanged(draft, result.request));
   const cells = $derived(surface && !dataError ? surface.steps.map((_, row) => surface.spots.map((_, column) => surfaceValue(surface, row, column))) : []);
   const scale = $derived(heatmapScale(cells));
   const legend = $derived(heatmapLegend(scale));
@@ -78,7 +77,6 @@
   {#if !readOnly}
   <header><h3>Scenario lab</h3></header>
   <div class="feedback" aria-live="polite" aria-atomic="true">
-    {#if stale}<p class="notice">Inputs changed. The results below update when the new analysis returns; new slider or grid inputs are never applied to old values.</p>{/if}
     {#if applied}<p>{applied}</p>{/if}
   </div>
   <div class="section-title"><h4>Explicit scenarios · {draft.scenarios.length}/3</h4><button type="button" class="ot-workbench-ghost" disabled={draft.scenarios.length >= 3} onclick={addScenario}>Add scenario</button></div>

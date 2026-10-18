@@ -18,7 +18,7 @@
   import type { Domain } from '$lib/features/options/optionsChart';
   import { formatGreek, formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
 
-  let { result = null, spot, draft, onEdit, readOnly = false, documentKey, onFit, pending = false }: {
+  let { result = null, spot, draft, onEdit, readOnly = false, documentKey, onFit, pending = false, compact = false }: {
     result?: OptionsAnalysis | null;
     spot?: number;
     draft?: OptionsDraft;
@@ -29,6 +29,8 @@
     onFit?: () => void;
     /** A newer analysis is on its way; submitted curves show faintly until it lands. */
     pending?: boolean;
+    /** Narrow panels fold strike, view and Greek controls into one disclosure below the payoff. */
+    compact?: boolean;
   } = $props();
   const id = $props.id();
   let containerWidth = $state(360);
@@ -348,7 +350,7 @@
       <div class="context">Submitted spot <b title={exactValue(result.request.spot)}>{formatPrice(result.request.spot)} USD</b><br />{terminalAvailable ? `${formatNumber(result.horizon?.first_expiry_days ?? result.request.strategy.days_to_expiry)} calendar days` : `Mixed expiry · ${exactValue(result.horizon?.first_expiry_days)}–${exactValue(result.horizon?.last_expiry_days)} days`} · ACT/365</div>
     </header>
     {#if drift && !stale}<p class="notice">Draft spot changed. Charts still show the returned analysis at {formatPrice(result.request.spot)} USD; analyze again to refresh.</p>{/if}
-    {#if stale}<p class="notice" role="status">Inputs changed. All charts and per-leg readouts remain previous submitted evidence; Analyze explicitly to refresh.</p>{/if}
+    {#if stale}<p class="notice" role="status">Inputs changed. Faded lines show the last analysis until the new one arrives.</p>{/if}
 
     {#if offscreen?.spot || offscreen?.strikes.length}
       <p class="notice offscreen" role="status">
@@ -454,6 +456,7 @@
       {:else}<span>No price selected.</span>{/if}
     </div>
 
+    {#snippet secondary()}
     <section class="strike-editor" aria-label="Strike proposals and submitted leg contribution">
       <div class="pane-title"><h4>Strikes and legs</h4></div>
       {#if !editable}<p class="note">Read-only chart: its controls never change Python source.</p>{:else}
@@ -543,6 +546,9 @@
       <div><dt>Today</dt><dd title={exactValue(result.greeks[greek])}>{formatGreek(result.greeks[greek], { signed: true })} · {unit}</dd></div>
       {#each result.scenarios as scenario}<div><dt>{scenario.name}</dt><dd title={exactValue(scenario.greeks[greek])}>{formatGreek(scenario.greeks[greek], { signed: true })} · {unit}</dd></div>{/each}
     </dl></div>
+
+    {/snippet}
+    {#if compact}<details class="evidence"><summary>Strike, view and Greek controls</summary>{@render secondary()}</details>{:else}{@render secondary()}{/if}
 
     <details class="evidence"><summary>Expiry geometry · exact backend values</summary>
       {#if !terminalAvailable}<p class="note">{expiryError}</p>{:else}

@@ -688,3 +688,22 @@ describe('readable chart axes and fills', () => {
     expect(html).toMatch(/class="strike-handle buy[^"]*"[^>]*>L1 \+C 100</);
   });
 });
+
+describe('compact chart on narrow panels', () => {
+  it('folds strike, view and Greek controls into one closed disclosure', () => {
+    const wide = render(OptionsCharts, { props: { result } }).body;
+    expect(wide).not.toContain('Strike, view and Greek controls');
+    const html = render(OptionsCharts, {
+      props: { result, compact: true },
+    }).body;
+    const fold = html.indexOf('<summary');
+    const greek = html.indexOf('Greek exposure by price');
+    expect(html).toMatch(
+      /<details class="evidence[^"]*"><summary[^>]*>Strike, view and Greek controls/,
+    );
+    expect(greek).toBeGreaterThan(
+      html.indexOf('Strike, view and Greek controls'),
+    );
+    expect(fold).toBeGreaterThan(html.indexOf('class="graph'));
+  });
+});
