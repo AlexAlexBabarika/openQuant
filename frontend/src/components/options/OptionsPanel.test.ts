@@ -17,6 +17,7 @@ import OptionsPanel from './OptionsPanel.svelte';
 import OptionsSummary from './OptionsSummary.svelte';
 import OptionsCharts from './OptionsCharts.svelte';
 import OptionsResearchTools from './OptionsResearchTools.svelte';
+import OptionsChainPicker from './OptionsChainPicker.svelte';
 
 vi.mock('$lib/features/options/optionsState.svelte', async importOriginal => ({
   ...(await importOriginal<
@@ -150,6 +151,34 @@ describe('integrated options workbench', () => {
     const html = render(OptionsPanel).body;
     expect(html).toMatch(/<dt[^>]*>delta<\/dt><dd[^>]*>\+100<\/dd>/);
     expect(html).toContain('USD spot:</strong> 105.01.');
+  });
+
+  it('opens the chain picker on the draft underlying without an error', () => {
+    const draft = structuredClone(state.draft);
+    draft.strategy.underlying = null;
+    const props = { onEdit: vi.fn(), documentKey: 'guest:1:editor' };
+    const blank = render(OptionsChainPicker, {
+      props: { ...props, draft },
+    }).body;
+    expect(blank).not.toContain('Enter a symbol of 1–32');
+    draft.strategy.underlying = 'AAPL';
+    const aapl = render(OptionsChainPicker, {
+      props: { ...props, draft },
+    }).body;
+    expect(aapl).toContain('value="AAPL"');
+  });
+
+  it('edits IV, rate and yield as percentages and expiry as one date', () => {
+    state.draft.volatility = 0.283;
+    state.draft.rate = 0.04;
+    const html = render(OptionsPanel).body;
+    expect(html).toContain('IV · %');
+    expect(html).toContain('value="28.3"');
+    expect(html).toContain('value="4"');
+    expect(html).not.toContain('fraction (0–5)');
+    expect(html).toMatch(/Expiry<\/span><input type="date"/);
+    expect(html).toContain('30 days');
+    expect(html).toContain('Pricing assumptions');
   });
 
   it('shows the risk totals in the evidence column, above the chart', () => {

@@ -1165,6 +1165,8 @@
     provider={chart.source}
     period={chart.period}
     interval={chart.interval}
+    workspaceSymbol={lastClose === null ? null : chart.loadedSymbol || null}
+    workspaceSpot={lastClose}
     {strategy}
     onOpenRuns={() => (runsOpen = true)}
     onCompare={openCompare}

@@ -118,6 +118,12 @@ expiration breakevens with padding (35% of their span, at least 6% of spot) and
 refits when spot or the leg layout changes, until a grid is entered by hand.
 **Fit** returns to the fitted grid; the chart names a spot or strike it cannot show.
 
+Spot and the underlying name follow the chart's loaded symbol and last close
+(rounded to cents) until a spot is typed; an untouched template re-centers on the
+new spot. New workbench drafts are valued today with one expiry date and a days
+readout; days-only drafts still load and can switch to dates. IV, rate and yield
+are entered as percentages and sent as annual fractions.
+
 The editor exposes underlying identity, common valuation/expiry defaults, per-leg
 expiry/IV overrides and manual bid/ask timestamps. Quotes are unverified and never
 replace entry premiums unless explicitly applying a valid midpoint. Desktop leg

@@ -10,7 +10,7 @@
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const id = $props.id();
   const flight = new OptionsToolFlight();
-  let symbol = $state(''), environment = $state<ChainEnvironment>('production'), expiration = $state('');
+  let symbol = $state(untrack(() => draft.strategy.underlying ?? '')), symbolTouched = $state(false), environment = $state<ChainEnvironment>('production'), expiration = $state('');
   let status = $state<ChainStatusResponse | null>(null);
   let expirations = $state<ChainExpirationsResponse | null>(null);
   let response = $state<ChainResponse | null>(null);
@@ -41,7 +41,7 @@
     documentKey;
     untrack(() => {
       flight.cancel(); pending = null; status = null; expirations = null; response = null; responseKey = ''; selected = null;
-      symbol = draft.strategy.underlying ?? ''; environment = 'production'; expiration = ''; settings = emptySettings();
+      symbol = draft.strategy.underlying ?? ''; symbolTouched = false; environment = 'production'; expiration = ''; settings = emptySettings();
       filters = { kind: 'all', minStrike: null, maxStrike: null, sort: 'strike', descending: false, page: 0 };
       failure = ''; notice = ''; attempted = false;
     });
@@ -63,6 +63,7 @@
     if (readOnly || pending) return;
     failure = ''; notice = '';
     if (!getAccessToken()) { failure = 'Sign in before reading provider chains, then open Settings → API keys. Guest drafts cannot access an account’s provider credentials.'; return; }
+    if (kind !== 'status') symbolTouched = true;
     if (kind !== 'status' && (symbolError || !connected)) { failure = symbolError || 'Check connection status and configure this environment in Settings → API keys first.'; return; }
     if (kind === 'chain' && (!matchingExpirations || !matchingExpirations.expirations.includes(expiration))) { failure = 'Fetch available expirations and explicitly choose one before loading a chain.'; return; }
     const query = { symbol: normalizedSymbol, environment, expiration };
@@ -127,7 +128,7 @@
     <legend>Connection and query</legend>
     <div class="grid">
       <label><span>Environment</span><select bind:value={environment}><option value="production">Production · tradier</option><option value="sandbox">Sandbox · tradier_sandbox</option></select></label>
-      <label><span>Underlying symbol · 1–32 characters</span><input bind:value={symbol} maxlength="32" autocomplete="off" spellcheck="false" aria-invalid={!!symbolError} aria-describedby={`${id}-symbol-help`} /><small id={`${id}-symbol-help`}>{symbolError || 'Changing a query cancels pending responses; fetch explicitly.'}</small></label>
+      <label><span>Underlying symbol · 1–32 characters</span><input bind:value={symbol} name="chain-symbol" maxlength="32" autocomplete="off" spellcheck="false" onblur={() => { symbolTouched = true; }} aria-invalid={symbolTouched && !!symbolError} aria-describedby={`${id}-symbol-help`} /><small id={`${id}-symbol-help`}>{(symbolTouched && symbolError) || 'Changing a query cancels pending responses; fetch explicitly.'}</small></label>
       <label><span>Expiration · UTC</span><select bind:value={expiration} disabled={!matchingExpirations || !!pending}><option value="">Choose expiration</option>{#each matchingExpirations?.expirations ?? [] as date}<option value={date}>{date}</option>{/each}</select></label>
     </div>
     <div class="actions">
