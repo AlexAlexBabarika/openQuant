@@ -122,6 +122,18 @@ describe('submitted comparison and reproducibility helpers', () => {
     ];
     expect(comparisonCurve(comparisonSnapshot('bad', r, null))).toBeNull();
   });
+  it('compares no expiry curve for a mixed-expiry horizon', () => {
+    const r = result();
+    r.horizon = {
+      kind: 'mixed_expiry',
+      first_expiry_days: 30,
+      last_expiry_days: 60,
+      elapsed_days: 30,
+      exact_terminal_available: true,
+      legs: [],
+    };
+    expect(comparisonCurve(comparisonSnapshot('mixed', r, null))).toBeNull();
+  });
   it('exports exact canonical paths/units/undefined Greeks and report source without zero substitution', () => {
     const r = result();
     r.request.strategy.name = '=HYPERLINK("private")';

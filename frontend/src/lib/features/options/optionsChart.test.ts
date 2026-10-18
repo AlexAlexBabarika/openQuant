@@ -27,6 +27,7 @@ import {
   niceTicks,
   fillPath,
   keepView,
+  exactTerminalAvailable,
 } from './optionsChart';
 import type { OptionsAnalysis } from './optionsTypes';
 
@@ -716,5 +717,34 @@ describe('keeping the zoom across analyses', () => {
     expect(keepView(view, { min: 340, max: 382.78 })).toBeNull();
     expect(keepView(null, { min: 322.85, max: 382.78 })).toBeNull();
     expect(keepView(view, null)).toBeNull();
+  });
+});
+
+describe('exact terminal geometry availability', () => {
+  const horizon = {
+    kind: 'single_expiry' as const,
+    first_expiry_days: 30,
+    last_expiry_days: 30,
+    elapsed_days: 30,
+    exact_terminal_available: true,
+    legs: [],
+  };
+  const mixed = {
+    ...result,
+    horizon: { ...horizon, kind: 'mixed_expiry' as const },
+  };
+  it('needs a common expiry and the backend flag; responses without a horizon are common expiry', () => {
+    expect(exactTerminalAvailable(result)).toBe(true);
+    expect(exactTerminalAvailable({ ...result, horizon })).toBe(true);
+    expect(exactTerminalAvailable(mixed)).toBe(false);
+    expect(
+      exactTerminalAvailable({
+        ...result,
+        horizon: { ...horizon, exact_terminal_available: false },
+      }),
+    ).toBe(false);
+  });
+  it('marks no expiry breakevens on a mixed-expiry horizon', () => {
+    expect(priceMarkers(mixed).map(m => m.kind)).not.toContain('breakeven');
   });
 });

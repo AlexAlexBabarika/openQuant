@@ -203,11 +203,18 @@ export function plotError(result: OptionsAnalysis): string | null {
   return null;
 }
 
+/** Exact terminal geometry (expiry curve, extrema, breakevens) needs one common expiry. */
+export function exactTerminalAvailable(
+  result: Pick<OptionsAnalysis, 'horizon'>,
+): boolean {
+  return (
+    result.horizon?.kind !== 'mixed_expiry' &&
+    result.horizon?.exact_terminal_available !== false
+  );
+}
+
 export function expiryTraceError(result: OptionsAnalysis): string | null {
-  if (
-    result.horizon?.kind === 'mixed_expiry' ||
-    result.horizon?.exact_terminal_available === false
-  )
+  if (!exactTerminalAvailable(result))
     return 'Mixed-expiry horizon: no exact terminal trace, maxima or breakevens. First-expiry values mark later legs; use lifecycle research for settlement transitions.';
   const curve = result.expiry_curve;
   const full = priceDomain(result.spot_grid);
@@ -298,14 +305,13 @@ export function priceMarkers(result: OptionsAnalysis): PriceMarker[] {
       label: `Submitted spot ${exactValue(result.request.spot)} USD`,
       kind: 'spot' as const,
     },
-    ...(result.horizon?.exact_terminal_available === false
-      ? []
-      : result.summary.breakevens
-    ).map(spot => ({
-      spot,
-      label: `Expiration breakeven ${exactValue(spot)} USD`,
-      kind: 'breakeven' as const,
-    })),
+    ...(exactTerminalAvailable(result) ? result.summary.breakevens : []).map(
+      spot => ({
+        spot,
+        label: `Expiration breakeven ${exactValue(spot)} USD`,
+        kind: 'breakeven' as const,
+      }),
+    ),
   ].filter(m => finiteValue(m.spot) && m.spot >= 0);
 }
 
