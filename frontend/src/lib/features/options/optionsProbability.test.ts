@@ -10,6 +10,7 @@ import {
   ProbabilityRunner,
   emptyProbabilityState,
   probabilityBars,
+  tallestProbability,
   probabilityBinLabel,
   probabilityDataError,
   probabilityErrors,
@@ -227,7 +228,25 @@ describe('probability presentation, not financial computation', () => {
       { lower_pnl: 0, upper_pnl: 200, probability: 0.25 },
     ];
     expect(probabilityBars(bins).map(b => b.width)).toEqual([200, 400]);
-    expect(probabilityBars(bins).map(b => b.height)).toEqual([120, 40]);
+    const heights = probabilityBars(bins).map(b => b.height);
+    expect(heights[0]).toBe(160);
+    expect(heights[1]).toBeCloseTo(160 / 3, 9);
+  });
+  it('scales bars to the tallest bin so small masses stay visible', () => {
+    const bins = Array.from({ length: 36 }, (_, i) => ({
+      lower_pnl: i,
+      upper_pnl: i + 1,
+      probability: i === 18 ? 0.031 : 0.0275,
+    }));
+    const bars = probabilityBars(bins);
+    expect(Math.max(...bars.map(b => b.height))).toBe(160);
+    expect(tallestProbability(bins)).toBe(0.031);
+    expect(
+      probabilityBars([
+        { lower_pnl: 0, upper_pnl: 1, probability: 0 },
+        { lower_pnl: 1, upper_pnl: 2, probability: 0 },
+      ]).map(b => b.height),
+    ).toEqual([0, 0]);
   });
   it('distinguishes empty/invalid evidence from zero risk', () => {
     expect(probabilityDataError({ ...response(), bins: [] })).toMatch(
@@ -297,7 +316,9 @@ describe('probability presentation, not financial computation', () => {
     ];
     const plot = terminalProbabilityPlot(result, 400)!;
     expect(plot.bins.map(b => b.width)).toEqual([100, 300]);
-    expect(plot.bins.map(b => b.height)).toEqual([60, 40]);
+    expect(plot.bins[0].height).toBe(100);
+    expect(plot.bins[1].height).toBeCloseTo(200 / 3, 9);
+    expect(plot.maxProbability).toBe(0.6);
     expect(plot.points.map(p => p.x)).toEqual([0, 100, 400]);
     expect(plot.points.map(p => p.point.pnl)).toEqual([-500, -500, 5500]);
     expect(plot.payoffPath.match(/L/g)).toHaveLength(2);
