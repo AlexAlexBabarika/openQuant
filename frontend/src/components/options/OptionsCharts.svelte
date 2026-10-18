@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import type { GreekKey, OptionsAnalysis, OptionsDraft } from '$lib/features/options/optionsTypes';
   import { requestChanged } from '$lib/features/options/optionsScenario';
-  import { optionsErrors } from '$lib/features/options/optionsValidation';
+  import { expiryPayoffPoints } from '$lib/features/options/optionsPayoff';
   import {
     STRIKE_STEPS, MAX_STRIKE, validStrike, snapStrike, strikeAtClientX,
     moveStrikeDrag, finishStrikeDrag, applyStrikeEdit, isolatedLegRequest,
@@ -18,7 +18,7 @@
   import type { Domain } from '$lib/features/options/optionsChart';
   import { formatGreek, formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
 
-  let { result = null, spot, draft, onEdit, readOnly = false, documentKey, onFit }: {
+  let { result = null, spot, draft, onEdit, readOnly = false, documentKey, onFit, pending = false }: {
     result?: OptionsAnalysis | null;
     spot?: number;
     draft?: OptionsDraft;
@@ -27,6 +27,8 @@
     documentKey?: string;
     /** Refit the requested price grid; the chart can only show prices the grid covers. */
     onFit?: () => void;
+    /** A newer analysis is on its way; submitted curves show faintly until it lands. */
+    pending?: boolean;
   } = $props();
   const id = $props.id();
   let containerWidth = $state(360);
@@ -45,22 +47,18 @@
   let capture: HTMLButtonElement | null = null;
   let suppressMarkerClick = false;
   let dragStartX = 0;
-  const previewGate = new ChartRequestGate(), legGate = new ChartRequestGate();
+  const legGate = new ChartRequestGate();
   interface Evidence { analysis: OptionsAnalysis; context: string; baseline: OptionsAnalysis; legIndex?: number }
-  let proposal = $state.raw<Evidence | null>(null);
   let contribution = $state.raw<Evidence | null>(null);
-  let previewPending = $state(false), legPending = $state(false);
-  let previewMessage = $state(''), legMessage = $state('');
-  let previewFailed = $state(false), legFailed = $state(false);
-  let previewFields = $state<Record<string, string>>({});
+  let legPending = $state(false);
+  let legMessage = $state('');
+  let legFailed = $state(false);
   const context = $derived(chartContextKey(documentKey, draft, result, readOnly, !!onEdit));
   const editable = $derived(!!documentKey && !!draft && !!onEdit && !readOnly);
   const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
-  const proposed = $derived(proposal?.context === context && proposal.baseline === result ? proposal.analysis : null);
   const legAnalysis = $derived(contribution?.context === context && contribution.baseline === result && contribution.legIndex === selectedLeg ? contribution.analysis : null);
-  const proposedCurves = $derived(proposed ? canonicalOverlay(proposed, proposed.request) : []);
   const legCurves = $derived(legAnalysis && result ? canonicalOverlay(legAnalysis, legAnalysis.request, !terminalAvailable) : []);
-  const overlayCurves = $derived([...proposedCurves, ...legCurves]);
+  const overlayCurves = $derived(legCurves);
   const overlayPoints = $derived(overlayCurves.map(s => seriesPoints(s.spots, s.values)));
   const legRows = $derived(result?.request.strategy.legs.map((leg, index) => ({ leg, index })) ?? []);
   const draftLeg = $derived(selectedLeg == null ? null : draft?.strategy.legs[selectedLeg]);
@@ -79,7 +77,13 @@
   const inspectGrid = $derived(result ? [...new Set([...inspectionGrid(result), ...overlayCurves.flatMap(s => s.spots)])].sort((a, b) => a - b) : []);
   const expiryError = $derived(result ? (terminalAvailable ? expiryTraceError(result) : 'Exact terminal geometry unavailable for this horizon: no common-expiry payoff, extrema, breakevens or zero intervals. Use lifecycle analysis for expiry transitions.') : null);
   const legError = $derived(result ? legBreakdownError(result) : null);
-  const pnlY = $derived(domain ? sampledYDomain([...points, ...overlayPoints], domain) : { min: -1, max: 1 });
+  const stale = $derived(result && draft && requestChanged(draft, result.request));
+  // While dragging, or until a changed draft is analyzed, its expiry payoff is drawn live: it is exact
+  // arithmetic. Today and scenario curves need the model, so the submitted ones show faintly meanwhile.
+  const liveDraft = $derived(draft && result && (drag || stale) ? (drag ? withStrike(draft, drag) : draft) : null);
+  const livePoints = $derived(liveDraft && domain && terminalAvailable ? expiryPayoffPoints(liveDraft, domain) : null);
+  const ghosted = $derived(!!drag || !!stale || pending);
+  const pnlY = $derived(domain ? sampledYDomain([...points, ...overlayPoints, ...(livePoints ? [livePoints] : [])], domain) : { min: -1, max: 1 });
   const greekCurves = $derived(result ? greekSeries(result, greek) : []);
   const greekPoints = $derived(result ? greekCurves.map(s => seriesPoints(result.spot_grid, s.values)) : []);
   const greekY = $derived(domain ? sampledYDomain(greekPoints, domain) : { min: -1, max: 1 });
@@ -92,7 +96,6 @@
   const activeSpot = $derived(activeIndex != null ? inspectGrid[activeIndex] : null);
   const greekIndex = $derived(activeSpot != null ? result?.spot_grid.indexOf(activeSpot) ?? -1 : -1);
   const drift = $derived(result && finiteValue(spot) && spot !== result.request.spot);
-  const stale = $derived(result && draft && requestChanged(draft, result.request));
   const unit = $derived(result?.greek_units[greek] ?? '');
 
   $effect(() => {
@@ -118,13 +121,16 @@
 
   function resetEditing() {
     cancelDrag();
-    previewGate.cancel(); legGate.cancel();
-    proposal = null; contribution = null;
+    legGate.cancel();
+    contribution = null;
     selected = null;
-    previewPending = false; legPending = false;
-    previewMessage = ''; legMessage = '';
-    previewFailed = false; legFailed = false;
-    previewFields = {};
+    legPending = false;
+    legMessage = '';
+    legFailed = false;
+  }
+
+  function withStrike(base: OptionsDraft, edit: StrikeDrag): OptionsDraft {
+    return { ...base, strategy: { ...base.strategy, legs: base.strategy.legs.map((leg, i) => i === edit.legIndex ? { ...leg, strike: edit.proposed } : leg) } };
   }
 
   function commitStrike(index: number, strike: number, original: number) {
@@ -212,11 +218,6 @@
     void loadLeg(index);
   }
 
-  function cancelPreview(discard = false) {
-    previewGate.cancel(); previewPending = false; previewFailed = false;
-    if (discard) { proposal = null; selected = null; }
-    previewMessage = discard ? 'Proposed overlay discarded. Submitted evidence is unchanged.' : 'Proposal request cancelled. Any previous proposed overlay is unchanged.';
-  }
 
   function cancelLeg() {
     legGate.cancel(); legPending = false; legFailed = false;
@@ -244,29 +245,6 @@
     } catch {
       if (current()) { legFailed = true; legMessage = 'Leg contribution request failed. Retry explicitly; submitted strategy evidence is unchanged.'; }
     } finally { clearTimeout(timer); if (current()) legPending = false; }
-  }
-
-  async function previewProposal() {
-    if (!editable || !draft || !result || previewPending || drag) return;
-    const base = result, key = context;
-    const request = structuredClone($state.snapshot(draft));
-    previewFields = optionsErrors(request);
-    previewFailed = Object.keys(previewFields).length > 0;
-    if (previewFailed) { previewMessage = 'Fix the proposal inputs below before previewing. No request was sent.'; return; }
-    const flight = previewGate.begin(key, base);
-    previewPending = true; previewFailed = false; previewMessage = '';
-    const current = () => flight.current(context, result);
-    const timer = setTimeout(() => { if (current()) { previewGate.cancel(); previewPending = false; previewFailed = true; previewMessage = 'Proposal preview timed out. Retry explicitly.'; } }, 15000);
-    try {
-      const analysis = await requestChartAnalysis(request, flight.signal);
-      if (!current()) return;
-      canonicalOverlay(analysis, request);
-      proposal = { analysis, context: key, baseline: base };
-      selected = null;
-      previewMessage = 'Proposed backend result only. The submitted strategy and its evidence have not been replaced.';
-    } catch {
-      if (current()) { previewFailed = true; previewMessage = 'Canonical preview failed. Check the draft inputs and retry; submitted evidence is unchanged.'; }
-    } finally { clearTimeout(timer); if (current()) previewPending = false; }
   }
 
   $effect(() => {
@@ -357,7 +335,6 @@
       {#each curves as curve (curve.id)}
         <span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray={curve.dash} /></svg>{curve.label}</span>
       {/each}
-      {#each proposedCurves as curve (curve.id)}<span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray="3 2 1 2" /></svg>PROPOSED · {curve.label}</span>{/each}
       {#each legCurves as curve (curve.id)}<span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray="14 5" /></svg>SUBMITTED L{(selectedLeg ?? 0) + 1} · {curve.label}</span>{/each}
     </div>
     <div class="graph" bind:clientWidth={containerWidth}>
@@ -383,12 +360,13 @@
               <line class={`marker ${marker.kind}`} x1={x(marker.spot)} x2={x(marker.spot)} y1="24" y2="208"><title>{marker.label}</title></line>
             {/each}
             {#each curves as curve, i (curve.id)}
-              <path class={`curve ${curve.tone}`} d={svgPath(points[i], domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`} stroke-dasharray={curve.dash} />
+              <path class={`curve ${curve.tone}${ghosted ? ' ghosted' : ''}`} d={svgPath(points[i], domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`} stroke-dasharray={curve.dash} />
             {/each}
+            {#if livePoints}<path class="curve expiry live" d={svgPath(livePoints, domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`}><title>Expiration payoff of the edited strategy</title></path>{/if}
             {#each overlayCurves as curve, i (`${i}-${curve.id}`)}
-              <path class={`curve ${curve.tone}`} class:contribution={i >= proposedCurves.length} d={svgPath(overlayPoints[i], domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`} stroke-dasharray={i < proposedCurves.length ? '3 2 1 2' : '14 5'} />
+              <path class={`curve ${curve.tone} contribution`} d={svgPath(overlayPoints[i], domain, pnlY, plotWidth, 24, 208)} transform={`translate(${left},0)`} stroke-dasharray="14 5" />
             {/each}
-            {#if ghost != null && inView(ghost)}<line class="draft-ghost" x1={x(ghost)} x2={x(ghost)} y1="24" y2="208"><title>Unpriced draft strike {exactValue(ghost)} USD; not payoff evidence</title></line>{/if}
+            {#if ghost != null && inView(ghost)}<line class="draft-ghost" x1={x(ghost)} x2={x(ghost)} y1="24" y2="208"><title>Edited strike {formatPrice(ghost)} USD</title></line>{/if}
             {#if selectedLeg != null && validStrike(submittedLeg?.strike) && inView(submittedLeg.strike)}<line class="selected-strike" x1={x(submittedLeg.strike)} x2={x(submittedLeg.strike)} y1="24" y2="208" />{/if}
             {#if activeSpot != null && activeIndex != null}
               <line class="crosshair" x1={x(activeSpot)} x2={x(activeSpot)} y1="24" y2="208" />
@@ -406,7 +384,7 @@
       <div class="strike-handles" aria-label="Submitted option strike handles">
         {#each legRows.filter(row => row.leg.kind !== 'underlying' && row.leg.enabled && validStrike(row.leg.strike) && inView(handleStrike(row.index))) as row (row.index)}
           <button type="button" class="strike-handle" class:chosen={selectedLeg === row.index} class:draggable={editable && matchingLayout} style:left={`${x(handleStrike(row.index)) / width * 100}%`} style:top={`${(34 + row.index % 6 * 28) / 254 * 100}%`}
-            aria-label={`L${row.index + 1} submitted ${row.leg.kind} strike ${row.leg.strike} USD. ${handleStrike(row.index) !== row.leg.strike ? `Unpriced draft strike ${handleStrike(row.index)} USD. ` : ''}Select contribution with Enter/Space; ${editable && matchingLayout ? 'drag or arrows to edit draft strike' : 'read-only strike'}.`}
+            aria-label={`L${row.index + 1} submitted ${row.leg.kind} strike ${row.leg.strike} USD. ${handleStrike(row.index) !== row.leg.strike ? `Edited strike ${handleStrike(row.index)} USD. ` : ''}Select contribution with Enter/Space; ${editable && matchingLayout ? 'drag or arrows to edit draft strike' : 'read-only strike'}.`}
             aria-pressed={selectedLeg === row.index}
             onkeydown={(event) => handleKey(event, row.index)}
             onpointerdown={(event) => startDrag(event, row.index)} onpointermove={moveDrag} onpointerup={endDrag}
@@ -423,7 +401,6 @@
       {#if activeIndex != null && activeSpot != null}
         <strong title={exactValue(activeSpot)}>Spot {formatPrice(activeSpot)} USD</strong>
         <dl>{#each curves as curve (curve.id)}<div><dt>{curve.label} P&amp;L</dt><dd title={exactValue(seriesValue(curve, activeSpot))}>{formatUsd(seriesValue(curve, activeSpot), { signed: true })}</dd></div>{/each}
-          {#each proposedCurves as curve (curve.id)}<div><dt>PROPOSED {curve.label} P&amp;L</dt><dd title={exactValue(seriesValue(curve, activeSpot))}>{formatUsd(seriesValue(curve, activeSpot), { signed: true })}</dd></div>{/each}
           {#each legCurves as curve (curve.id)}<div><dt>SUBMITTED L{(selectedLeg ?? 0) + 1} {curve.label} P&amp;L</dt><dd title={exactValue(seriesValue(curve, activeSpot))}>{formatUsd(seriesValue(curve, activeSpot), { signed: true })}</dd></div>{/each}
           <div><dt>Today {greek}</dt><dd title={exactValue(greekCurves[0]?.values[greekIndex])}>{formatGreek(greekCurves[0]?.values[greekIndex], { signed: true })} · {unit}</dd></div>
         </dl>
@@ -433,7 +410,7 @@
     <section class="strike-editor" aria-label="Strike proposals and submitted leg contribution">
       <div class="pane-title"><h4>Strike proposals</h4><span>Submitted evidence stays fixed</span></div>
       {#if !editable}<p class="note">Read-only chart. Python source is never changed by chart controls. Visual editing requires an editable draft, parent edit callback and an active document key.</p>{:else}
-        <p class="note">Drag a numbered strike handle, or select a leg and use numeric controls. Release applies one draft edit; Escape, lost capture and pointer cancellation discard it. Pricing requires Preview.</p>
+        <p class="note">Drag a strike handle, or select a leg and use the arrows or the strike field. The expiry line moves as you drag; the analysis updates when you let go. Escape cancels a drag.</p>
       {/if}
       <div class="leg-selectors" aria-label="Select submitted leg">
         {#each legRows as row (row.index)}
@@ -466,21 +443,12 @@
           </div>
         </form>
         <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError || `Numeric edits retain entered precision; drag/arrows snap to the chosen step within 0 < strike ≤ ${MAX_STRIKE} USD. Select an enabled option leg to edit.`}</p>
-        <p class="notice">Strike edits keep entry premiums and IVs. A different strike is a different contract, so its provider observation and quotes are cleared. Review explicitly. The draft ghost is unpriced, not payoff evidence.</p>
-        <div class="actions">
-          <button type="button" onclick={previewProposal} disabled={previewPending || !!drag}>Preview proposal</button>
-          {#if previewPending}<button type="button" onclick={() => cancelPreview()}>Cancel preview</button>{/if}
-          {#if proposed}<button type="button" onclick={() => cancelPreview(true)}>Discard proposed overlay</button>{/if}
-        </div>
+        <p class="note">A different strike is a different contract: its provider observation and quotes are cleared.</p>
       {/if}
-      {#if previewPending}<p class="note" role="status">Canonical proposal preview pending. Any previous proposed overlay remains separate from submitted evidence.</p>{/if}
-      {#if previewMessage}<p class="notice" role={previewFailed ? 'alert' : 'status'}>{previewMessage}</p>{/if}
-      {#if Object.keys(previewFields).length}<ul class="field-errors">{#each Object.entries(previewFields) as [field, message]}<li><b>{field}</b>: {message}</li>{/each}</ul>{/if}
       {#if legPending}<p class="note" role="status">Canonical leg contribution pending.</p><button type="button" onclick={cancelLeg}>Cancel leg request</button>{/if}
       {#if legMessage}<p class="note" role={legFailed ? 'alert' : 'status'}>{legMessage}</p>{/if}
-      {#if proposed}<p class="notice">PROPOSED backend analysis · submitted proposal spot {exactValue(proposed.request.spot)} USD · {proposed.request.strategy.name}. Dot-dash overlays are hypothetical proposed evidence, not an update to the submitted strategy.{proposed.horizon?.exact_terminal_available === false ? ' Mixed expiry: no exact terminal payoff overlay, roots or extrema are available.' : ''}</p>{/if}
       {#if legAnalysis}<p class="note">SELECTED SUBMITTED L{(selectedLeg ?? 0) + 1} · long-dashed, thicker overlay · fixed original premiums and fees.{result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false ? ' Today only for mixed expiry; no isolated own-expiry line is compared to the multi-expiry strategy.' : ''}</p>{/if}
-      {#if ghost != null}<p class="note" role="status">Unpriced draft L{(selectedLeg ?? 0) + 1} strike: {formatPrice(ghost)} USD{inView(ghost) ? '' : ' (outside current view)'}. {drag ? 'Release to apply, Escape to cancel.' : 'Preview explicitly for canonical pricing.'}</p>{/if}
+      {#if ghost != null}<p class="note" role="status">Edited L{(selectedLeg ?? 0) + 1} strike: {formatPrice(ghost)} USD{inView(ghost) ? '' : ' (outside current view)'}. {drag ? 'Release to apply, Escape to cancel.' : 'The analysis updates with it.'}</p>{/if}
     </section>
 
     <form class="domain-controls" onsubmit={applyDomain} aria-label="Numeric price view">
@@ -621,6 +589,8 @@
   .strike-handle.chosen { z-index: 3; }
   .chosen { border: 2px solid oklch(var(--foreground)); text-decoration: underline; text-underline-offset: 3px; }
   .curve.contribution { stroke-width: 3.5; }
+  .curve.ghosted { opacity: 0.35; }
+  .curve.live { stroke-width: 2.5; }
   .draft-ghost { stroke: oklch(var(--foreground)); stroke-width: 2; stroke-dasharray: 1 5; }
   .selected-strike { stroke: oklch(var(--foreground)); stroke-width: 2; stroke-dasharray: 12 3; }
   button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: 0.6; }

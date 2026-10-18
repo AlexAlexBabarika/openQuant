@@ -442,7 +442,7 @@ describe('native controlled chart rendering', () => {
       'including every in-domain strike and isolated breakeven',
     );
   });
-  it('exposes explicit preview, numeric/keyboard alternatives, precision and unpriced warnings only with full parent contract', () => {
+  it('draws an edited strike live with numeric/keyboard alternatives only with full parent contract', () => {
     const result = evidence(),
       draft = structuredClone(result.request);
     draft.strategy.legs[0].strike = 103.125;
@@ -450,13 +450,13 @@ describe('native controlled chart rendering', () => {
     const { body } = render(OptionsCharts, {
       props: { result, draft, onEdit, documentKey: 'guest:research-a' },
     });
-    expect(body).toContain('Preview proposal');
+    expect(body).not.toContain('Preview proposal');
     expect(body).toContain('Apply strike');
     expect(body).toContain('Strike −');
     expect(body).toContain('Strike +');
-    expect(body).toContain('Unpriced draft strike 103.125 USD');
-    expect(body).toContain('Strike edits keep entry premiums and IVs');
-    expect(body).toContain('not payoff evidence');
+    expect(body).toContain('Edited strike 103.125 USD');
+    expect(body).toContain('A different strike is a different contract');
+    expect(body).toMatch(/class="curve expiry live/);
     expect(onEdit).not.toHaveBeenCalled();
     for (const props of [
       { readOnly: true, documentKey: 'guest:a', onEdit },
@@ -467,7 +467,7 @@ describe('native controlled chart rendering', () => {
         props: { result, draft, ...props },
       }).body;
       expect(html).toContain('Read-only chart');
-      expect(html).not.toContain('>Preview proposal</button>');
+      expect(html).not.toContain('>Apply strike</button>');
     }
   });
 });

@@ -168,7 +168,7 @@
       </div>
       <div class="evidence-column" aria-busy={options.loading}>
         {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
-        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} />{/key}
+        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} pending={options.loading} />{/key}
         {#if options.mode === 'python' && result}
           <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} readOnly />
         {/if}

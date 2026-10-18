@@ -602,3 +602,29 @@ describe('chart readouts for people', () => {
     expect(html).toMatch(/>\+100 · USD per USD spot/);
   });
 });
+
+describe('live expiry payoff while editing', () => {
+  it('ghosts the submitted curves and draws the draft expiry when inputs changed', () => {
+    const draft = structuredClone(result.request);
+    draft.strategy.legs[0].strike = 110;
+    const html = render(OptionsCharts, {
+      props: { result, draft, onEdit: () => {}, documentKey: 'k' },
+    }).body;
+    expect(html).toMatch(/class="curve expiry live/);
+    expect(html).toMatch(/class="curve today ghosted/);
+  });
+
+  it('has no separate proposal preview step', () => {
+    const html = render(OptionsCharts, {
+      props: {
+        result,
+        draft: result.request,
+        onEdit: () => {},
+        documentKey: 'k',
+      },
+    }).body;
+    expect(html).not.toContain('Preview proposal');
+    expect(html).not.toContain('PROPOSED');
+    expect(html).not.toMatch(/class="curve [a-z0-9]+ ghosted/);
+  });
+});

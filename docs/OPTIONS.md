@@ -150,9 +150,12 @@ risk readouts, CSV context and reproducibility reports.
 ### Eight interactive research tools
 
 The payoff chart provides drag-to-edit strikes with per-leg selection, numeric and
-keyboard alternatives, snapping and explicit canonical proposal comparisons.
-Moving a handle does not reprice in the browser or overwrite submitted evidence;
-one completed changed edit uses the parent's undo/history and local draft flow.
+keyboard alternatives and snapping. While a handle moves, and until the edited
+draft is analyzed, the chart draws the draft's expiration payoff live (exact
+intrinsic arithmetic, single expiry only) and shows the submitted curves faintly;
+today and scenario curves are never priced in the browser. Releasing applies one
+edit through the parent's undo/history; the draft then re-analyzes and
+model-priced premiums follow the new strike.
 
 The compact **Research tools** selector mounts only one additional tool at a time:
 
