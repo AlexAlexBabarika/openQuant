@@ -241,10 +241,10 @@
   .notice { border-left: 2px solid oklch(var(--foreground)); padding-left: 8px; line-height: 1.5; }
   .metrics > div { min-width: 0; padding: 6px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
   dt { font-size: 11px; color: oklch(var(--muted-foreground)); } dd { margin: 4px 0 0; overflow-wrap: anywhere; }
-  dd, td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  dd, td { font-variant-numeric: tabular-nums; }
   figure { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
   figcaption { margin-bottom: 8px; } svg { display: block; width: 100%; min-height: 120px; overflow: visible; }
-  svg text { fill: currentColor; font-family: var(--font-mono); font-size: 11px; }
+  svg text { fill: currentColor; font-variant-numeric: tabular-nums; font-size: 11px; }
   .axis { stroke: currentColor; } .mass { fill: oklch(var(--chart-2)); stroke: oklch(var(--foreground)); stroke-width: 0.6; }
   .atom { stroke: oklch(var(--chart-2)); stroke-width: 3; }
   .payoff { fill: none; stroke: oklch(var(--foreground)); stroke-width: 2; stroke-dasharray: 6 3; }

@@ -182,7 +182,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; min-width: 0; }
   label { display: grid; gap: 4px; min-width: 0; line-height: 1.5; }
   input, select { box-sizing: border-box; min-width: 0; width: 100%; min-height: 32px; padding: 5px 7px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
-  input[type="number"], td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  input[type="number"], td { font-variant-numeric: tabular-nums; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; } button { height: auto; min-height: 28px; white-space: normal; overflow-wrap: anywhere; justify-self: start; }
   .notice { padding: 8px; border: 1px solid oklch(var(--border)); color: oklch(var(--foreground)); } .error { font-size: 12px; color: oklch(var(--foreground)); } [aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .table-scroll { max-width: 100%; overflow: auto; max-height: 260px; border: 1px solid oklch(var(--border)); }

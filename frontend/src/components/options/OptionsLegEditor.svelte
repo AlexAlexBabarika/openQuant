@@ -198,7 +198,7 @@
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
   header { justify-content: space-between; }
   h3 { margin: 0; font-size: 12px; }
-  h3 span { color: oklch(var(--muted-foreground)); font-family: var(--font-mono); }
+  h3 span { color: oklch(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
   .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
   .chip { display: grid; gap: 4px; justify-items: start; min-height: 48px; padding: 6px 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
   .chip svg { width: 100%; height: 18px; overflow: visible; }
@@ -208,7 +208,7 @@
   .chip[aria-pressed="true"] path { stroke: oklch(var(--foreground)); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
   input, select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 30px; padding: 4px 6px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
-  input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; }
   .chip:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   [aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .field-error { display: block; font-size: 11px; color: oklch(var(--down-color)); line-height: 1.4; overflow-wrap: anywhere; }

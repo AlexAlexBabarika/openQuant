@@ -93,7 +93,7 @@
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
   .inputs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
   input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 32px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
-  input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  input[type="number"] { font-variant-numeric: tabular-nums; }
   input:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }

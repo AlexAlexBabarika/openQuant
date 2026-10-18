@@ -55,7 +55,7 @@
   ul { padding-left: 16px; }
   dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; font-size: 12px; }
   dt, th { overflow-wrap: anywhere; }
-  dd, td { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+  dd, td { margin: 0; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
   dd { max-width: 140px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th, td { padding: 4px; border-bottom: 1px solid oklch(var(--border)); }

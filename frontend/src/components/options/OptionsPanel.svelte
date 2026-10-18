@@ -278,7 +278,7 @@
   .field > span:first-child { line-height: 1.4; }
   input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
   input { min-height: 32px; }
-  input[type="number"] { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  input[type="number"] { font-size: 12px; font-variant-numeric: tabular-nums; }
   input:focus-visible, summary:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
@@ -293,13 +293,13 @@
   .risk { color: oklch(var(--risk)); }
   .error-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border: 1px solid oklch(var(--destructive)); padding: 8px; margin: 8px 0; color: oklch(var(--down-color)); overflow-wrap: anywhere; }
   .evidence-heading { margin: 12px 0 8px; }
-  .evidence-heading span { font-family: var(--font-mono); font-size: 11px; }
+  .evidence-heading span { font-size: 11px; }
   .summary-grid, .greeks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; margin: 8px 0; }
   .summary-grid > div, .greeks-grid > div { min-width: 0; border: 1px solid oklch(var(--border)); padding: 8px; border-radius: 4px; }
   dt { color: oklch(var(--muted-foreground)); line-height: 1.5; }
-  dd { font-family: var(--font-mono); font-variant-numeric: tabular-nums; margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+  dd { font-variant-numeric: tabular-nums; margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
   .greeks-grid small { display: block; margin-top: 5px; color: oklch(var(--muted-foreground)); font-size: 12px; line-height: 1.5; }
-  .breakevens { font-family: var(--font-mono); line-height: 1.7; }
+  .breakevens { font-variant-numeric: tabular-nums; line-height: 1.7; }
   .submitted-legs, .warnings { padding-left: 18px; overflow-wrap: anywhere; line-height: 1.6; }
   .submitted-legs li, .warnings li { margin: 6px 0; }
   .warnings { color: oklch(var(--muted-foreground)); }
