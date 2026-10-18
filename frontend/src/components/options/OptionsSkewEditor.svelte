@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getSessionGeneration } from '$lib/core/api';
+  import { RequestFlight } from '$lib/features/options/optionsRequest';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
@@ -22,10 +22,9 @@
   let submittedKey = $state('');
   let result = $state<{ flat: OptionsAnalysis; skew: OptionsAnalysis } | null>(null);
   const stale = $derived(!!result && submittedKey !== draftKey);
-  let controller: AbortController | null = null;
-  let generation = 0;
+  const flight = new RequestFlight();
 
-  function stop() { generation++; controller?.abort(); controller = null; pending = false; }
+  function stop() { flight.cancel(); pending = false; }
   function cancel() { stop(); notice = 'Comparison cancelled. Previous submitted evidence is unchanged.'; }
   $effect(() => {
     documentKey;
@@ -71,23 +70,17 @@
   async function compare() {
     if (readOnly || pending) return;
     try { skewComparisonRequests($state.snapshot(draft)); } catch (e) { error = e instanceof Error ? e.message : 'Correct draft inputs before comparing.'; return; }
-    stop(); const flight = ++generation, scope = documentKey, session = getSessionGeneration();
     const key = draftKey, snapshot = structuredClone($state.snapshot(draft));
-    const abort = new AbortController(); controller = abort; pending = true; error = ''; notice = '';
-    const current = () => flight === generation && scope === documentKey && session === getSessionGeneration() && key === draftKey;
-    let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; abort.abort(); }, 15000);
+    const run = flight.start(() => `${documentKey}:${draftKey}`, () => { pending = false; error = 'Comparison timed out. Retry explicitly.'; });
+    pending = true; error = ''; notice = '';
     try {
-      const response = await compareSkew(snapshot, abort.signal);
-      if (current() && !abort.signal.aborted) { result = response; submittedKey = key; }
+      const response = await compareSkew(snapshot, run.signal);
+      if (run.current()) { result = response; submittedKey = key; }
     } catch {
-      if (current()) { error = timedOut ? 'Comparison timed out. Retry explicitly.' : 'Canonical comparison failed. Check draft inputs and retry; no inputs were changed.'; abort.abort(); }
+      if (run.current()) error = 'Canonical comparison failed. Check draft inputs and retry; no inputs were changed.';
     } finally {
-      clearTimeout(timer);
-      if (flight === generation) {
-        pending = false; controller = null;
-        if (session !== getSessionGeneration()) { result = null; submittedKey = ''; error = ''; notice = 'Account scope changed; compare explicitly in the current scope.'; }
-      }
+      if (run.current()) pending = false;
+      run.finish();
     }
   }
 </script>

@@ -188,28 +188,3 @@ export function chartContextKey(
     hasOnEdit,
   ]);
 }
-
-/** Abort is advisory; a generation check also rejects transports ignoring it. */
-export class ChartRequestGate {
-  #generation = 0;
-  #controller: AbortController | null = null;
-  cancel(): void {
-    this.#generation++;
-    this.#controller?.abort();
-    this.#controller = null;
-  }
-  begin(context: string, baseline: OptionsAnalysis) {
-    this.cancel();
-    const generation = this.#generation;
-    const controller = new AbortController();
-    this.#controller = controller;
-    return {
-      signal: controller.signal,
-      current: (liveContext: string, liveBaseline: OptionsAnalysis | null) =>
-        generation === this.#generation &&
-        !controller.signal.aborted &&
-        context === liveContext &&
-        baseline === liveBaseline,
-    };
-  }
-}

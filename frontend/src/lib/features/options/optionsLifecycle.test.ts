@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { clearAccessToken, setAccessToken } from '$lib/core/api';
 import { createOptionsDraft } from './optionsTemplates';
 import type { LifecycleResponse } from './optionsResearchTypes';
 import {
@@ -24,6 +25,26 @@ import {
 } from './optionsLifecycle';
 
 describe('integrated research input and timeout fences', () => {
+  it('rejects publication after the account session changes', async () => {
+    let finish!: (value: number) => void;
+    const pending = new Promise<number>(resolve => {
+      finish = resolve;
+    });
+    const job = new ResearchJob<null, number>(
+      'guest:a',
+      () => 'guest:a',
+      vi.fn(),
+    );
+    const done = job.submit(null, 'query', () => pending, Number.isFinite);
+    try {
+      setAccessToken('test-only');
+      finish(123);
+      await done;
+    } finally {
+      clearAccessToken();
+    }
+    expect(job.state.result).toBeNull();
+  });
   it('rejects publication after input divergence even before the cancellation effect runs', async () => {
     let key = 'submitted';
     let finish!: (value: number) => void;

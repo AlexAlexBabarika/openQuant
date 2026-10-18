@@ -4,12 +4,12 @@
   import { getChainStatus, getChainExpirations, getOptionChain } from '$lib/features/options/optionsResearchApi';
   import type { ChainEnvironment, ChainExpirationsResponse, ChainQuote, ChainResponse, ChainStatusResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { applyChainImport, chainFailureMessage, chainFilterErrors, chainPremium, chainRows, chainSpread, needsChainModelAcknowledgment, proposeChainImport, type ChainFilters, type ChainImportSettings } from '$lib/features/options/optionsChain';
-  import { OptionsToolFlight } from '$lib/features/options/optionsFinder';
+  import { RequestFlight } from '$lib/features/options/optionsRequest';
   import { exactValue } from '$lib/features/options/optionsChart';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const id = $props.id();
-  const flight = new OptionsToolFlight();
+  const flight = new RequestFlight();
   let symbol = $state(untrack(() => draft.strategy.underlying ?? '')), symbolTouched = $state(false), environment = $state<ChainEnvironment>('production'), expiration = $state('');
   let status = $state<ChainStatusResponse | null>(null);
   let expirations = $state<ChainExpirationsResponse | null>(null);
