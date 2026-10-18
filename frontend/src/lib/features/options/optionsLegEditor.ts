@@ -235,26 +235,6 @@ export function optionsEditorErrors(
   )
     errors['strategy.underlying'] =
       'Enter a nonblank manual identity up to 80 characters, or leave blank.';
-  const valuation = strategy.valuation_date,
-    expiry = strategy.expiry_date;
-  if (expiry != null) {
-    for (const [key, value] of [
-      ['valuation_date', valuation],
-      ['expiry_date', expiry],
-    ] as const)
-      if (!value || utcDate(value) === null)
-        errors[`strategy.${key}`] =
-          'Both valid calendar dates (YYYY-MM-DD) are required, or clear both.';
-    if (!errors['strategy.valuation_date'] && !errors['strategy.expiry_date']) {
-      const days = commonDateHorizon(valuation, expiry);
-      if (days === null)
-        errors['strategy.expiry_date'] =
-          'Expiry must be 0–3650 UTC calendar days after valuation.';
-      else if (days !== strategy.days_to_expiry)
-        errors['strategy.days_to_expiry'] =
-          'Common days to expiry must exactly match the paired UTC dates.';
-    }
-  }
   strategy.legs.forEach((leg, i) => {
     const key = `legs.${i}`;
     if (leg.kind === 'underlying') {

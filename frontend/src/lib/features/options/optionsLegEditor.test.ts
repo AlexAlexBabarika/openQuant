@@ -176,7 +176,11 @@ describe('common UTC calendar horizon', () => {
     expect(d.surface.steps).toEqual([0, 30]);
     expect(optionsErrors(d)['scenarios.0.elapsed_days']).toBeTruthy();
     d.strategy.days_to_expiry = 7;
-    expect(optionsEditorErrors(d)['strategy.days_to_expiry']).toBeTruthy();
+    expect(
+      Object.keys(optionsEditorErrors(d)).filter(k =>
+        k.startsWith('strategy.'),
+      ),
+    ).toEqual(['strategy.expiry_date']);
     clearCommonDates(d);
     expect(d.strategy.days_to_expiry).toBe(7);
     expect(optionsEditorErrors(d)).toEqual({});
