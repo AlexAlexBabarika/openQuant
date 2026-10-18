@@ -4,7 +4,7 @@
   import { getSessionGeneration } from '$lib/core/api';
   import { OptionsState } from '$lib/features/options/optionsState.svelte';
   import { spotGrid } from '$lib/features/options/optionsTemplates';
-  import { exactValue } from '$lib/features/options/optionsChart';
+  import { exactTerminalAvailable, exactValue } from '$lib/features/options/optionsChart';
   import { formatGreek, formatNumber, formatPrice } from '$lib/features/options/optionsFormat';
   import { modelUnitPrices } from '$lib/features/options/optionsPricing';
   import { shortcutLabel } from '$lib/features/options/optionsInputs';
@@ -45,7 +45,7 @@
   const narrow = $derived(panelWidth > 0 && panelWidth < 760);
   const result = $derived(options.result);
   const toolKey = $derived(`${sessionKey}:${options.documentKey}:${options.mode}`);
-  const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
+  const terminalAvailable = $derived(!result || exactTerminalAvailable(result));
   const analysisLabel = $derived(result ? `Analysis of ${result.request.strategy.name} · ${options.mode === 'python' ? 'submitted Python request' : options.status === 'current' ? 'up to date' : 'updating'}` : '');
   const submittedPython = $derived(options.mode === 'python' && result !== null && options.submittedSource !== null && options.source === options.submittedSource);
 

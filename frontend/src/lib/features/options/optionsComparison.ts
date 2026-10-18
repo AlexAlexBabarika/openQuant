@@ -1,3 +1,4 @@
+import { exactTerminalAvailable } from './optionsChart';
 import type { OptionsAnalysis, OptionsExpiryPoint } from './optionsTypes';
 
 export type OptionsComparisonSnapshot = Readonly<{
@@ -46,7 +47,7 @@ export function comparisonCurve(
   item: OptionsComparisonSnapshot,
 ): OptionsExpiryPoint[] | null {
   const curve = item.result.expiry_curve;
-  if (item.result.horizon?.exact_terminal_available === false) return null;
+  if (!exactTerminalAvailable(item.result)) return null;
   const request = item.result.request;
   const spots = request.spot_grid;
   const min = spots[0],
@@ -115,10 +116,9 @@ export function optionsResultReport(
       exportedAt: new Date().toISOString(),
       provenance:
         'Theoretical European cash-settled USD research. Optional contract observations retain original provider provenance, not refreshed/executable quotes or modeled American exercise/delivery. Not brokerage execution or a server backup. Evidence from the submitted request, not current edits.',
-      horizonDisclosure:
-        result.horizon?.exact_terminal_available === false
-          ? 'Mixed expiry: no exact terminal curve, extrema, breakevens or zero intervals. horizon_pnl marks later legs at first expiry; lifecycle results require a separate explicit path.'
-          : 'Common expiry: canonical exact terminal geometry; today/scenario curves are model-marked samples.',
+      horizonDisclosure: !exactTerminalAvailable(result)
+        ? 'Mixed expiry: no exact terminal curve, extrema, breakevens or zero intervals. horizon_pnl marks later legs at first expiry; lifecycle results require a separate explicit path.'
+        : 'Common expiry: canonical exact terminal geometry; today/scenario curves are model-marked samples.',
       submittedSource: source,
       stdout,
       result,

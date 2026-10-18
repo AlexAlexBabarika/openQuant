@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
-  import { exactValue } from '$lib/features/options/optionsChart';
+  import { exactTerminalAvailable, exactValue } from '$lib/features/options/optionsChart';
   import { formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
 
   let { result, stale = false, pending = false }: {
@@ -8,7 +8,7 @@
     stale?: boolean;
     pending?: boolean;
   } = $props();
-  const terminal = $derived(result.horizon?.kind !== 'mixed_expiry' && result.horizon?.exact_terminal_available !== false);
+  const terminal = $derived(exactTerminalAvailable(result));
 </script>
 
 <section class="risk-summary" aria-label="Submitted options risk totals" class:stale>

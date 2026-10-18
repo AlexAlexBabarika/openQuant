@@ -1,5 +1,6 @@
 import { apiJson } from '$lib/core/api';
 import {
+  exactTerminalAvailable,
   finiteValue,
   optionsSeries,
   plotError,
@@ -158,9 +159,7 @@ export function canonicalOverlay(
   return optionsSeries(result).filter(s =>
     todayOnly
       ? s.id === 'today'
-      : s.id !== 'expiry' ||
-        (result.horizon?.kind !== 'mixed_expiry' &&
-          result.horizon?.exact_terminal_available !== false),
+      : s.id !== 'expiry' || exactTerminalAvailable(result),
   );
 }
 

@@ -13,7 +13,7 @@
     GREEK_KEYS, axisValue, niceTicks, fillPath, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
     priceMarkers, sampledYDomain, scaleValue, seriesPoints, svgPath, validateDomain,
-    zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError, outsideView, keepView,
+    zoomDomain, exactTerminalAvailable, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError, outsideView, keepView,
   } from '$lib/features/options/optionsChart';
   import type { Domain } from '$lib/features/options/optionsChart';
   import { formatGreek, formatNumber, formatPrice, formatUsd } from '$lib/features/options/optionsFormat';
@@ -66,7 +66,7 @@
   let legFailed = $state(false);
   const context = $derived(chartContextKey(documentKey, draft, result, readOnly, !!onEdit));
   const editable = $derived(!!documentKey && !!draft && !!onEdit && !readOnly);
-  const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
+  const terminalAvailable = $derived(!result || exactTerminalAvailable(result));
   const legAnalysis = $derived(contribution?.context === context && contribution.baseline === result && contribution.legIndex === selectedLeg ? contribution.analysis : null);
   const legCurves = $derived(legAnalysis && result ? canonicalOverlay(legAnalysis, legAnalysis.request, !terminalAvailable) : []);
   const overlayCurves = $derived(legCurves);
@@ -501,7 +501,7 @@
       {/if}
       {#if legPending}<p class="note" role="status">Canonical leg contribution pending.</p><button type="button" onclick={cancelLeg}>Cancel leg request</button>{/if}
       {#if legMessage}<p class="note" role={legFailed ? 'alert' : 'status'}>{legMessage}</p>{/if}
-      {#if legAnalysis}<p class="note">SELECTED SUBMITTED L{(selectedLeg ?? 0) + 1} · long-dashed, thicker overlay · fixed original premiums and fees.{result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false ? ' Today only for mixed expiry; no isolated own-expiry line is compared to the multi-expiry strategy.' : ''}</p>{/if}
+      {#if legAnalysis}<p class="note">SELECTED SUBMITTED L{(selectedLeg ?? 0) + 1} · long-dashed, thicker overlay · fixed original premiums and fees.{!terminalAvailable ? ' Today only for mixed expiry; no isolated own-expiry line is compared to the multi-expiry strategy.' : ''}</p>{/if}
       {#if ghost != null}<p class="note" role="status">Edited L{(selectedLeg ?? 0) + 1} strike: {formatPrice(ghost)} USD{inView(ghost) ? '' : ' (outside current view)'}. {drag ? 'Release to apply, Escape to cancel.' : 'The analysis updates with it.'}</p>{/if}
     </section>
 
