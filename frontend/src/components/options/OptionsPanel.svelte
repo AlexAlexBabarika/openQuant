@@ -57,12 +57,11 @@
   });
 
   $effect(() => { options.documentKey; untrack(syncGrid); });
+  $effect(() => { if (options.gridAuto) { options.draft.spot_grid; untrack(syncGrid); } });
 
   function updateGrid() {
-    options.editDraft(d => {
-      d.spot_grid = Number.isInteger(gridCount) && gridCount >= 2 && gridCount <= 201
-        ? spotGrid(gridStart, gridEnd, gridCount) : [];
-    });
+    options.setGrid(Number.isInteger(gridCount) && gridCount >= 2 && gridCount <= 201
+      ? spotGrid(gridStart, gridEnd, gridCount) : []);
   }
   const errorId = (key: string) => `options-error-${key.replace(/[^a-zA-Z0-9-]/g, '-')}`;
   function number(value: number | null, signed = false): string {
@@ -124,6 +123,7 @@
           <details class="configuration" open={!!options.fieldErrors.spot_grid}>
             <summary>Price-domain chart grid</summary>
             <p class="hint">Display grid only; common-expiry risk and breakevens cover all nonnegative spots, even outside this range. Mixed-expiry terminal risk is unavailable.</p>
+            <p class="hint">{options.gridAuto ? 'Fitted to strikes, spot and breakevens.' : 'Manual grid.'} <button type="button" class="ot-workbench-ghost" disabled={options.gridAuto} onclick={() => options.fitGrid()}>Fit to strikes</button></p>
             <div class="inputs-grid">
               {@render numeric('Grid start · USD (0–1m)', 'spot_grid', gridStart, 0, 1000000, 'any', v => { gridStart = v; updateGrid(); })}
               {@render numeric('Grid end · USD (0–1m)', 'spot_grid', gridEnd, 0, 1000000, 'any', v => { gridEnd = v; updateGrid(); })}
@@ -155,7 +155,7 @@
         <OptionsLibrary state={options} />
       </div>
       <div class="evidence-column" aria-busy={options.loading}>
-        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} />{/key}
+        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} />{/key}
         {#if options.mode === 'python' && result}
           <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} onAnalyze={() => {}} readOnly />
         {/if}

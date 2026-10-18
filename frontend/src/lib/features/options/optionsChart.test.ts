@@ -23,6 +23,7 @@ import {
   inspectionGrid,
   seriesValue,
   legBreakdownError,
+  outsideView,
 } from './optionsChart';
 import type { OptionsAnalysis } from './optionsTypes';
 
@@ -537,5 +538,28 @@ describe('canonical expiry vertices and per-series exact inspection', () => {
     expect(expiryTraceError(analysis)).toBeNull();
     expect(optionsSeries(analysis)[0].spots).toEqual([50, 100, 105, 150]);
     expect(legBreakdownError(analysis)).toContain('unavailable');
+  });
+});
+
+describe('positions outside the visible price range', () => {
+  it('lists the submitted spot and enabled strikes outside the view', () => {
+    expect(outsideView(result, { min: 80, max: 120 })).toEqual({
+      spot: false,
+      strikes: [],
+    });
+    expect(outsideView(result, { min: 101, max: 120 })).toEqual({
+      spot: true,
+      strikes: [100],
+    });
+  });
+
+  it('warns with a Fit action when the submitted spot is off-screen', () => {
+    const request = structuredClone(result.request);
+    request.spot = 343.46;
+    const html = render(OptionsCharts, {
+      props: { result: { ...result, request } },
+    }).body;
+    expect(html).toContain('Outside this view: spot 343.46 USD');
+    expect(html).toMatch(/<button[^>]*>Fit<\/button>/);
   });
 });

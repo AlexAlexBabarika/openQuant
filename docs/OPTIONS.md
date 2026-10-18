@@ -113,6 +113,10 @@ Analyze the visual draft, or explicitly export it to the panel's Python mode.
 The price-domain charts show exact common-expiry P&L, theoretical today/scenario P&L,
 and selectable today-model Greek curves with keyboard and exact-value readouts.
 The result retains its submitted inputs; editing the draft marks it stale.
+The display grid follows the strategy: it spans the enabled strikes, spot and
+expiration breakevens with padding (35% of their span, at least 6% of spot) and
+refits when spot or the leg layout changes, until a grid is entered by hand.
+**Fit** returns to the fitted grid; the chart names a spot or strike it cannot show.
 
 The editor exposes underlying identity, common valuation/expiry defaults, per-leg
 expiry/IV overrides and manual bid/ask timestamps. Quotes are unverified and never

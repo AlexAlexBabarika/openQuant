@@ -13,17 +13,19 @@
     GREEK_KEYS, axisValue, domainTicks, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
     priceMarkers, sampledYDomain, scaleValue, seriesPoints, svgPath, validateDomain,
-    zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError,
+    zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError, outsideView,
   } from '$lib/features/options/optionsChart';
   import type { Domain } from '$lib/features/options/optionsChart';
 
-  let { result = null, spot, draft, onEdit, readOnly = false, documentKey }: {
+  let { result = null, spot, draft, onEdit, readOnly = false, documentKey, onFit }: {
     result?: OptionsAnalysis | null;
     spot?: number;
     draft?: OptionsDraft;
     onEdit?: (update: (draft: OptionsDraft) => void) => void;
     readOnly?: boolean;
     documentKey?: string;
+    /** Refit the requested price grid; the chart can only show prices the grid covers. */
+    onFit?: () => void;
   } = $props();
   const id = $props.id();
   let containerWidth = $state(360);
@@ -82,6 +84,8 @@
   const greekY = $derived(domain ? sampledYDomain(greekPoints, domain) : { min: -1, max: 1 });
   const greekError = $derived(result ? greekPlotError(result, greek) : null);
   const markers = $derived(result ? priceMarkers(result) : []);
+  const offscreen = $derived(result && domain ? outsideView(result, domain) : null);
+  const offscreenFull = $derived(result && full ? outsideView(result, full) : null);
   const activeIndex = $derived(result && domain && selected != null &&
     inspectGrid[selected] >= domain.min && inspectGrid[selected] <= domain.max ? selected : null);
   const activeSpot = $derived(activeIndex != null ? inspectGrid[activeIndex] : null);
@@ -284,6 +288,11 @@
     domainError = '';
   }
 
+  function fit() {
+    if (full) setDomain(full);
+    if (offscreenFull?.spot || offscreenFull?.strikes.length) onFit?.();
+  }
+
   function applyDomain(event: SubmitEvent) {
     event.preventDefault();
     if (!full) return;
@@ -398,6 +407,13 @@
       </div>
     </form>
     <p id={`${id}-domain-note`} class:notice={!!domainError} class="note" role={domainError ? 'alert' : undefined}>{domainError || `View ${exactValue(domain.min)}–${exactValue(domain.max)} USD. Zoom changes display only, not the analysis.`}</p>
+
+    {#if offscreen?.spot || offscreen?.strikes.length}
+      <p class="notice offscreen" role="status">
+        <span>Outside this view: {[offscreen.spot ? `spot ${exactValue(result.request.spot)} USD` : '', offscreen.strikes.length ? `strike${offscreen.strikes.length > 1 ? 's' : ''} ${offscreen.strikes.map(k => exactValue(k)).join(', ')}` : ''].filter(Boolean).join(' and ')}.</span>
+        <button type="button" onclick={fit}>Fit</button>
+      </p>
+    {/if}
 
     <div class="pane-title"><h4>P&amp;L by underlying price</h4><span>USD · signed strategy total</span></div>
     {#if expiryError}<p class="notice" role="status">{expiryError}</p>{/if}
@@ -587,6 +603,7 @@
   .actions { display: flex; flex-wrap: wrap; gap: 6px; }
   button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .chart-control:focus-visible, .table-scroll:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   .note, .marker-key { font-size: 11px; line-height: 1.55; margin: 6px 0; overflow-wrap: anywhere; }
+  .offscreen { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .notice { padding: 8px; margin: 8px 0; border: 1px dashed oklch(var(--input)); border-radius: 4px; color: oklch(var(--foreground)); background: oklch(var(--background)); line-height: 1.5; overflow-wrap: anywhere; }
   .pane-title { margin-top: 14px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; }

@@ -287,6 +287,20 @@ export function priceMarkers(result: OptionsAnalysis): PriceMarker[] {
   ].filter(m => finiteValue(m.spot) && m.spot >= 0);
 }
 
+/** Submitted spot and enabled strikes the visible price range does not show. */
+export function outsideView(
+  result: OptionsAnalysis,
+  domain: Domain,
+): { spot: boolean; strikes: number[] } {
+  const out = (price: number) => price < domain.min || price > domain.max;
+  return {
+    spot: finiteValue(result.request.spot) && out(result.request.spot),
+    strikes: priceMarkers(result)
+      .filter(m => m.kind === 'strike' && out(m.spot))
+      .map(m => m.spot),
+  };
+}
+
 export function scaleValue(
   value: number,
   domain: Domain,
