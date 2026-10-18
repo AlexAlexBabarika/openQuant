@@ -134,7 +134,7 @@
   fieldset { min-width: 0; display: grid; gap: 8px; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; } legend { padding: 0 4px; }
   label { display: grid; gap: 4px; min-width: 0; line-height: 1.5; }
   input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 28px; padding: 4px 6px; color: inherit; background: oklch(var(--background)); border: 1px solid oklch(var(--input)); border-radius: 4px; font: inherit; }
-  input[type="number"], td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; } input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
+  input[type="number"], td { font-variant-numeric: tabular-nums; } input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   button { min-height: 28px; height: auto; white-space: normal; overflow-wrap: anywhere; } button:disabled { cursor: not-allowed; }
   :is(input, button, [tabindex]):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   .results { overflow: auto; max-height: 320px; border: 1px solid oklch(var(--border)); border-radius: 4px; }

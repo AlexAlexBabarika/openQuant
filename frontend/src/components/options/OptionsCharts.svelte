@@ -615,15 +615,15 @@
   h3 { margin-top: 4px; font-size: 15px; overflow-wrap: anywhere; }
   h4 { font-size: 12px; }
   .eyebrow, .context, .note, .marker-key, .unit, .pane-title > span { color: oklch(var(--muted-foreground)); }
-  .eyebrow { font: 10px var(--font-mono); }
+  .eyebrow { font: 10px var(--font-family-lato); }
   .context { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
   .update-note { display: block; height: 1.6em; overflow-wrap: normal; white-space: nowrap; color: oklch(var(--risk)); }
-  .context b { color: oklch(var(--foreground)); font-family: var(--font-mono); }
+  .context b { color: oklch(var(--foreground)); font-variant-numeric: tabular-nums; }
   .domain-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0 6px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
   .domain-controls label { flex: 1 1 90px; min-width: 0; max-width: 140px; }
   input, select, button { min-height: 28px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--card)); color: oklch(var(--foreground)); font: inherit; }
-  input { width: 100%; min-width: 0; padding: 3px 6px; font-family: var(--font-mono); }
+  input { width: 100%; min-width: 0; padding: 3px 6px; font-variant-numeric: tabular-nums; }
   select { padding: 3px 8px; }
   button { padding: 3px 8px; cursor: pointer; white-space: nowrap; }
   button:hover { background: oklch(var(--accent)); }
@@ -659,7 +659,7 @@
   .chart-control { width: 100%; border-radius: 4px; background: oklch(var(--card)); }
   .chart-control > svg { display: block; width: 100%; touch-action: pan-y; }
   .grid { stroke: var(--chart-grid); stroke-width: 1; }
-  .axis { fill: oklch(var(--muted-foreground)); font: 10px var(--font-mono); font-variant-numeric: tabular-nums; }
+  .axis { fill: oklch(var(--muted-foreground)); font: 10px var(--font-family-lato); font-variant-numeric: tabular-nums; }
   .curve { fill: none; stroke: currentColor; stroke-width: 2; vector-effect: non-scaling-stroke; }
   .expiry { color: oklch(var(--foreground)); }
   .fill-up { fill: oklch(var(--up-color) / 0.16); }
@@ -687,11 +687,11 @@
   dl { margin: 8px 0 0; }
   dl > div { display: grid; grid-template-columns: minmax(85px, 1fr) minmax(0, 2fr); gap: 8px; margin: 5px 0; }
   dt { color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
-  dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .evidence { padding: 8px 0; border-top: 1px solid oklch(var(--border)); }
   summary { cursor: pointer; font-size: 12px; font-weight: 700; line-height: 1.6; }
   .table-scroll { overflow: auto; max-height: 340px; margin-top: 8px; border: 1px solid oklch(var(--border)); }
-  table { border-collapse: collapse; width: 100%; font: 11px var(--font-mono); font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; width: 100%; font: 11px var(--font-family-lato); font-variant-numeric: tabular-nums; }
   caption { text-align: left; padding: 8px; font-family: var(--font-family-lato); background: oklch(var(--background)); }
   th, td { padding: 7px 8px; border-bottom: 1px solid oklch(var(--border)); text-align: right; white-space: nowrap; }
   thead th { position: sticky; top: 0; background: oklch(var(--card)); z-index: 1; }

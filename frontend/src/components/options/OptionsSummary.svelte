@@ -33,11 +33,10 @@
   header > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
   strong { font-size: 12px; overflow-wrap: anywhere; }
   header span { font-size: 11px; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
-  .status { font-family: var(--font-mono); }
   dl { margin: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
   dl > div { min-width: 0; padding-left: 8px; border-left: 1px solid oklch(var(--border)); }
   dt { font-size: 11px; color: oklch(var(--muted-foreground)); line-height: 1.4; }
-  dd { margin: 4px 0 0; font: 13px var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  dd { margin: 4px 0 0; font: 13px var(--font-family-lato); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   @media (max-width: 1000px) { dl { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 420px) { dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } .risk-summary { position: static; } }
   @media (max-height: 600px) { .risk-summary { position: static; } }

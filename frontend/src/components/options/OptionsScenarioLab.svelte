@@ -156,20 +156,20 @@
   h3, h4, p { margin: 0; } h3 { font-size: 14px; } h4 { font-size: 12px; }
   .note, .field-note { color: oklch(var(--muted-foreground)); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; margin: 6px 0; }
   .notice, .readout { border: 1px dashed oklch(var(--input)); border-radius: 4px; padding: 8px; margin: 8px 0; background: oklch(var(--background)); line-height: 1.6; overflow-wrap: anywhere; }
-  .readout, output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .readout, output { font-variant-numeric: tabular-nums; }
   .scenario, .grid-fields { min-width: 0; padding: 8px; margin: 8px 0; border: 1px solid oklch(var(--border)); border-radius: 4px; }
   legend, summary { font-weight: 700; } summary { cursor: pointer; line-height: 1.6; }
   label { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin-bottom: 8px; font-size: 11px; }
   input, select { width: 100%; min-width: 0; min-height: 28px; padding: 3px 6px; border: 1px solid oklch(var(--input)); border-radius: 4px; color: oklch(var(--foreground)); background: oklch(var(--card)); font: inherit; }
-  input { font-family: var(--font-mono); } input[type='range'] { padding: 0; accent-color: oklch(var(--ring)); }
+  input { font-variant-numeric: tabular-nums; } input[type='range'] { padding: 0; accent-color: oklch(var(--ring)); }
   .actions, .legend { display: flex; flex-wrap: wrap; gap: 8px; }
   .configuration { padding: 8px 0; border-top: 1px solid oklch(var(--border)); }
   .grid-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
   .grid-fields > label:first-of-type, .field-note, .actions { grid-column: 1 / -1; }
-  .legend span { display: inline-flex; gap: 4px; align-items: center; font: 11px var(--font-mono); overflow-wrap: anywhere; }
+  .legend span { display: inline-flex; gap: 4px; align-items: center; font: 11px var(--font-family-lato); overflow-wrap: anywhere; }
   .legend i { display: inline-block; width: 14px; height: 14px; flex: 0 0 14px; border: 1px solid oklch(var(--border)); }
   .heatmap-scroll { overflow: auto; max-width: 100%; max-height: 340px; border: 1px solid oklch(var(--border)); }
-  table { border-collapse: collapse; width: 100%; font: 11px var(--font-mono); font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; width: 100%; font: 11px var(--font-family-lato); font-variant-numeric: tabular-nums; }
   caption { text-align: left; padding: 8px; background: oklch(var(--background)); font-family: var(--font-family-lato); }
   th, td { text-align: right; white-space: nowrap; border-bottom: 1px solid oklch(var(--border)); padding: 6px; }
   thead th { position: sticky; top: 0; z-index: 2; background: oklch(var(--card)); }
