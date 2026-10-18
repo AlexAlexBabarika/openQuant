@@ -105,7 +105,6 @@
     {#if options.error}
       <div class="error-banner" role="alert"><span>{options.error}</span><button type="button" class="ot-workbench-ghost" disabled={options.loading} onclick={() => options.run()}>Retry current inputs</button></div>
     {/if}
-    {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
     <div class="workbench-grid">
       <div class="editor-column">
         <div class="mode-row" role="group" aria-label="Options authoring mode">
@@ -155,6 +154,7 @@
         <OptionsLibrary state={options} />
       </div>
       <div class="evidence-column" aria-busy={options.loading}>
+        {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
         {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} />{/key}
         {#if options.mode === 'python' && result}
           <OptionsScenarioLab draft={result.request} {result} onEdit={() => {}} onAnalyze={() => {}} readOnly />
@@ -201,7 +201,7 @@
 </section>
 
 <style>
-  .options-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: oklch(var(--foreground)); background: oklch(var(--card)); font-family: var(--font-family-lato); font-size: 12px; }
+  .options-panel { container-type: inline-size; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: oklch(var(--foreground)); background: oklch(var(--card)); font-family: var(--font-family-lato); font-size: 12px; }
   .panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); flex: none; }
   .identity { display: grid; gap: 4px; min-width: 0; }
   .identity strong { font-size: 13px; }
@@ -213,6 +213,13 @@
   .boundary { margin-top: 0; }
   .workbench-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
   .editor-column, .evidence-column { min-width: 0; }
+  .evidence-column { grid-row: 1; }
+  @container (min-width: 1100px) {
+    .panel-scroll { display: flex; flex-direction: column; overflow: hidden; }
+    .workbench-grid { flex: 1; min-height: 0; grid-template-columns: minmax(380px, 460px) minmax(0, 1fr); align-items: stretch; }
+    .evidence-column { grid-row: auto; }
+    .editor-column, .evidence-column { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
+  }
   .editor-column { display: grid; gap: 8px; }
   .mode-row button[aria-pressed="true"] { background: oklch(var(--accent)); box-shadow: inset 0 -2px oklch(var(--primary)); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: oklch(var(--foreground)); }
@@ -246,6 +253,6 @@
   .warnings { color: oklch(var(--muted-foreground)); }
   .submitted-source { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid oklch(var(--border)); padding: 8px; background: oklch(var(--background)); }
   .empty-state { color: oklch(var(--muted-foreground)); padding: 16px 0; }
-  @media (max-width: 760px) { .workbench-grid { grid-template-columns: minmax(0, 1fr); } .evidence-column { grid-row: 1; } .panel-header, .panel-scroll { padding: 8px; } .shortcut { display: none; } .identity { flex: 1 1 210px; } }
+  @media (max-width: 760px) { .panel-header, .panel-scroll { padding: 8px; } .shortcut { display: none; } .identity { flex: 1 1 210px; } }
   @media (forced-colors: active) { input, .summary-grid > div, .greeks-grid > div { border-color: CanvasText; } .mode-row button[aria-pressed="true"] { outline: 1px solid Highlight; } input:focus-visible, summary:focus-visible { outline-color: Highlight; } }
 </style>

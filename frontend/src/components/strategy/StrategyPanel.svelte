@@ -643,8 +643,10 @@
     grid-template-columns: 220px minmax(0, 1fr);
   }
   .body.library-collapsed { grid-template-columns: minmax(0, 1fr); }
-  .body.options-mode { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
-  .options-host { min-width: 0; }
+  /* Options sizes to the panel so its own columns scroll and the payoff stays in view. */
+  .body.options-mode { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+  .embedded .body.options-mode { flex-shrink: 1; min-height: 0; }
+  .options-host { min-width: 0; min-height: 0; }
   .options-host[hidden] { display: none; }
   .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
   .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
@@ -920,7 +922,7 @@
 
   @media (max-width: 760px) {
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
-    .body:not(.library-collapsed):not(.sweep-mode):not(.docs-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
+    .body:not(.library-collapsed):not(.sweep-mode):not(.docs-mode):not(.options-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.sweep-mode, .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
     .rail { border-bottom: 1px solid oklch(var(--border)); }
     .rail-head { padding: 8px 12px; }

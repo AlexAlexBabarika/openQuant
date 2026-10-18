@@ -343,71 +343,6 @@
     {#if drift && !stale}<p class="notice">Draft spot changed. Charts still show the returned analysis at {exactValue(result.request.spot)} USD; analyze again to refresh.</p>{/if}
     {#if stale}<p class="notice" role="status">Inputs changed. All charts and per-leg readouts remain previous submitted evidence; Analyze explicitly to refresh.</p>{/if}
 
-    <section class="strike-editor" aria-label="Strike proposals and submitted leg contribution">
-      <div class="pane-title"><h4>Strike proposals</h4><span>Submitted evidence stays fixed</span></div>
-      {#if !editable}<p class="note">Read-only chart. Python source is never changed by chart controls. Visual editing requires an editable draft, parent edit callback and an active document key.</p>{:else}
-        <p class="note">Drag a numbered strike handle, or select a leg and use numeric controls. Release applies one draft edit; Escape, lost capture and pointer cancellation discard it. Pricing requires Preview.</p>
-      {/if}
-      <div class="leg-selectors" aria-label="Select submitted leg">
-        {#each legRows as row (row.index)}
-          <button type="button" class:chosen={selectedLeg === row.index} aria-pressed={selectedLeg === row.index} onclick={() => loadLeg(row.index)}>
-            L{row.index + 1}: {row.leg.kind} · {exactValue(row.leg.quantity, true)} {row.leg.kind === 'underlying' ? 'shares' : 'contracts'}{row.leg.kind !== 'underlying' ? ` · K ${exactValue(row.leg.strike)} USD` : ''}{row.leg.enabled ? '' : ' · disabled'}
-          </button>
-        {/each}
-      </div>
-      <p class="note">Select/Enter/Space explicitly requests the submitted leg's canonical contribution (other legs disabled), not the draft. Arrows edit draft strike when enabled. L = submitted strike; D = unpriced draft strike.</p>
-      {#if selectedLeg != null && submittedLeg}
-        <p class="note">Selected submitted L{selectedLeg + 1}: {submittedLeg.kind}, premium {exactValue(submittedLeg.entry_premium)} USD/unit, multiplier {exactValue(submittedLeg.multiplier)}{submittedLeg.source ? ` · source ${submittedLeg.source.provider}/${submittedLeg.source.environment} · ${submittedLeg.source.contract_symbol}` : ' · manual inputs'}.</p>
-        {#if result.legs?.find(l => l.leg_index === selectedLeg)}
-          {@const leg = result.legs.find(l => l.leg_index === selectedLeg)!}
-          <p class="note">Canonical submitted-spot contribution: today P&amp;L {exactValue(leg.pnl_today, true)} USD · delta {exactValue(leg.greeks.delta, true)} equivalent shares.</p>
-        {/if}
-      {/if}
-      {#if editable}
-        {#if !matchingLayout}<p class="notice">Draft leg layout changed. Analyze explicitly before editing chart strikes; submitted leg selection still inspects the original evidence.</p>{/if}
-        <form class="domain-controls" onsubmit={numericStrike} aria-label="Edit selected draft strike">
-          <label for={`${id}-strike`}>Draft L{selectedLeg == null ? '—' : selectedLeg + 1} strike (USD)
-            <input id={`${id}-strike`} type="text" inputmode="decimal" bind:value={strikeText} disabled={!canEditLeg || !!drag} aria-invalid={!!strikeError} aria-describedby={`${id}-strike-note`} />
-          </label>
-          <label for={`${id}-snap`}>Drag/arrow step (USD)
-            <select id={`${id}-snap`} bind:value={step} disabled={!!drag}>{#each STRIKE_STEPS as s}<option value={s}>{s}</option>{/each}</select>
-          </label>
-          <div class="actions">
-            <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, -1)}>Strike −</button>
-            <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, 1)}>Strike +</button>
-            <button type="submit" disabled={!canEditLeg || !!drag}>Apply strike</button>
-          </div>
-        </form>
-        <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError || `Numeric edits retain entered precision; drag/arrows snap to the chosen step within 0 < strike ≤ ${MAX_STRIKE} USD. Select an enabled option leg to edit.`}</p>
-        <p class="notice">Strike edits keep entry premiums and IVs. A different strike is a different contract, so its provider observation and quotes are cleared. Review explicitly. The draft ghost is unpriced, not payoff evidence.</p>
-        <div class="actions">
-          <button type="button" onclick={previewProposal} disabled={previewPending || !!drag}>Preview proposal</button>
-          {#if previewPending}<button type="button" onclick={() => cancelPreview()}>Cancel preview</button>{/if}
-          {#if proposed}<button type="button" onclick={() => cancelPreview(true)}>Discard proposed overlay</button>{/if}
-        </div>
-      {/if}
-      {#if previewPending}<p class="note" role="status">Canonical proposal preview pending. Any previous proposed overlay remains separate from submitted evidence.</p>{/if}
-      {#if previewMessage}<p class="notice" role={previewFailed ? 'alert' : 'status'}>{previewMessage}</p>{/if}
-      {#if Object.keys(previewFields).length}<ul class="field-errors">{#each Object.entries(previewFields) as [field, message]}<li><b>{field}</b>: {message}</li>{/each}</ul>{/if}
-      {#if legPending}<p class="note" role="status">Canonical leg contribution pending.</p><button type="button" onclick={cancelLeg}>Cancel leg request</button>{/if}
-      {#if legMessage}<p class="note" role={legFailed ? 'alert' : 'status'}>{legMessage}</p>{/if}
-      {#if proposed}<p class="notice">PROPOSED backend analysis · submitted proposal spot {exactValue(proposed.request.spot)} USD · {proposed.request.strategy.name}. Dot-dash overlays are hypothetical proposed evidence, not an update to the submitted strategy.{proposed.horizon?.exact_terminal_available === false ? ' Mixed expiry: no exact terminal payoff overlay, roots or extrema are available.' : ''}</p>{/if}
-      {#if legAnalysis}<p class="note">SELECTED SUBMITTED L{(selectedLeg ?? 0) + 1} · long-dashed, thicker overlay · fixed original premiums and fees.{result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false ? ' Today only for mixed expiry; no isolated own-expiry line is compared to the multi-expiry strategy.' : ''}</p>{/if}
-      {#if ghost != null}<p class="note" role="status">Unpriced draft L{(selectedLeg ?? 0) + 1} strike: {exactValue(ghost)} USD{inView(ghost) ? '' : ' (outside current view)'}. {drag ? 'Release to apply, Escape to cancel.' : 'Preview explicitly for canonical pricing.'}</p>{/if}
-    </section>
-
-    <form class="domain-controls" onsubmit={applyDomain} aria-label="Numeric price view">
-      <label for={`${id}-minimum`}>From (USD)<input id={`${id}-minimum`} type="text" inputmode="decimal" bind:value={minimum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
-      <label for={`${id}-maximum`}>To (USD)<input id={`${id}-maximum`} type="text" inputmode="decimal" bind:value={maximum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
-      <div class="actions">
-        <button type="submit">Apply view</button>
-        <button type="button" onclick={() => setDomain(zoomDomain(domain, full, 0.5, activeSpot ?? undefined))} aria-label="Zoom in price domain">Zoom +</button>
-        <button type="button" onclick={() => setDomain(zoomDomain(domain, full, 2))} aria-label="Zoom out price domain">Zoom −</button>
-        <button type="button" onclick={() => setDomain(full)}>Reset</button>
-      </div>
-    </form>
-    <p id={`${id}-domain-note`} class:notice={!!domainError} class="note" role={domainError ? 'alert' : undefined}>{domainError || `View ${exactValue(domain.min)}–${exactValue(domain.max)} USD. Zoom changes display only, not the analysis.`}</p>
-
     {#if offscreen?.spot || offscreen?.strikes.length}
       <p class="notice offscreen" role="status">
         <span>Outside this view: {[offscreen.spot ? `spot ${exactValue(result.request.spot)} USD` : '', offscreen.strikes.length ? `strike${offscreen.strikes.length > 1 ? 's' : ''} ${offscreen.strikes.map(k => exactValue(k)).join(', ')}` : ''].filter(Boolean).join(' and ')}.</span>
@@ -493,6 +428,71 @@
         </dl>
       {:else}<span>Select a price sample to inspect exact returned values. No sampled view is a maximum profit/loss estimate.</span>{/if}
     </div>
+
+    <section class="strike-editor" aria-label="Strike proposals and submitted leg contribution">
+      <div class="pane-title"><h4>Strike proposals</h4><span>Submitted evidence stays fixed</span></div>
+      {#if !editable}<p class="note">Read-only chart. Python source is never changed by chart controls. Visual editing requires an editable draft, parent edit callback and an active document key.</p>{:else}
+        <p class="note">Drag a numbered strike handle, or select a leg and use numeric controls. Release applies one draft edit; Escape, lost capture and pointer cancellation discard it. Pricing requires Preview.</p>
+      {/if}
+      <div class="leg-selectors" aria-label="Select submitted leg">
+        {#each legRows as row (row.index)}
+          <button type="button" class:chosen={selectedLeg === row.index} aria-pressed={selectedLeg === row.index} onclick={() => loadLeg(row.index)}>
+            L{row.index + 1}: {row.leg.kind} · {exactValue(row.leg.quantity, true)} {row.leg.kind === 'underlying' ? 'shares' : 'contracts'}{row.leg.kind !== 'underlying' ? ` · K ${exactValue(row.leg.strike)} USD` : ''}{row.leg.enabled ? '' : ' · disabled'}
+          </button>
+        {/each}
+      </div>
+      <p class="note">Select/Enter/Space explicitly requests the submitted leg's canonical contribution (other legs disabled), not the draft. Arrows edit draft strike when enabled. L = submitted strike; D = unpriced draft strike.</p>
+      {#if selectedLeg != null && submittedLeg}
+        <p class="note">Selected submitted L{selectedLeg + 1}: {submittedLeg.kind}, premium {exactValue(submittedLeg.entry_premium)} USD/unit, multiplier {exactValue(submittedLeg.multiplier)}{submittedLeg.source ? ` · source ${submittedLeg.source.provider}/${submittedLeg.source.environment} · ${submittedLeg.source.contract_symbol}` : ' · manual inputs'}.</p>
+        {#if result.legs?.find(l => l.leg_index === selectedLeg)}
+          {@const leg = result.legs.find(l => l.leg_index === selectedLeg)!}
+          <p class="note">Canonical submitted-spot contribution: today P&amp;L {exactValue(leg.pnl_today, true)} USD · delta {exactValue(leg.greeks.delta, true)} equivalent shares.</p>
+        {/if}
+      {/if}
+      {#if editable}
+        {#if !matchingLayout}<p class="notice">Draft leg layout changed. Analyze explicitly before editing chart strikes; submitted leg selection still inspects the original evidence.</p>{/if}
+        <form class="domain-controls" onsubmit={numericStrike} aria-label="Edit selected draft strike">
+          <label for={`${id}-strike`}>Draft L{selectedLeg == null ? '—' : selectedLeg + 1} strike (USD)
+            <input id={`${id}-strike`} type="text" inputmode="decimal" bind:value={strikeText} disabled={!canEditLeg || !!drag} aria-invalid={!!strikeError} aria-describedby={`${id}-strike-note`} />
+          </label>
+          <label for={`${id}-snap`}>Drag/arrow step (USD)
+            <select id={`${id}-snap`} bind:value={step} disabled={!!drag}>{#each STRIKE_STEPS as s}<option value={s}>{s}</option>{/each}</select>
+          </label>
+          <div class="actions">
+            <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, -1)}>Strike −</button>
+            <button type="button" disabled={!canEditLeg || !!drag} onclick={() => selectedLeg != null && incrementStrike(selectedLeg, 1)}>Strike +</button>
+            <button type="submit" disabled={!canEditLeg || !!drag}>Apply strike</button>
+          </div>
+        </form>
+        <p id={`${id}-strike-note`} class="note" class:notice={!!strikeError} role={strikeError ? 'alert' : undefined}>{strikeError || `Numeric edits retain entered precision; drag/arrows snap to the chosen step within 0 < strike ≤ ${MAX_STRIKE} USD. Select an enabled option leg to edit.`}</p>
+        <p class="notice">Strike edits keep entry premiums and IVs. A different strike is a different contract, so its provider observation and quotes are cleared. Review explicitly. The draft ghost is unpriced, not payoff evidence.</p>
+        <div class="actions">
+          <button type="button" onclick={previewProposal} disabled={previewPending || !!drag}>Preview proposal</button>
+          {#if previewPending}<button type="button" onclick={() => cancelPreview()}>Cancel preview</button>{/if}
+          {#if proposed}<button type="button" onclick={() => cancelPreview(true)}>Discard proposed overlay</button>{/if}
+        </div>
+      {/if}
+      {#if previewPending}<p class="note" role="status">Canonical proposal preview pending. Any previous proposed overlay remains separate from submitted evidence.</p>{/if}
+      {#if previewMessage}<p class="notice" role={previewFailed ? 'alert' : 'status'}>{previewMessage}</p>{/if}
+      {#if Object.keys(previewFields).length}<ul class="field-errors">{#each Object.entries(previewFields) as [field, message]}<li><b>{field}</b>: {message}</li>{/each}</ul>{/if}
+      {#if legPending}<p class="note" role="status">Canonical leg contribution pending.</p><button type="button" onclick={cancelLeg}>Cancel leg request</button>{/if}
+      {#if legMessage}<p class="note" role={legFailed ? 'alert' : 'status'}>{legMessage}</p>{/if}
+      {#if proposed}<p class="notice">PROPOSED backend analysis · submitted proposal spot {exactValue(proposed.request.spot)} USD · {proposed.request.strategy.name}. Dot-dash overlays are hypothetical proposed evidence, not an update to the submitted strategy.{proposed.horizon?.exact_terminal_available === false ? ' Mixed expiry: no exact terminal payoff overlay, roots or extrema are available.' : ''}</p>{/if}
+      {#if legAnalysis}<p class="note">SELECTED SUBMITTED L{(selectedLeg ?? 0) + 1} · long-dashed, thicker overlay · fixed original premiums and fees.{result.horizon?.kind === 'mixed_expiry' || result.horizon?.exact_terminal_available === false ? ' Today only for mixed expiry; no isolated own-expiry line is compared to the multi-expiry strategy.' : ''}</p>{/if}
+      {#if ghost != null}<p class="note" role="status">Unpriced draft L{(selectedLeg ?? 0) + 1} strike: {exactValue(ghost)} USD{inView(ghost) ? '' : ' (outside current view)'}. {drag ? 'Release to apply, Escape to cancel.' : 'Preview explicitly for canonical pricing.'}</p>{/if}
+    </section>
+
+    <form class="domain-controls" onsubmit={applyDomain} aria-label="Numeric price view">
+      <label for={`${id}-minimum`}>From (USD)<input id={`${id}-minimum`} type="text" inputmode="decimal" bind:value={minimum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
+      <label for={`${id}-maximum`}>To (USD)<input id={`${id}-maximum`} type="text" inputmode="decimal" bind:value={maximum} aria-invalid={!!domainError} aria-describedby={`${id}-domain-note`} /></label>
+      <div class="actions">
+        <button type="submit">Apply view</button>
+        <button type="button" onclick={() => setDomain(zoomDomain(domain, full, 0.5, activeSpot ?? undefined))} aria-label="Zoom in price domain">Zoom +</button>
+        <button type="button" onclick={() => setDomain(zoomDomain(domain, full, 2))} aria-label="Zoom out price domain">Zoom −</button>
+        <button type="button" onclick={() => setDomain(full)}>Reset</button>
+      </div>
+    </form>
+    <p id={`${id}-domain-note`} class:notice={!!domainError} class="note" role={domainError ? 'alert' : undefined}>{domainError || `View ${exactValue(domain.min)}–${exactValue(domain.max)} USD. Zoom changes display only, not the analysis.`}</p>
 
     <div class="pane-title greek-heading"><div><h4>Greek exposure by price</h4><p class="note">Today only · signed, quantity × multiplier weighted</p></div>
       <label for={`${id}-greek`}>Greek<select id={`${id}-greek`} bind:value={greek}>{#each GREEK_KEYS as key}<option value={key}>{key}</option>{/each}</select></label>
