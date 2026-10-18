@@ -4,7 +4,7 @@ import type {
   OptionsContractSource,
 } from './optionsTypes';
 import type { ChainQuote, ChainResponse } from './optionsResearchTypes';
-import { optionsErrors } from './optionsValidation';
+import { calendar, optionsErrors } from './optionsValidation';
 import { validQuoteTimestamp } from './optionsLegEditor';
 
 export type ChainPremiumChoice = '' | 'bid' | 'ask' | 'mid' | 'custom';
@@ -131,16 +131,6 @@ export function chainRows(response: ChainResponse, filters: ChainFilters) {
     pages,
     page,
   };
-}
-
-function calendar(value: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000'))
-    return null;
-  const parsed = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(parsed) &&
-    new Date(parsed).toISOString().slice(0, 10) === value
-    ? parsed
-    : null;
 }
 
 /** Whitelist bounded provenance only; no raw responses, keys or legacy quote fields. */
