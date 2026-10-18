@@ -4,6 +4,7 @@ import {
   formatNumber,
   formatPercent,
   formatPrice,
+  formatTime,
   formatUsd,
 } from './optionsFormat';
 
@@ -38,5 +39,15 @@ describe('options readout formatting', () => {
       expect(format(null)).toBe('Unavailable');
     expect(formatPercent(Number.NaN)).toBe('Unavailable');
     expect(formatGreek(0)).toBe('0');
+  });
+
+  it('formats quote and fetch times with their zone, never as raw ISO', () => {
+    // Noon UTC stays on Oct 14 in every zone the runner might use.
+    const text = formatTime('2026-10-14T08:00:05-04:00');
+    expect(text).toMatch(/^Oct 14, 2026, \d{1,2}:\d{2}:05\s[AP]M \S+$/);
+    expect(text).not.toContain('T08');
+    expect(formatTime(null)).toBeNull();
+    expect(formatTime(undefined)).toBeNull();
+    expect(formatTime('not a time')).toBe('not a time');
   });
 });

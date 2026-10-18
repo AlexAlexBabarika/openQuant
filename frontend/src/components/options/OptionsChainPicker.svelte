@@ -6,6 +6,7 @@
   import { applyChainImport, chainFailureMessage, chainFilterErrors, chainPremium, chainRows, chainSpread, needsChainModelAcknowledgment, proposeChainImport, type ChainFilters, type ChainImportSettings } from '$lib/features/options/optionsChain';
   import { RequestFlight } from '$lib/features/options/optionsRequest';
   import { exactValue } from '$lib/features/options/optionsChart';
+  import { formatTime } from '$lib/features/options/optionsFormat';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const id = $props.id();
@@ -149,12 +150,12 @@
     {#if !connected}<p class="notice">This environment is disconnected/unavailable. Open Settings → API keys and configure {environment === 'production' ? 'Tradier (tradier)' : 'Tradier sandbox (tradier_sandbox)'}, then check status again. Existing keys are managed by encrypted server-side settings, not this component.</p>{/if}
   {/if}
   {#if matchingExpirations}
-    <p>Expirations for {matchingExpirations.symbol} · {matchingExpirations.environment} · fetched {matchingExpirations.fetched_at}. {matchingExpirations.truncated ? 'Expiration list truncated (maximum 128).' : `${matchingExpirations.expirations.length} dates returned.`}</p>
+    <p>Expirations for {matchingExpirations.symbol} · {matchingExpirations.environment} · fetched {formatTime(matchingExpirations.fetched_at)}. {matchingExpirations.truncated ? 'Expiration list truncated (maximum 128).' : `${matchingExpirations.expirations.length} dates returned.`}</p>
     {#each matchingExpirations.warnings as warning}<p class="notice">{warning}</p>{/each}
   {/if}
   {#if response}
     <h4>Submitted observations: {response.symbol} · {response.expiration} · {response.provider}/{response.environment}</h4>
-    <p>Fetched {response.fetched_at} (retrieval time only, never quote time). {response.truncated ? 'Provider result truncated to a bounded chain; not exhaustive.' : `${response.quotes.length} contracts returned (maximum 2000).`} Unknown is not zero. Side timestamps are independent; quotes may be stale or delayed. No freshness guarantee.</p>
+    <p>Fetched {formatTime(response.fetched_at)} (retrieval time only, never quote time). {response.truncated ? 'Provider result truncated to a bounded chain; not exhaustive.' : `${response.quotes.length} contracts returned (maximum 2000).`} Unknown is not zero. Side timestamps are independent; quotes may be stale or delayed. No freshness guarantee.</p>
     {#each response.warnings as warning}<p class="notice">{warning}</p>{/each}
     <fieldset disabled={readOnly}>
       <legend>Filter and sort observations · unknown values sort last</legend>
@@ -176,9 +177,9 @@
           <thead><tr><th scope="col">Contract / kind</th><th scope="col">Strike · USD</th><th scope="col">Bid / time</th><th scope="col">Ask / time</th><th scope="col">Spread · USD</th><th scope="col">IV · fraction</th><th scope="col">Multiplier · units</th><th scope="col">Volume · contracts</th><th scope="col">Open interest · contracts</th><th scope="col">Model classification / source</th><th scope="col">Prepare import</th></tr></thead>
           <tbody>{#each rows.quotes as quote, i}<tr>
             <th scope="row">{quote.contract_symbol}<br />{quote.kind}</th><td>{value(quote.strike)}</td>
-            <td>{value(quote.bid)}<small>{quote.bid_as_of ?? 'Quote time unknown'}</small></td><td>{value(quote.ask)}<small>{quote.ask_as_of ?? 'Quote time unknown'}</small></td>
+            <td>{value(quote.bid)}<small>{formatTime(quote.bid_as_of) ?? 'Quote time unknown'}</small></td><td>{value(quote.ask)}<small>{formatTime(quote.ask_as_of) ?? 'Quote time unknown'}</small></td>
             <td>{value(chainSpread(quote))}{#if (chainSpread(quote) ?? 0) < 0}<small>Crossed · midpoint unavailable</small>{/if}</td><td>{value(quote.implied_volatility)}</td><td>{value(quote.multiplier)}</td><td>{value(quote.volume)}</td><td>{value(quote.open_interest)}</td>
-            <td>{quote.source.observed_exercise_style ?? 'unknown'} / {quote.source.observed_settlement ?? 'unknown'}<small>{quote.source.provider}/{quote.source.environment}</small><small>Fetched {quote.source.fetched_at}</small></td>
+            <td>{quote.source.observed_exercise_style ?? 'unknown'} / {quote.source.observed_settlement ?? 'unknown'}<small>{quote.source.provider}/{quote.source.environment}</small><small>Fetched {formatTime(quote.source.fetched_at)}</small></td>
             <td><div class="actions"><button type="button" class="ot-workbench-ghost" disabled={readOnly || stale || !!pending || draft.strategy.legs.length >= 16} onclick={() => select(quote, 'buy')} aria-label={`Prepare buy ${quote.contract_symbol}, row ${i + 1}`}>Buy</button><button type="button" class="ot-workbench-ghost" disabled={readOnly || stale || !!pending || draft.strategy.legs.length >= 16} onclick={() => select(quote, 'sell')} aria-label={`Prepare sell ${quote.contract_symbol}, row ${i + 1}`}>Sell</button></div></td>
           </tr>{/each}</tbody>
         </table>
@@ -191,7 +192,7 @@
     <form onsubmit={importContract} novalidate>
       <h4>Confirm hypothetical import: {selected.contract_symbol} · {selected.underlying} · {selected.source.environment}</h4>
       <p>Observed {selected.source.observed_exercise_style ?? 'unknown'} exercise / {selected.source.observed_settlement ?? 'unknown'} settlement. Import models only European cash settlement. No American exercise, early assignment, physical delivery, corporate-action adjustment or trade fill is modeled.</p>
-      <p>Bid {value(selected.bid)} at {selected.bid_as_of ?? 'unknown time'}; ask {value(selected.ask)} at {selected.ask_as_of ?? 'unknown time'}; fetched {selected.source.fetched_at}. Quote side times are retained only in source provenance; no legacy bid/ask/quote_as_of or existing premiums are overwritten.</p>
+      <p>Bid {value(selected.bid)} at {formatTime(selected.bid_as_of) ?? 'unknown time'}; ask {value(selected.ask)} at {formatTime(selected.ask_as_of) ?? 'unknown time'}; fetched {formatTime(selected.source.fetched_at)}. Quote side times are retained only in source provenance; no legacy bid/ask/quote_as_of or existing premiums are overwritten.</p>
       <fieldset disabled={readOnly || !!pending || stale}>
         <legend>Explicit entry and model assumptions</legend>
         <div class="grid">

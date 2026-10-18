@@ -5,7 +5,7 @@
   import { OptionsState } from '$lib/features/options/optionsState.svelte';
   import { spotGrid } from '$lib/features/options/optionsTemplates';
   import { exactTerminalAvailable, exactValue } from '$lib/features/options/optionsChart';
-  import { formatGreek, formatNumber, formatPrice } from '$lib/features/options/optionsFormat';
+  import { formatGreek, formatNumber, formatPrice, formatTime } from '$lib/features/options/optionsFormat';
   import { modelUnitPrices } from '$lib/features/options/optionsPricing';
   import { shortcutLabel } from '$lib/features/options/optionsInputs';
   import OptionsCharts from './OptionsCharts.svelte';
@@ -227,7 +227,7 @@
             </dl>
             <ul class="submitted-legs">{#each result.request.strategy.legs as leg, i}<li>Leg {i + 1}: {leg.quantity > 0 ? 'Buy' : 'Sell'} {number(Math.abs(leg.quantity))} {leg.kind === 'underlying' ? 'shares' : `${leg.kind} contracts`} · strike {leg.strike === null ? 'n/a' : `${number(leg.strike)} USD`} · entry {number(leg.entry_premium)} USD/unit · multiplier {leg.multiplier} · {leg.enabled ? 'enabled' : 'disabled'}
               {#if leg.kind !== 'underlying'}<span> · expiry override {leg.days_to_expiry == null ? 'inherits default days' : `${number(leg.days_to_expiry)} days`} / {leg.expiry_date ?? 'no date override'}</span>{/if}
-              {#if leg.source}<p class="hint">Original contract observation: {leg.source.provider} / {leg.source.environment} / {leg.source.contract_symbol}. Observed exercise / delivery: {leg.source.observed_exercise_style ?? 'unknown'} / {leg.source.observed_settlement ?? 'unknown'}. Bid as of {leg.source.bid_as_of ?? 'unavailable'}; ask as of {leg.source.ask_as_of ?? 'unavailable'}; fetched {leg.source.fetched_at}. Hypothetical conversion only; edits do not refresh original-contract quotes.</p>{/if}
+              {#if leg.source}<p class="hint">Original contract observation: {leg.source.provider} / {leg.source.environment} / {leg.source.contract_symbol}. Observed exercise / delivery: {leg.source.observed_exercise_style ?? 'unknown'} / {leg.source.observed_settlement ?? 'unknown'}. Bid as of {formatTime(leg.source.bid_as_of) ?? 'unavailable'}; ask as of {formatTime(leg.source.ask_as_of) ?? 'unavailable'}; fetched {formatTime(leg.source.fetched_at)}. Hypothetical conversion only; edits do not refresh original-contract quotes.</p>{/if}
             </li>{/each}</ul>
             <p class="hint">Display grid: {number(result.spot_grid[0])}–{number(result.spot_grid[result.spot_grid.length - 1])} USD · {result.spot_grid.length} points. {terminalAvailable ? 'Exact expiry maximum risk/reward is not clipped to this range.' : 'Mixed-expiry first-horizon marks are not exact terminal payoff or risk limits.'}</p>
             {#each result.scenarios as scenario, i}

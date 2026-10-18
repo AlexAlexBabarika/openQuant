@@ -29,6 +29,10 @@ const usdWholeSigned = new Intl.NumberFormat('en-US', {
   signDisplay: 'exceptZero',
 });
 const price = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+const time = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'long',
+});
 const general = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 6 });
 
 export function formatUsd(
@@ -76,4 +80,11 @@ export function formatGreek(
 /** Days, quantities and other plain numbers. */
 export function formatNumber(value: Value): string {
   return finite(value) ? general.format(value) : UNAVAILABLE;
+}
+
+/** Quote and fetch times in the viewer's zone, named; unparseable text passes through. */
+export function formatTime(iso: string | null | undefined): string | null {
+  if (iso == null) return null;
+  const value = Date.parse(iso);
+  return Number.isFinite(value) ? time.format(value) : iso;
 }
