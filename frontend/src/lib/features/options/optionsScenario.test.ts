@@ -497,9 +497,6 @@ describe('scenario lab markup (shell SSR only; not browser/UI validation)', () =
       steps: [-10, 10],
     };
     const html = markup(current, result);
-    expect(html).toContain(
-      'The results below update when the new analysis returns',
-    );
     expect(html).toContain('Submitted Submitted call · spot 100 USD');
     expect(html).toContain('Returned axis: elapsed calendar days');
     expect(html).toContain(

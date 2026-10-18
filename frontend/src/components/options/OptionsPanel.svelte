@@ -5,7 +5,7 @@
   import { OptionsState } from '$lib/features/options/optionsState.svelte';
   import { spotGrid } from '$lib/features/options/optionsTemplates';
   import { exactValue } from '$lib/features/options/optionsChart';
-  import { formatGreek, formatPrice } from '$lib/features/options/optionsFormat';
+  import { formatGreek, formatNumber, formatPrice } from '$lib/features/options/optionsFormat';
   import { modelUnitPrices } from '$lib/features/options/optionsPricing';
   import OptionsCharts from './OptionsCharts.svelte';
   import OptionsSummary from './OptionsSummary.svelte';
@@ -34,6 +34,9 @@
   let gridEnd = $state(150);
   let gridCount = $state(81);
   let sessionKey = $state('guest');
+  let panelWidth = $state(0);
+  /** Phones: assumptions and tools fold into disclosures so the chart and legs come first. */
+  const narrow = $derived(panelWidth > 0 && panelWidth < 760);
   const result = $derived(options.result);
   const toolKey = $derived(`${sessionKey}:${options.documentKey}:${options.mode}`);
   const terminalAvailable = $derived(result?.horizon?.kind !== 'mixed_expiry' && result?.horizon?.exact_terminal_available !== false);
@@ -97,7 +100,21 @@
   </label>
 {/snippet}
 
-<section class="options-panel" aria-label="Options research" bind:this={panel}>
+{#snippet assumptions()}
+  <OptionsAssumptionsEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
+    workspace={options.workspace} spotLinked={options.spotLinked} onSpot={spot => options.setSpot(spot)} onLink={() => options.linkWorkspace()} />
+{/snippet}
+{#snippet tools()}
+  {#key toolKey}
+    {#if options.mode === 'editor'}
+      <OptionsResearchTools draft={options.draft} {result} {analysisLabel} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
+    {:else if submittedPython && result}
+      {#key result}<OptionsResearchTools draft={result.request} {result} {analysisLabel} onEdit={() => {}} documentKey={toolKey} readOnly />{/key}
+    {:else}<p class="hint">Run the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
+  {/key}
+{/snippet}
+
+<section class="options-panel" aria-label="Options research" bind:this={panel} bind:clientWidth={panelWidth}>
   <header class="panel-header">
     <div class="identity"><strong>Options research</strong></div>
     <div class="run-actions">
@@ -121,14 +138,14 @@
           <button type="button" class="ot-workbench-ghost" aria-pressed={options.mode === 'python'} onclick={() => options.setMode('python')}>Python</button>
         </div>
         {#if options.mode === 'editor'}
-          <OptionsAssumptionsEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
-            workspace={options.workspace} spotLinked={options.spotLinked} onSpot={spot => options.setSpot(spot)} onLink={() => options.linkWorkspace()} />
-          <OptionsLegEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
+          {#if narrow}<details class="configuration slot-assumptions" open={Object.keys(options.fieldErrors).some(k => !k.startsWith('legs'))}><summary>Assumptions · spot {formatPrice(options.draft.spot)} · IV {formatNumber(options.draft.volatility * 100)}%</summary>{@render assumptions()}</details>
+          {:else}<div class="slot-assumptions">{@render assumptions()}</div>{/if}
+          <div class="slot-legs"><OptionsLegEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
             canUndo={options.canUndo} canRedo={options.canRedo}
             onUndo={() => { options.undo(); syncGrid(); }} onRedo={() => { options.redo(); syncGrid(); }}
             onTemplate={template => options.applyTemplate(template)}
             legs={{ add: copyIndex => options.addLeg(copyIndex), remove: index => options.removeLeg(index), move: (index, direction) => options.moveLeg(index, direction) }}
-            modelLegs={options.modelLegs} modelPrices={result && !options.stale ? modelUnitPrices(result) : []} onUseModel={index => options.useModelPremium(index)} />
+            modelLegs={options.modelLegs} modelPrices={result && !options.stale ? modelUnitPrices(result) : []} onUseModel={index => options.useModelPremium(index)} /></div>
           <details class="configuration"><summary>Per-leg expiries · calendar / diagonal construction</summary>
             {#key toolKey}<OptionsExpiryEditor draft={options.draft} onEdit={update => options.editDraft(update)} documentKey={toolKey} />{/key}
           </details>
@@ -160,8 +177,9 @@
         </details>
       </div>
       <div class="evidence-column" aria-busy={options.loading}>
-        {#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}
-        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} pending={options.loading} />{/key}
+        <div class="slot-summary">{#if result}<OptionsSummary {result} stale={options.stale} pending={options.loading} />{/if}</div>
+        <div class="slot-chart">
+        {#key toolKey}<OptionsCharts {result} spot={options.mode === 'editor' ? options.draft.spot : result?.request.spot} draft={options.mode === 'editor' ? options.draft : undefined} onEdit={update => options.editDraft(update)} documentKey={toolKey} readOnly={options.mode === 'python'} onFit={options.mode === 'editor' ? () => options.fitGrid() : undefined} pending={options.loading} compact={narrow} />{/key}
         <div class="model-line">
           <p>Theoretical Black-Scholes values for European, cash-settled options. Not quotes and not orders.</p>
           <details><summary>What the model leaves out</summary>
@@ -173,13 +191,9 @@
             </ul>
           </details>
         </div>
-        {#key toolKey}
-          {#if options.mode === 'editor'}
-            <OptionsResearchTools draft={options.draft} {result} {analysisLabel} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
-          {:else if submittedPython && result}
-            {#key result}<OptionsResearchTools draft={result.request} {result} {analysisLabel} onEdit={() => {}} documentKey={toolKey} readOnly />{/key}
-          {:else}<p class="hint">Run the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
-        {/key}
+        </div>
+        {#if narrow}<details class="configuration slot-tools"><summary>Research tools</summary>{@render tools()}</details>
+        {:else}<div class="slot-tools">{@render tools()}</div>{/if}
         {#if result}<button type="button" class="ot-workbench-ghost" disabled={options.comparisons.length >= 3} onclick={() => options.pin()}>Pin submitted analysis for comparison</button>{/if}
         {#if options.comparisons.length}<OptionsComparison items={options.comparisons} onRemove={id => options.unpin(id)} />{/if}
         {#if result}
@@ -282,5 +296,12 @@
   .submitted-source { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid oklch(var(--border)); padding: 8px; background: oklch(var(--background)); }
   .empty-state { color: oklch(var(--muted-foreground)); padding: 16px 0; }
   @media (max-width: 760px) { .panel-header, .panel-scroll { padding: 8px; } .shortcut { display: none; } .identity { flex: 1 1 210px; } }
+  @container (max-width: 760px) {
+    .workbench-grid { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+    .editor-column, .evidence-column { display: contents; }
+    .editor-column > *, .evidence-column > * { order: 7; }
+    .slot-summary { order: 1; } .slot-chart { order: 2; } .slot-legs { order: 3; }
+    .slot-assumptions { order: 4; } .mode-row { order: 5; } .slot-tools { order: 6; }
+  }
   @media (forced-colors: active) { input, .summary-grid > div, .greeks-grid > div { border-color: CanvasText; } .mode-row button[aria-pressed="true"] { outline: 1px solid Highlight; } input:focus-visible, summary:focus-visible { outline-color: Highlight; } }
 </style>
