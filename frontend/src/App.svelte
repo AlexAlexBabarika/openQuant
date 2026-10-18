@@ -379,6 +379,7 @@
   let strategyEditorShare = $state(50);
   let indicatorSplitPct = $state(60);
   let strategyTab = $state<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor');
+  let optionsLink = $state(0);
   let indicatorTab = $state<'editor' | 'docs'>('editor');
   let commandsOpen = $state(false);
   let guidedExampleOpen = $state(false);
@@ -1096,7 +1097,7 @@
         symbolFullName={symbolFullName}
         symbolExchange={symbolExchangeLabel}
         closePrice={lastClose}
-        onoptions={() => { portfolioRunId = null; strategyTab = 'options'; openStrategy(); }}
+        onoptions={() => { portfolioRunId = null; strategyTab = 'options'; optionsLink++; openStrategy(); }}
         {groups}
         {selectedGroupName}
         {selectedPriority}
@@ -1168,6 +1169,7 @@
     interval={chart.interval}
     workspaceSymbol={lastClose === null ? null : chart.loadedSymbol || null}
     workspaceSpot={lastClose}
+    {optionsLink}
     {strategy}
     onOpenRuns={() => (runsOpen = true)}
     onCompare={openCompare}

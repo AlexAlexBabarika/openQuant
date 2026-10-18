@@ -121,9 +121,12 @@ expiration breakevens with padding (35% of their span, at least 6% of spot) and
 refits when spot or the leg layout changes, until a grid is entered by hand.
 **Fit** returns to the fitted grid; the chart names a spot or strike it cannot show.
 
-Spot and the underlying name follow the chart's loaded symbol and last close
-(rounded to cents) until a spot is typed; an untouched template re-centers on the
-new spot. New workbench drafts are valued today with one expiry date and a days
+Spot and the underlying name follow the chart's loaded symbol: a new symbol moves
+spot to its last close (rounded to cents), while price updates on the same symbol
+only offer **Update to …**. Typing a spot, or restoring or importing a draft, stops
+following; **Use <symbol>** or **Options on <symbol>** resumes it. Only a template
+whose legs are untouched re-centers on the new spot; edited legs keep their
+strikes, premiums and overrides. A hidden Options panel never analyzes by itself. New workbench drafts are valued today with one expiry date and a days
 readout; days-only drafts still load and can switch to dates. IV, rate and yield
 are entered as percentages and sent as annual fractions.
 

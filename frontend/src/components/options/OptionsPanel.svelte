@@ -18,10 +18,14 @@
   import OptionsExpiryEditor from './OptionsExpiryEditor.svelte';
   import OptionsResearchTools from './OptionsResearchTools.svelte';
 
-  let { workspaceSymbol = null, workspaceSpot = null }: {
+  let { workspaceSymbol = null, workspaceSpot = null, active = true, linkRequest = 0 }: {
     /** The workspace chart's loaded symbol and last close; spot follows them until typed. */
     workspaceSymbol?: string | null;
     workspaceSpot?: number | null;
+    /** False while the panel is hidden: no automatic analysis runs. */
+    active?: boolean;
+    /** Incremented by "Options on <symbol>": follow the chart again. */
+    linkRequest?: number;
   } = $props();
   const options = new OptionsState(undefined, undefined, 300);
   const shortcut = shortcutLabel(typeof navigator === 'undefined' ? '' : navigator.platform);
@@ -75,6 +79,8 @@
 
   $effect(() => { options.documentKey; untrack(syncGrid); });
   $effect(() => { const symbol = workspaceSymbol, spot = workspaceSpot; untrack(() => options.syncWorkspace(symbol, spot)); });
+  $effect(() => { const visible = active; untrack(() => options.setActive(visible)); });
+  $effect(() => { if (linkRequest > 0) untrack(() => options.linkWorkspace()); });
   $effect(() => { if (options.gridAuto) { options.draft.spot_grid; untrack(syncGrid); } });
 
   function updateGrid() {
@@ -104,7 +110,7 @@
 
 {#snippet assumptions()}
   <OptionsAssumptionsEditor draft={options.draft} onEdit={update => options.editDraft(update)} fieldErrors={options.fieldErrors}
-    workspace={options.workspace} spotLinked={options.spotLinked} onSpot={spot => options.setSpot(spot)} onLink={() => options.linkWorkspace()} />
+    workspace={options.workspace} spotLinked={options.spotLinked} drift={options.workspaceDrift} onSpot={spot => options.setSpot(spot)} onLink={() => options.linkWorkspace()} />
 {/snippet}
 {#snippet tools()}
   {#key toolKey}

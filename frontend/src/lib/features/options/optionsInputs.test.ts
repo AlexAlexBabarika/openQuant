@@ -101,3 +101,19 @@ describe('formatSavedAt', () => {
     expect(formatSavedAt('not a date')).toBe('an unknown time');
   });
 });
+
+describe('matchTemplate with edits a re-template would lose', () => {
+  it('refuses legs with overrides, quotes, sources or manual premiums', () => {
+    const iv = createOptionsDraft();
+    iv.strategy.legs[0].implied_volatility = 0.35;
+    expect(matchTemplate(iv)).toBeNull();
+    const quoted = createOptionsDraft();
+    quoted.strategy.legs[0].bid = 4;
+    expect(matchTemplate(quoted)).toBeNull();
+    const dated = createOptionsDraft();
+    dated.strategy.legs[0].days_to_expiry = 60;
+    expect(matchTemplate(dated)).toBeNull();
+    expect(matchTemplate(createOptionsDraft(), [false])).toBeNull();
+    expect(matchTemplate(createOptionsDraft(), [true])).toBe('long_call');
+  });
+});

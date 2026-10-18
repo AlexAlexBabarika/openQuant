@@ -2,10 +2,12 @@
   import { clearCommonDates, commonDateHorizon, optionsEditorErrors, setCommonDate, type OptionsEditorProps } from '$lib/features/options/optionsLegEditor';
   import { addDays, fractionInput, localIsoDate, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
   import { formatPrice } from '$lib/features/options/optionsFormat';
-  let { draft, onEdit, fieldErrors = {}, workspace, spotLinked = false, onSpot, onLink }: OptionsEditorProps & {
+  let { draft, onEdit, fieldErrors = {}, workspace, spotLinked = false, drift = false, onSpot, onLink }: OptionsEditorProps & {
     /** The workspace chart's loaded symbol and last close; spot follows it while linked. */
     workspace?: { symbol: string | null; spot: number | null };
     spotLinked?: boolean;
+    /** The chart's price moved since the draft followed it; updating is explicit. */
+    drift?: boolean;
     onSpot?: (spot: number) => void;
     onLink?: () => void;
   } = $props();
@@ -42,7 +44,7 @@
     <div class="field">
       {@render numeric('Spot · USD', 'spot', draft.spot, 0, 1000000, v => onSpot ? onSpot(v) : onEdit(d => { d.spot = v; }))}
       {#if workspace?.spot != null && workspace.symbol}
-        {#if spotLinked}<small class="hint">From the {workspace.symbol} chart</small>
+        {#if spotLinked}<small class="hint">From the {workspace.symbol} chart{#if drift} · <button type="button" class="link" onclick={() => onLink?.()}>Update to {formatPrice(workspace.spot)}</button>{/if}</small>
         {:else}<button type="button" class="link" onclick={() => onLink?.()}>Use {workspace.symbol} {formatPrice(workspace.spot)}</button>{/if}
       {/if}
     </div>

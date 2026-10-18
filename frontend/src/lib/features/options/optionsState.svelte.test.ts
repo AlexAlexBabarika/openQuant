@@ -1377,3 +1377,147 @@ describe('model-priced premiums', () => {
     expect(s.notice).toBeNull();
   });
 });
+
+describe('workspace following without background churn', () => {
+  afterEach(() => vi.useRealTimers());
+  const priced = (init: RequestInit) => {
+    const request = JSON.parse(String(init.body)) as OptionsDraft;
+    const base = response(request);
+    return {
+      ...base,
+      legs: request.strategy.legs.map((l, i) => ({
+        leg_index: i,
+        enabled: l.enabled,
+        resolved_implied_volatility: 0.2,
+        gross_entry_cost: 0,
+        entry_fees: 0,
+        net_entry_cost: 0,
+        theoretical_value_today: l.quantity * l.multiplier * 2.41,
+        pnl_today: 0,
+        greeks: base.greeks,
+      })),
+    };
+  };
+
+  it('ignores intra-symbol ticks and offers an explicit update instead', async () => {
+    vi.useFakeTimers();
+    const analyze = vi.fn(async (_path: string, init: RequestInit) =>
+      priced(init),
+    );
+    const s = new OptionsState(storage(), analyze, 300);
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    await vi.advanceTimersByTimeAsync(1000);
+    const calls = analyze.mock.calls.length;
+    for (let i = 1; i <= 10; i++) {
+      s.syncWorkspace('AAPL', 343.46 + i / 10);
+      await vi.advanceTimersByTimeAsync(1000);
+    }
+    expect(analyze).toHaveBeenCalledTimes(calls);
+    expect(s.draft.spot).toBe(343.46);
+    expect(s.workspaceDrift).toBe(true);
+    s.linkWorkspace();
+    expect(s.draft.spot).toBe(344.46);
+  });
+
+  it('follows a new symbol', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    s.syncWorkspace('MSFT', 420.1);
+    expect(s.draft.spot).toBe(420.1);
+    expect(s.draft.strategy.underlying).toBe('MSFT');
+  });
+
+  it('does not analyze while the panel is hidden, and catches up when shown', async () => {
+    vi.useFakeTimers();
+    const analyze = vi.fn(async (_path: string, init: RequestInit) =>
+      priced(init),
+    );
+    const s = new OptionsState(storage(), analyze, 300);
+    s.setActive(false);
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(analyze).not.toHaveBeenCalled();
+    s.setActive(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(analyze).toHaveBeenCalled();
+    expect(s.result).not.toBeNull();
+  });
+
+  it('analyzes a workspace change that lands during a request', async () => {
+    vi.useFakeTimers();
+    const pending: (() => void)[] = [];
+    const analyze = vi.fn(
+      (_path: string, init: RequestInit) =>
+        new Promise<OptionsAnalysis>(resolve =>
+          pending.push(() => resolve(priced(init))),
+        ),
+    );
+    const s = new OptionsState(storage(), analyze, 300);
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    await vi.advanceTimersByTimeAsync(300);
+    pending[0]();
+    await vi.advanceTimersByTimeAsync(0);
+    s.syncWorkspace('MSFT', 420.1);
+    // The debounce fires while the AAPL request is still in flight.
+    await vi.advanceTimersByTimeAsync(300);
+    for (let i = 0; i < 20 && !s.result; i++) {
+      pending.splice(0).forEach(resolve => resolve());
+      await vi.advanceTimersByTimeAsync(500);
+    }
+    expect(s.result?.request.spot).toBe(420.1);
+  });
+
+  it('keeps a restored draft instead of re-centering it on the workspace', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    s.editDraft(d => {
+      d.spot = 500;
+      d.strategy.underlying = 'SPY';
+    });
+    expect(s.save('SPY idea')).toBe(true);
+    s.syncWorkspace('MSFT', 420.1);
+    expect(s.restore(0)).toBe(true);
+    expect(s.spotLinked).toBe(false);
+    s.syncWorkspace('NVDA', 180);
+    expect(s.draft.spot).toBe(500);
+    expect(s.draft.strategy.underlying).toBe('SPY');
+  });
+
+  it('keeps typed premiums and IV overrides when the symbol changes', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    s.editDraft(d => {
+      d.strategy.legs[0].entry_premium = 10;
+      d.strategy.legs[0].implied_volatility = 0.35;
+    });
+    s.syncWorkspace('MSFT', 420.1);
+    expect(s.draft.spot).toBe(420.1);
+    expect(s.draft.strategy.legs[0].strike).toBe(345);
+    expect(s.draft.strategy.legs[0].entry_premium).toBe(10);
+    expect(s.draft.strategy.legs[0].implied_volatility).toBe(0.35);
+    expect(s.modelLegs).toEqual([false]);
+  });
+
+  it('stops claiming to follow the chart after undo restores another symbol', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.syncWorkspace('AAPL', 343.46);
+    s.editDraft(d => {
+      d.strategy.name = 'Mine';
+    });
+    s.syncWorkspace('MSFT', 420.1);
+    s.editDraft(d => {
+      d.strategy.name = 'Mine 2';
+    });
+    s.undo();
+    s.undo();
+    expect(s.draft.strategy.underlying).toBe('AAPL');
+    expect(s.spotLinked).toBe(false);
+  });
+});
