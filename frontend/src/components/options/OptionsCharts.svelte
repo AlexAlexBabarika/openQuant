@@ -10,7 +10,7 @@
   } from '$lib/features/options/optionsChartEditing';
   import type { StrikeDrag } from '$lib/features/options/optionsChartEditing';
   import {
-    GREEK_KEYS, axisValue, domainTicks, exactValue, finiteValue, greekPlotError,
+    GREEK_KEYS, axisValue, niceTicks, fillPath, exactValue, finiteValue, greekPlotError,
     greekSeries, keyboardIndex, nearestIndex, optionsSeries, plotError, priceDomain,
     priceMarkers, sampledYDomain, scaleValue, seriesPoints, svgPath, validateDomain,
     zoomDomain, expiryTraceError, inspectionGrid, seriesValue, legBreakdownError, outsideView,
@@ -67,7 +67,7 @@
   const canEditLeg = $derived(editable && matchingLayout && !!draftLeg?.enabled && draftLeg.kind !== 'underlying' && validStrike(draftLeg.strike));
   const ghost = $derived(drag?.proposed ?? (canEditLeg && draftLeg?.strike !== submittedLeg?.strike ? draftLeg?.strike : null));
   const width = $derived(Math.max(240, containerWidth));
-  const left = 64, right = 18;
+  const left = 64, right = 18, height = 300, railY = 275;
   const plotWidth = $derived(width - left - right);
   const full = $derived(result ? priceDomain(result.spot_grid) : null);
   const domain = $derived(view ?? full);
@@ -84,6 +84,25 @@
   const livePoints = $derived(liveDraft && domain && terminalAvailable ? expiryPayoffPoints(liveDraft, domain) : null);
   const ghosted = $derived(!!drag || !!stale || pending);
   const pnlY = $derived(domain ? sampledYDomain([...points, ...overlayPoints, ...(livePoints ? [livePoints] : [])], domain) : { min: -1, max: 1 });
+  const zeroY = $derived(scaleValue(0, pnlY, 208, 24));
+  const pnlTicks = $derived(niceTicks(pnlY, 5));
+  const pnlStep = $derived(pnlTicks.length > 1 ? pnlTicks[1] - pnlTicks[0] : 1);
+  const xTicks = $derived(domain ? niceTicks(domain, Math.max(3, Math.floor(plotWidth / 110))) : []);
+  // Profit and loss shading follows the exact expiry line: the live one while editing.
+  const fill = $derived(!domain || !terminalAvailable ? '' : fillPath(livePoints ?? points[curves.findIndex(c => c.id === 'expiry')] ?? [], domain, pnlY, plotWidth, 24, 208));
+  const handles = $derived.by(() => {
+    const rows: { index: number; x: number; row: number; label: string; side: 'buy' | 'sell'; edited: boolean }[] = [];
+    for (const { leg, index } of legRows) {
+      const strike = leg.kind === 'underlying' || !leg.enabled || !validStrike(leg.strike) ? null : handleStrike(index);
+      if (strike == null || !inView(strike)) continue;
+      const current = editable && matchingLayout ? draft?.strategy.legs[index] ?? leg : leg;
+      const side = current.quantity < 0 ? 'sell' : 'buy';
+      const px = x(strike);
+      const row = rows.some(r => r.row === 0 && Math.abs(r.x - px) < 72) ? 1 : 0;
+      rows.push({ index, x: px, row, side, edited: strike !== leg.strike, label: `L${index + 1} ${side === 'buy' ? '+' : '−'}${leg.kind === 'call' ? 'C' : 'P'} ${formatPrice(strike)}` });
+    }
+    return rows;
+  });
   const greekCurves = $derived(result ? greekSeries(result, greek) : []);
   const greekPoints = $derived(result ? greekCurves.map(s => seriesPoints(result.spot_grid, s.values)) : []);
   const greekY = $derived(domain ? sampledYDomain(greekPoints, domain) : { min: -1, max: 1 });
@@ -336,20 +355,29 @@
         <span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray={curve.dash} /></svg>{curve.label}</span>
       {/each}
       {#each legCurves as curve (curve.id)}<span class="legend-item"><svg class={`swatch ${curve.tone}`} viewBox="0 0 28 10" aria-hidden="true"><path d="M0,5 L28,5" stroke-dasharray="14 5" /></svg>SUBMITTED L{(selectedLeg ?? 0) + 1} · {curve.label}</span>{/each}
+      {#if fill}<span class="legend-item"><svg class="swatch" viewBox="0 0 28 10" aria-hidden="true"><rect class="fill-up" width="13" height="10" /><rect class="fill-down" x="15" width="13" height="10" /></svg>Profit / loss at expiry</span>{/if}
     </div>
-    <div class="graph" bind:clientWidth={containerWidth}>
+    <div class="graph" class:dragging={!!drag} bind:clientWidth={containerWidth}>
       <div class="chart-control" role="slider" tabindex="0" aria-label="Inspect P&L at supplied price samples" aria-valuemin={domain.min} aria-valuemax={domain.max} aria-valuenow={sliderSpot()} aria-valuetext={activeSpot == null ? 'No sample selected' : `${formatPrice(activeSpot)} USD; values in readout below`} aria-describedby={`${id}-instructions`} onkeydown={keydown}>
-        <svg bind:this={pnlSvg} viewBox={`0 0 ${width} 254`} role="img" aria-label={`${terminalAvailable ? 'Expiration' : 'First-expiry model marks'}, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
+        <svg bind:this={pnlSvg} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${terminalAvailable ? 'Expiration' : 'First-expiry model marks'}, today and scenario P&L for ${result.request.strategy.name}; underlying price in USD on x-axis, total P&L in USD on y-axis`} onpointermove={inspect} onpointerdown={inspect}>
           <title>Options P&amp;L over numeric underlying price</title>
-          <desc>{terminalAvailable ? 'Expiration connects canonical piecewise-linear vertices, including every in-domain strike and isolated breakeven.' : 'First-expiry values are backend grid samples with later legs model-marked, not exact terminal payoff or risk limits.'} Today and scenarios connect backend grid samples only. Dashed vertical lines mark strikes, dotted lines mark available expiration breakevens, solid line marks submitted spot. Returned values are below.</desc>
-          <defs><clipPath id={`${id}-pnl-clip`}><rect x={left} y="24" width={plotWidth} height="184" /></clipPath></defs>
-          {#each domainTicks(pnlY, 5) as tick}
+          <desc>{terminalAvailable ? 'Expiration connects canonical piecewise-linear vertices, including every in-domain strike and isolated breakeven.' : 'First-expiry values are backend grid samples with later legs model-marked, not exact terminal payoff or risk limits.'} Today and scenarios connect backend grid samples only. Shading marks expiration profit and loss, dashed vertical lines mark strikes, labelled dots mark expiration breakevens and "Now" marks submitted spot. Returned values are below.</desc>
+          <defs>
+            <clipPath id={`${id}-pnl-clip`}><rect x={left} y="24" width={plotWidth} height="184" /></clipPath>
+            <clipPath id={`${id}-up`}><rect x="0" y="24" width={plotWidth} height={Math.max(0, zeroY - 24)} /></clipPath>
+            <clipPath id={`${id}-down`}><rect x="0" y={zeroY} width={plotWidth} height={Math.max(0, 208 - zeroY)} /></clipPath>
+          </defs>
+          {#each pnlTicks as tick}
             {@const py = scaleValue(tick, pnlY, 208, 24)}
             <line class="grid" x1={left} x2={width-right} y1={py} y2={py} />
-            <text class="axis" x={left-7} y={py+3} text-anchor="end">{axisValue(tick)}</text>
+            <text class="axis" x={left-7} y={py+3} text-anchor="end">{formatUsd(tick, { whole: Math.abs(pnlStep) >= 1 })}</text>
           {/each}
           <text class="axis" x={left} y="13">P&amp;L (USD)</text>
           <g clip-path={`url(#${id}-pnl-clip)`}>
+            {#if fill}
+              <path class="fill-up" clip-path={`url(#${id}-up)`} d={fill} transform={`translate(${left},0)`} />
+              <path class="fill-down" clip-path={`url(#${id}-down)`} d={fill} transform={`translate(${left},0)`} />
+            {/if}
             {#each result.summary.zero_intervals as interval}
               {#if interval.start <= domain.max && (interval.end == null || interval.end >= domain.min)}
                 <rect class="zero-interval" x={x(Math.max(domain.min, interval.start))} y={scaleValue(0, pnlY, 208, 24)-3} width={Math.max(0, x(Math.min(domain.max, interval.end ?? domain.max))-x(Math.max(domain.min, interval.start)))} height="6"><title>Expiration zero P&amp;L from {exactValue(interval.start)} to {interval.end == null ? 'infinity' : exactValue(interval.end)} USD</title></rect>
@@ -375,25 +403,35 @@
               {/each}
             {/if}
           </g>
-          {#each domainTicks(domain) as tick, i}
-            <text class="axis" x={x(tick)} y="226" text-anchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}>{axisValue(tick)}</text>
+          {#each markers.filter(m => inView(m.spot) && m.kind !== 'strike') as marker}
+            {#if marker.kind === 'breakeven'}
+              <circle class="be" cx={x(marker.spot)} cy={zeroY} r="4"><title>{marker.label}</title></circle>
+              <text class="be-label" x={x(marker.spot) + (marker.spot < result.request.spot ? -7 : 7)} y={zeroY - 8} text-anchor={marker.spot < result.request.spot ? 'end' : 'start'}>{formatPrice(marker.spot)}</text>
+            {:else}
+              <text class="spot-label" x={x(marker.spot) + 5} y="34">Now {formatPrice(marker.spot)}</text>
+            {/if}
+          {/each}
+          {#each xTicks as tick}
+            <text class="axis" x={x(tick)} y="226" text-anchor="middle">{formatPrice(tick)}</text>
           {/each}
           <text class="axis" x={left+plotWidth/2} y="244" text-anchor="middle">Underlying price (USD)</text>
+          {#if handles.length}<rect class="rail" x={left} y="254" width={plotWidth} height="42" rx="4" />{/if}
         </svg>
       </div>
       <div class="strike-handles" aria-label="Submitted option strike handles">
-        {#each legRows.filter(row => row.leg.kind !== 'underlying' && row.leg.enabled && validStrike(row.leg.strike) && inView(handleStrike(row.index))) as row (row.index)}
-          <button type="button" class="strike-handle" class:chosen={selectedLeg === row.index} class:draggable={editable && matchingLayout} style:left={`${x(handleStrike(row.index)) / width * 100}%`} style:top={`${(34 + row.index % 6 * 28) / 254 * 100}%`}
-            aria-label={`L${row.index + 1} submitted ${row.leg.kind} strike ${row.leg.strike} USD. ${handleStrike(row.index) !== row.leg.strike ? `Edited strike ${handleStrike(row.index)} USD. ` : ''}Select contribution with Enter/Space; ${editable && matchingLayout ? 'drag or arrows to edit draft strike' : 'read-only strike'}.`}
-            aria-pressed={selectedLeg === row.index}
-            onkeydown={(event) => handleKey(event, row.index)}
-            onpointerdown={(event) => startDrag(event, row.index)} onpointermove={moveDrag} onpointerup={endDrag}
+        {#each handles as handle (handle.index)}
+          {@const leg = result.request.strategy.legs[handle.index]}
+          <button type="button" class={`strike-handle ${handle.side}`} class:edited={handle.edited} class:chosen={selectedLeg === handle.index} class:draggable={editable && matchingLayout}
+            style:left={`${handle.x / width * 100}%`} style:top={`${(railY + (handles.some(h => h.row) ? (handle.row ? 11 : -11) : 0)) / height * 100}%`}
+            aria-label={`L${handle.index + 1} submitted ${leg.kind} strike ${leg.strike} USD. ${handle.edited ? `Edited strike ${handleStrike(handle.index)} USD. ` : ''}Select contribution with Enter/Space; ${editable && matchingLayout ? 'drag or arrows to edit draft strike' : 'read-only strike'}.`}
+            aria-pressed={selectedLeg === handle.index}
+            onkeydown={(event) => handleKey(event, handle.index)}
+            onpointerdown={(event) => startDrag(event, handle.index)} onpointermove={moveDrag} onpointerup={endDrag}
             onpointercancel={() => cancelDrag()} onlostpointercapture={() => cancelDrag()}
-            onclick={(event) => markerClick(event, row.index)}>{handleStrike(row.index) !== row.leg.strike ? 'D' : 'L'}{row.index + 1}</button>
+            onclick={(event) => markerClick(event, handle.index)}>{handle.label}</button>
         {/each}
       </div>
     </div>
-    <p class="marker-key">Solid vertical: submitted spot · dashed: strike · dotted: expiration breakeven · horizontal: zero P&amp;L</p>
     <p id={`${id}-instructions`} class="note">Hover or touch to inspect supplied samples or exact expiry vertices. Focus either chart: arrows, Home/End to select; Escape to clear. Expiration values between exact vertices are linear, so they are exact; other lines show returned samples only. Axes use up to 4 significant digits or scientific notation; readouts and tables are unrounded. Lines identify series, not gain/loss.</p>
     {#if !inspectGrid.some(s => inView(s))}<p class="notice">No supplied samples or vertices inside this zoomed view. Lines may show clipped connections between neighboring points; zoom out or reset to inspect exact values.</p>{/if}
     {#if curves.some(c => c.values.some(v => !finiteValue(v)))}<p class="notice">Some returned P&amp;L values are unavailable. Paths break at missing/nonfinite values; see exact-value data.</p>{/if}
@@ -473,10 +511,10 @@
         <title>Today {greek} by underlying price</title><desc>Only backend greeks_grid values are plotted. Null Greeks form gaps, never zeros. Scenario aggregate values are listed separately at the submitted spot.</desc>
         <defs><clipPath id={`${id}-greek-clip`}><rect x={left} y="20" width={plotWidth} height="128" /></clipPath></defs>
         {#if !greekError}
-          {#each domainTicks(greekY) as tick}
+          {#each niceTicks(greekY, 3) as tick}
             {@const py = scaleValue(tick, greekY, 148, 20)}
             <line class="grid" x1={left} x2={width-right} y1={py} y2={py} />
-            <text class="axis" x={left-7} y={py+3} text-anchor="end">{axisValue(tick)}</text>
+            <text class="axis" x={left-7} y={py+3} text-anchor="end">{axisValue(tick, greekY.max - greekY.min)}</text>
           {/each}
           <g clip-path={`url(#${id}-greek-clip)`}>
             <line class="zero-line" x1={left} x2={width-right} y1={scaleValue(0, greekY, 148, 20)} y2={scaleValue(0, greekY, 148, 20)} />
@@ -488,7 +526,7 @@
             {/if}
           </g>
         {:else}<text class="axis" x={left+plotWidth/2} y="86" text-anchor="middle">{greek}: unavailable</text>{/if}
-        {#each domainTicks(domain) as tick, i}<text class="axis" x={x(tick)} y="166" text-anchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}>{axisValue(tick)}</text>{/each}
+        {#each xTicks as tick}<text class="axis" x={x(tick)} y="166" text-anchor="middle">{formatPrice(tick)}</text>{/each}
         <text class="axis" x={left+plotWidth/2} y="186" text-anchor="middle">Underlying price (USD)</text>
       </svg>
     </div>
@@ -584,7 +622,10 @@
   .leg-selectors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
   .leg-selectors button { white-space: normal; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
   .strike-handles { position: absolute; inset: 0; pointer-events: none; }
-  .strike-handle { position: absolute; transform: translate(-50%, -50%); min-width: 28px; padding: 2px 4px; font-family: var(--font-mono); pointer-events: auto; z-index: 1; }
+  .strike-handle { position: absolute; transform: translate(-50%, -50%); min-height: 22px; padding: 1px 6px; border-width: 1.5px; font: 700 11px var(--font-family-lato); font-variant-numeric: tabular-nums; pointer-events: auto; z-index: 1; }
+  .strike-handle.buy { border-color: oklch(var(--up-color)); background: color-mix(in oklab, oklch(var(--up-color)) 18%, oklch(var(--card))); }
+  .strike-handle.sell { border-color: oklch(var(--down-color)); background: color-mix(in oklab, oklch(var(--down-color)) 18%, oklch(var(--card))); }
+  .strike-handle.edited { border-style: dashed; background: oklch(var(--card)); }
   .strike-handle.draggable { cursor: ew-resize; touch-action: none; }
   .strike-handle.chosen { z-index: 3; }
   .chosen { border: 2px solid oklch(var(--foreground)); text-decoration: underline; text-underline-offset: 3px; }
@@ -599,7 +640,13 @@
   .grid { stroke: var(--chart-grid); stroke-width: 1; }
   .axis { fill: oklch(var(--muted-foreground)); font: 10px var(--font-mono); font-variant-numeric: tabular-nums; }
   .curve { fill: none; stroke: currentColor; stroke-width: 2; vector-effect: non-scaling-stroke; }
-  .expiry { color: oklch(var(--chart-2)); }
+  .expiry { color: oklch(var(--foreground)); }
+  .fill-up { fill: oklch(var(--up-color) / 0.16); }
+  .fill-down { fill: oklch(var(--down-color) / 0.16); }
+  .be { fill: oklch(var(--card)); stroke: oklch(var(--foreground)); stroke-width: 1.5; }
+  .be-label, .spot-label { fill: oklch(var(--foreground)); font: 700 11px var(--font-family-lato); font-variant-numeric: tabular-nums; }
+  .rail { fill: oklch(var(--background)); stroke: oklch(var(--border)); }
+  .graph.dragging { user-select: none; -webkit-user-select: none; }
   .today { color: oklch(var(--ring)); }
   .scenario1 { color: oklch(var(--risk)); }
   .scenario2 { color: oklch(var(--down-color)); }

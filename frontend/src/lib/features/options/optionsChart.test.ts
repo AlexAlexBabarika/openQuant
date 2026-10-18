@@ -24,6 +24,8 @@ import {
   seriesValue,
   legBreakdownError,
   outsideView,
+  niceTicks,
+  fillPath,
 } from './optionsChart';
 import type { OptionsAnalysis } from './optionsTypes';
 
@@ -319,7 +321,8 @@ describe('options chart markup (shell SSR, not browser validation)', () => {
     expect(html).toContain('Zoom in price domain');
     expect(html).toContain('Reset');
     expect(html.match(/role="slider"/g)).toHaveLength(2);
-    expect(html.match(/clipPath /g)).toHaveLength(2);
+    // Plot clips for both panes, plus the profit and loss fill clips.
+    expect(html.match(/clipPath /g)).toHaveLength(4);
     expect(html).not.toMatch(/(?:d|cx|cy|x|y)="(?:NaN|Infinity)/);
   });
   it('keeps out-of-view true roots/unbounded geometry and all raw samples in data equivalent', () => {
@@ -626,5 +629,63 @@ describe('live expiry payoff while editing', () => {
     expect(html).not.toContain('Preview proposal');
     expect(html).not.toContain('PROPOSED');
     expect(html).not.toMatch(/class="curve [a-z0-9]+ ghosted/);
+  });
+});
+
+describe('readable chart axes and fills', () => {
+  it('places ticks on round 1/2/2.5/5 steps, so zero is labelled whenever it is in range', () => {
+    expect(niceTicks({ min: -1103, max: 5128 }, 5)).toEqual([0, 2000, 4000]);
+    expect(niceTicks({ min: 227.75, max: 457.25 }, 6)).toEqual([
+      250, 300, 350, 400, 450,
+    ]);
+    expect(niceTicks({ min: 0.1, max: 0.35 }, 5)).toEqual([
+      0.1, 0.15, 0.2, 0.25, 0.3, 0.35,
+    ]);
+  });
+
+  it('prints effectively-zero Greek ticks as 0', () => {
+    expect(axisValue(4.1e-57, 1)).toBe('0');
+    expect(axisValue(0.5, 1)).toBe('0.5');
+  });
+
+  it('closes an expiry polyline against the zero line for profit and loss fills', () => {
+    expect(
+      fillPath(
+        [
+          { spot: 80, value: -500 },
+          { spot: 100, value: -500 },
+          { spot: 120, value: 1500 },
+        ],
+        { min: 80, max: 120 },
+        { min: -500, max: 1500 },
+        200,
+        0,
+        100,
+      ),
+    ).toBe(
+      'M0.000,100.000 L100.000,100.000 L200.000,0.000 L200.000,75.000 L0.000,75.000 Z',
+    );
+    expect(
+      fillPath(
+        [{ spot: 80, value: 1 }, null],
+        { min: 80, max: 120 },
+        { min: 0, max: 1 },
+        200,
+        0,
+        100,
+      ),
+    ).toBe('');
+  });
+
+  it('labels breakevens and spot on the chart and drops the sentence legend', () => {
+    const html = render(OptionsCharts, { props: { result } }).body;
+    expect(html).toContain('class="fill-up');
+    expect(html).toContain('class="fill-down');
+    expect(html).toMatch(/<text[^>]*class="be-label[^"]*"[^>]*>105.01<\/text>/);
+    expect(html).toMatch(
+      /<text[^>]*class="spot-label[^"]*"[^>]*>Now 100<\/text>/,
+    );
+    expect(html).not.toContain('Solid vertical: submitted spot');
+    expect(html).toMatch(/class="strike-handle buy[^"]*"[^>]*>L1 \+C 100</);
   });
 });
