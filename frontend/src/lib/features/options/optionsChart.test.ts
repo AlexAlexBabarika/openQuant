@@ -26,6 +26,7 @@ import {
   outsideView,
   niceTicks,
   fillPath,
+  keepView,
 } from './optionsChart';
 import type { OptionsAnalysis } from './optionsTypes';
 
@@ -705,5 +706,15 @@ describe('compact chart on narrow panels', () => {
       html.indexOf('Strike, view and Greek controls'),
     );
     expect(fold).toBeGreaterThan(html.indexOf('class="graph'));
+  });
+});
+
+describe('keeping the zoom across analyses', () => {
+  it('keeps a zoomed view the new grid still covers and drops one it no longer does', () => {
+    const view = { min: 337.83, max: 367.8 };
+    expect(keepView(view, { min: 322.85, max: 382.78 })).toEqual(view);
+    expect(keepView(view, { min: 340, max: 382.78 })).toBeNull();
+    expect(keepView(null, { min: 322.85, max: 382.78 })).toBeNull();
+    expect(keepView(view, null)).toBeNull();
   });
 });

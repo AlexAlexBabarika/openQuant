@@ -58,6 +58,16 @@ export function validateDomain(
     : null;
 }
 
+/** A user's zoom survives a new analysis while the new price grid still covers it. */
+export function keepView(
+  view: Domain | null,
+  full: Domain | null,
+): Domain | null {
+  return view && full && view.min >= full.min && view.max <= full.max
+    ? view
+    : null;
+}
+
 export function zoomDomain(
   domain: Domain,
   full: Domain,

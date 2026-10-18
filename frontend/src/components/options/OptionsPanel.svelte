@@ -258,6 +258,8 @@
   .status[data-status="current"] i { background: oklch(var(--up-color)); }
   .status[data-status="invalid"] i, .status[data-status="error"] i { background: oklch(var(--down-color)); }
   .status[data-status="invalid"], .status[data-status="error"] { color: oklch(var(--foreground)); }
+  /* Reserve the Cancel button's height so the panel doesn't shift while an update runs. */
+  .run-actions { min-height: 32px; }
   .run-actions, .mode-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .panel-scroll { min-height: 0; flex: 1; overflow: auto; padding: 12px; scrollbar-gutter: stable; }
   p { line-height: 1.5; margin: 8px 0; overflow-wrap: anywhere; }
