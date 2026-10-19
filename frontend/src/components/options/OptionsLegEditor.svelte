@@ -114,7 +114,6 @@
       </button>
     {/each}
   </div>
-  <p class="hint">Undo brings back the previous legs.</p>
   <label class="field name"><span>Strategy name</span><input name="strategy.name" autocomplete="off" value={draft.strategy.name} maxlength="120"
     aria-invalid={!!errors['strategy.name']} aria-describedby={errors['strategy.name'] ? errorId('strategy.name') : undefined}
     oninput={e => onEdit(d => { d.strategy.name = e.currentTarget.value; })} />{@render error('strategy.name')}</label>
