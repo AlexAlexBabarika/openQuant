@@ -37,11 +37,13 @@ describe('submitted options risk strip', () => {
     expect(html).not.toContain('Signed contracts');
     expect(html).not.toContain('<textarea');
   });
-  it('identifies model P&L, expiry extrema, costs and the submitted context', () => {
-    const html = render(OptionsSummary, {
-      props: { result: submitted() },
-    }).body;
+  it('identifies model P&L, expiry extrema and costs; spot and days are said once, by the chart', () => {
+    const result = submitted();
+    const html = render(OptionsSummary, { props: { result } }).body;
     expect(html).toContain('Submitted options risk totals');
+    expect(html).toContain(result.request.strategy.name);
+    expect(html).not.toContain('Submitted spot');
+    expect(html).not.toContain('default days');
     expect(html).toContain('Expiry max profit · USD');
     expect(html).toContain('Unbounded');
     expect(html).toContain('Expiry max loss · USD');
