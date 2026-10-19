@@ -49,7 +49,7 @@
 
 <section class="lifecycle" aria-label={inputsOnly ? 'Hypothetical path inputs' : 'Options multi-expiry lifecycle'}>
   {#if !inputsOnly}<header><h3>Multi-expiry lifecycle</h3><span>European · cash-settled · USD</span></header>{/if}
-  <p class="note">Hypothetical path research, not historical options replay. Backend prices each observation and settles each expiry once. Later legs remain theoretical marks, not realized payoff. Between observations, expiry spot is linearly interpolated and disclosed.</p>
+  <p class="note">Hypothetical path research. Backend prices each observation and settles each expiry once. Later legs remain theoretical marks, not realized payoff. Between observations, expiry spot is linearly interpolated and disclosed.</p>
   {#if readOnly}<p class="notice">Read-only source mode. Switch explicitly to the visual draft editor to change or submit research inputs.</p>{/if}
   <fieldset disabled={readOnly}>
     <legend>Path assumptions · no automatic requests</legend>

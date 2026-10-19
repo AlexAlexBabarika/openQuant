@@ -93,7 +93,7 @@
 
 <section class="finder" aria-label="Constrained options strategy finder">
   <h3>Strategy finder · bounded research</h3>
-  <p>Explicit manual universe, European cash-settled USD assumptions. Backend prices and ranks finite unit-size combinations, not an exhaustive optimizer or trade recommendation. Results are session-local, not saved evidence.</p>
+  <p>Explicit manual universe. Backend prices and ranks finite unit-size combinations, not an exhaustive optimizer or trade recommendation. Results are session-local, not saved evidence.</p>
   {#if readOnly}<p class="notice">Read-only source mode. Switch to an editable visual draft in the parent workbench to author, search or apply.</p>{/if}
   <form onsubmit={search} novalidate>
     <fieldset disabled={readOnly}>
@@ -134,7 +134,7 @@
         {@render numberField('Returned candidates · 1–20', 'limit', limit, 1, 20, n => limit = n, '1')}
         {@render numberField('Evaluation budget · 1–2000', 'max_evaluations', maxEvaluations, 1, 2000, n => maxEvaluations = n, '1')}
       </div>
-      <p>Ranking = arithmetic mean of submitted common-expiry scenario P&amp;L (USD), not probability-weighted expected return. Neutral is not delta-neutral. Unknown, mixed-expiry or unbounded loss candidates are excluded. A bounded model loss is not a margin or assignment guarantee.</p>
+      <p>Ranking = arithmetic mean of submitted common-expiry scenario P&amp;L (USD), not probability-weighted expected return. Neutral is not delta-neutral. Unknown, mixed-expiry or unbounded loss candidates are excluded.</p>
     </fieldset>
     {#if attempted && Object.keys(errors).length}<div class="notice" role="alert"><strong>Correct inputs before search:</strong><ul>{#each Object.entries(errors) as [field, message]}<li>{field}: {message}</li>{/each}</ul></div>{/if}
     <div class="actions">

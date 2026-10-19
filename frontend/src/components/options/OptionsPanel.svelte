@@ -35,7 +35,6 @@
   } as const;
   let panel: HTMLElement;
   let exportConfirm = $state(false);
-  let scopeLabel = $state('Guest drafts · this browser');
   let gridStart = $state(50);
   let gridEnd = $state(150);
   let gridCount = $state(81);
@@ -62,7 +61,6 @@
       if (id === previous) return;
       previous = id;
       options.setAccount(id);
-      scopeLabel = id ? 'Account drafts · this browser' : 'Guest drafts · this browser';
       exportConfirm = false;
       syncGrid();
     });
@@ -180,7 +178,6 @@
             <div class="mode-row"><button type="button" class="ot-workbench-primary" onclick={() => { if (options.exportPython()) exportConfirm = false; }}>Replace Python</button><button type="button" class="ot-workbench-ghost" onclick={() => { exportConfirm = false; }}>Keep source</button></div>
           {/if}
         </div>
-        <p class="hint">{scopeLabel}. Browser-local only; guest records are never adopted by an account.</p>
         <OptionsLibrary state={options} />
         </details>
       </div>

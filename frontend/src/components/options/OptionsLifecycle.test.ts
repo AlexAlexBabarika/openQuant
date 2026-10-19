@@ -79,7 +79,7 @@ describe('controlled lifecycle and hedge components', () => {
     expect(html).toContain('per nonzero trade');
     expect(html).toContain('Slippage');
     expect(html).toContain('liquidated');
-    expect(html).toContain('financing/borrowing');
+    expect(html).toContain('No interest on cash or market impact');
     expect(html).toContain('not total account equity');
     expect(html).not.toContain('Evaluate lifecycle');
     expect(fetch).not.toHaveBeenCalled();
