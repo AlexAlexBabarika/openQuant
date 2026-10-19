@@ -61,6 +61,28 @@ test('analyzes the default by itself and redraws a template beside the legs', as
   expect(plot.y).toBeLessThan(900);
 });
 
+test('opens the research tools read-only for untouched Python', async ({
+  page,
+}) => {
+  const panel = await openOptions(page);
+  await panel
+    .getByRole('group', { name: 'Options authoring mode' })
+    .getByRole('button', { name: 'Python' })
+    .click();
+  await expect(status(panel)).toHaveText('Up to date');
+  await expect(
+    panel.getByRole('region', { name: 'Research tools' }),
+  ).toContainText('Analysis of Long call · up to date');
+  const hint = panel.getByText(/Run the current Python source/);
+  await expect(hint).toBeHidden();
+
+  await panel.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('\n# edited');
+  await expect(status(panel)).toHaveText('Source changed');
+  await expect(hint).toBeVisible();
+});
+
 test('puts the chart first on phones and Python source above its toggle', async ({
   page,
 }) => {

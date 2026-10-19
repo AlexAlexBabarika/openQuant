@@ -45,8 +45,9 @@
   const result = $derived(options.result);
   const toolKey = $derived(`${sessionKey}:${options.documentKey}:${options.mode}`);
   const terminalAvailable = $derived(!result || exactTerminalAvailable(result));
-  const analysisLabel = $derived(result ? `Analysis of ${result.request.strategy.name} · ${options.mode === 'python' ? 'submitted Python request' : options.status === 'current' ? 'up to date' : 'updating'}` : '');
-  const submittedPython = $derived(options.mode === 'python' && result !== null && options.submittedSource !== null && options.source === options.submittedSource);
+  const analysisLabel = $derived(result ? `Analysis of ${result.request.strategy.name} · ${options.status === 'current' ? 'up to date' : 'updating'}` : '');
+  /** Python mode reads the analysis whenever it describes the source, including untouched seeded source. */
+  const currentPython = $derived(options.mode === 'python' && result !== null && !options.stale);
 
   function syncGrid() {
     gridStart = options.draft.spot_grid[0];
@@ -114,7 +115,7 @@
   {#key toolKey}
     {#if options.mode === 'editor'}
       <OptionsResearchTools draft={options.draft} {result} {analysisLabel} onEdit={update => options.editDraft(update)} documentKey={toolKey} />
-    {:else if submittedPython && result}
+    {:else if currentPython && result}
       {#key result}<OptionsResearchTools draft={result.request} {result} {analysisLabel} onEdit={() => {}} documentKey={toolKey} readOnly />{/key}
     {:else}<p class="hint">Run the current Python source to inspect its submitted request read-only. Research tools never use the visual draft in Python mode.</p>{/if}
   {/key}

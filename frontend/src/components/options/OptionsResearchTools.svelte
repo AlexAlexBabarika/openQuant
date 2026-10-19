@@ -45,7 +45,7 @@
   </div>
   <div class="panel" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${selected}`}>
     {#if analysisLabel}<p class="analysis">{analysisLabel}</p>{/if}
-    {#if readOnly}<p>Submitted Python request · read-only. No tool edits or runs replace custom source.</p>{/if}
+    {#if readOnly}<p>Read-only in Python mode. No tool edits or runs replace custom source.</p>{/if}
     {#key documentKey}
       {#if selected === 'scenarios'}<OptionsScenarioLab {draft} {result} {onEdit} {readOnly} />
       {:else if selected === 'skew'}<OptionsSkewEditor {draft} {onEdit} {documentKey} {readOnly} />
