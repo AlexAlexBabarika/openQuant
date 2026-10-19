@@ -1,5 +1,5 @@
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
-import { calendar, optionsErrors } from './optionsValidation';
+import { calendar, optionsErrors, quoteTimestamp } from './optionsValidation';
 
 export interface OptionsEditorProps {
   draft: OptionsDraft;
@@ -154,26 +154,10 @@ export function clearCommonDates(draft: OptionsDraft): void {
   draft.strategy.expiry_date = null;
 }
 
-export function validQuoteTimestamp(value?: string | null): boolean {
-  if (!value || value.length > 64) return false;
-  const match =
-    /^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2}):([0-9]{2})(?::([0-9]{2})(?:\.[0-9]+)?)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$/.exec(
-      value,
-    );
-  return (
-    !!match &&
-    calendar(match[1]) !== null &&
-    +match[2] < 24 &&
-    +match[3] < 60 &&
-    +(match[4] ?? 0) < 60 &&
-    Number.isFinite(Date.parse(value))
-  );
-}
-
 export function quoteMidpoint(leg: OptionLeg): number | null {
   if (
     leg.kind === 'underlying' ||
-    !validQuoteTimestamp(leg.quote_as_of) ||
+    !quoteTimestamp(leg.quote_as_of) ||
     leg.bid == null ||
     leg.ask == null ||
     !Number.isFinite(leg.bid) ||
@@ -202,8 +186,7 @@ export function manualQuoteAge(
   now = Date.now(),
 ): string {
   if (!value) return 'No as-of timestamp entered; age unknown.';
-  if (!validQuoteTimestamp(value))
-    return 'Invalid as-of timestamp; age unknown.';
+  if (!quoteTimestamp(value)) return 'Invalid as-of timestamp; age unknown.';
   const elapsed = (now - Date.parse(value)) / 1000;
   if (elapsed < 0)
     return 'Entered timestamp is in the future; not a freshness check.';
@@ -262,7 +245,7 @@ export function optionsEditorErrors(
         'Ask must be at least bid; crossed quotes cannot supply a midpoint.';
     if (
       (leg.quote_as_of != null || leg.bid != null || leg.ask != null) &&
-      !validQuoteTimestamp(leg.quote_as_of)
+      !quoteTimestamp(leg.quote_as_of)
     )
       errors[`${key}.quote_as_of`] =
         'Enter an explicit ISO timestamp with Z or ±HH:MM offset (up to 64 characters).';

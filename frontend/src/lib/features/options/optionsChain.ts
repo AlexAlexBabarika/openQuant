@@ -4,8 +4,7 @@ import type {
   OptionsContractSource,
 } from './optionsTypes';
 import type { ChainQuote, ChainResponse } from './optionsResearchTypes';
-import { calendar, optionsErrors } from './optionsValidation';
-import { validQuoteTimestamp } from './optionsLegEditor';
+import { calendar, optionsErrors, quoteTimestamp } from './optionsValidation';
 
 export type ChainPremiumChoice = '' | 'bid' | 'ask' | 'mid' | 'custom';
 export interface ChainImportSettings {
@@ -59,11 +58,11 @@ export function chainPremium(
 ): number | null {
   if (choice === 'custom') return price(custom) ? custom : null;
   if (choice === 'bid')
-    return price(quote.bid) && validQuoteTimestamp(quote.bid_as_of)
+    return price(quote.bid) && quoteTimestamp(quote.bid_as_of)
       ? quote.bid
       : null;
   if (choice === 'ask')
-    return price(quote.ask) && validQuoteTimestamp(quote.ask_as_of)
+    return price(quote.ask) && quoteTimestamp(quote.ask_as_of)
       ? quote.ask
       : null;
   if (
@@ -71,8 +70,8 @@ export function chainPremium(
     price(quote.bid) &&
     price(quote.ask) &&
     quote.bid <= quote.ask &&
-    validQuoteTimestamp(quote.bid_as_of) &&
-    validQuoteTimestamp(quote.ask_as_of)
+    quoteTimestamp(quote.bid_as_of) &&
+    quoteTimestamp(quote.ask_as_of)
   )
     return (quote.bid + quote.ask) / 2;
   return null;

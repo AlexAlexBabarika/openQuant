@@ -20,10 +20,10 @@ import {
   setLegKind,
   setLegSize,
   useQuoteMidpoint,
-  validQuoteTimestamp,
 } from './optionsLegEditor';
 import type { OptionLeg } from './optionsTypes';
 import { createOptionsDraft } from './optionsTemplates';
+import { quoteTimestamp } from './optionsValidation';
 import { optionsErrors } from './optionsState.svelte';
 
 describe('controlled options leg editing', () => {
@@ -193,7 +193,7 @@ describe('manual unverified quotes and IV', () => {
     '2024-02-29T23:59:59.123456+02:30',
     '2026-10-14T11:00:00-05:00',
   ])('accepts explicit timestamp %s', timestamp => {
-    expect(validQuoteTimestamp(timestamp)).toBe(true);
+    expect(quoteTimestamp(timestamp)).toBe(true);
   });
   it.each([
     '',
@@ -208,7 +208,7 @@ describe('manual unverified quotes and IV', () => {
     '0000-01-01T00:00Z',
     '2026-10-14T11:00:00.' + '1'.repeat(48) + 'Z',
   ])('rejects invalid/unzoned %s', timestamp => {
-    expect(validQuoteTimestamp(timestamp)).toBe(false);
+    expect(quoteTimestamp(timestamp)).toBe(false);
   });
   it('changes premium only through explicit validated midpoint action', () => {
     const d = createOptionsDraft(),
