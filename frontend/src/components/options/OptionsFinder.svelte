@@ -4,6 +4,7 @@
   import type { FinderRequest, FinderResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import type { OptionLeg } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
+  import { formatTime } from '$lib/features/options/optionsFormat';
   import { applyFinderCandidate, editFinderContract, finderErrors, manualFinderContract, parseFinderSpots, seedFinderUniverse } from '$lib/features/options/optionsFinder';
   import { RequestFlight } from '$lib/features/options/optionsRequest';
 
@@ -106,7 +107,7 @@
       {#each universe as leg, i}
         <fieldset class="contract">
           <legend>Contract {i + 1} · +1 enabled</legend>
-          {#if leg.source}<p>{leg.source.contract_symbol} · {leg.source.underlying} · {leg.source.provider}/{leg.source.environment}. Model approximation remains European/cash. Fetched {leg.source.fetched_at}.</p>{:else}<p>Manual/synthetic contract · not provider verified</p>{/if}
+          {#if leg.source}<p>{leg.source.contract_symbol} · {leg.source.underlying} · {leg.source.provider}/{leg.source.environment}. Model approximation remains European/cash. Fetched {formatTime(leg.source.fetched_at)}.</p>{:else}<p>Manual/synthetic contract · not provider verified</p>{/if}
           <div class="grid">
             <label><span>Kind</span><select name={`universe.${i}.kind`} value={leg.kind} onchange={e => edit(i, { kind: e.currentTarget.value as 'call' | 'put' })}><option value="call">Call</option><option value="put">Put</option></select></label>
             {@render numberField('Strike · USD (>0–1m)', `universe.${i}.strike`, leg.strike ?? NaN, 0, 1e6, n => edit(i, { strike: n }))}
