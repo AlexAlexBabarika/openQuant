@@ -1,16 +1,20 @@
 # OpenQuant
 
-OpenQuant is a self-hosted research workspace for charting market data, exploring indicators and analytics, and running reproducible backtests and portfolio simulations. **The research workspace opens by default.**
+OpenQuant is a self-hosted platform for strategy research. You chart market
+data, write indicators and strategies in Python, and run them as backtests,
+much as Pine Script works inside TradingView. A robustness check reruns a
+strategy under 2× and 3× trading costs, on a chronological holdout, across
+one-parameter sensitivity and over three walk-forward windows.
 
-The shared header switches between **Chart**, **Strategy**, and **Robustness** task views without discarding the chart, draft or completed report. Strategy offers single-pane Editor/Results switching and an opt-in, resizable **Split view** on wider screens. Completed backtests retain their submitted strategy name and market context; source/context changes show a rerun notice. These in-memory results are not restored after a page reload.
+It's built on FastAPI with Polars and NumPy, a Svelte 5 and TypeScript client,
+and PostgreSQL, all run by Docker Compose. Strategy code runs in a restricted
+sandbox. Data comes from Yahoo Finance, Binance, Twelve Data or CSV files.
 
-**Strategy → Options** adds compact multi-leg editing, controlled drag/keyboard strike editing, exact common-expiry payoff curves, per-leg Greeks, heatmaps and submitted-strategy comparison. **Research tools** opens one tool at a time: volatility skew, hypothetical event stress, constrained strategy finder, read-only provider-chain selection, multi-expiry lifecycle, delta-hedging paths and probability/tail risk. Calendar/diagonal presets and per-leg expiries use canonical backend calculations; mixed-expiry first-expiry marks are not exact terminal risk limits. The visual editor and CodeMirror Python workspace preserve submitted inputs separately; Python research is read-only and never substitutes the visual draft. Scoped browser-local drafts support recovery, revisions and portable exports; recovery never executes Python automatically. Optional authenticated Tradier observations require explicit hypothetical conversion to USD European cash-settled assumptions; real US exercise and physical delivery are not modeled. No brokerage execution, subscriptions, live account attachment, historical options replay or futures accounting. See [Options research](docs/OPTIONS.md) for APIs, units and limitations.
-
-Open **Robustness** from the workspace header or Strategy editor to check the current strategy draft (including unsaved changes) on the selected provider, symbol, period and interval. Sign in for workspace runs. The configuration sidebar supports execution costs, starting cash, a chronological holdout percentage, JSON parameter overrides and one sensitivity parameter. Measured findings precede the detailed Performance, Holdout, Sensitivity and Assumptions tabs. The completed report shows its original data context and expandable source/data SHA-256 provenance, engine, parameters and local receipt time, even if current inputs change. Local HTML exports omit source code, and public links only support synthetic examples. Saved strategies work by opening them in the editor first.
-
-Workspace checks reuse one provider/cache OHLCV snapshot, not the live chart stream. Parameters default to their first declared grid value unless overridden; no optimization is performed. Sensitivity measures immediate declared-grid neighbors (Choice uses declaration order), holding all other parameters fixed. Holdout starts with fresh cash, strategy/module state and no earlier indicator history. A chronological split **cannot prove dates were unseen during your research**. The suite is single-symbol only, allows 40–10,000 bars with at least 20 per segment, at most 1,000 grid values per parameter, two concurrent suites per server process, and a 30-second whole-suite timeout. Stopping the browser's wait does not terminate server computation; it remains timeout-bounded. Data hashes identify evaluated bars but do not permanently store them; no provider data licensing or production multi-tenant security claim is made.
-
-The same workbench retains **Built-in examples** on clearly labeled synthetic data; example configuration links rerun only these curated examples. Direct `/?trial=1` links open the Robustness view; shared example links select examples mode. Legacy `/?workspace=1` links still open research. The examples-only server below never accepts user strategy code or market-data requests.
+Known limits: orders fill only at a bar's open, never inside the bar, so stops
+and limits ignore intrabar highs and lows. The walk-forward windows keep
+parameters fixed rather than re-fitting them. Robustness checks cover one
+symbol at a time, and it never places trades. It's pre-release alpha. See
+[Robustness checks](docs/ROBUSTNESS.md) and [Options research](docs/OPTIONS.md).
 
 ## Start in seconds
 
