@@ -27,12 +27,27 @@ export { spotGrid } from './optionsGrid';
 export function templateStrategy(
   id: OptionsTemplate,
   spot = 100,
+  volatility = 0.2,
+  days = 30,
 ): OptionsDraft['strategy'] {
   const s = Math.min(1000000 / 1.2, Math.max(1, spot));
+  // Spreads, strangles and wings sit one and two expected moves (spot × IV × √years) from
+  // spot, so premiums and risk scale with the market. Unusable inputs use 20% IV over 30
+  // days; the move stays within 1–40% of spot and keeps the outer wing under the strike cap.
+  const expected = s * volatility * Math.sqrt(days / 365);
+  const move = Math.min(
+    s * 0.4,
+    (1000000 - s) / 2.5,
+    Math.max(
+      s * 0.01,
+      Number.isFinite(expected) ? expected : s * 0.2 * Math.sqrt(30 / 365),
+    ),
+  );
   // Round, chain-like strikes (not actual listings): the largest 1/2/2.5/5 x 10^n step
-  // within 2.5% of spot, so the 10% template offsets never collapse onto one strike.
-  const scale = 10 ** Math.floor(Math.log10(s * 0.025));
-  const step = [5, 2.5, 2, 1].map(m => m * scale).find(m => m <= s * 0.025)!;
+  // within 2.5% of spot and half a move, so neighbouring strikes never collapse.
+  const limit = Math.min(s * 0.025, move / 2);
+  const scale = 10 ** Math.floor(Math.log10(limit));
+  const step = [5, 2.5, 2, 1].map(m => m * scale).find(m => m <= limit)!;
   const option = (
     kind: 'call' | 'put',
     quantity: number,
@@ -75,19 +90,19 @@ export function templateStrategy(
       break;
     case 'bull_call':
       template = 'call_vertical';
-      legs = [call(1, s, s * 0.05), call(-1, s * 1.1, s * 0.02)];
+      legs = [call(1, s, s * 0.05), call(-1, s + move, s * 0.02)];
       break;
     case 'bear_call':
       template = 'call_vertical';
-      legs = [call(-1, s, s * 0.05), call(1, s * 1.1, s * 0.02)];
+      legs = [call(-1, s, s * 0.05), call(1, s + move, s * 0.02)];
       break;
     case 'bull_put':
       template = 'put_vertical';
-      legs = [put(1, s * 0.9, s * 0.02), put(-1, s, s * 0.05)];
+      legs = [put(1, s - move, s * 0.02), put(-1, s, s * 0.05)];
       break;
     case 'bear_put':
       template = 'put_vertical';
-      legs = [put(-1, s * 0.9, s * 0.02), put(1, s, s * 0.05)];
+      legs = [put(-1, s - move, s * 0.02), put(1, s, s * 0.05)];
       break;
     case 'straddle':
       template = 'straddle';
@@ -95,40 +110,40 @@ export function templateStrategy(
       break;
     case 'strangle':
       template = 'strangle';
-      legs = [put(1, s * 0.9, s * 0.02), call(1, s * 1.1, s * 0.02)];
+      legs = [put(1, s - move, s * 0.02), call(1, s + move, s * 0.02)];
       break;
     case 'butterfly':
       legs = [
-        call(1, s * 0.9, s * 0.12),
+        call(1, s - move, s * 0.12),
         call(-2, s, s * 0.05),
-        call(1, s * 1.1, s * 0.02),
+        call(1, s + move, s * 0.02),
       ];
       break;
     case 'iron_butterfly':
       template = 'iron_butterfly';
       legs = [
-        put(1, s * 0.9, s * 0.02),
+        put(1, s - move, s * 0.02),
         put(-1, s, s * 0.05),
         call(-1, s, s * 0.05),
-        call(1, s * 1.1, s * 0.02),
+        call(1, s + move, s * 0.02),
       ];
       break;
     case 'iron_condor':
       template = 'iron_condor';
       legs = [
-        put(1, s * 0.8, s * 0.01),
-        put(-1, s * 0.9, s * 0.03),
-        call(-1, s * 1.1, s * 0.03),
-        call(1, s * 1.2, s * 0.01),
+        put(1, s - 2 * move, s * 0.01),
+        put(-1, s - move, s * 0.03),
+        call(-1, s + move, s * 0.03),
+        call(1, s + 2 * move, s * 0.01),
       ];
       break;
     case 'covered_call':
       template = 'covered_call';
-      legs = [shares, call(-1, s * 1.1, s * 0.02)];
+      legs = [shares, call(-1, s + move, s * 0.02)];
       break;
     case 'protective_put':
       template = 'protective_put';
-      legs = [shares, put(1, s * 0.9, s * 0.02)];
+      legs = [shares, put(1, s - move, s * 0.02)];
       break;
   }
   return {
@@ -173,7 +188,12 @@ export function applyOptionsTemplate(
     Number.isFinite(draft.spot) && draft.spot > 0 && draft.spot <= 1000000
       ? draft.spot
       : 100;
-  const { name, template, legs } = templateStrategy(id, spot);
+  const { name, template, legs } = templateStrategy(
+    id,
+    spot,
+    draft.volatility,
+    draft.strategy.days_to_expiry,
+  );
   Object.assign(draft.strategy, { name, template, legs });
 }
 

@@ -48,7 +48,12 @@ export function matchTemplate(
   );
   if (!untouched) return null;
   for (const [id] of OPTIONS_TEMPLATES) {
-    const template = templateStrategy(id, draft.spot).legs;
+    const template = templateStrategy(
+      id,
+      draft.spot,
+      draft.volatility,
+      draft.strategy.days_to_expiry,
+    ).legs;
     if (
       template.length === legs.length &&
       template.every(

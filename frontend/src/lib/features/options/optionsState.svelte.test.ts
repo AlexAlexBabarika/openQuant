@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiJson } from '$lib/core/api';
 import { OptionsState, optionsErrors } from './optionsState.svelte';
+import { matchTemplate } from './optionsInputs';
 import {
   applyOptionsTemplate,
   createOptionsDraft,
@@ -411,6 +412,38 @@ describe('options explicit request lifecycle', () => {
     s.setAccount(null);
     expect(s.result).toBeNull();
     expect(s.draft.spot).toBe(100);
+  });
+  it('re-sizes an untouched template as IV and expiry change, never edited legs', () => {
+    const s = new OptionsState(storage());
+    s.setAccount(null);
+    s.applyTemplate('iron_condor');
+    s.editDraft(d => {
+      d.strategy.name = 'My condor';
+    });
+    const strikes = () => s.draft.strategy.legs.map(l => l.strike!);
+    const narrow = strikes();
+    s.editDraft(d => {
+      d.volatility = 0.4;
+    });
+    const wide = strikes();
+    expect(wide[0]).toBeLessThan(narrow[0]);
+    expect(wide[3]).toBeGreaterThan(narrow[3]);
+    expect(matchTemplate(s.draft, s.modelLegs)).toBe('iron_condor');
+    expect(s.modelLegs).toEqual([true, true, true, true]);
+    expect(s.draft.strategy.name).toBe('My condor');
+    s.editDraft(d => {
+      d.strategy.days_to_expiry = 120;
+    });
+    expect(strikes()[3]).toBeGreaterThan(wide[3]);
+    s.editDraft(d => {
+      d.strategy.legs[0].strike = 50;
+    });
+    const edited = strikes();
+    s.editDraft(d => {
+      d.volatility = 0.2;
+    });
+    expect(strikes()).toEqual(edited);
+    s.dispose();
   });
   it('keeps custom Python across editor changes/mode switches until explicit export', async () => {
     const analyze = vi.fn().mockResolvedValue(response());
@@ -1063,9 +1096,9 @@ describe('options chart grid auto-fit', () => {
       applyOptionsTemplate(d, 'iron_condor');
     });
     expect(s.gridAuto).toBe(true);
-    expect(s.draft.spot_grid[0]).toBeLessThan(275);
+    expect(s.draft.spot_grid[0]).toBeLessThan(305);
     expect(s.draft.spot_grid[s.draft.spot_grid.length - 1]).toBeGreaterThan(
-      410,
+      385,
     );
   });
 
