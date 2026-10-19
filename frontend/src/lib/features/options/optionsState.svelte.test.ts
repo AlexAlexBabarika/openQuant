@@ -491,6 +491,33 @@ describe('options explicit request lifecycle', () => {
     expect(s.source).toContain('"spot": 200');
     s.dispose();
   });
+  it('treats untouched seeded Python and its editor strategy as one analysis', async () => {
+    const analyze = vi.fn().mockResolvedValue(response());
+    const s = new OptionsState(storage(), analyze);
+    s.setAccount(null);
+    manualPremiums(s);
+    await s.run();
+    s.setMode('python');
+    expect(s.stale).toBe(false);
+    expect(s.status).toBe('current');
+    s.setSource(`${s.source}\n# edited`);
+    expect(s.stale).toBe(true);
+
+    const p = new OptionsState(storage(), analyze);
+    p.setAccount(null);
+    manualPremiums(p);
+    p.setMode('python');
+    await p.run();
+    expect(analyze.mock.lastCall?.[0]).toBe('/options/python');
+    p.setMode('editor');
+    expect(p.stale).toBe(false);
+    p.editDraft(d => {
+      d.spot = 120;
+    });
+    expect(p.stale).toBe(true);
+    p.setMode('python');
+    expect(p.stale).toBe(true);
+  });
   it('rejects blank/oversize Python and invalid export without replacing custom code', async () => {
     const analyze = vi.fn();
     const s = new OptionsState(storage(), analyze);
