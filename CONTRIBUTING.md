@@ -86,6 +86,19 @@ npm --prefix frontend run build                        # production build
 `npm --prefix frontend test` starts vitest in watch mode. Use `vitest run` for a
 single pass.
 
+### End-to-end
+
+Playwright drives the options workbench in Chromium against a running app. By
+default it targets the backend serving a production build on port 8000, e.g.
+`docker compose up -d --build`, or `npm --prefix frontend run build` before
+starting the backend:
+
+```bash
+npx --prefix frontend playwright install chromium     # once
+npm --prefix frontend run test:e2e
+E2E_BASE_URL=http://localhost:5173 npm --prefix frontend run test:e2e   # ./run.sh
+```
+
 ### Optional: pre-commit
 
 The repository ships a [pre-commit](https://pre-commit.com) config that runs
@@ -99,9 +112,10 @@ pip install pre-commit && pre-commit install
 
 The backend workflow runs formatting, linting, typing, `pytest`, and a fresh
 PostgreSQL migration check. The frontend workflow runs `svelte-check`, Prettier,
-the production build, and `vitest run`. A Docker workflow builds and smoke-tests
-`linux/amd64` and `linux/arm64`. A weekly security workflow runs dependency,
-secret, and image scans.
+the production build, and `vitest run`. An E2E workflow runs the Playwright
+tests against the backend serving that build. A Docker workflow builds and
+smoke-tests `linux/amd64` and `linux/arm64`. A weekly security workflow runs
+dependency, secret, and image scans.
 
 ## Code style
 
