@@ -61,6 +61,53 @@ test('analyzes the default by itself and redraws a template beside the legs', as
   expect(plot.y).toBeLessThan(900);
 });
 
+test('drags a strike tag with a live expiry line and applies it on release', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const panel = await openOptions(page);
+  const chart = panel.getByRole('img', { name: /P&L for Long call/ });
+  const strike = panel
+    .getByRole('region', { name: 'Options strategy legs' })
+    .locator('input[name$=".strike"]');
+  const tag = (value: number) =>
+    panel.getByRole('button', {
+      name: new RegExp(`^L1 submitted call strike ${value} USD`),
+    });
+  await expect(strike).toHaveValue('100');
+
+  const from = (await tag(100).boundingBox())!;
+  const to = (await chart.getByText('105', { exact: true }).boundingBox())!;
+  const y = from.y + from.height / 2;
+  await page.mouse.move(from.x + from.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, y, { steps: 8 });
+  await expect(panel.getByText(/^Edited L1 strike: 105 USD/)).toContainText(
+    'Release to apply',
+  );
+  await expect(chart.locator('path.live')).toBeVisible();
+  await expect(strike).toHaveValue('100');
+  await page.mouse.up();
+
+  await expect(strike).toHaveValue('105');
+  await expect(tag(105)).toBeVisible();
+  await expect(status(panel)).toHaveText('Up to date');
+  await expect(chart.locator('path.live')).toBeHidden();
+
+  // Escape abandons a drag; arrow keys step the focused tag instead.
+  const back = (await tag(105).boundingBox())!;
+  await page.mouse.move(back.x + back.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2, y, { steps: 8 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(strike).toHaveValue('105');
+
+  await tag(105).press('ArrowRight');
+  await expect(strike).toHaveValue('106');
+  await expect(tag(106)).toBeVisible();
+});
+
 test('opens the research tools read-only for untouched Python', async ({
   page,
 }) => {
