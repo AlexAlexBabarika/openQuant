@@ -100,6 +100,8 @@ export class OptionsState {
   #submittedKey = $state('');
   /** The source the app last wrote from the editor; while the user hasn't edited it, it follows the editor. */
   #seed = this.source;
+  /** The editor input the seed was exported from. */
+  #seedKey = '';
   #scope = '';
   #generation = 0;
   #controller: AbortController | null = null;
@@ -141,7 +143,14 @@ export class OptionsState {
     return this.stale ? 'pending' : 'current';
   }
   get stale(): boolean {
-    return this.result !== null && this.#submittedKey !== this.#inputKey();
+    const input = this.#inputKey();
+    const seeded = [this.#seedKey, `python:${this.#seed}`];
+    return (
+      this.result !== null &&
+      this.#submittedKey !== input &&
+      // Untouched seeded source and the editor input it came from are one strategy.
+      !(seeded.includes(this.#submittedKey) && seeded.includes(input))
+    );
   }
   /** Following the chart, but its price has moved since: offer an explicit update. */
   get workspaceDrift(): boolean {
@@ -161,9 +170,10 @@ export class OptionsState {
     return this.#future.length > 0;
   }
   #inputKey(): string {
-    return this.mode === 'python'
-      ? `python:${this.source}`
-      : `editor:${JSON.stringify(this.draft)}:${JSON.stringify(this.modelLegs)}`;
+    return this.mode === 'python' ? `python:${this.source}` : this.#editorKey();
+  }
+  #editorKey(): string {
+    return `editor:${JSON.stringify(this.draft)}:${JSON.stringify(this.modelLegs)}`;
   }
   #working(): OptionsWorkingDraft {
     return {
@@ -197,6 +207,7 @@ export class OptionsState {
     this.#followedSymbol = null;
     this.#followWorkspace();
     this.source = this.#seed = exportOptionsPython(this.draft);
+    this.#seedKey = this.#editorKey();
     this.mode = 'editor';
     this.result = null;
     this.submittedSource = null;
@@ -464,6 +475,7 @@ export class OptionsState {
       return;
     try {
       this.source = this.#seed = exportOptionsPython(this.draft);
+      this.#seedKey = this.#editorKey();
     } catch {
       // Keep the previous seed; the explicit export reports why.
     }
