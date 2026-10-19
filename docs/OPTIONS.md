@@ -121,6 +121,8 @@ expiration breakevens with padding (35% of their span, at least 6% of spot) and
 refits when spot or the leg layout changes, until a grid is entered by hand.
 **Fit** returns to the fitted grid; the chart names a spot or strike it cannot show.
 
+![Options workbench: an iron condor on AAPL beside its expiry and today P&L](images/openquant-options.png)
+
 Spot and the underlying name follow the chart's loaded symbol: a new symbol moves
 spot to its last close (rounded to cents), while price updates on the same symbol
 only offer **Update to …**. Typing a spot, or restoring or importing a draft, stops
@@ -173,6 +175,8 @@ chain). One tool is mounted at a time, and each names the analysis it reads:
 | Multi-expiry lifecycle | Per-leg expiry authoring and explicit-premium calendar/diagonal presets; evaluate a bounded supplied or seeded synthetic spot path. Show expiry settlements, remaining marks and cash separately; scrub/playback navigates returned observations without repricing. |
 | Delta-hedging path | Compare one declared none/daily/interval/delta-threshold policy against unhedged on the same hypothetical path, including share/cash actions, costs and returned attribution. Not a live hedge or historical backtest. |
 | Probability & tail risk | Explicit risk-neutral or user-drift lognormal assumptions; returned terminal-price probability mass and exact payoff vertices, positive-P&L probability, quantiles, VaR and expected shortfall. Mixed-expiry terminal distributions are rejected. |
+
+![Probability tool: terminal-price distribution above the iron condor's exact payoff](images/openquant-options-probability.png)
 
 All pricing, paths, rankings and distributions come from canonical backend
 calculations; charts only present returned data. Zero and unavailable remain

@@ -5,6 +5,8 @@ brokerage positions. Choose a tool in the chart toolbar, place it in the plot,
 then return to the cursor to select it. Tool settings control the existing
 appearance and displayed measurements. Delete removes a selected annotation.
 
+![A Ruler, a Long position and an Anchored Volume Profile on an AAPL chart](images/openquant-elements.png)
+
 ## Anchored Volume Profile (AVP)
 
 AVP estimates volume at price from **cached OHLCV candles**, from the chosen time
