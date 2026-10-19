@@ -39,13 +39,13 @@ describe('expiryBreakevens', () => {
 
   it('finds both iron condor breakevens from the net credit', () => {
     const draft = draftWith(d => applyOptionsTemplate(d, 'iron_condor'));
-    // Long 80P @1, short 90P @3, short 110C @3, long 120C @1: credit 4.
-    expect(expiryBreakevens(draft)).toEqual([86, 114]);
+    // Long 87.5P @1, short 95P @3, short 105C @3, long 112.5C @1: credit 4.
+    expect(expiryBreakevens(draft)).toEqual([91, 109]);
   });
 
   it('treats shares linearly in a covered call', () => {
     const draft = draftWith(d => applyOptionsTemplate(d, 'covered_call'));
-    // 100 shares @100, short 110C @2: breakeven 98.
+    // 100 shares @100, short 105C @2: breakeven 98.
     expect(expiryBreakevens(draft)).toEqual([98]);
   });
 
@@ -87,8 +87,8 @@ describe('fittedSpotGrid', () => {
       applyOptionsTemplate(d, 'iron_condor');
     });
     const grid = fittedSpotGrid(draft);
-    expect(grid[0]).toBeLessThan(275);
-    expect(grid[80]).toBeGreaterThan(410);
+    expect(grid[0]).toBeLessThan(305);
+    expect(grid[80]).toBeGreaterThan(385);
   });
 });
 

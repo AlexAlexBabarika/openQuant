@@ -62,11 +62,38 @@ describe('manual options templates', () => {
   it('rounds strikes to round steps and premiums to cents', () => {
     const strikes = (spot: number) =>
       templateStrategy('iron_condor', spot).legs.map(l => l.strike);
-    expect(strikes(100)).toEqual([80, 90, 110, 120]);
-    expect(strikes(343.46)).toEqual([275, 310, 380, 410]);
+    expect(strikes(100)).toEqual([87.5, 95, 105, 112.5]);
+    expect(strikes(343.46)).toEqual([305, 325, 365, 385]);
     expect(
       templateStrategy('iron_condor', 343.46).legs.map(l => l.entry_premium),
     ).toEqual([3.43, 10.3, 10.3, 3.43]);
+  });
+  it('sizes spreads and wings to one and two expected moves (spot × IV × √years)', () => {
+    const condor = (iv: number, days: number) =>
+      templateStrategy('iron_condor', 343.46, iv, days).legs.map(
+        l => l.strike!,
+      );
+    const width = (strikes: number[]) => strikes[3] - strikes[0];
+    expect(width(condor(0.4, 30))).toBeGreaterThan(
+      1.8 * width(condor(0.2, 30)),
+    );
+    expect(width(condor(0.2, 120))).toBeGreaterThan(
+      1.8 * width(condor(0.2, 30)),
+    );
+    // Unusable or zero inputs still give a bounded, distinct, valid condor.
+    expect(condor(NaN, 30)).toEqual(condor(0.2, 30));
+    for (const [iv, days] of [
+      [0, 0],
+      [5, 3650],
+    ])
+      for (const spot of [1, 343.46, 833333]) {
+        const d = createOptionsDraft();
+        d.spot = spot;
+        d.strategy = templateStrategy('iron_condor', spot, iv, days);
+        const strikes = d.strategy.legs.map(l => l.strike);
+        expect(new Set(strikes).size).toBe(4);
+        expect(optionsErrors(d)).toEqual({});
+      }
   });
   it.each(OPTIONS_TEMPLATES)(
     'keeps %s strikes short decimals and distinct at any spot',
@@ -119,7 +146,7 @@ describe('manual options templates', () => {
     const condor = templateStrategy('iron_condor').legs;
     expect(condor.map(l => l.quantity)).toEqual([1, -1, -1, 1]);
     condor.forEach((l, i) =>
-      expect(l.strike).toBeCloseTo([80, 90, 110, 120][i]),
+      expect(l.strike).toBeCloseTo([87.5, 95, 105, 112.5][i]),
     );
     const fly = templateStrategy('iron_butterfly').legs;
     expect(fly[1].strike).toBe(fly[2].strike);

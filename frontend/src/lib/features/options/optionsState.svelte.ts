@@ -246,6 +246,7 @@ export class OptionsState {
     const before = structuredClone($state.snapshot(this.draft));
     const next = structuredClone(before);
     update(next);
+    const resized = this.#resizeTemplate(before, next);
     if (this.gridAuto && needsRefit(before, next))
       next.spot_grid = fittedSpotGrid(next);
     const previous = this.modelLegs;
@@ -255,11 +256,32 @@ export class OptionsState {
     );
     this.#future = [];
     this.draft = next;
-    this.modelLegs = tags
-      ? tags(previous, next)
-      : carryModelTags(before, next, previous);
+    this.modelLegs = resized
+      ? next.strategy.legs.map(() => true)
+      : tags
+        ? tags(previous, next)
+        : carryModelTags(before, next, previous);
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
+  }
+  /** An untouched template keeps its strikes one and two expected moves out as IV and expiry change. */
+  #resizeTemplate(before: OptionsDraft, next: OptionsDraft): boolean {
+    if (
+      (Object.is(next.volatility, before.volatility) &&
+        Object.is(
+          next.strategy.days_to_expiry,
+          before.strategy.days_to_expiry,
+        )) ||
+      JSON.stringify(next.strategy.legs) !==
+        JSON.stringify(before.strategy.legs)
+    )
+      return false;
+    const template = matchTemplate(before, this.modelLegs);
+    if (!template) return false;
+    const name = next.strategy.name;
+    applyOptionsTemplate(next, template);
+    next.strategy.name = name;
+    return true;
   }
   applyTemplate(id: OptionsTemplate): void {
     this.editDraft(
