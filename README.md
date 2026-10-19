@@ -46,6 +46,8 @@ Use OpenQuant to:
 - write and run research scripts and backtests; and
 - save accounts, provider credentials, strategies, and run history locally.
 
+![Strategy editor beside its backtest result](docs/images/openquant-research.png)
+
 > [!WARNING]
 > OpenQuant is educational and research software, not investment advice or a brokerage. It does not place trades. Backtests and simulated results do not guarantee future performance. Market data may be delayed, incomplete, or inaccurate; verify important information with an authoritative source before making financial decisions.
 
