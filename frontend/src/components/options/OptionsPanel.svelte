@@ -176,7 +176,7 @@
         <div class="export-controls">
           <button type="button" class="ot-workbench-ghost" onclick={() => { exportConfirm = true; }}>Replace Python from editor…</button>
           {#if exportConfirm}
-            <p class="risk">This explicitly overwrites the current Python source. Switching modes never overwrites it.</p>
+            <p class="risk">This explicitly overwrites the current Python source. Switching modes never overwrites edited source.</p>
             <div class="mode-row"><button type="button" class="ot-workbench-primary" onclick={() => { if (options.exportPython()) exportConfirm = false; }}>Replace Python</button><button type="button" class="ot-workbench-ghost" onclick={() => { exportConfirm = false; }}>Keep source</button></div>
           {/if}
         </div>

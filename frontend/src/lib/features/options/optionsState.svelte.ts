@@ -98,6 +98,8 @@ export class OptionsState {
   #future = $state.raw<Snapshot[]>([]);
   #priceCache = new Map<string, (number | null)[]>();
   #submittedKey = $state('');
+  /** The source the app last wrote from the editor; while the user hasn't edited it, it follows the editor. */
+  #seed = this.source;
   #scope = '';
   #generation = 0;
   #controller: AbortController | null = null;
@@ -194,7 +196,7 @@ export class OptionsState {
     this.spotLinked = true;
     this.#followedSymbol = null;
     this.#followWorkspace();
-    this.source = exportOptionsPython(this.draft);
+    this.source = this.#seed = exportOptionsPython(this.draft);
     this.mode = 'editor';
     this.result = null;
     this.submittedSource = null;
@@ -426,9 +428,23 @@ export class OptionsState {
   setMode(mode: OptionsMode): void {
     if (mode === this.mode) return;
     this.changed();
+    if (mode === 'python') this.#reseed();
     this.mode = mode;
     this.#scheduleRecovery();
     this.#scheduleAnalysis();
+  }
+  /** Untouched source starts from the strategy on screen, not the one the panel opened with. */
+  #reseed(): void {
+    if (
+      this.source !== this.#seed ||
+      Object.keys(optionsErrors(this.draft)).length
+    )
+      return;
+    try {
+      this.source = this.#seed = exportOptionsPython(this.draft);
+    } catch {
+      // Keep the previous seed; the explicit export reports why.
+    }
   }
   changed(): void {
     if (this.loading) this.cancel(false);
