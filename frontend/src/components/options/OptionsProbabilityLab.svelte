@@ -48,7 +48,7 @@
 
 <section class="probability-lab" aria-labelledby={`${id}-title`}>
   <header><h3 id={`${id}-title`}>Probability &amp; tail-risk lab</h3><span class="note">Session-local research</span></header>
-  <p class="note">Model-implied outcomes, not calibrated real-world forecasts, investment advice or guarantees. No historical options replay, brokerage execution or American assignment model.</p>
+  <p class="note">Model-implied outcomes, not calibrated real-world forecasts, investment advice or guarantees.</p>
   {#if readOnly}<p class="notice">Read-only strategy: this lab never edits the draft or Python source. Local probability assumptions may be changed and computed explicitly.</p>{/if}
   <form onsubmit={compute} aria-label="Probability model assumptions">
     <div class="controls">
@@ -219,7 +219,6 @@
             {#each result.request.analysis.strategy.legs as leg, index}<tr><th scope="row">{index + 1} {leg.kind} · {leg.enabled ? 'enabled' : 'disabled'}</th><td>{exactValue(leg.quantity, true)} {leg.kind === 'underlying' ? 'shares' : 'contracts'}</td><td>{exactValue(leg.multiplier)}</td><td>{exactValue(leg.entry_premium)}</td><td>{leg.kind === 'underlying' ? 'Not applicable' : exactValue(leg.implied_volatility ?? result.request.analysis.volatility)}</td><td>{leg.expiry_date ?? (leg.days_to_expiry != null ? `${exactValue(leg.days_to_expiry)} days` : 'Inherits default')}</td><td>{leg.source ? `${leg.source.provider} / ${leg.source.environment} / ${leg.source.contract_symbol} · ${leg.source.observed_exercise_style ?? 'unknown'} / ${leg.source.observed_settlement ?? 'unknown'}` : 'Manual / unspecified'}</td></tr>{/each}
           </tbody></table>
         </div>
-        <p class="note">Provider source metadata does not change the European cash-settled research model. An American/physical listed contract is only a research approximation here.</p>
       </details>
       {#if result.warnings.length}<aside aria-label="Returned distribution warnings"><h4>Model / numerical warnings</h4><ul>{#each result.warnings as warning}<li>{warning}</li>{/each}</ul></aside>{/if}
     </section>

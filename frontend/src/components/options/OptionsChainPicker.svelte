@@ -123,7 +123,7 @@
 
 <section class="chain" aria-label="Read-only provider option chain picker">
   <h3>Provider chain · read-only observations</h3>
-  <p>Tradier production/sandbox chains are not order routing, live accounts, subscriptions or historical replay. Only explicit confirmed imports edit the draft. No API keys are entered, stored or exported here.</p>
+  <p>Tradier production/sandbox chains are not order routing, live accounts or subscriptions. Only explicit confirmed imports edit the draft. No API keys are entered, stored or exported here.</p>
   {#if readOnly}<p class="notice">Read-only source mode. Switch explicitly to an editable visual draft in the workbench before fetching or importing.</p>{/if}
   <fieldset disabled={readOnly}>
     <legend>Connection and query</legend>
@@ -155,7 +155,7 @@
   {/if}
   {#if response}
     <h4>Submitted observations: {response.symbol} · {response.expiration} · {response.provider}/{response.environment}</h4>
-    <p>Fetched {formatTime(response.fetched_at)} (retrieval time only, never quote time). {response.truncated ? 'Provider result truncated to a bounded chain; not exhaustive.' : `${response.quotes.length} contracts returned (maximum 2000).`} Unknown is not zero. Side timestamps are independent; quotes may be stale or delayed. No freshness guarantee.</p>
+    <p>Fetched {formatTime(response.fetched_at)}; each bid and ask carries its own quote time, which may be stale. {response.truncated ? 'Provider result truncated to a bounded chain; not exhaustive.' : `${response.quotes.length} contracts returned (maximum 2000).`} Unknown is not zero.</p>
     {#each response.warnings as warning}<p class="notice">{warning}</p>{/each}
     <fieldset disabled={readOnly}>
       <legend>Filter and sort observations · unknown values sort last</legend>

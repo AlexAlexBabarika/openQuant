@@ -43,7 +43,7 @@
 
 <section class="hedge-lab" aria-label="Options delta hedging path simulator">
   <header><h3>Delta-hedging path lab</h3><span>Hypothetical · no brokerage execution</span></header>
-  <p class="note">Compare the same submitted strategy/path unhedged versus one explicit hedge policy. P&amp;L is not total account equity or a historical options backtest. Whole-strategy delta includes existing stock; the hedge ledger adds separate shares, not duplicate strategy stock.</p>
+  <p class="note">Compare the same submitted strategy/path unhedged versus one explicit hedge policy. P&amp;L is not total account equity. Whole-strategy delta includes existing stock; the hedge ledger adds separate shares, not duplicate strategy stock.</p>
   <OptionsLifecycle {draft} {onEdit} {documentKey} {readOnly} inputsOnly bind:controls={path} />
   <fieldset disabled={readOnly}>
     <legend>Rebalancing and execution-cost assumptions</legend>
@@ -57,7 +57,7 @@
     </div>
   </fieldset>
   <p class="note">Initial rebalance is allowed (except none). At final path observation all hedge shares are liquidated, with costs; no final rebalance follows. Costs apply to entry, each nonzero trade and liquidation. Daily/interval policies act only at original observations when a boundary has elapsed; sparse paths are not continuous daily hedges. Interpolated expiry points do not invent hedge trades. Undefined delta or a share-cap violation skips trading and is reported, never treated as zero/clipped silently.</p>
-  <p class="note">Trades use current observed delta only, with no lookahead or hidden reinvestment. No interest on cash, financing/borrowing debits, dividend cash flows, market impact, or assignment. Slippage is only the explicit basis-point assumption above; zero excludes it. Dividend yield may affect canonical option marks, not dividend cash income.</p>
+  <p class="note">Trades use current observed delta only, with no lookahead or hidden reinvestment. No interest on cash or market impact. Slippage is only the explicit basis-point assumption above; zero excludes it. Dividend yield may affect canonical option marks, not dividend cash income.</p>
   {#if Object.keys(prepared.errors).length}<details><summary>Input errors · {Object.keys(prepared.errors).length}</summary><ul>{#each Object.entries(prepared.errors) as [field, message]}<li><strong>{field}</strong>: {message}</li>{/each}</ul></details>{/if}
   <div class="actions">
     <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || !!visible?.pending} onclick={submit}>{visible?.pending ? (result ? 'Refreshing hedge path…' : 'Simulating hedge path…') : 'Simulate hedge path'}</button>

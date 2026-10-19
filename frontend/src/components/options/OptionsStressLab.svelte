@@ -76,7 +76,7 @@
 
 <section class="stress-tool" aria-label="Hypothetical event stress lab">
   <h3>Hypothetical event stress</h3>
-  <p class="note">Editable assumptions, not forecasts, observed events or historical replay. BSM European cash-settled USD research; fixed entry premiums/fees. The baseline is today at the submitted original spot; stress changes spot, elapsed time and each enabled option’s IV in parallel.</p>
+  <p class="note">Editable assumptions, not forecasts or observed events; entry premiums and fees stay fixed. The baseline is today at the submitted original spot; stress changes spot, elapsed time and each enabled option’s IV in parallel.</p>
   {#if readOnly}<p class="notice">Read-only source mode. Switch explicitly to the visual draft to edit or run this tool; Python source is never replaced.</p>{/if}
   <div class="actions" aria-label="Load editable hypothetical presets">
     {#each STRESS_PRESETS as preset, index}<button type="button" class="ot-workbench-ghost" disabled={readOnly} onclick={() => loadPreset(index)}>Load {preset.name}</button>{/each}

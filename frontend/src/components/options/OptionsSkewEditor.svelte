@@ -143,7 +143,7 @@
   </div>
   {#if result}
     <h4>Submitted canonical comparison · {result.skew.request.strategy.name}</h4>
-    <p class="note">Spot {exactValue(result.skew.request.spot)} USD · flat base {exactValue(result.flat.request.volatility * 100)}% IV · rate {exactValue(result.skew.request.rate)} · yield {exactValue(result.skew.request.dividend_yield)} annual fractions · BSM European cash-settled USD. Today marks at each leg’s submitted expiry; entry premiums/fees unchanged. Scenarios/surfaces are excluded from this comparison.</p>
+    <p class="note">Spot {exactValue(result.skew.request.spot)} USD · flat base {exactValue(result.flat.request.volatility * 100)}% IV · rate {exactValue(result.skew.request.rate)} · yield {exactValue(result.skew.request.dividend_yield)} annual fractions. Today marks at each leg’s submitted expiry; entry premiums/fees unchanged. Scenarios/surfaces are excluded from this comparison.</p>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable data region) -->
     <div class="results" role="region" tabindex="0" aria-label="Flat versus skew canonical signed totals">
       <table><thead><tr><th>Metric / units</th><th>Flat IV</th><th>Skew IV</th><th>Skew − flat</th></tr></thead><tbody>
