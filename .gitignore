@@ -29,6 +29,7 @@ wheels/
 # Node / frontend
 node_modules/
 frontend/dist/
+frontend/test-results/
 *.local
 .npm
 .eslintcache

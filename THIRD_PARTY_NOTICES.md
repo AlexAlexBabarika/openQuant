@@ -196,6 +196,7 @@ shipped bundle, so they are included here.
 | `@codemirror/view` | 6.41.1 | MIT |
 | `@internationalized/date` | 3.12.0 | Apache-2.0 |
 | `@lucide/svelte` | 1.7.0 | ISC |
+| `@playwright/test` | 1.63.0 | Apache-2.0 |
 | `@sveltejs/vite-plugin-svelte` | 6.2.4 | MIT |
 | `@tailwindcss/vite` | 4.2.1 | MIT |
 | `@types/culori` | 4.0.1 | MIT |
@@ -217,7 +218,7 @@ shipped bundle, so they are included here.
 | `vite` | 7.3.1 | MIT |
 | `vitest` | 4.0.18 | MIT |
 
-Across the full transitive npm tree (140 packages): 119 MIT, 8 Apache-2.0,
+Across the full transitive npm tree (143 packages): 119 MIT, 11 Apache-2.0,
 5 ISC, 4 BSD-3-Clause, 2 MPL-2.0, 1 0BSD, and `svelte-toolbelt`, which omits the
 `license` field in its manifest but ships an MIT license file (Copyright (c) 2024
 Hunter Johnston and Thomas G. Lopes). No copyleft licenses beyond MPL-2.0 appear
