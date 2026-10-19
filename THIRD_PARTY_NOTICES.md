@@ -201,24 +201,24 @@ shipped bundle, so they are included here.
 | `@tailwindcss/vite` | 4.2.1 | MIT |
 | `@types/culori` | 4.0.1 | MIT |
 | `@types/node` | 25.3.0 | MIT |
-| `@vitest/coverage-v8` | 4.0.18 | MIT |
+| `@vitest/coverage-v8` | 4.1.11 | MIT |
 | `bits-ui` | 2.16.5 | MIT |
 | `clsx` | 2.1.1 | MIT |
 | `codemirror` | 6.0.2 | MIT |
 | `culori` | 4.0.2 | MIT |
 | `lightweight-charts` | 5.1.0 | Apache-2.0 |
 | `prettier` | 3.8.1 | MIT |
-| `svelte` | 5.53.5 | MIT |
+| `svelte` | 5.57.2 | MIT |
 | `svelte-check` | 4.4.3 | MIT |
 | `tailwind-merge` | 3.5.0 | MIT |
 | `tailwind-variants` | 3.2.2 | MIT |
 | `tailwindcss` | 4.2.1 | MIT |
 | `tailwindcss-animate` | 1.0.7 | MIT |
 | `typescript` | 5.9.3 | Apache-2.0 |
-| `vite` | 7.3.1 | MIT |
-| `vitest` | 4.0.18 | MIT |
+| `vite` | 7.3.7 | MIT |
+| `vitest` | 4.1.11 | MIT |
 
-Across the full transitive npm tree (143 packages): 119 MIT, 11 Apache-2.0,
+Across the full transitive npm tree (144 packages): 120 MIT, 11 Apache-2.0,
 5 ISC, 4 BSD-3-Clause, 2 MPL-2.0, 1 0BSD, and `svelte-toolbelt`, which omits the
 `license` field in its manifest but ships an MIT license file (Copyright (c) 2024
 Hunter Johnston and Thomas G. Lopes). No copyleft licenses beyond MPL-2.0 appear
