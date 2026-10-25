@@ -338,15 +338,18 @@ describe('integrated options workbench', () => {
     );
   });
 
-  it('inspects submitted Python read-only, hiding tools on custom-source divergence', () => {
-    state.mode = 'python';
-    state.source = '# submitted python';
-    state.submittedSource = state.source;
-    state.result = result();
+  it('inspects submitted Python read-only, hiding tools on custom-source divergence', async () => {
+    const actual = await vi.importActual<
+      typeof import('$lib/features/options/optionsState.svelte')
+    >('$lib/features/options/optionsState.svelte');
+    state = new actual.OptionsState(null, async () => result());
+    state.setMode('python');
+    state.setSource('# submitted python');
+    await state.run();
     let html = render(OptionsPanel).body;
     expect(html).toContain('aria-label="Research tools"');
-    expect(html).toContain('read-only');
-    state.source = '# changed custom python';
+    expect(html).toContain('Read-only in Python mode');
+    state.setSource('# changed custom python');
     html = render(OptionsPanel).body;
     expect(html).not.toContain('aria-label="Research tools"');
     expect(html).toContain('Research tools never use the visual draft');
