@@ -461,7 +461,7 @@
     for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
     if ($authState.user) {
       commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
-      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.openScript(script.id, () => true); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
+      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.select(script.id, () => true); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
     }
     commands.push(...runsHistory.entries.map(run => command(`run:${run.run_id}`, run.label, () => openStoredRun(run.run_id), 'Run', `${run.kind} ${run.tags?.join(' ') ?? ''} ${run.baseline ? 'baseline' : ''}`)));
     return commands;
@@ -1219,7 +1219,7 @@
     bind:open={commandsOpen}
     commands={researchCommands}
     onSymbol={(symbol, providers) => void activateCommand(() => selectChartSymbol(symbol, providers), true)}
-    onLoadScripts={() => { if ($authState.user) { void strategy.load(); void indicators.refresh(); } }}
+    onLoadScripts={() => { if ($authState.user) { void strategy.load(); void indicators.load(); } }}
     scriptStatus={!$authState.user ? 'Sign in to browse account scripts. Local commands and notebook references are available.' : strategy.loading || indicators.loading ? 'Loading saved scripts…' : [strategy.loadError, indicators.loadError].filter(Boolean).join(' · ')}
   />
   <CompareView bind:open={compareOpen} compare={compareState} />

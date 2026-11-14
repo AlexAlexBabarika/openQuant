@@ -55,7 +55,7 @@
       savedUserId = userId;
       ind.clearSaved();
     });
-    if (open && userId) untrack(() => { void ind.refresh(); });
+    if (open && userId) untrack(() => { void ind.load(); });
   });
 
 
@@ -126,7 +126,7 @@
       : '';
     if (!(await confirmAction({ title: `Delete "${name}"?`, description: `This cannot be undone.${unsaved}`, confirmLabel: 'Delete', destructive: true }))) return;
     try {
-      await ind.delete(id);
+      await ind.remove(id);
     } catch (err) {
       void confirmAction({ title: `Could not delete "${name}"`, description: err instanceof Error ? err.message : 'Delete failed', acknowledge: true });
     }
@@ -138,7 +138,7 @@
 
   async function openScript(id: string) {
     if (id === ind.activeId) return;
-    if (await confirmDiscard(ind.dirty, 'indicator')) ind.openScript(id, () => true);
+    if (await confirmDiscard(ind.dirty, 'indicator')) ind.select(id, () => true);
   }
 
   function fmtRelative(iso: string): string {

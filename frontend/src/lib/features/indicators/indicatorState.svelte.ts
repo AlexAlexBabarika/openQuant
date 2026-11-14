@@ -9,6 +9,7 @@ import {
   type ScriptInfo,
   type ScriptOutput,
 } from './scripts';
+import { SavedScriptDraft } from '$lib/features/scripts/savedScriptDraft.svelte';
 
 const STARTER_CODE = `sma20 = price.rolling_mean(20)
 sma50 = price.rolling_mean(50)
@@ -40,60 +41,37 @@ function emptyEntry(): RunnerEntry {
   };
 }
 
-export class IndicatorState {
-  scripts = $state<ScriptInfo[]>([]);
-  loading = $state(false);
-  loadError = $state<string | null>(null);
-
-  activeId = $state<string | null>(null);
-  draftName = $state('Untitled');
-  draftCode = $state(STARTER_CODE);
-  dirty = $state(false);
-
-  isSaving = $state(false);
-  saveError = $state<string | null>(null);
-
+export class IndicatorState extends SavedScriptDraft<ScriptInfo> {
   runners = $state<Record<string, RunnerEntry>>({});
 
   #aborts = new Map<string, AbortController>();
-  #draftVersion = $state(0);
-  #revision = 0;
-  #listRequest = 0;
-  #scriptsRevision = 0;
-  #savingId: string | null = null;
-  #deleting = new Set<string>();
-  #accountVersion = 0;
 
-  clearSaved(): void {
-    this.#accountVersion++;
-    this.#listRequest++;
-    this.#scriptsRevision++;
-    this.#draftVersion++;
-    this.scripts = [];
-    this.loading = false;
-    this.loadError = null;
-    this.saveError = null;
-    this.isSaving = false;
-    this.#savingId = null;
-    this.#deleting.clear();
-    if (this.activeId) this.dirty = true;
-    this.activeId = null;
+  constructor() {
+    super({
+      store: {
+        list: () => listScripts(),
+        create: (name, code) => createScript(name, code),
+        update: (id, patch) => updateScript(id, patch),
+        remove: id => deleteScript(id),
+      },
+      untitled: 'Untitled',
+      starterCode: STARTER_CODE,
+      loadFailed: 'Failed to load scripts',
+    });
+  }
+
+  override clearSaved(): void {
+    super.clearSaved();
     this.stopAll();
   }
 
-  get draftVersion(): number {
-    return this.#draftVersion;
+  protected override draftReplaced(): void {
+    this.stop(DRAFT_KEY);
   }
 
-  dispose(): void {
-    this.clearSaved();
+  protected override scriptRemoved(id: string): void {
+    this.stop(id);
   }
-
-  active = $derived.by(() =>
-    this.activeId
-      ? (this.scripts.find(s => s.id === this.activeId) ?? null)
-      : null,
-  );
 
   #activeKey = $derived(this.activeId ?? DRAFT_KEY);
 
@@ -128,157 +106,6 @@ export class IndicatorState {
     const e = this.runners[id];
     if (!e) return false;
     return e.isRunning || e.lastResult?.status === 'ok';
-  }
-
-  async refresh(): Promise<void> {
-    const request = ++this.#listRequest;
-    const revision = this.#scriptsRevision;
-    this.loading = true;
-    this.loadError = null;
-    try {
-      const scripts = await listScripts();
-      if (request === this.#listRequest && revision === this.#scriptsRevision)
-        this.scripts = scripts;
-    } catch (err) {
-      if (request === this.#listRequest && revision === this.#scriptsRevision)
-        this.loadError =
-          err instanceof Error ? err.message : 'Failed to load scripts';
-    } finally {
-      if (request === this.#listRequest) this.loading = false;
-    }
-  }
-
-  newDraft(discard = () => false): void {
-    if (this.dirty && !discard()) return;
-    this.#draftVersion++;
-    this.stop(DRAFT_KEY);
-    this.activeId = null;
-    this.draftName = 'Untitled';
-    this.draftCode = STARTER_CODE;
-    this.dirty = false;
-    this.saveError = null;
-  }
-
-  openScript(id: string, discard = () => false): void {
-    if (id === this.activeId) return;
-    const s = this.scripts.find(x => x.id === id);
-    if (!s) return;
-    if (this.dirty && !discard()) return;
-    this.#draftVersion++;
-    this.stop(DRAFT_KEY);
-    this.activeId = id;
-    this.draftName = s.name;
-    this.draftCode = s.code;
-    this.dirty = false;
-    this.saveError = null;
-  }
-
-  setName(name: string): void {
-    if (this.draftName === name) return;
-    this.draftName = name;
-    this.#revision++;
-    this.dirty = true;
-  }
-
-  setCode(code: string): void {
-    if (this.draftCode === code) return;
-    this.draftCode = code;
-    this.#revision++;
-    this.dirty = true;
-  }
-
-  async save(): Promise<ScriptInfo | null> {
-    if (this.isSaving) return null;
-    const id = this.activeId;
-    if (id && this.#deleting.has(id)) {
-      this.saveError = 'Wait for deletion to finish before saving';
-      return null;
-    }
-    const name = this.draftName.trim();
-    if (!name) {
-      this.saveError = 'Name is required';
-      return null;
-    }
-    this.isSaving = true;
-    this.#savingId = id;
-    this.saveError = null;
-    const version = this.#draftVersion;
-    const revision = this.#revision;
-    const code = this.draftCode;
-    const accountVersion = this.#accountVersion;
-    try {
-      let saved: ScriptInfo;
-      if (id) {
-        saved = await updateScript(id, {
-          name,
-          code,
-        });
-      } else {
-        saved = await createScript(name, code);
-      }
-      if (accountVersion !== this.#accountVersion) return null;
-      this.#scriptsRevision++;
-      const idx = this.scripts.findIndex(s => s.id === saved.id);
-      if (idx >= 0) this.scripts[idx] = saved;
-      else this.scripts = [saved, ...this.scripts];
-      if (version === this.#draftVersion) {
-        if (!id) this.stop(DRAFT_KEY);
-        this.activeId = saved.id;
-        if (revision === this.#revision) {
-          this.draftName = saved.name;
-          this.dirty = false;
-        }
-      } else if (
-        this.activeId === saved.id &&
-        (this.draftCode !== saved.code || this.draftName !== saved.name)
-      ) {
-        this.dirty = true;
-      }
-      return saved;
-    } catch (err) {
-      if (
-        accountVersion === this.#accountVersion &&
-        version === this.#draftVersion
-      )
-        this.saveError = err instanceof Error ? err.message : 'Failed to save';
-      return null;
-    } finally {
-      if (accountVersion === this.#accountVersion) {
-        this.isSaving = false;
-        this.#savingId = null;
-      }
-    }
-  }
-
-  async delete(id: string): Promise<void> {
-    if (this.isSaving && this.#savingId === id)
-      throw new Error('Wait for the save to finish before deleting');
-    if (this.#deleting.has(id)) return;
-    this.#deleting.add(id);
-    const version = this.#draftVersion;
-    const revision = this.#revision;
-    const accountVersion = this.#accountVersion;
-    try {
-      await deleteScript(id);
-      if (accountVersion !== this.#accountVersion) return;
-      this.#scriptsRevision++;
-      this.scripts = this.scripts.filter(s => s.id !== id);
-      this.stop(id);
-      if (this.activeId === id) {
-        if (version === this.#draftVersion && revision === this.#revision)
-          this.newDraft(() => true);
-        else {
-          this.#draftVersion++;
-          this.stop(DRAFT_KEY);
-          this.activeId = null;
-          this.dirty = true;
-        }
-      }
-    } catch (err) {
-      if (accountVersion === this.#accountVersion) throw err;
-    } finally {
-      if (accountVersion === this.#accountVersion) this.#deleting.delete(id);
-    }
   }
 
   async saveAndRun(
@@ -357,7 +184,7 @@ export class IndicatorState {
     ctx: Omit<ExecuteParams, 'code' | 'script_id'>,
     opts: { forceSaved?: boolean } = {},
   ): Promise<RunResult | null> {
-    if (this.#deleting.has(key)) return null;
+    if (this.isRemoving(key)) return null;
     this.#aborts.get(key)?.abort();
     const controller = new AbortController();
     this.#aborts.set(key, controller);
