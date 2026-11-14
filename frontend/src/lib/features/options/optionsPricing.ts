@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 
 /**
@@ -12,7 +13,7 @@ export function modelPricingRequest(draft: OptionsDraft): OptionsDraft {
   request.strategy.legs.forEach(leg => {
     leg.enabled = true;
   });
-  request.spot_grid = [draft.spot * 0.5, Math.min(1000000, draft.spot * 1.5)];
+  request.spot_grid = [draft.spot * 0.5, Math.min(MAX_PRICE, draft.spot * 1.5)];
   request.scenarios = [];
   request.surface = null;
   return request;

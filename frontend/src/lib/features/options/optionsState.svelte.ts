@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import { apiJson } from '$lib/core/api';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 import {
@@ -398,7 +399,7 @@ export class OptionsState {
       spot === null ||
       !Number.isFinite(spot) ||
       spot <= 0 ||
-      spot > 1000000 ||
+      spot > MAX_PRICE ||
       (spot === this.draft.spot &&
         (symbol === null || symbol === this.draft.strategy.underlying))
     )

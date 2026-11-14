@@ -1,3 +1,4 @@
+import { MAX_DAYS } from './optionsBounds';
 import type { OptionsDraft } from './optionsTypes';
 import type {
   HedgeRequest,
@@ -40,7 +41,7 @@ export function hedgeRequest(
   const errors = { ...base.errors };
   const values: Record<string, number> = {};
   for (const [key, min, max] of [
-    ['interval', Number.MIN_VALUE, 3650],
+    ['interval', Number.MIN_VALUE, MAX_DAYS],
     ['threshold', Number.MIN_VALUE, 1000000],
     ['maxShares', Number.MIN_VALUE, 10000000],
     ['perShare', 0, 1000],

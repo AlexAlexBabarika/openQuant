@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_DAYS } from '$lib/features/options/optionsBounds';
   import { untrack } from 'svelte';
   import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import type { OptionsResearchToolProps, LifecycleRequest, LifecycleResponse } from '$lib/features/options/optionsResearchTypes';
@@ -56,7 +57,7 @@
       {@render fieldError('csv')}
     {:else}
       <div class="fields">
-        {#each ([['seed', 'Seed · uint32', 0, 4294967295, '1'], ['horizon', 'Horizon · calendar days (>0–3650)', 0, 3650, 'any'], ['steps', 'Steps · 1–365', 1, 365, '1'], ['drift', 'Annual drift · fraction (−1–1)', -1, 1, 'any'], ['volatility', 'Annual path volatility · fraction (0–5)', 0, 5, 'any']] as const) as [field, label, min, max, step]}
+        {#each ([['seed', 'Seed · uint32', 0, 4294967295, '1'], ['horizon', 'Horizon · calendar days (>0–3650)', 0, MAX_DAYS, 'any'], ['steps', 'Steps · 1–365', 1, 365, '1'], ['drift', 'Annual drift · fraction (−1–1)', -1, 1, 'any'], ['volatility', 'Annual path volatility · fraction (0–5)', 0, 5, 'any']] as const) as [field, label, min, max, step]}
           <label>{label}<input type="number" name={`lifecycle-${field}`} autocomplete="off" {min} {max} {step} value={settings[field]} aria-invalid={!!prepared.errors[field]} aria-describedby={`${uid}-${field}-error`} oninput={e => { settings[field] = e.currentTarget.value; }} />{@render fieldError(field)}</label>
         {/each}
       </div>

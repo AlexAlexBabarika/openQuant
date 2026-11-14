@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_DAYS } from '$lib/features/options/optionsBounds';
   import { formatUsd } from '$lib/features/options/optionsFormat';
   import { untrack } from 'svelte';
   import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
@@ -48,7 +49,7 @@
     <legend>Rebalancing and execution-cost assumptions</legend>
     <div class="fields">
       <label>Hedge policy<select name="hedge-mode" bind:value={settings.mode}><option value="none">None · no hedge</option><option value="daily">Daily · observation-constrained</option><option value="interval">Calendar-day interval</option><option value="delta_threshold">Residual delta threshold</option></select></label>
-      {#each ([['interval', 'Interval · calendar days (>0–3650)', 0, 3650], ['threshold', 'Residual delta threshold · equivalent shares (>0–1m)', 0, 1000000], ['maxShares', 'Maximum absolute hedge · shares (>0–10m)', 0, 10000000], ['perShare', 'Cost · USD per share (0–1000)', 0, 1000], ['fixed', 'Fixed cost · USD per nonzero trade (0–10k)', 0, 10000], ['slippage', 'Slippage · basis points (0–1000)', 0, 1000]] as const) as [field, label, min, max]}
+      {#each ([['interval', 'Interval · calendar days (>0–3650)', 0, MAX_DAYS], ['threshold', 'Residual delta threshold · equivalent shares (>0–1m)', 0, 1000000], ['maxShares', 'Maximum absolute hedge · shares (>0–10m)', 0, 10000000], ['perShare', 'Cost · USD per share (0–1000)', 0, 1000], ['fixed', 'Fixed cost · USD per nonzero trade (0–10k)', 0, 10000], ['slippage', 'Slippage · basis points (0–1000)', 0, 1000]] as const) as [field, label, min, max]}
         {#if (field !== 'interval' || settings.mode === 'interval') && (field !== 'threshold' || settings.mode === 'delta_threshold')}
           <label>{label}<input type="number" name={`hedge-${field}`} autocomplete="off" {min} {max} step="any" value={settings[field]} aria-invalid={!!prepared.errors[field]} aria-describedby={`${uid}-${field}-error`} oninput={e => { settings[field] = e.currentTarget.value; }} />{#if prepared.errors[field]}<small id={`${uid}-${field}-error`} class="error">{prepared.errors[field]}</small>{/if}</label>
         {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_OPTION_CONTRACTS, MAX_PRICE, MAX_UNDERLYING_SHARES } from '$lib/features/options/optionsBounds';
   import { tick } from 'svelte';
   import type { OptionLeg } from '$lib/features/options/optionsTypes';
   import {
@@ -127,7 +128,7 @@
         <tr>
           <td data-k="side"><button type="button" class={`side ${side}`} aria-label={`Leg ${i + 1}: ${side === 'buy' ? 'Buy' : 'Sell'}. Switch to ${side === 'buy' ? 'Sell' : 'Buy'}`}
             onclick={() => editLeg(i, l => setLegSize(l, Math.abs(l.quantity), side === 'buy' ? 'sell' : 'buy'))}>{side === 'buy' ? 'Buy' : 'Sell'}</button></td>
-          <td data-k="qty" data-label="Qty">{@render cell(`Leg ${i + 1} ${option ? 'contracts' : 'shares'}`, `legs.${i}.quantity`, Math.abs(leg.quantity), 1, option ? 10000 : 1000000, '1', v => editLeg(i, l => setLegSize(l, v ?? NaN)))}</td>
+          <td data-k="qty" data-label="Qty">{@render cell(`Leg ${i + 1} ${option ? 'contracts' : 'shares'}`, `legs.${i}.quantity`, Math.abs(leg.quantity), 1, option ? MAX_OPTION_CONTRACTS : MAX_UNDERLYING_SHARES, '1', v => editLeg(i, l => setLegSize(l, v ?? NaN)))}</td>
           <td data-k="type">
             <select name={`legs.${i}.kind`} value={leg.kind} aria-label={`Leg ${i + 1} type`} aria-invalid={!!errors[`legs.${i}.kind`]}
               aria-describedby={errors[`legs.${i}.kind`] ? errorId(`legs.${i}.kind`) : undefined}
@@ -136,11 +137,11 @@
             </select>{#if !leg.enabled}<small class="off-tag">Off</small>{/if}{@render error(`legs.${i}.kind`)}
           </td>
           <td data-k="strike" data-label="Strike">
-            {#if option}{@render cell(`Leg ${i + 1} strike`, `legs.${i}.strike`, leg.strike, 0, 1000000, 'any', v => editLeg(i, l => editLegContract(l, { strike: v ?? NaN })))}
+            {#if option}{@render cell(`Leg ${i + 1} strike`, `legs.${i}.strike`, leg.strike, 0, MAX_PRICE, 'any', v => editLeg(i, l => editLegContract(l, { strike: v ?? NaN })))}
             {:else}<span class="na" aria-hidden="true">—</span><span class="sr-only">Not applicable</span>{@render error(`legs.${i}.strike`)}{/if}
           </td>
           <td data-k="prem" data-label={option ? 'Premium' : 'Entry'}>
-            {@render cell(option ? `Leg ${i + 1} premium per unit` : `Leg ${i + 1} entry price per share`, `legs.${i}.entry_premium`, leg.entry_premium, 0, 1000000, 'any', v => editLeg(i, l => { l.entry_premium = v ?? NaN; }))}
+            {@render cell(option ? `Leg ${i + 1} premium per unit` : `Leg ${i + 1} entry price per share`, `legs.${i}.entry_premium`, leg.entry_premium, 0, MAX_PRICE, 'any', v => editLeg(i, l => { l.entry_premium = v ?? NaN; }))}
             {#if modelLegs}
               {#if modelLegs[i]}<small class="premium-source">Model price</small>
               {:else}<small class="premium-source manual">Manual{#if onUseModel} · <button type="button" class="link" onclick={() => onUseModel(i)}>Use model price</button>{#if modelPrices[i] != null} ({formatUsd(modelPrices[i])}){/if}{/if}</small>{/if}
@@ -170,8 +171,8 @@
               </div>
               <p class="quote-title">Manual quote inputs · unverified</p>
               <div class="detail-fields">
-                {@render numeric('Manual bid · USD/unit', `legs.${i}.bid`, leg.bid, 0, 1000000, 'any', v => editLeg(i, l => { l.bid = v; }), true)}
-                {@render numeric('Manual ask · USD/unit', `legs.${i}.ask`, leg.ask, 0, 1000000, 'any', v => editLeg(i, l => { l.ask = v; }), true)}
+                {@render numeric('Manual bid · USD/unit', `legs.${i}.bid`, leg.bid, 0, MAX_PRICE, 'any', v => editLeg(i, l => { l.bid = v; }), true)}
+                {@render numeric('Manual ask · USD/unit', `legs.${i}.ask`, leg.ask, 0, MAX_PRICE, 'any', v => editLeg(i, l => { l.ask = v; }), true)}
                 <label class="field timestamp"><span>As of · ISO timestamp with timezone</span><input type="text" name={`legs.${i}.quote_as_of`} autocomplete="off" value={leg.quote_as_of ?? ''} maxlength="64" placeholder="2026-10-14T11:00:00Z" spellcheck="false"
                   aria-invalid={!!errors[`legs.${i}.quote_as_of`]} aria-describedby={errors[`legs.${i}.quote_as_of`] ? errorId(`legs.${i}.quote_as_of`) : undefined}
                   oninput={e => editLeg(i, l => { l.quote_as_of = e.currentTarget.value || null; })} />{@render error(`legs.${i}.quote_as_of`)}</label>
