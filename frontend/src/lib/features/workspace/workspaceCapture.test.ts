@@ -51,7 +51,7 @@ describe('workspace capture through research commands', () => {
         const emaConfig = { enabled: false, period: 19, lineWidth: 2 };
         const bbandsConfig = { enabled: true, period: 17, stdDev: 3, lineWidth: 1 };
         const chartType = 'line', showArea = true, showVolume = false, desktopSidebarVisible = false;
-        const groups = [], listTools = () => [], CURSOR = 'cursor';
+        const watchlist = { groups: [] }, listTools = () => [], CURSOR = 'cursor';
         const runsHistory = { entries: [] };
         const authState = { subscribe: fn => { fn({ user: null }); return () => {}; } };
         const selectChartSymbol = () => {}, openStoredRun = () => {};

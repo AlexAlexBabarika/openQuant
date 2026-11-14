@@ -1,10 +1,5 @@
 import { getContext, setContext } from 'svelte';
-import type {
-  PriorityConflict,
-  StanceConflict,
-  TickerPriority,
-  TickerStance,
-} from '$lib/features/market/tickers';
+import type { FlagConflict } from '$lib/features/market/watchlist.svelte';
 import type { TickerNote } from '$lib/features/notes/notes';
 
 export type GroupDialogMode = 'add' | 'rename';
@@ -15,19 +10,7 @@ export type NoteDialogState = {
   note?: TickerNote;
 };
 
-export type FlagConflictState =
-  | {
-      kind: 'priority';
-      symbol: string;
-      desired: TickerPriority;
-      conflict: PriorityConflict;
-    }
-  | {
-      kind: 'stance';
-      symbol: string;
-      desired: TickerStance;
-      conflict: StanceConflict;
-    };
+export type FlagConflictState = FlagConflict;
 
 export class AppDialogsState {
   groupDialogMode = $state<GroupDialogMode | null>(null);

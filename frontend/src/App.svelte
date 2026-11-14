@@ -36,44 +36,8 @@
   } from '$lib/features/chart/chartColours';
   import { loadTheme, persistTheme, applyTheme, type Theme } from '$lib/features/theme/theme';
   import { invalidateCssVarCache } from '$lib/features/chart/chart';
-  import type {
-    TickerGroup,
-    FlaggedPriority,
-    FlaggedStance,
-    TickerPriority,
-    TickerStance,
-  } from '$lib/features/market/tickers';
-  import {
-    loadGroupsFromStorage,
-    persistGroups,
-    loadSelectedGroupName,
-    persistSelectedGroupName,
-    loadSelectedPriority,
-    persistSelectedPriority,
-    loadSelectedStance,
-    persistSelectedStance,
-    clearTickerLocalStorage,
-    addGroup,
-    renameGroup,
-    duplicateGroup,
-    deleteGroup,
-    clearGroup,
-    addTickerToGroup,
-    removeTickerFromGroup,
-    setTickerPriority,
-    collectTickersByPriority,
-    collectTickersByStance,
-    priorityCounts as computePriorityCounts,
-    stanceCounts as computeStanceCounts,
-    setPriorityEverywhere,
-    setTickerStance,
-    setStanceEverywhere,
-    removeTickerEverywhere,
-    findPriorityConflict,
-    findStanceConflict,
-    setTickerProvidersEverywhere,
-    findTickerProviders,
-  } from '$lib/features/market/tickers';
+  import { clearTickerLocalStorage } from '$lib/features/market/tickers';
+  import { Watchlist } from '$lib/features/market/watchlist.svelte';
   import {
     buildTickerWorkspacePayload,
     TickerWorkspaceSync,
@@ -284,23 +248,14 @@
     toolSettingsOpen = true;
   }
 
-  const initialGroups = loadGroupsFromStorage();
-  let groups = $state<TickerGroup[]>(initialGroups);
-  let selectedGroupName = $state(loadSelectedGroupName(initialGroups));
-  let selectedPriority = $state<FlaggedPriority | null>(loadSelectedPriority());
-  let selectedStance = $state<FlaggedStance | null>(loadSelectedStance());
+  const watchlist = new Watchlist();
   const authed = $derived($authState.user != null);
   let lastRemoteUserId = $state<string | null>(null);
   let sessionReady = $state(false);
   const workspaceSync = new TickerWorkspaceSync({
     userId: () => $authState.user?.id ?? null,
-    read: () => ({ groups, selectedGroupName, selectedPriority, selectedStance }),
-    apply: next => {
-      groups = next.groups;
-      selectedGroupName = next.selectedGroupName;
-      selectedPriority = next.selectedPriority;
-      selectedStance = next.selectedStance;
-    },
+    read: () => watchlist.snapshot(),
+    apply: next => watchlist.apply(next),
     onHydrated: clearTickerLocalStorage,
     onError: error => console.warn('[openquant] Ticker workspace sync failed', error),
   });
@@ -457,7 +412,7 @@
       command('cursor', 'Select chart cursor', () => (activeTool = CURSOR), 'Drawing'),
       ...listTools().map(tool => command(`drawing:${tool.type}`, tool.label, () => (activeTool = tool.type), 'Drawing')),
     ];
-    const symbols = new Map(groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
+    const symbols = new Map(watchlist.groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
     for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
     if ($authState.user) {
       commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
@@ -667,18 +622,15 @@
 
   $effect(() => {
     if (authed || lastRemoteUserId !== null) return;
-    persistGroups(groups);
-    persistSelectedGroupName(selectedGroupName);
-    persistSelectedPriority(selectedPriority);
-    persistSelectedStance(selectedStance);
+    watchlist.saveLocal();
   });
   $effect(() => {
     if (!authed) return;
     const payload = buildTickerWorkspacePayload(
-      groups,
-      selectedGroupName,
-      selectedPriority,
-      selectedStance,
+      watchlist.groups,
+      watchlist.selectedGroupName,
+      watchlist.selectedPriority,
+      watchlist.selectedStance,
     );
     untrack(() => workspaceSync.save(payload));
   });
@@ -686,158 +638,32 @@
     if (!sessionReady) return;
     const id = $authState.user?.id ?? null;
     untrack(() => {
-      if (lastRemoteUserId !== null && id !== lastRemoteUserId) {
-        const g = loadGroupsFromStorage();
-        groups = g;
-        selectedGroupName = loadSelectedGroupName(g);
-        selectedPriority = loadSelectedPriority();
-        selectedStance = loadSelectedStance();
-      }
+      if (lastRemoteUserId !== null && id !== lastRemoteUserId)
+        watchlist.loadLocal();
       lastRemoteUserId = id;
       workspaceSync.setUser(id);
     });
   });
 
-  let currentGroup = $derived(groups.find(g => g.name === selectedGroupName));
-
-  function handleDuplicateGroup() {
-    const result = duplicateGroup(groups, selectedGroupName);
-    if (!result) return;
-    groups = result.groups;
-    selectedGroupName = result.newName;
-  }
-
-  function handleDeleteGroup() {
-    const next = deleteGroup(groups, selectedGroupName);
-    if (!next) return;
-    groups = next;
-    selectedGroupName = next[0].name;
-  }
-
-  function handleClearGroup() {
-    groups = clearGroup(groups, selectedGroupName);
-  }
-
   function handleGroupDialogSubmit(name: string) {
-    if (dialogs.groupDialogMode === 'add') {
-      groups = addGroup(groups, name);
-      selectedGroupName = name;
-      selectedPriority = null;
-      selectedStance = null;
-    } else if (dialogs.groupDialogMode === 'rename') {
-      groups = renameGroup(groups, selectedGroupName, name);
-      selectedGroupName = name;
-    }
-  }
-
-  function handleAddSymbolSubmit(
-    sym: string,
-    providers: SymbolProviders | null,
-  ) {
-    groups = addTickerToGroup(groups, selectedGroupName, sym, providers);
-  }
-
-  function handleSelectGroup(name: string) {
-    selectedGroupName = name;
-    selectedPriority = null;
-    selectedStance = null;
-  }
-
-  function handleSelectPriority(p: FlaggedPriority) {
-    selectedPriority = p;
-    selectedStance = null;
-  }
-
-  function handleSelectStance(s: FlaggedStance) {
-    selectedStance = s;
-    selectedPriority = null;
-  }
-
-  function handleDeleteTicker(sym: string) {
-    groups = selectedPriority || selectedStance
-      ? removeTickerEverywhere(groups, sym)
-      : removeTickerFromGroup(groups, selectedGroupName, sym);
-  }
-
-  function handleSetPriority(sym: string, priority: TickerPriority) {
-    if (selectedPriority) {
-      groups = setPriorityEverywhere(groups, sym, priority);
-      return;
-    }
-    const conflict = findPriorityConflict(
-      groups,
-      sym,
-      priority,
-      selectedGroupName,
-    );
-    if (conflict) {
-      dialogs.showFlagConflict({ kind: 'priority', symbol: sym, desired: priority, conflict });
-      return;
-    }
-    groups = setTickerPriority(groups, selectedGroupName, sym, priority);
-  }
-
-  function handleSetStance(sym: string, stance: TickerStance) {
-    if (selectedStance) {
-      groups = setStanceEverywhere(groups, sym, stance);
-      return;
-    }
-    const conflict = findStanceConflict(
-      groups,
-      sym,
-      stance,
-      selectedGroupName,
-    );
-    if (conflict) {
-      dialogs.showFlagConflict({ kind: 'stance', symbol: sym, desired: stance, conflict });
-      return;
-    }
-    groups = setTickerStance(groups, selectedGroupName, sym, stance);
+    if (dialogs.groupDialogMode === 'add') watchlist.addGroup(name);
+    else if (dialogs.groupDialogMode === 'rename') watchlist.renameGroup(name);
   }
 
   function resolveFlagConflictKeepExisting() {
-    const c = dialogs.flagConflict;
-    if (!c) return;
-    if (c.kind === 'priority') {
-      groups = setTickerPriority(
-        groups,
-        selectedGroupName,
-        c.symbol,
-        c.conflict.existingPriority,
-      );
-    } else {
-      groups = setTickerStance(
-        groups,
-        selectedGroupName,
-        c.symbol,
-        c.conflict.existingStance,
-      );
-    }
+    if (dialogs.flagConflict) watchlist.adoptExistingFlag(dialogs.flagConflict);
     dialogs.clearFlagConflict();
   }
 
   function resolveFlagConflictSwitchGroup(groupName: string) {
-    selectedGroupName = groupName;
-    selectedPriority = null;
-    selectedStance = null;
+    watchlist.selectGroup(groupName);
     dialogs.clearFlagConflict();
   }
 
   let groupDialogInitial = $derived(
-    dialogs.groupDialogMode === 'rename' ? selectedGroupName : '',
+    dialogs.groupDialogMode === 'rename' ? watchlist.selectedGroupName : '',
   );
-  let groupDialogExistingNames = $derived(groups.map(g => g.name));
-  let currentTickers = $derived(currentGroup?.tickers ?? []);
-  let currentTickerSymbols = $derived(currentTickers.map(t => t.symbol));
-  let displayTickers = $derived(
-    selectedStance
-      ? collectTickersByStance(groups, selectedStance)
-      : selectedPriority
-        ? collectTickersByPriority(groups, selectedPriority)
-        : currentTickers,
-  );
-  let priorityCountsMap = $derived(computePriorityCounts(groups));
-  let stanceCountsMap = $derived(computeStanceCounts(groups));
+  let displayTickers = $derived(watchlist.tickers);
 
   let tickerQuotes = $state<Record<string, TickerQuote>>({});
   let quoteUserId = $authState.user?.id ?? null;
@@ -941,18 +767,17 @@
   ): void {
     if (src !== 'yfinance' || candleCount === 0) return;
     if (markedThisSession.has(sym)) return;
-    const cached = findTickerProviders(groups, sym);
+    const cached = watchlist.providersFor(sym);
     if (cached?.yfinance) {
       markedThisSession.add(sym);
       return;
     }
     markedThisSession.add(sym);
     markYFinanceSupported(sym);
-    const nextProviders: SymbolProviders = {
+    watchlist.setProviders(sym, {
       ...(cached ?? DEFAULT_PROVIDERS),
       yfinance: true,
-    };
-    groups = setTickerProvidersEverywhere(groups, sym, nextProviders);
+    });
   }
 
   // Persist chart colours and settings to localStorage only when the page unloads,
@@ -1102,29 +927,29 @@
         symbolExchange={symbolExchangeLabel}
         closePrice={lastClose}
         onoptions={() => { portfolioRunId = null; strategyTab = 'options'; optionsLink++; openStrategy(); }}
-        {groups}
-        {selectedGroupName}
-        {selectedPriority}
-        {selectedStance}
-        priorityCounts={priorityCountsMap}
-        stanceCounts={stanceCountsMap}
+        groups={watchlist.groups}
+        selectedGroupName={watchlist.selectedGroupName}
+        selectedPriority={watchlist.selectedPriority}
+        selectedStance={watchlist.selectedStance}
+        priorityCounts={watchlist.priorityCounts}
+        stanceCounts={watchlist.stanceCounts}
         tickers={displayTickers}
         quotes={tickerQuotesForGroup}
         groupActions={{
-          select: handleSelectGroup,
+          select: name => watchlist.selectGroup(name),
           rename: () => void openWatchlistDialog(dialogs.openRenameGroup),
-          duplicate: handleDuplicateGroup,
-          clear: handleClearGroup,
+          duplicate: () => watchlist.duplicateGroup(),
+          clear: () => watchlist.clearGroup(),
           add: () => void openWatchlistDialog(dialogs.openAddGroup),
-          delete: handleDeleteGroup,
+          delete: () => watchlist.deleteGroup(),
         }}
         onaddticker={() => void openWatchlistDialog(dialogs.openAddSymbol)}
-        onselectpriority={handleSelectPriority}
-        onselectstance={handleSelectStance}
-        onselectticker={sym => selectChartSymbol(sym, findTickerProviders(groups, sym))}
-        ondeleteticker={handleDeleteTicker}
-        onsetpriority={handleSetPriority}
-        onsetstance={handleSetStance}
+        onselectpriority={p => watchlist.selectPriority(p)}
+        onselectstance={s => watchlist.selectStance(s)}
+        onselectticker={sym => selectChartSymbol(sym, watchlist.providersFor(sym))}
+        ondeleteticker={sym => watchlist.deleteTicker(sym)}
+        onsetpriority={(sym, priority) => { const conflict = watchlist.setPriority(sym, priority); if (conflict) dialogs.showFlagConflict(conflict); }}
+        onsetstance={(sym, stance) => { const conflict = watchlist.setStance(sym, stance); if (conflict) dialogs.showFlagConflict(conflict); }}
         notes={currentNotes}
         onaddnote={symbol => void openWatchlistDialog(() => dialogs.openAddNote(symbol))}
         oneditnote={note => void openWatchlistDialog(() => dialogs.openEditNote(note))}
@@ -1225,10 +1050,10 @@
   <CompareView bind:open={compareOpen} compare={compareState} />
   <AppDialogs
     {groupDialogInitial}
-    {groupDialogExistingNames}
-    existingSymbols={currentTickerSymbols}
+    groupDialogExistingNames={watchlist.groupNames}
+    existingSymbols={watchlist.groupSymbols}
     onGroupDialogSubmit={handleGroupDialogSubmit}
-    onAddSymbolSubmit={handleAddSymbolSubmit}
+    onAddSymbolSubmit={(sym, providers) => watchlist.addTicker(sym, providers)}
     onNoteSubmit={handleNoteSubmit}
     onResolveFlagConflictKeepExisting={resolveFlagConflictKeepExisting}
     onResolveFlagConflictSwitchGroup={resolveFlagConflictSwitchGroup}
