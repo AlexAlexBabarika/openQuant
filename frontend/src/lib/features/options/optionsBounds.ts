@@ -18,3 +18,11 @@ export const MAX_FINDER_EVALUATIONS = 2000;
 export const MAX_CHAIN_QUOTES = 2000;
 export const MAX_CHAIN_EXPIRATIONS = 128;
 export const SYMBOL_PATTERN = /^[A-Za-z0-9.^_/-]{1,32}$/;
+
+/** A bound as quoted in messages and field help, e.g. "1,000,000". */
+export const grouped = (bound: number): string => bound.toLocaleString('en-US');
+/** A bound as quoted in a compact field label, e.g. "1m". */
+export const short = (bound: number): string =>
+  bound >= 1_000_000 && bound % 1_000_000 === 0
+    ? `${bound / 1_000_000}m`
+    : grouped(bound);

@@ -1,4 +1,4 @@
-import { MAX_PRICE } from './optionsBounds';
+import { MAX_PRICE, grouped } from './optionsBounds';
 import { apiJson } from '$lib/core/api';
 import { scenarioInputError } from './optionsScenario';
 import { optionsErrors } from './optionsValidation';
@@ -47,8 +47,7 @@ export function stressErrors(
     spot <= 0 ||
     spot > MAX_PRICE
   )
-    errors.spotChangePct =
-      'Use −100% < spot change ≤ 1000%, with resulting spot >0 and ≤1,000,000 USD.';
+    errors.spotChangePct = `Use −100% < spot change ≤ 1000%, with resulting spot >0 and ≤${grouped(MAX_PRICE)} USD.`;
   const timeError = scenarioInputError(draft, settings.elapsedDays, 0);
   if (timeError) errors.elapsedDays = timeError;
   const ivError = scenarioInputError(draft, 0, settings.ivShiftPP);

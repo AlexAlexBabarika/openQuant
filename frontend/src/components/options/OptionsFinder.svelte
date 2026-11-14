@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MAX_DAYS, MAX_FINDER_EVALUATIONS, MAX_PRICE } from '$lib/features/options/optionsBounds';
+  import { MAX_DAYS, MAX_FINDER_EVALUATIONS, MAX_PRICE, short } from '$lib/features/options/optionsBounds';
   import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import { findStrategies } from '$lib/features/options/optionsResearchApi';
   import type { FinderRequest, FinderResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
@@ -88,10 +88,10 @@
           {#if leg.source}<p>{leg.source.contract_symbol} · {leg.source.underlying} · {leg.source.provider}/{leg.source.environment}. Model approximation remains European/cash. Fetched {formatTime(leg.source.fetched_at)}.</p>{:else}<p>Manual/synthetic contract · not provider verified</p>{/if}
           <div class="grid">
             <label><span>Kind</span><select name={`universe.${i}.kind`} value={leg.kind} onchange={e => edit(i, { kind: e.currentTarget.value as 'call' | 'put' })}><option value="call">Call</option><option value="put">Put</option></select></label>
-            {@render numberField('Strike · USD (>0–1m)', `universe.${i}.strike`, leg.strike ?? NaN, 0, MAX_PRICE, n => edit(i, { strike: n }))}
-            {@render numberField('Entry premium · USD/unit (0–1m)', `universe.${i}.entry_premium`, leg.entry_premium, 0, MAX_PRICE, n => edit(i, { entry_premium: n }))}
+            {@render numberField(`Strike · USD (>0–${short(MAX_PRICE)})`, `universe.${i}.strike`, leg.strike ?? NaN, 0, MAX_PRICE, n => edit(i, { strike: n }))}
+            {@render numberField(`Entry premium · USD/unit (0–${short(MAX_PRICE)})`, `universe.${i}.entry_premium`, leg.entry_premium, 0, MAX_PRICE, n => edit(i, { entry_premium: n }))}
             {@render numberField('Multiplier · units/contract (1–1000)', `universe.${i}.multiplier`, leg.multiplier, 1, 1000, n => edit(i, { multiplier: n }), '1')}
-            <label><span>Days override · blank inherits, 0–3650</span><input type="number" name={`universe.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} oninput={e => edit(i, { days_to_expiry: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.days_to_expiry`)}</label>
+            <label><span>Days override · blank inherits, 0–{MAX_DAYS}</span><input type="number" name={`universe.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} oninput={e => edit(i, { days_to_expiry: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.days_to_expiry`)}</label>
             <label><span>Expiry date · optional UTC, uses draft valuation</span><input type="date" name={`universe.${i}.expiry_date`} min="0001-01-01" max="9999-12-31" value={leg.expiry_date ?? ''} oninput={e => edit(i, { expiry_date: e.currentTarget.value || null })} />{@render error(`universe.${i}.expiry_date`)}</label>
             <label><span>Annual IV fraction · blank inherits, 0–5</span><input type="number" name={`universe.${i}.implied_volatility`} autocomplete="off" min="0" max="5" step="any" value={leg.implied_volatility ?? ''} oninput={e => edit(i, { implied_volatility: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.implied_volatility`)}</label>
           </div>
@@ -110,7 +110,7 @@
         {@render numberField('Maximum absolute contracts · 1–100', 'constraints.max_total_contracts', maxContracts, 1, 100, n => maxContracts = n, '1')}
         {@render numberField('Maximum legs · 1–4', 'constraints.max_legs', maxLegs, 1, 4, n => maxLegs = n, '1')}
         {@render numberField('Returned candidates · 1–20', 'limit', limit, 1, 20, n => limit = n, '1')}
-        {@render numberField('Evaluation budget · 1–2000', 'max_evaluations', maxEvaluations, 1, MAX_FINDER_EVALUATIONS, n => maxEvaluations = n, '1')}
+        {@render numberField(`Evaluation budget · 1–${MAX_FINDER_EVALUATIONS}`, 'max_evaluations', maxEvaluations, 1, MAX_FINDER_EVALUATIONS, n => maxEvaluations = n, '1')}
       </div>
       <p>Ranking = arithmetic mean of submitted common-expiry scenario P&amp;L (USD), not probability-weighted expected return. Neutral is not delta-neutral. Unknown, mixed-expiry or unbounded loss candidates are excluded.</p>
     </fieldset>

@@ -1,4 +1,4 @@
-import { MAX_DAYS, MAX_PRICE } from './optionsBounds';
+import { MAX_DAYS, MAX_PRICE, grouped } from './optionsBounds';
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
 import { calendar, optionsErrors, quoteTimestamp } from './optionsValidation';
 
@@ -237,7 +237,7 @@ export function optionsEditorErrors(
           leg[field]! > MAX_PRICE)
       )
         errors[`${key}.${field}`] =
-          'Manual price must be 0–1,000,000 USD/unit, or blank.';
+          `Manual price must be 0–${grouped(MAX_PRICE)} USD/unit, or blank.`;
     if ((leg.bid == null) !== (leg.ask == null))
       errors[`${key}.${leg.bid == null ? 'bid' : 'ask'}`] =
         'Enter both bid and ask, or clear both.';

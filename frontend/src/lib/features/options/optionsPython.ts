@@ -1,4 +1,11 @@
 import {
+  MAX_DAYS,
+  MAX_OPTION_CONTRACTS,
+  MAX_PRICE,
+  MAX_UNDERLYING_SHARES,
+  grouped,
+} from './optionsBounds';
+import {
   autocompletion,
   snippetCompletion,
   type Completion,
@@ -75,7 +82,7 @@ const FIELD_DOCS: [string, string][] = [
   ],
   [
     'days_to_expiry',
-    '0–3650 default calendar days, ACT/365; optional per-leg override. A leg date alone resolves days using strategy.valuation_date.',
+    `0–${MAX_DAYS} default calendar days, ACT/365; optional per-leg override. A leg date alone resolves days using strategy.valuation_date.`,
   ],
   [
     'underlying',
@@ -103,12 +110,12 @@ const FIELD_DOCS: [string, string][] = [
   ['kind', '"call", "put" or "underlying".'],
   [
     'quantity',
-    'Nonzero signed integer; options ±1–10,000 contracts, stock ±1–1,000,000 shares.',
+    `Nonzero signed integer; options ±1–${grouped(MAX_OPTION_CONTRACTS)} contracts, stock ±1–${grouped(MAX_UNDERLYING_SHARES)} shares.`,
   ],
-  ['strike', 'Options: >0–1,000,000 USD. Underlying: None.'],
+  ['strike', `Options: >0–${grouped(MAX_PRICE)} USD. Underlying: None.`],
   [
     'entry_premium',
-    '0–1,000,000 USD/unit; underlying entry price. Never automatically changed by quotes.',
+    `0–${grouped(MAX_PRICE)} USD/unit; underlying entry price. Never automatically changed by quotes.`,
   ],
   [
     'multiplier',
@@ -121,17 +128,17 @@ const FIELD_DOCS: [string, string][] = [
   ],
   [
     'bid',
-    'Optional paired bid/ask USD/unit 0–1,000,000, bid ≤ ask; requires quote_as_of. Manual unverified quotes only.',
+    `Optional paired bid/ask USD/unit 0–${grouped(MAX_PRICE)}, bid ≤ ask; requires quote_as_of. Manual unverified quotes only.`,
   ],
   [
     'ask',
-    'Optional paired bid/ask USD/unit 0–1,000,000; metadata never changes entry_premium.',
+    `Optional paired bid/ask USD/unit 0–${grouped(MAX_PRICE)}; metadata never changes entry_premium.`,
   ],
   [
     'quote_as_of',
     'Optional ≤64-character timezone-aware ISO timestamp with T and Z or ±HH:MM. Manual, not verified/fresh. No underlying quotes.',
   ],
-  ['spot', 'Current underlying spot >0–1,000,000 USD.'],
+  ['spot', `Current underlying spot >0–${grouped(MAX_PRICE)} USD.`],
   [
     'volatility',
     'Annual IV fraction 0–5, default 0.2; fallback for options without their own IV.',
@@ -140,7 +147,7 @@ const FIELD_DOCS: [string, string][] = [
   ['dividend_yield', 'Annual continuous dividend yield fraction −1–1.'],
   [
     'spot_grid',
-    '2–201 strictly increasing USD prices 0–1,000,000; aligned curves, separate exact expiry vertices.',
+    `2–201 strictly increasing USD prices 0–${grouped(MAX_PRICE)}; aligned curves, separate exact expiry vertices.`,
   ],
   [
     'scenarios',
@@ -162,7 +169,10 @@ const FIELD_DOCS: [string, string][] = [
     'axis',
     '"elapsed_days" at current resolved IV or "iv_shift_pp" at current time; fixed entry premiums/fees.',
   ],
-  ['spots', 'Surface: 2–41 strictly increasing USD prices 0–1,000,000.'],
+  [
+    'spots',
+    `Surface: 2–41 strictly increasing USD prices 0–${grouped(MAX_PRICE)}.`,
+  ],
   [
     'steps',
     'Surface: 2–21 strictly increasing values; days 0–horizon, IV shifts −100–100 pp with all shifted IVs in 0–5.',

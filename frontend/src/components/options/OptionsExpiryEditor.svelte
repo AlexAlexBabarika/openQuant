@@ -36,7 +36,7 @@
         <div class="leg">
           <h4>Leg {i + 1} · {leg.kind} · {leg.quantity} signed contracts{!leg.enabled ? ' · disabled (still validated)' : ''}</h4>
           <div class="fields">
-            <label>Override · calendar days (0–3650)<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
+            <label>Override · calendar days (0–{MAX_DAYS})<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
             <label>Override · expiry date (UTC)<input type="date" name={`legs.${i}.expiry_date`} value={leg.expiry_date ?? ''} aria-invalid={!!errors[`legs.${i}.expiry_date`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'expiry_date', e.currentTarget.value || null)} /></label>
           </div>
           <p id={`${uid}-leg-${i}`}>{errors[`legs.${i}.days_to_expiry`] ?? errors[`legs.${i}.expiry_date`] ?? `Resolved horizon: ${researchValue(resolvedLegDays(draft.strategy, leg))} calendar days.`}</p>

@@ -1,4 +1,4 @@
-import { MAX_DAYS, MAX_PRICE } from './optionsBounds';
+import { MAX_DAYS, MAX_PRICE, grouped } from './optionsBounds';
 import type {
   OptionsDraft,
   OptionsSurfaceAnalysis,
@@ -48,7 +48,7 @@ export function scenarioInputError(
     elapsed < 0 ||
     elapsed > firstExpiryDays(draft)
   )
-    return 'Elapsed days must be within the common 0–expiry horizon (up to 3650 days).';
+    return `Elapsed days must be within the common 0–expiry horizon (up to ${MAX_DAYS} days).`;
   if (
     !bounds ||
     !finiteValue(shift) ||
@@ -113,7 +113,7 @@ export function surfaceSettingsErrors(
     spotEnd > MAX_PRICE ||
     spotStart >= spotEnd
   )
-    errors.spots = 'Use 0 ≤ spot start < end ≤ 1,000,000 USD.';
+    errors.spots = `Use 0 ≤ spot start < end ≤ ${grouped(MAX_PRICE)} USD.`;
   if (!Number.isInteger(spotCount) || spotCount < 2 || spotCount > 41)
     errors.spotCount = 'Use 2–41 spot columns.';
   if (!Number.isInteger(stepCount) || stepCount < 2 || stepCount > 21)
