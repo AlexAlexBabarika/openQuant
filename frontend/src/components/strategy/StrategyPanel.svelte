@@ -14,6 +14,7 @@
   import { Dialog, Popover } from 'bits-ui';
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Plus from '@lucide/svelte/icons/plus';
+  import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Play from '@lucide/svelte/icons/play';
   import Save from '@lucide/svelte/icons/save';
   import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -189,12 +190,21 @@
     const unsaved = strat.activeId === id && strat.dirty
       ? ' Unsaved changes will be discarded.'
       : '';
-    if (!confirm(`Delete "${name}"? This cannot be undone.${unsaved}`)) return;
+    if (!(await confirmAction({ title: `Delete "${name}"?`, description: `This cannot be undone.${unsaved}`, confirmLabel: 'Delete', destructive: true }))) return;
     try {
       await strat.remove(id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed');
+      void confirmAction({ title: `Could not delete "${name}"`, description: err instanceof Error ? err.message : 'Delete failed', acknowledge: true });
     }
+  }
+
+  async function newDraft() {
+    if (await confirmDiscard(strat.dirty, 'strategy')) strat.newDraft(() => true);
+  }
+
+  async function selectScript(id: string) {
+    if (id === strat.activeId) return;
+    if (await confirmDiscard(strat.dirty, 'strategy')) strat.select(id, () => true);
   }
 
   function fmtRelative(iso: string): string {
@@ -315,7 +325,7 @@
             <button
               type="button"
               class="iconbtn"
-              onclick={() => strat.newDraft()}
+              onclick={() => void newDraft()}
               title="New strategy (clears editor)"
               aria-label="New strategy"
             >
@@ -347,7 +357,7 @@
                   type="button"
                   class="ri-select"
                   aria-pressed={strat.activeId === s.id}
-                  onclick={() => strat.select(s.id)}
+                  onclick={() => void selectScript(s.id)}
                 >
                   <span class="ri-name">{s.name}</span>
                   <span class="ri-time">{fmtRelative(s.updated_at)}</span>
@@ -389,7 +399,7 @@
             </div>
 
             <div class="actions">
-              <button type="button" class="btn ghost wide-action" onclick={() => strat.newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
+              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
               {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
               <button
                 type="button"
@@ -415,7 +425,7 @@
               <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
                 <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
                 <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-[60] flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-lg">
-                  <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => strat.newDraft())}>New strategy</button>
+                  <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => void newDraft())}>New strategy</button>
                   {#if onRobustness}<button type="button" class="btn ghost min-h-11" disabled={strat.isRunning || !symbol} onclick={() => void selectAction(onRobustness)}>Robustness</button>{/if}
                 </Popover.Content></Popover.Portal>
               </Popover.Root></div>
@@ -515,7 +525,7 @@
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
       0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
     border-radius: 16px 16px 0 0;
-    font-family: var(--font-family-lato);
+    font-family: var(--font-sans);
     font-size: 14px;
     line-height: 20px;
     overflow: hidden;
@@ -550,7 +560,7 @@
     font-size: 14px;
     transform: translateY(1px);
   }
-  .brand-title { font-weight: 700; }
+  .brand-title { font-weight: 600; }
   .brand-sub {
     color: oklch(var(--muted-foreground));
     font-size: 11px;
@@ -573,7 +583,7 @@
     background: oklch(var(--background));
   }
   .ctx-label {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
@@ -584,12 +594,12 @@
   }
   .ctx-sym {
     color: oklch(var(--foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
   .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 10.5px; }
+  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
 
   .iconbtn {
     display: inline-flex;
@@ -641,7 +651,7 @@
   .tab.active {
     color: oklch(var(--primary-foreground));
     background: oklch(var(--primary));
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .body {
@@ -700,20 +710,20 @@
     align-items: center;
     gap: 8px;
     padding: 14px 16px 10px;
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
   }
-  .rail-title { font-weight: 700; color: oklch(var(--foreground)); }
+  .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
   .rail-count {
     margin-left: 2px;
     padding: 1px 6px;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 999px;
-    font-size: 9.5px;
+    font-size: 10px;
     color: oklch(var(--muted-foreground));
   }
   .rail-head .iconbtn { margin-left: auto; }
@@ -726,7 +736,7 @@
   }
   .rail-hint {
     margin: 12px 12px;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
@@ -774,7 +784,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .ri-time {
     font-size: 10px;
@@ -852,7 +862,7 @@
     padding: 4px 0;
     font-family: inherit;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
@@ -898,7 +908,7 @@
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 11.5px;
+    font-size: 12px;
     letter-spacing: 0.04em;
     text-transform: lowercase;
     cursor: pointer;
@@ -913,7 +923,7 @@
     background: oklch(var(--primary));
     border-color: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }

@@ -520,8 +520,8 @@ def on_bar(ctx):
     margin: 0 auto;
     padding: 28px 32px 64px;
     color: oklch(var(--foreground));
-    font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
-    font-size: 12.5px;
+    font-family: var(--font-mono);
+    font-size: 13px;
     line-height: 1.65;
   }
 
@@ -540,7 +540,7 @@ def on_bar(ctx):
   h1 {
     margin: 4px 0 6px;
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.01em;
   }
   .lede {
@@ -566,12 +566,12 @@ def on_bar(ctx):
   }
   .hash {
     color: oklch(var(--primary));
-    font-weight: 700;
+    font-weight: 600;
   }
   .dim {
     margin: 0 0 10px;
     color: oklch(var(--muted-foreground));
-    font-size: 11.5px;
+    font-size: 12px;
   }
 
   .defs {
@@ -599,7 +599,7 @@ def on_bar(ctx):
   }
   .defs .name {
     color: oklch(var(--primary));
-    font-weight: 700;
+    font-weight: 600;
   }
   .defs .sig {
     color: oklch(var(--foreground));
@@ -607,7 +607,7 @@ def on_bar(ctx):
     word-break: break-word;
   }
   .defs .type {
-    font-size: 10.5px;
+    font-size: 11px;
     padding: 1px 6px;
     border: 1px solid
       color-mix(in oklab, oklch(var(--border)) 100%, transparent);
@@ -662,24 +662,24 @@ def on_bar(ctx):
   pre code { color: oklch(var(--foreground)); }
 
   /* Light theme: pure white surfaces, black hairlines, no greys. */
-  :global(html:not(.dark)) .docs { background: #ffffff; }
-  :global(html:not(.dark)) .hero { border-bottom: 1px dashed #000; }
+  :global(html:not(.dark)) .docs { background: oklch(var(--card)); }
+  :global(html:not(.dark)) .hero { border-bottom: 1px dashed oklch(var(--foreground)); }
   :global(html:not(.dark)) .defs li {
-    background: #ffffff;
-    border-left: 2px solid #000;
+    background: oklch(var(--card));
+    border-left: 2px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .defs .type {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .tag {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) pre {
-    background: #ffffff;
-    border-color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
 </style>

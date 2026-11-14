@@ -103,13 +103,10 @@ is nominative fair use.
 | Yahoo!®, Yahoo Finance® | Yahoo Inc. | Optional market-data provider, accessed via `yfinance` |
 | Binance® | Binance Holdings Ltd. | Optional market-data provider |
 | Twelve Data® | Twelve Data Inc. | Optional market-data provider, requires a user-supplied key |
-| Lato® | tyPoland Lukasz Dziedzic | Bundled UI font; "Lato" is a Reserved Font Name under the OFL |
-| Space Mono | The Space Mono Project Authors | Bundled monospace font; Reserved Font Name under the OFL |
+| Geist, Geist Mono | The Geist Project Authors (Vercel) | Bundled UI and monospace fonts |
 | PostgreSQL®, Docker® | PostgreSQL Community Association / Docker, Inc. | Required infrastructure named in setup documentation |
 
-Reserved Font Names carry a specific obligation: a modified version of Lato or
-Space Mono must be distributed under a different name. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full font license terms.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full font license terms.
 
 ## Not a brokerage
 

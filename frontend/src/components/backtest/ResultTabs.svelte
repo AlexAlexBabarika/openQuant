@@ -114,7 +114,7 @@
     background: transparent;
     color: oklch(var(--muted-foreground));
     font-family: inherit;
-    font-size: 11.5px;
+    font-size: 12px;
     letter-spacing: 0.06em;
     cursor: pointer;
     transition: color 120ms ease;

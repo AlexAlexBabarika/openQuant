@@ -81,7 +81,7 @@
     height: 16px;
     line-height: 16px;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.06em;
     text-align: right;
     color: oklch(var(--muted-foreground));
@@ -97,7 +97,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.06em;
     color: oklch(var(--muted-foreground));
   }
@@ -117,7 +117,7 @@
   .swatch.short { margin-left: 8px; }
 
   :global(html:not(.dark)) svg {
-    background: #ffffff;
-    border-color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
 </style>

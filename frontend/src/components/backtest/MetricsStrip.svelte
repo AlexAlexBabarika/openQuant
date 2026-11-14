@@ -47,7 +47,7 @@
   .value {
     font-family: var(--font-mono);
     font-size: 19px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
     font-variant-numeric: tabular-nums;
   }

@@ -74,7 +74,7 @@
   }
   .sub-label {
     padding: 4px 14px 0;
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));

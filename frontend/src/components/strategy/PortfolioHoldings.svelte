@@ -58,12 +58,12 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11.5px;
+    font-size: 12px;
   }
   th {
     padding: 4px 10px;
-    font-size: 9.5px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -77,11 +77,11 @@
   }
   .left { text-align: left; }
   .right { text-align: right; font-variant-numeric: tabular-nums; }
-  .sym { font-weight: 700; letter-spacing: 0.06em; }
+  .sym { font-weight: 600; letter-spacing: 0.06em; }
   tr.closed .sym { color: oklch(var(--muted-foreground)); }
   .dim { color: oklch(var(--muted-foreground)); }
-  .pos { color: #4ade80; }
-  .neg { color: #ff9c9c; }
+  .pos { color: oklch(var(--up-color)); }
+  .neg { color: oklch(var(--down-color)); }
 
   .bar-cell { width: 34%; min-width: 120px; }
   .bar-track {
@@ -94,12 +94,10 @@
   .bar {
     display: block;
     height: 100%;
-    background: #22c55e;
+    background: oklch(var(--up-color));
     border-radius: 2px;
   }
-  .bar.short { background: #ef4444; }
+  .bar.short { background: oklch(var(--down-color)); }
 
-  :global(html:not(.dark)) th { border-bottom-color: #000; }
-  :global(html:not(.dark)) .pos { color: #15803d; }
-  :global(html:not(.dark)) .neg { color: #b91c1c; }
+  :global(html:not(.dark)) th { border-bottom-color: oklch(var(--foreground)); }
 </style>

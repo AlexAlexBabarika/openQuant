@@ -193,7 +193,7 @@
 </section>
 
 <style>
-  .leg-editor { container-type: inline-size; min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font-family: var(--font-family-lato); font-size: 12px; }
+  .leg-editor { container-type: inline-size; min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
   header { justify-content: space-between; }
   h3 { margin: 0; font-size: 12px; }
@@ -213,14 +213,14 @@
   .field-error { display: block; font-size: 11px; color: oklch(var(--down-color)); line-height: 1.4; overflow-wrap: anywhere; }
   .hint { margin: 0; color: oklch(var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
   .legs { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .legs th { padding: 0 4px 6px; text-align: left; font-size: 11px; font-weight: 700; color: oklch(var(--muted-foreground)); white-space: nowrap; }
+  .legs th { padding: 0 4px 6px; text-align: left; font-size: 11px; font-weight: 600; color: oklch(var(--muted-foreground)); white-space: nowrap; }
   .legs th:nth-child(1) { width: 52px; } .legs th:nth-child(2) { width: 56px; } .legs th:nth-child(3) { width: 78px; } .legs th:nth-child(6) { width: 32px; }
   .legs th.num { text-align: right; }
   .legs td { padding: 3px 4px; vertical-align: top; }
   .legs tbody + tbody tr:first-child td { border-top: 1px solid oklch(var(--border)); }
   .off > tr:first-child td:not([data-k="menu"]) { opacity: 0.55; }
   .off-tag { display: block; color: oklch(var(--muted-foreground)); font-size: 11px; }
-  .side { width: 100%; min-height: 30px; border: 1px solid; border-radius: 4px; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+  .side { width: 100%; min-height: 30px; border: 1px solid; border-radius: 4px; background: transparent; font: inherit; font-weight: 600; cursor: pointer; }
   .side.buy { color: oklch(var(--up-color)); border-color: oklch(var(--up-color)); }
   .side.sell { color: oklch(var(--down-color)); border-color: oklch(var(--down-color)); }
   .na { display: block; min-height: 30px; line-height: 30px; text-align: right; color: oklch(var(--muted-foreground)); }
@@ -238,7 +238,7 @@
   .more td { padding: 4px 4px 10px; }
   .detail-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0; }
   .timestamp { grid-column: span 1; }
-  .quote-title { margin: 8px 0 0; font-weight: 700; }
+  .quote-title { margin: 8px 0 0; font-weight: 600; }
   .more button { margin-top: 6px; }
   button { white-space: normal; height: auto; overflow-wrap: anywhere; }
   @container (max-width: 380px) {

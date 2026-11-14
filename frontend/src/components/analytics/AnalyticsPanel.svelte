@@ -4,6 +4,7 @@
   import { createModalLifecycle } from '$lib/core/modalLifecycle';
   import Search from '@lucide/svelte/icons/search';
   import X from '@lucide/svelte/icons/x';
+  import Sigma from '@lucide/svelte/icons/sigma';
   import MetricCard from './MetricCard.svelte';
   import ScalarBody from './cards/ScalarBody.svelte';
   import VaRBody from './cards/VaRBody.svelte';
@@ -122,7 +123,7 @@
   >
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark">∑</span>
+        <span class="brand-mark"><Sigma class="h-3.5 w-3.5" /></span>
         <span class="brand-title">analytics</span>
         <span class="brand-sub">/ workbench</span>
       </div>
@@ -284,7 +285,7 @@
       0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent)
         inset;
     border-radius: 16px 16px 0 0;
-    font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--font-mono);
     overflow: hidden;
     animation: slideUp 280ms cubic-bezier(0.18, 0.9, 0.24, 1);
   }
@@ -332,7 +333,7 @@
     transform: translateY(1px);
   }
   .brand-title {
-    font-weight: 700;
+    font-weight: 600;
   }
   .brand-sub {
     color: oklch(var(--muted-foreground));
@@ -355,13 +356,13 @@
     background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
   }
   .ctx-label {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
   .ctx-sym {
     color: oklch(var(--foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
@@ -386,9 +387,9 @@
     background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
   }
   .iconbtn.close:hover {
-    border-color: color-mix(in oklab, #ff7373 60%, transparent);
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 12%, transparent);
+    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    color: oklch(var(--status-error));
+    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
   }
 
   .body {
@@ -446,7 +447,7 @@
   }
   .group-head {
     padding: 8px 10px 4px;
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -514,20 +515,20 @@
     min-width: 0;
   }
   .row-name {
-    font-size: 12.5px;
+    font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .row-desc {
-    font-size: 10.5px;
+    font-size: 11px;
     line-height: 1.4;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
 
   .hint {
     margin: 14px 12px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: oklch(var(--muted-foreground));
   }
 
@@ -567,7 +568,7 @@
     margin: auto;
     padding: 24px;
     color: oklch(var(--muted-foreground));
-    font-size: 12.5px;
+    font-size: 13px;
     letter-spacing: 0.04em;
   }
   .grid {
@@ -602,49 +603,49 @@
   }
 
   :global(html:not(.dark)) .panel {
-    background: #ffffff;
+    background: oklch(var(--card));
     box-shadow:
-      0 -1px 0 0 #000 inset,
+      0 -1px 0 0 oklch(var(--foreground)) inset,
       0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid #000;
+    border-top: 1px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .topbar {
-    background: #ffffff;
-    border-bottom: 1px dashed #000;
+    background: oklch(var(--card));
+    border-bottom: 1px dashed oklch(var(--foreground));
   }
   :global(html:not(.dark)) .ctx {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .ctx-label {
-    color: #000;
+    color: oklch(var(--foreground));
     opacity: 0.55;
   }
   :global(html:not(.dark)) .iconbtn {
-    border-color: #000;
-    color: #000;
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .iconbtn:hover {
-    background: #000;
-    color: #fff;
-    border-color: #000;
+    background: oklch(var(--foreground));
+    color: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .rail {
-    background: #ffffff;
-    border-right: 1px solid #000;
+    background: oklch(var(--card));
+    border-right: 1px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .search {
-    border-bottom: 1px dashed #000;
-    color: #000;
+    border-bottom: 1px dashed oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .rail-foot {
-    border-top: 1px dashed #000;
-    color: #000;
+    border-top: 1px dashed oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .kbd {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
 </style>

@@ -85,6 +85,7 @@ function setup(
       '$lib/components/ui/dialog': {},
       '$lib/features/runs/runsHistory.svelte': { runsHistory: history },
       '$lib/features/runs/format': { truncateRunId },
+      '$lib/features/confirm/confirm.svelte': { confirmAction: vi.fn() },
       '$lib/features/runs/notebookMetadata': metadata,
       '$lib/features/auth/auth': { authState },
       '$lib/features/runs/runsClient': {

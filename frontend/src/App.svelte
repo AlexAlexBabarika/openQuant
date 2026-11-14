@@ -15,6 +15,8 @@
   import type { IndicatorPoint, BollingerBandsPoint } from '$lib/core/types';
   import { useIndicatorEffect } from '$lib/features/chart/indicatorEffect.svelte';
   import { ChartController } from '$lib/features/chart/chartController.svelte';
+  import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
+  import ConfirmDialog from './components/dialogs/ConfirmDialog.svelte';
   import { ComparisonController } from '$lib/features/chart/comparisonController.svelte';
   import SymbolSearchDialog from './components/dialogs/SymbolSearchDialog.svelte';
   import GuidedExampleDialog from './components/dialogs/GuidedExampleDialog.svelte';
@@ -458,8 +460,8 @@
     const symbols = new Map(groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
     for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
     if ($authState.user) {
-      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, () => { strategy.select(script.id); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
-      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, () => { indicators.openScript(script.id); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
+      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
+      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.openScript(script.id, () => true); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
     }
     commands.push(...runsHistory.entries.map(run => command(`run:${run.run_id}`, run.label, () => openStoredRun(run.run_id), 'Run', `${run.kind} ${run.tags?.join(' ') ?? ''} ${run.baseline ? 'baseline' : ''}`)));
     return commands;
@@ -500,11 +502,11 @@
     return () => window.removeEventListener('pagehide', flush);
   });
 
-  function recoverDraft(kind: DraftKind): void {
+  async function recoverDraft(kind: DraftKind): Promise<void> {
     const draft = researchShelf.pending[kind];
     if (!draft) return;
     const editor = kind === 'strategy' ? strategy : indicators;
-    if (editor.dirty && !confirm(`Replace the current ${kind} editor with the recovered local draft?`)) return;
+    if (editor.dirty && !(await confirmAction({ title: `Replace the current ${kind} editor?`, description: 'The recovered local draft replaces your unsaved changes.', confirmLabel: 'Replace' }))) return;
     editor.newDraft(() => true);
     editor.setName(draft.name); editor.setCode(draft.code); editor.dirty = true;
     researchShelf.resolve(kind);
@@ -538,9 +540,9 @@
     };
   }
 
-  function restoreResearchWorkspace(workspace: ResearchWorkspace): boolean {
+  async function restoreResearchWorkspace(workspace: ResearchWorkspace): Promise<boolean> {
     if (strategy.isRunning || indicators.isRunning) { researchShelf.error = 'Stop or finish execution before restoring a workspace.'; return false; }
-    if (!confirm(`Restore “${workspace.name}”? This replaces both editors and the chart layout, but does not run scripts.`)) return false;
+    if (!(await confirmAction({ title: `Restore “${workspace.name}”?`, description: 'This replaces both editors and the chart layout, but does not run scripts.', confirmLabel: 'Restore' }))) return false;
     const layout = workspace.layout;
     indicators.stopAll();
     chart.stopStream(); chart.autoRefresh = false;
@@ -1003,6 +1005,7 @@
 <svelte:window onkeydown={handleCommandKey} />
 
 <div class="flex flex-col h-dvh bg-background">
+  <a href="#workbench-main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[90] focus:rounded focus:bg-card focus:px-3 focus:py-2 focus:text-sm">Skip to workspace</a>
   <DrawablesPersistence userId={$authState.user?.id ?? null} ready={sessionReady} />
   <TopHeader
     bind:symbol={chart.symbol}
@@ -1032,6 +1035,7 @@
       <button type="button" class="ot-workbench-ghost" onclick={openResearchWorkspaces}>Review recovery</button>
     </div>
   {/if}
+  <main id="workbench-main" class="flex min-h-0 min-w-0 flex-1 flex-col">
   <section class="workbench-view chart-workspace" hidden={activeView !== 'chart'} inert={activeView !== 'chart'} aria-label="Chart workspace">
   <ErrorMessage bind:message={chart.errorMessage} context={`${chart.symbol} · ${chart.source} · ${chart.period} / ${chart.interval}`} loadedContext={chart.candles.length && chart.loadedContext ? `${chart.loadedContext.symbol} · ${chart.loadedContext.source} · ${chart.loadedContext.period} / ${chart.loadedContext.interval}` : ''} onretry={chart.source !== 'csv' ? () => void chart.loadMarketData() : undefined} />
   {#snippet drawingToolsControl()}
@@ -1183,6 +1187,7 @@
       onopenstrategy={openStrategy}
       onreturnworkspace={openChart} />
   </section>
+  </main>
   <ToolboxPanel
     bind:open={toolboxOpen}
     {theme}
@@ -1209,6 +1214,7 @@
   <GuidedExampleDialog bind:open={guidedExampleOpen} returnFocus={guidedExampleReturnFocus} />
   <ResearchWorkspacesDialog bind:open={researchWorkspacesOpen} shelf={researchShelf} onSave={saveResearchWorkspace} onRestore={restoreResearchWorkspace} onRecover={recoverDraft} onKeep={keepCurrentDraft} />
   <DataInspector bind:open={dataInspectorOpen} {chart} />
+  <ConfirmDialog />
   <CommandPalette
     bind:open={commandsOpen}
     commands={researchCommands}

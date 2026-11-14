@@ -136,6 +136,6 @@
   .status button { padding: 2px 10px; font: inherit; font-size: 11px; color: oklch(var(--foreground)); background: transparent; border: 1px solid oklch(var(--border)); border-radius: 4px; cursor: pointer; }
   .badge { padding: 2px 8px; border-radius: 999px; font-size: 10px; text-transform: uppercase; border: 1px solid oklch(var(--border)); }
   .badge.done { color: oklch(var(--primary)); }
-  .badge.error { color: #ff9c9c; }
-  .err { color: #ff9c9c; }
+  .badge.error { color: oklch(var(--status-error)); }
+  .err { color: oklch(var(--status-error)); }
 </style>

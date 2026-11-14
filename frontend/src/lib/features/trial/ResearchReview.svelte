@@ -100,7 +100,7 @@
 
 <style>
   section { border: 1px solid oklch(var(--border)); padding: 12px; margin-bottom: 16px; }
-  h3, h4 { font: 700 14px/20px var(--font-family-lato); margin: 0 0 10px; }
+  h3, h4 { font: 600 14px/20px var(--font-sans); margin: 0 0 10px; }
   ol { padding-left: 20px; }
   li + li { margin-top: 8px; }
   p, li { color: oklch(var(--muted-foreground)); }

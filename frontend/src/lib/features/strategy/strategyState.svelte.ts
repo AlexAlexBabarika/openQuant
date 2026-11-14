@@ -122,7 +122,7 @@ export class StrategyState {
     }
   }
 
-  newDraft(discard = () => confirm('Discard unsaved strategy changes?')): void {
+  newDraft(discard = () => false): void {
     if (this.dirty && !discard()) return;
     this.#draftVersion++;
     this.activeId = null;
@@ -132,10 +132,7 @@ export class StrategyState {
     this.saveError = null;
   }
 
-  select(
-    id: string,
-    discard = () => confirm('Discard unsaved strategy changes?'),
-  ): void {
+  select(id: string, discard = () => false): void {
     if (id === this.activeId) return;
     const s = this.scripts.find(x => x.id === id);
     if (!s) return;

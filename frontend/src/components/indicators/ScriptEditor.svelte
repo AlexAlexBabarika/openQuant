@@ -82,7 +82,7 @@
         background: 'transparent',
         color: 'oklch(var(--foreground))',
         fontSize: '13px',
-        fontFamily: '"Space Mono", ui-monospace, SFMono-Regular, monospace',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, monospace',
       },
       '.cm-scroller': {
         fontFamily: 'inherit',
@@ -232,7 +232,7 @@
   .editor-host :global(.tok-heading) { color: oklch(var(--ring)); }
   .editor-host :global(.tok-comment) { color: oklch(var(--muted-foreground)); font-style: italic; }
   .editor-host :global(.tok-strong),
-  .editor-host :global(.tok-heading) { font-weight: 700; }
+  .editor-host :global(.tok-heading) { font-weight: 600; }
   .editor-host :global(.tok-em) { font-style: italic; }
   .editor-host :global(.tok-link) { text-decoration: underline; }
   .editor-host :global(.tok-string) { color: oklch(var(--up-color)); }

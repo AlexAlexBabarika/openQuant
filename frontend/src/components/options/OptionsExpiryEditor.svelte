@@ -65,7 +65,7 @@
 </section>
 
 <style>
-  .expiry-editor { min-width: 0; display: grid; gap: 8px; padding: 10px; color: oklch(var(--foreground)); font-family: var(--font-family-lato); border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  .expiry-editor { min-width: 0; display: grid; gap: 8px; padding: 10px; color: oklch(var(--foreground)); font-family: var(--font-sans); border: 1px solid oklch(var(--border)); border-radius: 4px; }
   h3, h4, p { margin: 0; } h3 { font-size: 13px; } h4 { font-size: 12px; }
   p, small { color: oklch(var(--muted-foreground)); font-size: 12px; overflow-wrap: anywhere; }
   fieldset { min-width: 0; border: 0; padding: 0; display: grid; gap: 8px; } legend { font-size: 12px; padding: 4px 0; }

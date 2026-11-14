@@ -2,39 +2,51 @@
 @plugin 'tailwindcss-animate';
 
 @font-face {
-  font-family: 'Lato';
-  src:
-    url('/fonts/Lato-Regular.woff2') format('woff2'),
-    url('/fonts/Lato-Regular.ttf') format('truetype');
-  font-weight: 400;
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable-latin.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: 'Lato';
-  src:
-    url('/fonts/Lato-Bold.woff2') format('woff2'),
-    url('/fonts/Lato-Bold.ttf') format('truetype');
-  font-weight: 700;
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable-latin-ext.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 @font-face {
-  font-family: 'Space Mono';
-  src: url('/fonts/SpaceMono-Regular.woff2') format('woff2');
-  font-weight: 400;
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable-latin.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: 'Space Mono';
-  src: url('/fonts/SpaceMono-Bold.woff2') format('woff2');
-  font-weight: 700;
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable-latin-ext.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 @theme inline {
@@ -74,9 +86,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-family-lato: 'Lato', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Geist', 'Segoe UI', system-ui, sans-serif;
   --font-mono:
-    'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', 'Courier New', monospace;
 }
 
@@ -129,6 +141,10 @@
     --control-touch-height: 44px;
     --chart-grid: #e4e9ef;
     --risk: 0.497536 0.105747 62.890023;
+    --status-error: 0.5013 0.1783 28.7; /* #B3261E */
+    --status-warn: 0.4732 0.1247 46.2; /* #92400E */
+    --status-ok: 0.4989 0.1087 157.73; /* #17754A */
+    --status-info: 0.4882 0.2172 264.38; /* #1D4ED8 */
   }
 
   .dark {
@@ -149,12 +165,16 @@
     --chart-3: 0.784721 0.023365 254.4228; /* #AFBAC8 */
     --chart-grid: #263342;
     --risk: 0.845343 0.08626 73.076679;
+    --status-error: 0.7615 0.1421 20.94; /* #FF8A8A */
+    --status-warn: 0.8693 0.1281 81.06; /* #FFCB6B */
+    --status-ok: 0.8362 0.1258 156.83; /* #7EE2A8 */
+    --status-info: 0.7441 0.1311 264.28; /* #82AAFF */
     --destructive: 0.51 0.21 27.325;
   }
 }
 @layer components {
   .ot-mono-chrome {
-    font-family: var(--font-family-lato);
+    font-family: var(--font-sans);
     font-size: 13px;
     line-height: 18px;
   }
@@ -185,7 +205,7 @@
     border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
   }
   .ot-ctx-pill .ot-ctx-label {
-    font-family: var(--font-family-lato);
+    font-family: var(--font-sans);
     font-size: 12px;
     letter-spacing: normal;
     text-transform: uppercase;
@@ -193,7 +213,7 @@
   }
   .ot-ctx-pill .ot-ctx-value {
     color: oklch(var(--foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
@@ -209,14 +229,15 @@
     border: 1px solid oklch(var(--primary));
     background: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
-    font-family: var(--font-family-lato);
+    font-family: var(--font-sans);
     font-size: 13px;
     line-height: 18px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
     transition:
-      background-color 100ms linear,
-      border-color 100ms linear;
+      background-color 160ms ease-out,
+      border-color 160ms ease-out,
+      transform 160ms ease-out;
   }
   .ot-workbench-primary:hover:not(:disabled) {
     background: color-mix(
@@ -231,6 +252,7 @@
       oklch(var(--primary)) 90%,
       oklch(var(--primary-foreground))
     );
+    transform: translateY(1px);
   }
   .ot-workbench-primary:disabled {
     opacity: 0.45;
@@ -249,14 +271,15 @@
     border: 1px solid oklch(var(--input));
     background: transparent;
     color: oklch(var(--foreground));
-    font-family: var(--font-family-lato);
+    font-family: var(--font-sans);
     font-size: 13px;
     line-height: 18px;
     cursor: pointer;
     transition:
-      background-color 100ms linear,
-      border-color 100ms linear,
-      color 100ms linear;
+      background-color 160ms ease-out,
+      border-color 160ms ease-out,
+      color 160ms ease-out,
+      transform 160ms ease-out;
   }
   .ot-workbench-ghost:hover:not(:disabled) {
     border-color: color-mix(
@@ -265,6 +288,20 @@
       transparent
     );
     background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+  }
+  .ot-workbench-ghost:active:not(:disabled) {
+    background: color-mix(in oklab, oklch(var(--foreground)) 11%, transparent);
+    transform: translateY(1px);
+  }
+  /* Borderless ghost for secondary actions that should recede next to an
+     outlined control in the same bar. */
+  .ot-workbench-ghost.quiet {
+    border-color: transparent;
+    color: oklch(var(--muted-foreground));
+  }
+  .ot-workbench-ghost.quiet:hover:not(:disabled) {
+    border-color: transparent;
+    color: oklch(var(--foreground));
   }
   .ot-workbench-ghost:disabled {
     opacity: 0.45;
@@ -287,8 +324,9 @@
     width: 8px;
     height: 8px;
     border-radius: 9999px;
-    background: #22c55e;
-    box-shadow: 0 0 0 2px color-mix(in oklab, #22c55e 28%, transparent);
+    background: oklch(var(--status-ok));
+    box-shadow: 0 0 0 2px
+      color-mix(in oklab, oklch(var(--status-ok)) 28%, transparent);
     animation: ot-stream-pulse 1.6s ease-in-out infinite;
   }
   .ot-stream-dot.idle {
@@ -297,17 +335,20 @@
     animation: none;
   }
   .ot-stream-dot.error {
-    background: #ef4444;
-    box-shadow: 0 0 0 2px color-mix(in oklab, #ef4444 28%, transparent);
+    background: oklch(var(--status-error));
+    box-shadow: 0 0 0 2px
+      color-mix(in oklab, oklch(var(--status-error)) 28%, transparent);
     animation: none;
   }
   @keyframes ot-stream-pulse {
     0%,
     100% {
-      box-shadow: 0 0 0 2px color-mix(in oklab, #22c55e 22%, transparent);
+      box-shadow: 0 0 0 2px
+        color-mix(in oklab, oklch(var(--status-ok)) 22%, transparent);
     }
     50% {
-      box-shadow: 0 0 0 4px color-mix(in oklab, #22c55e 32%, transparent);
+      box-shadow: 0 0 0 4px
+        color-mix(in oklab, oklch(var(--status-ok)) 32%, transparent);
     }
   }
 
@@ -389,7 +430,7 @@ html .btn.primary.stop[class]:hover:not(:disabled) {
 
 body {
   @apply m-0 bg-background text-foreground min-h-screen;
-  font-family: var(--font-family-lato);
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 20px;
 }

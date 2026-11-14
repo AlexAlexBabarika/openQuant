@@ -73,7 +73,7 @@
     top: 0;
     text-align: left;
     padding: 7px 12px;
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
