@@ -79,7 +79,6 @@
     margin: 0 0 6px;
     font-size: 13px;
     letter-spacing: 0.06em;
-    text-transform: lowercase;
   }
   article :global(.hash) {
     color: oklch(var(--primary));

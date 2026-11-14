@@ -12,7 +12,7 @@ async function openOptions(page: Page): Promise<Locator> {
   await page.getByRole('button', { name: 'Strategy', exact: true }).click();
   await page
     .getByRole('navigation', { name: 'Strategy views' })
-    .getByRole('button', { name: 'options' })
+    .getByRole('button', { name: 'Options', exact: true })
     .click();
   const panel = page.getByRole('region', {
     name: 'Options research',

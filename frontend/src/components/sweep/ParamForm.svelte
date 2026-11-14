@@ -100,7 +100,7 @@
       <label>Seed <input type="number" bind:value={seed} /></label>
       <button type="submit" class="btn primary run" disabled={disabled || vary.length === 0}>
         <Play class="h-3.5 w-3.5" />
-        <span>run sweep</span>
+        <span>Run sweep</span>
       </button>
     </div>
   </fieldset>
@@ -143,7 +143,6 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.04em;
-    text-transform: lowercase;
     cursor: pointer;
     transition: all 120ms ease;
   }

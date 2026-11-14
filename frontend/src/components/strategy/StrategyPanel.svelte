@@ -226,7 +226,7 @@
     <header class="topbar">
       {#if !embedded}<div class="brand">
         <span class="brand-mark">∿</span>
-        <span class="brand-title">strategy</span>
+        <span class="brand-title">Strategy</span>
         <span class="brand-sub">/ workbench</span>
       </div>{/if}
 
@@ -236,31 +236,31 @@
           class="tab"
           class:active={tab === 'editor'}
           onclick={() => (tab = 'editor')}
-        >editor</button>
+        >Editor</button>
         <button
           type="button"
           class="tab"
           class:active={tab === 'options'}
           onclick={() => (tab = 'options')}
-        >options</button>
+        >Options</button>
         <button
           type="button"
           class="tab"
           class:active={tab === 'sweep'}
           onclick={() => (tab = 'sweep')}
-        >sweep</button>
+        >Sweep</button>
         <button
           type="button"
           class="tab"
           class:active={tab === 'portfolio'}
           onclick={openPortfolioTab}
-        >portfolio</button>
+        >Portfolio</button>
         <button
           type="button"
           class="tab"
           class:active={tab === 'docs'}
           onclick={() => (tab = 'docs')}
-        >docs</button>
+        >Docs</button>
       </nav>
       {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
 
@@ -315,8 +315,8 @@
             title: 'strategies',
             newLabel: 'New strategy',
             signInHint: 'Sign in to load and save strategies. You can backtest an unsaved draft without an account.',
-            empty: 'no saved strategies yet.',
-            emptyDetail: 'draft one on the right and hit save.',
+            empty: 'No saved strategies yet.',
+            emptyDetail: 'Draft one on the right and save it.',
             deleteNoun: 'strategy',
             runLabel: 'backtest',
           }}
@@ -348,8 +348,8 @@
             </div>
 
             <div class="actions">
-              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
-              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
+              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
+              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>Robustness</button>{/if}
               <button
                 type="button"
                 class="btn ghost"
@@ -358,7 +358,7 @@
                 title="Save (⌘S)"
               >
                 <Save class="h-3.5 w-3.5" />
-                <span>{strat.isSaving ? 'saving…' : 'save'}</span>
+                <span>{strat.isSaving ? 'Saving…' : 'Save'}</span>
               </button>
 
               <button
@@ -369,7 +369,7 @@
                 title="Run backtest (⌘↵)"
               >
                 <Play class="h-3.5 w-3.5" />
-                <span>{strat.isRunning ? 'running…' : 'backtest'}</span>
+                <span>{strat.isRunning ? 'Running…' : 'Backtest'}</span>
               </button>
               <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
                 <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
@@ -589,7 +589,6 @@
     font-family: inherit;
     font-size: 11px;
     letter-spacing: 0.08em;
-    text-transform: lowercase;
     color: oklch(var(--muted-foreground));
     background: transparent;
     border-radius: 3px;
@@ -729,7 +728,6 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.04em;
-    text-transform: lowercase;
     cursor: pointer;
     transition: all 120ms ease;
   }

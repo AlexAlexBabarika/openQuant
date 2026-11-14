@@ -124,7 +124,7 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark"><Sigma class="h-3.5 w-3.5" /></span>
-        <span class="brand-title">analytics</span>
+        <span class="brand-title">Analytics</span>
         <span class="brand-sub">/ workbench</span>
       </div>
 

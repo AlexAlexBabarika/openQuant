@@ -75,7 +75,7 @@
       <p class="rail-hint">{copy.signInHint}</p>
       {@render signIn()}
     {:else if library.loading && library.scripts.length === 0}
-      <p class="rail-hint">loading…</p>
+      <p class="rail-hint">Loading…</p>
     {:else if library.loadError}
       <p class="rail-hint err">{library.loadError}</p>
     {:else if library.scripts.length === 0}

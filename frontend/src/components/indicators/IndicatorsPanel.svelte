@@ -168,7 +168,7 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark"><Activity class="h-3.5 w-3.5" /></span>
-        <span class="brand-title">indicators</span>
+        <span class="brand-title">Indicators</span>
         <span class="brand-sub">/ workbench</span>
       </div>
 
@@ -178,13 +178,13 @@
           class="tab"
           class:active={tab === 'editor'}
           onclick={() => (tab = 'editor')}
-        >editor</button>
+        >Editor</button>
         <button
           type="button"
           class="tab"
           class:active={tab === 'docs'}
           onclick={() => (tab = 'docs')}
-        >docs</button>
+        >Docs</button>
       </nav>
       {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
 
@@ -219,8 +219,8 @@
           title: 'scripts',
           newLabel: 'New indicator',
           signInHint: 'Sign in to load and save indicators. You can run an unsaved draft without an account.',
-          empty: 'no saved scripts yet.',
-          emptyDetail: 'draft something on the right and hit save.',
+          empty: 'No saved scripts yet.',
+          emptyDetail: 'Draft something on the right and save it.',
           deleteNoun: 'script',
           runLabel: 'run',
         }}
@@ -262,7 +262,7 @@
           </div>
 
           <div class="actions">
-            <button type="button" class="btn ghost" onclick={() => void newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
+            <button type="button" class="btn ghost" onclick={() => void newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
             {#if ind.saveError}
               <ErrorBanner message={ind.saveError} />
             {/if}
@@ -275,7 +275,7 @@
               title="Save (⌘S)"
             >
               <Save class="h-3.5 w-3.5" />
-              <span>{ind.isSaving ? 'saving…' : 'save'}</span>
+              <span>{ind.isSaving ? 'Saving…' : 'Save'}</span>
             </button>
 
             <button
@@ -285,7 +285,7 @@
               disabled={ind.isSaving || ind.isRunning || !ind.draftName.trim()}
               title="Save & run"
             >
-              <span>save &amp; run</span>
+              <span>Save &amp; run</span>
             </button>
 
             {#if ind.runningId && ind.runningId === ind.activeId}
@@ -296,7 +296,7 @@
                 title="Stop"
               >
                 <Square class="h-3.5 w-3.5" />
-                <span>stop</span>
+                <span>Stop</span>
               </button>
             {:else}
               <button
@@ -307,7 +307,7 @@
                 title="Run (⌘↵)"
               >
                 <Play class="h-3.5 w-3.5" />
-                <span>{ind.isRunning ? 'running…' : 'run'}</span>
+                <span>{ind.isRunning ? 'Running…' : 'Run'}</span>
               </button>
             {/if}
           </div>
@@ -516,7 +516,6 @@
     font-family: inherit;
     font-size: 11px;
     letter-spacing: 0.08em;
-    text-transform: lowercase;
     color: oklch(var(--muted-foreground));
     background: transparent;
     border-radius: 3px;
@@ -638,7 +637,6 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.04em;
-    text-transform: lowercase;
     cursor: pointer;
     transition: all 120ms ease;
   }
