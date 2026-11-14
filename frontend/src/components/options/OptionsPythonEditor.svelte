@@ -143,7 +143,7 @@
   .code-region { height: 360px; min-height: 240px; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; overflow: hidden; }
   .code-region :global(.cm-tooltip) { background: oklch(var(--popover)); color: oklch(var(--popover-foreground)); border-color: oklch(var(--border)); }
   .code-region :global(.cm-tooltip-autocomplete ul li[aria-selected="true"]) { background: oklch(var(--accent)); color: oklch(var(--accent-foreground)); }
-  .code-region :global(.cm-completionInfo) { font-family: var(--font-family-lato); font-size: 12px; line-height: 1.5; }
+  .code-region :global(.cm-completionInfo) { font-family: var(--font-sans); font-size: 12px; line-height: 1.5; }
   .hint { font-size: 12px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
   code, pre { font-family: var(--font-mono); }
   .editor-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }

@@ -570,7 +570,7 @@
 <AuthDialog bind:open={authDialogOpen} />
 
 <style>
-  .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 14px/20px var(--font-family-lato); }
+  .trial-shell { display: flex; flex-direction: column; min-height: 100%; background: oklch(var(--background)); color: oklch(var(--foreground)); font: 14px/20px var(--font-sans); }
   .standalone { height: 100dvh; min-height: 0; }
   .embedded { height: 100%; min-height: 0; }
   .workbench { min-height: 0; overflow: hidden; }
@@ -578,7 +578,7 @@
   .brand, .wordmark { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .wordmark { font-weight: 600; }
   .divider, .muted, .scope, .live-status, small, dt { color: oklch(var(--muted-foreground)); }
-  h1, h2, h3, h4 { margin: 0; font: 700 14px/20px var(--font-family-lato); }
+  h1, h2, h3, h4 { margin: 0; font: 600 14px/20px var(--font-sans); }
   h1 { font-size: 13px; }
   h2 { margin-bottom: 8px; }
   h3 { margin-bottom: 12px; }

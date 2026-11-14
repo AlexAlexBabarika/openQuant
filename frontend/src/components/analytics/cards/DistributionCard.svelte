@@ -33,7 +33,7 @@
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: 'rgba(255,255,255,0.5)',
-        fontFamily: "'Space Mono', ui-monospace, monospace",
+        fontFamily: "'Geist Mono', ui-monospace, monospace",
         fontSize: 9,
       },
       grid: {
@@ -100,7 +100,7 @@
     gap: 10px;
   }
   .lbl {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);

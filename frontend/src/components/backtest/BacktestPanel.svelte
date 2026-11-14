@@ -207,7 +207,7 @@
       color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     box-shadow: 0 -30px 60px -20px rgba(0, 0, 0, 0.5);
     border-radius: 16px 16px 0 0;
-    font-family: var(--font-family-lato);
+    font-family: var(--font-sans);
     font-size: 14px;
     line-height: 20px;
     overflow: hidden;
@@ -254,7 +254,7 @@
     font-size: 14px;
   }
   .brand-title {
-    font-weight: 700;
+    font-weight: 600;
   }
   .brand-sub {
     color: oklch(var(--muted-foreground));
@@ -278,13 +278,13 @@
     color: oklch(var(--muted-foreground));
   }
   .ctx-label {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
   .ctx-sym {
     color: oklch(var(--foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }

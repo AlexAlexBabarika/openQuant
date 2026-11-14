@@ -3,6 +3,8 @@
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import PanelRightClose from '@lucide/svelte/icons/panel-right-close';
   import GitCompare from '@lucide/svelte/icons/git-compare';
+  import Activity from '@lucide/svelte/icons/activity';
+  import Sigma from '@lucide/svelte/icons/sigma';
   import ChartOptionsMenu from '../chart/ChartOptionsMenu.svelte';
   import type {
     MovingAverageConfig,
@@ -80,7 +82,7 @@
           : 'Add comparison symbol'}
       >
         <GitCompare class="h-3 w-3" />
-        <span>cmp</span>
+        <span>Compare</span>
       </button>
     {/if}
 
@@ -95,8 +97,8 @@
         onclick={onopenindicators}
         title="Open indicators workbench"
       >
-        <span class="text-primary font-bold leading-none">▣</span>
-        <span>indicators</span>
+        <Activity class="h-3 w-3 text-primary" />
+        <span>Indicators</span>
       </button>
     {/if}
 
@@ -107,8 +109,8 @@
         onclick={onopenanalytics}
         title="Open analytics workbench"
       >
-        <span class="text-primary font-bold leading-none">∑</span>
-        <span>analytics</span>
+        <Sigma class="h-3 w-3 text-primary" />
+        <span>Analytics</span>
       </button>
     {/if}
   </div>
@@ -125,7 +127,7 @@
       {:else}
         <PanelRight class="h-3 w-3" />
       {/if}
-      <span>watchlist</span>
+      <span>Watchlist</span>
     </button>
   </div>
 </div>

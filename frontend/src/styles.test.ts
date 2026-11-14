@@ -419,10 +419,15 @@ describe('compiled global selectors', () => {
       expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
         'oklch(var(--destructive))',
       );
-      expect(declarations('html:not(.dark) .ri-del', panel).color).toBe('#000');
+      expect(declarations('html:not(.dark) .ri-del', panel).color).toBe(
+        'oklch(var(--foreground))',
+      );
       expect(
         declarations('html:not(.dark) .ri-del:hover', panel),
-      ).toMatchObject({ background: '#000', color: '#fff' });
+      ).toMatchObject({
+        background: 'oklch(var(--foreground))',
+        color: 'oklch(var(--card))',
+      });
       expect(
         declarations('html:not(.dark) .ri-status.running', panel).background,
       ).toBe('oklch(var(--primary))');

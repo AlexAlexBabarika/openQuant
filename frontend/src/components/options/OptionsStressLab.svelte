@@ -127,7 +127,7 @@
 </section>
 
 <style>
-  .stress-tool { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-family-lato); font-size: 12px; container-type: inline-size; }
+  .stress-tool { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; container-type: inline-size; }
   h3, h4, p { margin: 0; } h3, h4 { font-size: 12px; } p { line-height: 1.5; overflow-wrap: anywhere; }
   .note { color: oklch(var(--muted-foreground)); } .notice { border-left: 2px solid currentColor; padding-left: 8px; }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; }

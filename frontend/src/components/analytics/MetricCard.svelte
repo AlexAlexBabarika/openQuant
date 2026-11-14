@@ -82,7 +82,7 @@
     transition: border-color 120ms ease;
   }
   .card.err {
-    border-color: color-mix(in oklab, #ff7373 60%, transparent);
+    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
   }
 
   .card-head {
@@ -100,15 +100,15 @@
     flex: 1 1 auto;
   }
   .cat {
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
   }
   .title {
     margin: 0;
-    font-size: 12.5px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 600;
     color: oklch(var(--foreground));
     overflow: hidden;
     text-overflow: ellipsis;
@@ -130,9 +130,9 @@
     transition: all 120ms ease;
   }
   .iconbtn:hover {
-    color: #ff9c9c;
-    border-color: color-mix(in oklab, #ff7373 60%, transparent);
-    background: color-mix(in oklab, #ff7373 12%, transparent);
+    color: oklch(var(--status-error));
+    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
   }
 
   .body {
@@ -145,23 +145,23 @@
   .empty {
     margin: 0;
     color: oklch(var(--muted-foreground));
-    font-size: 11.5px;
+    font-size: 12px;
   }
   .err-msg {
     margin: 0;
-    color: #ff9c9c;
-    font-size: 11.5px;
+    color: oklch(var(--status-error));
+    font-size: 12px;
     line-height: 1.45;
   }
   .err-msg.inline {
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px dashed
-      color-mix(in oklab, #ff7373 35%, transparent);
+      color-mix(in oklab, oklch(var(--status-error)) 35%, transparent);
   }
   .placeholder {
     margin: 0;
-    font-size: 10.5px;
+    font-size: 11px;
     line-height: 1.45;
     color: color-mix(in oklab, oklch(var(--foreground)) 75%, transparent);
     overflow: auto;
@@ -199,14 +199,14 @@
   }
 
   :global(html:not(.dark)) .card {
-    background: #ffffff;
-    border-color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .card-head {
-    border-bottom-color: #000;
+    border-bottom-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .iconbtn {
-    border-color: #000;
-    color: #000;
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
 </style>

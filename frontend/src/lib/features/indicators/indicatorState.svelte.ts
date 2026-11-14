@@ -148,9 +148,7 @@ export class IndicatorState {
     }
   }
 
-  newDraft(
-    discard = () => confirm('Discard unsaved indicator changes?'),
-  ): void {
+  newDraft(discard = () => false): void {
     if (this.dirty && !discard()) return;
     this.#draftVersion++;
     this.stop(DRAFT_KEY);
@@ -161,10 +159,7 @@ export class IndicatorState {
     this.saveError = null;
   }
 
-  openScript(
-    id: string,
-    discard = () => confirm('Discard unsaved indicator changes?'),
-  ): void {
+  openScript(id: string, discard = () => false): void {
     if (id === this.activeId) return;
     const s = this.scripts.find(x => x.id === id);
     if (!s) return;

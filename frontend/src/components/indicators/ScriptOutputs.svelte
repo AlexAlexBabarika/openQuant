@@ -193,12 +193,12 @@
     min-height: 0;
     background: color-mix(in oklab, oklch(var(--background)) 86%, black 14%);
     border-top: 1px solid oklch(var(--border));
-    font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--font-mono);
     color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .console {
-    background: #ffffff;
-    border-top: 1px solid #000;
+    background: oklch(var(--card));
+    border-top: 1px solid oklch(var(--foreground));
   }
 
   .status {
@@ -213,54 +213,48 @@
     background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
   }
   :global(html:not(.dark)) .status {
-    background: #ffffff;
-    border-bottom: 1px dashed #000;
+    background: oklch(var(--card));
+    border-bottom: 1px dashed oklch(var(--foreground));
   }
-  :global(html:not(.dark)) .meta { color: #000; opacity: 0.7; }
+  :global(html:not(.dark)) .meta { color: oklch(var(--foreground)); opacity: 0.7; }
   :global(html:not(.dark)) .tone-ok { color: oklch(var(--primary)); }
   :global(html:not(.dark)) .tone-err,
   :global(html:not(.dark)) .text-line.tone-error,
   :global(html:not(.dark)) .text-line.tone-error .prefix {
     color: oklch(var(--destructive));
   }
-  :global(html:not(.dark)) .tone-warn,
-  :global(html:not(.dark)) .text-line.tone-warn,
-  :global(html:not(.dark)) .text-line.tone-warn .prefix {
-    color: #92400e;
-  }
-  :global(html:not(.dark)) .text-line.tone-info .prefix { color: #1d4ed8; }
   :global(html:not(.dark)) .meta kbd {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .empty-line .ink {
-    background: #ffffff;
-    color: #000;
-    border: 1px solid #000;
+    background: oklch(var(--card));
+    color: oklch(var(--foreground));
+    border: 1px solid oklch(var(--foreground));
   }
-  :global(html:not(.dark)) .block-title { color: #000; opacity: 1; }
+  :global(html:not(.dark)) .block-title { color: oklch(var(--foreground)); opacity: 1; }
   :global(html:not(.dark)) .trace {
-    background: #ffffff;
-    border-left: 2px solid #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-left: 2px solid oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .table-block .table-scroll {
-    background: #ffffff;
-    border-color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) th {
-    background: #ffffff;
-    color: #000;
-    border-bottom: 1px solid #000;
+    background: oklch(var(--card));
+    color: oklch(var(--foreground));
+    border-bottom: 1px solid oklch(var(--foreground));
   }
-  :global(html:not(.dark)) tbody tr:nth-child(odd) td { background: #ffffff; }
+  :global(html:not(.dark)) tbody tr:nth-child(odd) td { background: oklch(var(--card)); }
   :global(html:not(.dark)) tbody tr:hover td {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, #ffffff);
+    background: color-mix(in oklab, oklch(var(--primary)) 12%, oklch(var(--card)));
   }
   :global(html:not(.dark)) .deferred .deferred-list {
-    border-color: #000;
-    color: #000;
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   .dot {
     width: 8px;
@@ -270,24 +264,24 @@
     box-shadow: 0 0 0 0 transparent;
   }
   .dot-running {
-    background: #ffcb6b;
+    background: oklch(var(--status-warn));
     animation: pulse 1.1s ease-in-out infinite;
   }
   .dot-ok {
-    background: #7ee2a8;
-    box-shadow: 0 0 8px color-mix(in oklab, #7ee2a8 60%, transparent);
+    background: oklch(var(--status-ok));
+    box-shadow: 0 0 8px color-mix(in oklab, oklch(var(--status-ok)) 60%, transparent);
   }
-  .dot-warn { background: #ffcb6b; }
-  .dot-err  { background: #ff7373; }
+  .dot-warn { background: oklch(var(--status-warn)); }
+  .dot-err  { background: oklch(var(--status-error)); }
   .dot-idle {
     background: transparent;
     border: 1px dashed color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
   }
 
-  .label { font-weight: 700; }
-  .tone-ok { color: #7ee2a8; }
-  .tone-err { color: #ff7373; }
-  .tone-warn { color: #ffcb6b; }
+  .label { font-weight: 600; }
+  .tone-ok { color: oklch(var(--status-ok)); }
+  .tone-err { color: oklch(var(--status-error)); }
+  .tone-warn { color: oklch(var(--status-warn)); }
   .tone-muted { color: oklch(var(--muted-foreground)); }
 
   .meta {
@@ -333,7 +327,7 @@
     min-height: 0;
     overflow-y: auto;
     padding: 12px 16px 32px;
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.55;
   }
 
@@ -362,7 +356,7 @@
     gap: 8px;
     margin-bottom: 4px;
     color: oklch(var(--muted-foreground));
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -372,7 +366,7 @@
     text-align: center;
     color: oklch(var(--muted-foreground));
   }
-  .block-title { color: oklch(var(--foreground)); font-weight: 700; }
+  .block-title { color: oklch(var(--foreground)); font-weight: 600; }
 
   .text-line {
     display: flex;
@@ -382,17 +376,17 @@
   }
   .text-line .text { white-space: pre-wrap; word-break: break-word; }
   .text-line.tone-info { color: oklch(var(--foreground)); }
-  .text-line.tone-info .prefix { color: #82aaff; }
-  .text-line.tone-warn { color: #ffcb6b; }
-  .text-line.tone-warn .prefix { color: #ffcb6b; }
-  .text-line.tone-error { color: #ff7373; }
-  .text-line.tone-error .prefix { color: #ff7373; }
+  .text-line.tone-info .prefix { color: oklch(var(--status-info)); }
+  .text-line.tone-warn { color: oklch(var(--status-warn)); }
+  .text-line.tone-warn .prefix { color: oklch(var(--status-warn)); }
+  .text-line.tone-error { color: oklch(var(--status-error)); }
+  .text-line.tone-error .prefix { color: oklch(var(--status-error)); }
 
   .trace {
     margin: 0;
     padding: 10px 12px;
     background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-    border-left: 2px solid color-mix(in oklab, #ff7373 60%, transparent);
+    border-left: 2px solid color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
     border-radius: 0 4px 4px 0;
     font-family: inherit;
     font-size: 12px;
@@ -429,8 +423,8 @@
     top: 0;
     background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
     color: oklch(var(--muted-foreground));
-    font-weight: 700;
-    font-size: 10.5px;
+    font-weight: 600;
+    font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     border-bottom: 1px solid oklch(var(--border));

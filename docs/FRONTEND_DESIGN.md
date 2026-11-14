@@ -9,10 +9,12 @@ do not replace them with a promotional dashboard or invent trading capabilities.
 - `frontend/src/styles.css` owns semantic OKLCH tokens, light/dark themes,
   locally served fonts, and `ot-*` chrome utilities. Component styles remain
   scoped; Svelte's `:global(...)` syntax belongs only in component styles.
-- Lato is the reading/form font. Space Mono (`--font-mono`) is for workbench
-  chrome, code, coordinates, and numeric results. Preserve both fonts and the
-  existing hierarchy: compact 11–12px chrome, 10px chart/axis annotations,
-  ordinary form/body text, then section headings. Do not shrink essential labels
+- Geist (`--font-sans`) is the reading/form font. Geist Mono (`--font-mono`) is
+  for workbench chrome, code, coordinates, and numeric results. Both are variable
+  fonts, so 500 and 600 are real weights; use 600 for emphasis rather than 700.
+  Preserve both fonts and the existing hierarchy: compact 11–12px chrome, 10px
+  chart/axis annotations, ordinary form/body text, then section headings. Sizes
+  below 14px are whole pixels (10, 11, 12, 13). Do not shrink essential labels
   to accommodate overflow.
 - Chrome actions use the 28px workbench button, 4px corner radius, and 6–8px
   internal gaps. Shared Button sizes serve ordinary forms/dialogs. Match the
@@ -34,6 +36,13 @@ do not replace them with a promotional dashboard or invent trading capabilities.
   including STOP. Shared destructive buttons do not add a dark-theme opacity
   wash; link actions use the readable foreground token. Do not copy literal
   reds/white text into a new action.
+- Status text, dots and banners use `--status-error`, `--status-warn`,
+  `--status-ok` and `--status-info`, which are tuned per theme. Signed values
+  (gains, losses, negative metrics) use `--up-color`/`--down-color`. Do not add
+  hex literals or `html:not(.dark)` overrides for either.
+- Ask for confirmation with `confirmAction`/`confirmDiscard` from
+  `lib/features/confirm`, rendered by the shared `ConfirmDialog`. Do not call
+  `window.confirm` or `window.alert`.
 - Enabled action labels must reach **4.5:1** normally and on hover in both themes.
   Measure the resolved sRGB color, gamut mapping/clipping, and alpha compositing
   over the actual surface, not raw OKLCH coordinates. Check translucent states

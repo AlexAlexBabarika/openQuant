@@ -141,7 +141,7 @@
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 11.5px;
+    font-size: 12px;
     letter-spacing: 0.04em;
     text-transform: lowercase;
     cursor: pointer;
@@ -155,7 +155,7 @@
     background: oklch(var(--primary));
     border-color: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }
@@ -165,9 +165,9 @@
     transform: translateY(-1px);
   }
   :global(html:not(.dark)) .btn {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .btn.primary {
     background: oklch(var(--primary));

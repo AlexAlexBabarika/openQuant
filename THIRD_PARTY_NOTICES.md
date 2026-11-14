@@ -13,7 +13,7 @@ obligations below apply when you **distribute** OpenQuant or a derivative.
 
 | # | Component | Obligation when redistributing |
 | --- | --- | --- |
-| 1 | Lato, Space Mono (SIL OFL 1.1) | Ship the font files together with their license text. Do not sell the fonts on their own, and do not reuse the reserved font names for modified versions. |
+| 1 | Geist, Geist Mono (SIL OFL 1.1) | Ship the font files together with their license text. Do not sell the fonts on their own. |
 | 2 | TradingView Lightweight Charts (Apache-2.0) | Keep the on-chart attribution logo enabled. Retain the copyright notice. |
 | 3 | `psycopg` / `psycopg-binary` (LGPL-3.0-only) | Keep the library replaceable and pass on its license text and source offer. |
 | 4 | `certifi` (MPL-2.0) | Redistribute the covered files unmodified, or publish your modifications to those files. |
@@ -22,30 +22,25 @@ obligations below apply when you **distribute** OpenQuant or a derivative.
 ## 1. Bundled fonts
 
 These font files are redistributed inside the application bundle and the Docker
-image. Both are licensed under the SIL Open Font License, Version 1.1, which
+image. All are licensed under the SIL Open Font License, Version 1.1, which
 requires the license text to travel with the font files. The full license text is
 bundled next to the fonts and is served as part of the frontend build.
 
-**Lato** — `frontend/public/fonts/Lato-{Regular,Bold}.{woff2,ttf}`
+**Geist** — `frontend/public/fonts/Geist-Variable-{latin,latin-ext}.woff2`
 
 ```
-Copyright (c) 2010-2011 by tyPoland Lukasz Dziedzic (http://www.typoland.com/)
-with Reserved Font Name "Lato".
+Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font)
 ```
 
-License text: `frontend/public/fonts/LICENSE-Lato.txt`
+License text: `frontend/public/fonts/LICENSE-Geist.txt`
 
-**Space Mono** — `frontend/public/fonts/SpaceMono-{Regular,Bold}.woff2`
+**Geist Mono** — `frontend/public/fonts/GeistMono-Variable-{latin,latin-ext}.woff2`
 
 ```
-Copyright 2016 The Space Mono Project Authors
-(https://github.com/googlefonts/spacemono)
+Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font)
 ```
 
-License text: `frontend/public/fonts/LICENSE-SpaceMono.txt`
-
-Because "Lato" and "Space Mono" are Reserved Font Names under the OFL, a modified
-version of either font must be released under a different name.
+License text: `frontend/public/fonts/LICENSE-GeistMono.txt`
 
 ## 2. TradingView Lightweight Charts
 

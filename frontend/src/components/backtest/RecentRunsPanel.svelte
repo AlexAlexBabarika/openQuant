@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { confirmAction } from '$lib/features/confirm/confirm.svelte';
   import { authState } from '$lib/features/auth/auth';
   import { runsClient } from '$lib/features/runs/runsClient';
   import * as Dialog from '$lib/components/ui/dialog';
@@ -172,7 +173,7 @@
     </Dialog.Header>
     {#if runsHistory.storageError}<p role="status">{runsHistory.storageError}</p>{/if}
     {#if runsHistory.guestReferenceCount}
-      <button type="button" class="ot-workbench-ghost" onclick={() => { if (confirm('Copy guest/legacy references and notes into this account? Existing account notes stay unchanged. This copies notebook metadata, not stored snapshots.')) runsHistory.copyGuestReferences(); }}>Copy {runsHistory.guestReferenceCount} guest/legacy references into this account</button>
+      <button type="button" class="ot-workbench-ghost" onclick={async () => { if (await confirmAction({ title: 'Copy guest/legacy references into this account?', description: 'Existing account notes stay unchanged. This copies notebook metadata, not stored snapshots.', confirmLabel: 'Copy references' })) runsHistory.copyGuestReferences(); }}>Copy {runsHistory.guestReferenceCount} guest/legacy references into this account</button>
     {/if}
     <details class="text-sm">
       <summary>Back up or import notebook metadata</summary>
@@ -205,7 +206,7 @@
           <span class="font-mono text-xs text-muted-foreground">{truncateRunId(e.run_id)} · {e.kind}{e.baseline ? ' · BASELINE' : ''}</span>
           <span class="text-xs">Human decision: {RESEARCH_DECISIONS[e.decision ?? 'unreviewed']}</span>
           {#if e.kind === 'single'}<button class="ot-workbench-ghost" type="button" aria-pressed={!!e.baseline} onclick={() => runsHistory.pin(e.baseline ? null : e.run_id)}>{e.baseline ? 'Unpin baseline' : 'Pin baseline'}</button>{/if}
-          <button class="ot-workbench-ghost" type="button" onclick={() => { if (confirm(`Remove “${e.label}” and its local notes? The stored result is not deleted.`)) runsHistory.remove(e.run_id); }} aria-label={`Remove ${e.label} from notebook`}>Remove reference</button>
+          <button class="ot-workbench-ghost" type="button" onclick={async () => { if (await confirmAction({ title: `Remove “${e.label}” and its local notes?`, description: 'The stored result is not deleted.', confirmLabel: 'Remove reference', destructive: true })) runsHistory.remove(e.run_id); }} aria-label={`Remove ${e.label} from notebook`}>Remove reference</button>
         </div>
         <details class="mt-2 text-sm">
           <summary>Edit name, tags, research notes, and decision</summary>

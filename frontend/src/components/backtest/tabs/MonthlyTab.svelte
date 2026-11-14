@@ -71,7 +71,7 @@
     font-variant-numeric: tabular-nums;
   }
   th {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -95,7 +95,7 @@
     min-width: 44px;
   }
   .total {
-    font-weight: 700;
+    font-weight: 600;
   }
   .total-head {
     color: oklch(var(--foreground));

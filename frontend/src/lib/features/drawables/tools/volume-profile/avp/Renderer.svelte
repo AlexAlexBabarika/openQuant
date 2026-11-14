@@ -244,7 +244,7 @@
       text-anchor={placement === 'right' ? 'end' : 'start'}
       fill="oklch(var(--foreground))"
       font-size="11"
-      font-family="Lato, sans-serif"
+      font-family="Geist, sans-serif"
       pointer-events="auto"
       role="button"
       tabindex="-1"
@@ -262,7 +262,7 @@
         text-anchor={placement === 'right' ? 'end' : 'start'}
         fill="oklch(var(--muted-foreground))"
         font-size="10"
-        font-family="Space Mono, monospace"
+        font-family="Geist Mono, monospace"
         pointer-events="auto"
         role="button"
         tabindex="-1"

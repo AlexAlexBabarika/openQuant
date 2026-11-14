@@ -27,10 +27,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 4px 10px;
-    border: 1px solid color-mix(in oklab, #ff7373 50%, transparent);
+    border: 1px solid color-mix(in oklab, oklch(var(--status-error)) 50%, transparent);
     border-radius: 3px;
-    background: color-mix(in oklab, #ff7373 10%, transparent);
-    color: #ff9c9c;
+    background: color-mix(in oklab, oklch(var(--status-error)) 10%, transparent);
+    color: oklch(var(--status-error));
     font-size: 11px;
     letter-spacing: 0.02em;
     font-family: inherit;

@@ -35,7 +35,7 @@
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: 'rgba(255,255,255,0.5)',
-        fontFamily: "'Space Mono', ui-monospace, monospace",
+        fontFamily: "'Geist Mono', ui-monospace, monospace",
         fontSize: 9,
       },
       grid: {
@@ -98,23 +98,19 @@
     gap: 10px;
   }
   .lbl {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
   .val {
     font-size: 16px;
-    font-weight: 700;
-    color: #ff9c9c;
+    font-weight: 600;
+    color: oklch(var(--down-color));
     font-variant-numeric: tabular-nums;
   }
   .chart {
     flex: 1 1 auto;
     min-height: 0;
-  }
-
-  :global(html:not(.dark)) .val {
-    color: #b00020;
   }
 </style>

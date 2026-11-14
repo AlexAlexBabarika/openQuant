@@ -161,7 +161,7 @@
   title="Chart options"
 >
   <Settings class="h-3 w-3" />
-  <span>opt</span>
+  <span>Chart options</span>
 </button>
 
 <Dialog.Root bind:open>

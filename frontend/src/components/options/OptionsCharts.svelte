@@ -608,14 +608,14 @@
 </section>
 
 <style>
-  .options-charts { min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-family-lato); font-size: 12px; }
+  .options-charts { min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
   header, .pane-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   header { padding: 10px 0; border-bottom: 1px solid oklch(var(--border)); }
   h3, h4, p { margin: 0; }
   h3 { margin-top: 4px; font-size: 15px; overflow-wrap: anywhere; }
   h4 { font-size: 12px; }
   .eyebrow, .context, .note, .marker-key, .unit, .pane-title > span { color: oklch(var(--muted-foreground)); }
-  .eyebrow { font: 10px var(--font-family-lato); }
+  .eyebrow { font: 10px var(--font-sans); }
   .context { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
   .update-note { display: block; height: 1.6em; overflow-wrap: normal; white-space: nowrap; color: oklch(var(--risk)); }
   .context b { color: oklch(var(--foreground)); font-variant-numeric: tabular-nums; }
@@ -643,7 +643,7 @@
   .leg-selectors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
   .leg-selectors button { white-space: normal; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
   .strike-handles { position: absolute; inset: 0; pointer-events: none; }
-  .strike-handle { position: absolute; transform: translate(-50%, -50%); min-height: 22px; padding: 1px 6px; border-width: 1.5px; font: 700 11px var(--font-family-lato); font-variant-numeric: tabular-nums; pointer-events: auto; z-index: 1; }
+  .strike-handle { position: absolute; transform: translate(-50%, -50%); min-height: 22px; padding: 1px 6px; border-width: 1.5px; font: 600 11px var(--font-sans); font-variant-numeric: tabular-nums; pointer-events: auto; z-index: 1; }
   .strike-handle.buy { border-color: oklch(var(--up-color)); background: color-mix(in oklab, oklch(var(--up-color)) 18%, oklch(var(--card))); }
   .strike-handle.sell { border-color: oklch(var(--down-color)); background: color-mix(in oklab, oklch(var(--down-color)) 18%, oklch(var(--card))); }
   .strike-handle.edited { border-style: dashed; background: oklch(var(--card)); }
@@ -659,13 +659,13 @@
   .chart-control { width: 100%; border-radius: 4px; background: oklch(var(--card)); }
   .chart-control > svg { display: block; width: 100%; touch-action: pan-y; }
   .grid { stroke: var(--chart-grid); stroke-width: 1; }
-  .axis { fill: oklch(var(--muted-foreground)); font: 10px var(--font-family-lato); font-variant-numeric: tabular-nums; }
+  .axis { fill: oklch(var(--muted-foreground)); font: 10px var(--font-sans); font-variant-numeric: tabular-nums; }
   .curve { fill: none; stroke: currentColor; stroke-width: 2; vector-effect: non-scaling-stroke; }
   .expiry { color: oklch(var(--foreground)); }
   .fill-up { fill: oklch(var(--up-color) / 0.16); }
   .fill-down { fill: oklch(var(--down-color) / 0.16); }
   .be { fill: oklch(var(--card)); stroke: oklch(var(--foreground)); stroke-width: 1.5; }
-  .be-label, .spot-label { fill: oklch(var(--foreground)); font: 700 11px var(--font-family-lato); font-variant-numeric: tabular-nums; }
+  .be-label, .spot-label { fill: oklch(var(--foreground)); font: 600 11px var(--font-sans); font-variant-numeric: tabular-nums; }
   .rail { fill: oklch(var(--background)); stroke: oklch(var(--border)); }
   .graph.dragging { user-select: none; -webkit-user-select: none; }
   .today { color: oklch(var(--ring)); }
@@ -689,14 +689,14 @@
   dt { color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
   dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .evidence { padding: 8px 0; border-top: 1px solid oklch(var(--border)); }
-  summary { cursor: pointer; font-size: 12px; font-weight: 700; line-height: 1.6; }
+  summary { cursor: pointer; font-size: 12px; font-weight: 600; line-height: 1.6; }
   .table-scroll { overflow: auto; max-height: 340px; margin-top: 8px; border: 1px solid oklch(var(--border)); }
-  table { border-collapse: collapse; width: 100%; font: 11px var(--font-family-lato); font-variant-numeric: tabular-nums; }
-  caption { text-align: left; padding: 8px; font-family: var(--font-family-lato); background: oklch(var(--background)); }
+  table { border-collapse: collapse; width: 100%; font: 11px var(--font-sans); font-variant-numeric: tabular-nums; }
+  caption { text-align: left; padding: 8px; font-family: var(--font-sans); background: oklch(var(--background)); }
   th, td { padding: 7px 8px; border-bottom: 1px solid oklch(var(--border)); text-align: right; white-space: nowrap; }
   thead th { position: sticky; top: 0; background: oklch(var(--card)); z-index: 1; }
   th:first-child { text-align: left; }
-  .table-unit { display: block; max-width: 210px; white-space: normal; font: 11px var(--font-family-lato); color: oklch(var(--muted-foreground)); }
+  .table-unit { display: block; max-width: 210px; white-space: normal; font: 11px var(--font-sans); color: oklch(var(--muted-foreground)); }
   ul { padding-left: 18px; line-height: 1.6; }
   .empty { padding: 16px; border: 1px dashed oklch(var(--border)); border-radius: 4px; line-height: 1.6; }
   .empty p { color: oklch(var(--muted-foreground)); margin-top: 6px; }

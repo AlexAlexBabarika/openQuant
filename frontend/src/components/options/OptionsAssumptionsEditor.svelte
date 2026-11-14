@@ -87,7 +87,7 @@
 </section>
 
 <style>
-  .assumptions { container-type: inline-size; display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-family-lato); font-size: 12px; }
+  .assumptions { container-type: inline-size; display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
   h3 { margin: 0; font-size: 12px; }
   .hint { margin: 0; color: oklch(var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
@@ -102,7 +102,7 @@
   .link:disabled { color: oklch(var(--muted-foreground)); cursor: not-allowed; text-decoration: none; }
   .pricing { border-top: 1px solid oklch(var(--border)); padding-top: 4px; }
   .pricing > :not(summary) { margin-top: 8px; }
-  summary { cursor: pointer; min-height: 28px; line-height: 28px; font-weight: 700; }
+  summary { cursor: pointer; min-height: 28px; line-height: 28px; font-weight: 600; }
   @container (max-width: 340px) { .inputs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @container (max-width: 220px) { .inputs-grid { grid-template-columns: minmax(0, 1fr); } }
   @media (pointer: coarse) { button, input, summary { min-height: var(--control-touch-height); } }

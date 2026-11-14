@@ -275,7 +275,7 @@
     height: 100%;
     min-height: 0;
     overflow-y: auto;
-    font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--font-mono);
   }
 
   .card {
@@ -292,17 +292,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
-  .card-title { font-weight: 700; color: oklch(var(--foreground)); }
+  .card-title { font-weight: 600; color: oklch(var(--foreground)); }
   .count {
     padding: 1px 6px;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 999px;
-    font-size: 9.5px;
+    font-size: 10px;
   }
   .linkbtn {
     margin-left: auto;
@@ -340,12 +340,12 @@
 
   .hint {
     margin: 0;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
   .hint code {
-    font-size: 10.5px;
+    font-size: 11px;
     padding: 1px 4px;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 3px;
@@ -364,7 +364,7 @@
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 999px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.06em;
     color: oklch(var(--foreground));
     background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
@@ -382,8 +382,8 @@
     cursor: pointer;
   }
   .chip-x:hover {
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 14%, transparent);
+    color: oklch(var(--status-error));
+    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
   }
 
   .card-foot {
@@ -418,7 +418,7 @@
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 11.5px;
+    font-size: 12px;
     letter-spacing: 0.04em;
     text-transform: lowercase;
     cursor: pointer;
@@ -433,7 +433,7 @@
     background: oklch(var(--primary));
     border-color: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }
@@ -456,14 +456,14 @@
     border-radius: 6px;
   }
   .stat-label {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   .stat-value {
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
   }
 
@@ -473,7 +473,7 @@
     gap: 8px;
   }
   .sharpes-title {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -495,28 +495,28 @@
 
   /* Light theme, mirroring StrategyPanel chrome. */
   :global(html:not(.dark)) .card {
-    background: #ffffff;
-    border-color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .universe-input input {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .btn {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: #000;
-    color: #fff;
+    background: oklch(var(--foreground));
+    color: oklch(var(--card));
   }
   :global(html:not(.dark)) .btn.primary {
     background: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
   }
-  :global(html:not(.dark)) .chip { border-color: #000; color: #000; }
-  :global(html:not(.dark)) .count { border-color: #000; color: #000; }
-  :global(html:not(.dark)) .stat { border-color: #000; }
+  :global(html:not(.dark)) .chip { border-color: oklch(var(--foreground)); color: oklch(var(--foreground)); }
+  :global(html:not(.dark)) .count { border-color: oklch(var(--foreground)); color: oklch(var(--foreground)); }
+  :global(html:not(.dark)) .stat { border-color: oklch(var(--foreground)); }
 </style>

@@ -106,7 +106,7 @@
 
 {#snippet dataControls()}
   <Select.Root type="single" bind:value={source}>
-    <Select.Trigger class="ot-ctx-pill h-7 px-3 outline-none [&_svg]:opacity-60" aria-label="Market data source">
+    <Select.Trigger size="sm" class="ot-ctx-pill rounded shadow-none [&_svg]:opacity-60" aria-label="Market data source">
       <span class="ot-ctx-label">SRC</span><span class="ot-ctx-value">{activeSourceLabel}</span>
     </Select.Trigger>
     <Select.Content>{#each MARKET_DATA_PROVIDERS as p (p.value)}<Select.Item value={p.value}>{p.label}</Select.Item>{/each}</Select.Content>
@@ -123,7 +123,7 @@
     {:else if connectionStatus === 'connected'}<span class="ot-stream-dot" aria-label="Connected"></span>
     {:else if connectionStatus === 'error'}<span class="ot-stream-dot error" aria-label="Stream error"></span>{/if}
   </button>
-  <button type="button" class="ot-workbench-ghost" onclick={() => openResearch(oninspectdata)} aria-label="Inspect loaded market data">Inspect data</button>
+  <button type="button" class="ot-workbench-ghost quiet" onclick={() => openResearch(oninspectdata)} aria-label="Inspect loaded market data">Inspect data</button>
 {/snippet}
 
 <header class="workbench-header">
@@ -141,8 +141,8 @@
     <button type="button" class="task-link" aria-current={activeView === 'strategy' ? 'page' : undefined} onclick={onstrategy}>Strategy</button>
     <button type="button" class="task-link" aria-current={activeView === 'robustness' ? 'page' : undefined} onclick={onrobustness}>Robustness</button>
   </nav>
-  <button type="button" class="workspace-link ot-workbench-ghost" onclick={onworkspaces}>Workspaces</button>
-  <button type="button" class="ot-workbench-ghost" onclick={onguidedexample} aria-haspopup="dialog">Guided example</button>
+  <button type="button" class="workspace-link ot-workbench-ghost quiet" onclick={onworkspaces}>Workspaces</button>
+  <button type="button" class="ot-workbench-ghost quiet" onclick={onguidedexample} aria-haspopup="dialog">Guided example</button>
 
   <div class="account-zone">
     {#if currentUser}
@@ -184,12 +184,12 @@
   .context-row { padding: 6px 12px; flex-wrap: wrap; }
   .account-zone { margin-left: auto; flex-shrink: 0; }
   .task-navigation { display: flex; align-items: center; align-self: stretch; gap: 4px; }
-  .task-link { background: transparent; border: 0; border-bottom: 2px solid transparent; color: oklch(var(--muted-foreground)); padding: 6px 10px; font: 600 13px var(--font-family-lato); cursor: pointer; }
+  .task-link { background: transparent; border: 0; border-bottom: 2px solid transparent; color: oklch(var(--muted-foreground)); padding: 6px 10px; font: 600 13px var(--font-sans); cursor: pointer; }
   .task-link:hover { color: oklch(var(--foreground)); background: oklch(var(--accent)); }
   .task-link[aria-current] { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--primary)); }
   .task-link:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .context-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .context-label { font: 12px var(--font-family-lato); color: oklch(var(--muted-foreground)); }
+  .context-label { font: 12px var(--font-sans); color: oklch(var(--muted-foreground)); }
   .stream-control[aria-pressed="true"] { border-color: oklch(var(--primary)); }
   .request-status { font: 11px var(--font-mono); color: oklch(var(--muted-foreground)); }
   @media (max-width: 760px) {

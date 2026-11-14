@@ -242,7 +242,7 @@
 </section>
 
 <style>
-  .options-panel { container-type: inline-size; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: oklch(var(--foreground)); background: oklch(var(--card)); font-family: var(--font-family-lato); font-size: 12px; }
+  .options-panel { container-type: inline-size; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: oklch(var(--foreground)); background: oklch(var(--card)); font-family: var(--font-sans); font-size: 12px; }
   .panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); flex: none; }
   .identity { display: grid; gap: 4px; min-width: 0; }
   .identity strong { font-size: 13px; }
@@ -282,7 +282,7 @@
   .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
   .inputs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .hint { font-size: 12px; margin: 0; }
-  h3 { font-size: 12px; font-weight: 700; margin: 8px 0; overflow-wrap: anywhere; }
+  h3 { font-size: 12px; font-weight: 600; margin: 8px 0; overflow-wrap: anywhere; }
   .configuration { border-top: 1px solid oklch(var(--border)); padding-top: 8px; }
   summary { cursor: pointer; min-height: 28px; line-height: 28px; }
   .configuration > :not(summary) { margin-top: 8px; }

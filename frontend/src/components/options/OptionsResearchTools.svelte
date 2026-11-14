@@ -68,7 +68,7 @@
   [role="tab"]:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .panel { display: grid; gap: 8px; min-width: 0; padding: 8px; }
   p { margin: 0; font-size: 12px; line-height: 1.5; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
-  .analysis { color: oklch(var(--foreground)); font-weight: 700; }
+  .analysis { color: oklch(var(--foreground)); font-weight: 600; }
   @media (pointer: coarse) { [role="tab"] { min-height: var(--control-touch-height); } }
   @media (forced-colors: active) { [role="tab"][aria-selected="true"] { outline: 2px solid Highlight; } [role="tab"]:focus-visible { outline-color: Highlight; } }
 </style>

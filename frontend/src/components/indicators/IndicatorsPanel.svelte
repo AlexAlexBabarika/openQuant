@@ -10,6 +10,8 @@
   import Save from '@lucide/svelte/icons/save';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import X from '@lucide/svelte/icons/x';
+  import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
+  import Activity from '@lucide/svelte/icons/activity';
   import ScriptEditor from './ScriptEditor.svelte';
   import ScriptOutputs from './ScriptOutputs.svelte';
   import ScriptDocs from './ScriptDocs.svelte';
@@ -122,12 +124,21 @@
     const unsaved = ind.activeId === id && ind.dirty
       ? ' Unsaved changes will be discarded.'
       : '';
-    if (!confirm(`Delete "${name}"? This cannot be undone.${unsaved}`)) return;
+    if (!(await confirmAction({ title: `Delete "${name}"?`, description: `This cannot be undone.${unsaved}`, confirmLabel: 'Delete', destructive: true }))) return;
     try {
       await ind.delete(id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed');
+      void confirmAction({ title: `Could not delete "${name}"`, description: err instanceof Error ? err.message : 'Delete failed', acknowledge: true });
     }
+  }
+
+  async function newDraft() {
+    if (await confirmDiscard(ind.dirty, 'indicator')) ind.newDraft(() => true);
+  }
+
+  async function openScript(id: string) {
+    if (id === ind.activeId) return;
+    if (await confirmDiscard(ind.dirty, 'indicator')) ind.openScript(id, () => true);
   }
 
   function fmtRelative(iso: string): string {
@@ -169,7 +180,7 @@
 
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark">▣</span>
+        <span class="brand-mark"><Activity class="h-3.5 w-3.5" /></span>
         <span class="brand-title">indicators</span>
         <span class="brand-sub">/ workbench</span>
       </div>
@@ -219,7 +230,7 @@
           <button
             type="button"
             class="iconbtn"
-            onclick={() => ind.newDraft()}
+            onclick={() => void newDraft()}
             title="New indicator (clears editor)"
             aria-label="New indicator"
           >
@@ -259,7 +270,7 @@
                 type="button"
                 class="ri-select"
                 aria-pressed={ind.activeId === s.id}
-                onclick={() => ind.openScript(s.id)}
+                onclick={() => void openScript(s.id)}
               >
                 <span class="ri-name">{s.name}</span>
                 <span class="ri-time">{fmtRelative(s.updated_at)}</span>
@@ -301,7 +312,7 @@
           </div>
 
           <div class="actions">
-            <button type="button" class="btn ghost" onclick={() => ind.newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
+            <button type="button" class="btn ghost" onclick={() => void newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
             {#if ind.saveError}
               <ErrorBanner message={ind.saveError} />
             {/if}
@@ -440,7 +451,7 @@
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
       0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
     border-radius: 16px 16px 0 0;
-    font-family: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--font-mono);
     overflow: hidden;
   }
 
@@ -476,7 +487,7 @@
     font-size: 14px;
     transform: translateY(1px);
   }
-  .brand-title { font-weight: 700; }
+  .brand-title { font-weight: 600; }
   .brand-sub {
     color: oklch(var(--muted-foreground));
     font-size: 11px;
@@ -498,7 +509,7 @@
     background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
   }
   .ctx-label {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.18em;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
@@ -509,12 +520,12 @@
   }
   .ctx-sym {
     color: oklch(var(--foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
   .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 10.5px; }
+  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
 
   .iconbtn {
     display: inline-flex;
@@ -534,9 +545,9 @@
     background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
   }
   .iconbtn.close:hover {
-    border-color: color-mix(in oklab, #ff7373 60%, transparent);
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 12%, transparent);
+    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    color: oklch(var(--status-error));
+    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
   }
 
   .tabs {
@@ -566,7 +577,7 @@
   .tab.active {
     color: oklch(var(--primary-foreground));
     background: oklch(var(--primary));
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .body {
@@ -597,20 +608,20 @@
     align-items: center;
     gap: 8px;
     padding: 14px 16px 10px;
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
   }
-  .rail-title { font-weight: 700; color: oklch(var(--foreground)); }
+  .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
   .rail-count {
     margin-left: 2px;
     padding: 1px 6px;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 999px;
-    font-size: 9.5px;
+    font-size: 10px;
     color: oklch(var(--muted-foreground));
   }
   .rail-head .iconbtn { margin-left: auto; }
@@ -623,12 +634,12 @@
   }
   .rail-hint {
     margin: 12px 12px;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
   .rail-hint .dim { color: oklch(var(--muted-foreground)); }
-  .rail-hint.err { color: #ff7373; }
+  .rail-hint.err { color: oklch(var(--status-error)); }
 
   .rail-item {
     position: relative;
@@ -673,8 +684,8 @@
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: #ef4444;
-    box-shadow: 0 0 0 2px color-mix(in oklab, #ef4444 22%, transparent);
+    background: oklch(var(--status-error));
+    box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-error)) 22%, transparent);
     transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     align-self: center;
     justify-self: center;
@@ -684,19 +695,19 @@
     transform: scale(1.25);
   }
   .ri-status.running {
-    background: #22c55e;
-    box-shadow: 0 0 0 2px color-mix(in oklab, #22c55e 28%, transparent);
+    background: oklch(var(--status-ok));
+    box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-ok)) 28%, transparent);
     animation: pulseDot 1.6s ease-in-out infinite;
   }
   @keyframes pulseDot {
-    0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, #22c55e 22%, transparent); }
-    50% { box-shadow: 0 0 0 4px color-mix(in oklab, #22c55e 32%, transparent); }
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-ok)) 22%, transparent); }
+    50% { box-shadow: 0 0 0 4px color-mix(in oklab, oklch(var(--status-ok)) 32%, transparent); }
   }
   .ri-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .ri-time {
     font-size: 10px;
@@ -717,8 +728,8 @@
   }
   .rail-item:hover .ri-del { opacity: 1; }
   .ri-del:hover {
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 14%, transparent);
+    color: oklch(var(--status-error));
+    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
   }
 
   .rail-foot {
@@ -774,7 +785,7 @@
     padding: 4px 0;
     font-family: inherit;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
@@ -811,7 +822,7 @@
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 11.5px;
+    font-size: 12px;
     letter-spacing: 0.04em;
     text-transform: lowercase;
     cursor: pointer;
@@ -826,7 +837,7 @@
     background: oklch(var(--primary));
     border-color: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }
@@ -836,12 +847,12 @@
   }
   .btn.primary:active:not(:disabled) { transform: translateY(0); }
   .btn.primary.stop {
-    background: #ef4444;
-    border-color: #ef4444;
-    color: #fff;
+    background: oklch(var(--destructive));
+    border-color: oklch(var(--destructive));
+    color: oklch(var(--destructive-foreground));
   }
   .btn.primary.stop:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, #ef4444 60%, transparent);
+    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--destructive)) 60%, transparent);
   }
 
   .split {
@@ -930,46 +941,46 @@
   /* color-mix(...black...) grey wash from the panel surfaces.        */
   /* ---------------------------------------------------------------- */
   :global(html:not(.dark)) .panel {
-    background: #ffffff;
+    background: oklch(var(--card));
     box-shadow:
-      0 -1px 0 0 #000 inset,
+      0 -1px 0 0 oklch(var(--foreground)) inset,
       0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid #000;
+    border-top: 1px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .topbar {
-    background: #ffffff;
-    border-bottom: 1px dashed #000;
+    background: oklch(var(--card));
+    border-bottom: 1px dashed oklch(var(--foreground));
   }
   :global(html:not(.dark)) .ctx {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .ctx-label,
   :global(html:not(.dark)) .ctx-sep {
-    color: #000;
+    color: oklch(var(--foreground));
     opacity: 0.55;
   }
   :global(html:not(.dark)) .tabs {
-    background: #ffffff;
-    border-color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .iconbtn {
-    border-color: #000;
-    color: #000;
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .iconbtn:hover {
-    background: #000;
-    color: #fff;
-    border-color: #000;
+    background: oklch(var(--foreground));
+    color: oklch(var(--card));
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .rail {
-    background: #ffffff;
-    border-right: 1px solid #000;
+    background: oklch(var(--card));
+    border-right: 1px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .rail-head {
-    border-bottom: 1px dashed #000;
-    color: #000;
+    border-bottom: 1px dashed oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .rail-hint.err {
     color: oklch(var(--destructive));
@@ -980,49 +991,49 @@
       color-mix(in oklab, oklch(var(--primary)) 22%, transparent);
   }
   :global(html:not(.dark)) .ri-del {
-    color: #000;
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .ri-del:hover {
-    background: #000;
-    color: #fff;
+    background: oklch(var(--foreground));
+    color: oklch(var(--card));
   }
   :global(html:not(.dark)) .rail-count {
-    border-color: #000;
-    color: #000;
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .rail-foot {
-    border-top: 1px dashed #000;
-    color: #000;
+    border-top: 1px dashed oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .kbd {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .work-head {
-    background: #ffffff;
-    border-bottom: 1px solid #000;
+    background: oklch(var(--card));
+    border-bottom: 1px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .btn {
-    background: #ffffff;
-    border-color: #000;
-    color: #000;
+    background: oklch(var(--card));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: #000;
-    border-color: #000;
-    color: #fff;
+    background: oklch(var(--foreground));
+    border-color: oklch(var(--foreground));
+    color: oklch(var(--card));
   }
   :global(html:not(.dark)) .splitter {
-    background: #ffffff;
-    border-top: 1px solid #000;
-    border-bottom: 1px solid #000;
+    background: oklch(var(--card));
+    border-top: 1px solid oklch(var(--foreground));
+    border-bottom: 1px solid oklch(var(--foreground));
   }
   :global(html:not(.dark)) .splitter:hover,
   :global(html:not(.dark)) .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 14%, #ffffff);
+    background: color-mix(in oklab, oklch(var(--primary)) 14%, oklch(var(--card)));
   }
   :global(html:not(.dark)) .grip i {
-    background: #000;
+    background: oklch(var(--foreground));
   }
 </style>

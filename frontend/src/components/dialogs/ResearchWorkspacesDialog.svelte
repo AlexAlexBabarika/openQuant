@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { confirmAction } from '$lib/features/confirm/confirm.svelte';
   import * as Dialog from '$lib/components/ui/dialog';
   import type { ResearchShelf, DraftKind, ResearchWorkspace } from '$lib/features/workspace/researchShelf.svelte';
   let { open = $bindable(false), shelf, onSave, onRestore, onRecover, onKeep }: {
     open?: boolean; shelf: ResearchShelf; onSave: (name: string) => boolean;
-    onRestore: (workspace: ResearchWorkspace) => boolean; onRecover: (kind: DraftKind) => void;
+    onRestore: (workspace: ResearchWorkspace) => Promise<boolean>; onRecover: (kind: DraftKind) => void | Promise<void>;
     onKeep: (kind: DraftKind) => void;
   } = $props();
   let name = $state('');
@@ -42,8 +43,8 @@
         <h3 class="font-semibold break-words">{workspace.name}</h3>
         <p class="text-xs text-muted-foreground">{workspace.layout.symbol} · {workspace.layout.provider} · {workspace.layout.interval} / {workspace.layout.period} · {new Date(workspace.updatedAt).toLocaleString()}</p>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="ot-workbench-ghost" onclick={() => { if (onRestore(workspace)) open = false; }}>Restore workspace…</button>
-          <button type="button" class="ot-workbench-ghost" onclick={() => { if (confirm(`Remove workspace “${workspace.name}”?`)) shelf.removeWorkspace(workspace.id); }}>Remove workspace</button>
+          <button type="button" class="ot-workbench-ghost" onclick={async () => { if (await onRestore(workspace)) open = false; }}>Restore workspace…</button>
+          <button type="button" class="ot-workbench-ghost" onclick={async () => { if (await confirmAction({ title: `Remove workspace “${workspace.name}”?`, confirmLabel: 'Remove', destructive: true })) shelf.removeWorkspace(workspace.id); }}>Remove workspace</button>
         </div>
       </section>
     {/each}

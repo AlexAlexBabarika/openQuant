@@ -41,21 +41,17 @@
   }
   .val {
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
     font-variant-numeric: tabular-nums;
   }
   .val.neg {
-    color: #ff9c9c;
+    color: oklch(var(--down-color));
   }
   .n {
     margin-top: 4px;
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: 0.06em;
     color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
-  }
-
-  :global(html:not(.dark)) .val.neg {
-    color: #b00020;
   }
 </style>

@@ -118,14 +118,14 @@
     gap: 10px;
   }
   .lbl {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }
   .self {
-    font-size: 10.5px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 600;
     letter-spacing: 0.06em;
     color: oklch(var(--foreground));
   }
@@ -143,7 +143,7 @@
     border: 1px solid
       color-mix(in oklab, oklch(var(--border)) 100%, transparent);
     border-radius: 999px;
-    font-size: 10.5px;
+    font-size: 11px;
     line-height: 1;
     letter-spacing: 0.06em;
     color: oklch(var(--foreground));
@@ -151,7 +151,7 @@
     font-family: inherit;
   }
   .chip-name {
-    font-weight: 700;
+    font-weight: 600;
   }
   .chip-x {
     display: inline-flex;
@@ -169,8 +169,8 @@
       background 120ms ease;
   }
   .chip-x:hover {
-    color: #ff9c9c;
-    background: color-mix(in oklab, #ff7373 18%, transparent);
+    color: oklch(var(--status-error));
+    background: color-mix(in oklab, oklch(var(--status-error)) 18%, transparent);
   }
   .chip.add {
     padding: 2px 8px 2px 6px;
@@ -216,18 +216,18 @@
     background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
   }
   .bench {
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 60%, transparent);
   }
   .val {
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
   }
   .val.neg {
-    color: #ff9c9c;
+    color: oklch(var(--down-color));
   }
   .pending-val {
     color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
@@ -239,12 +239,9 @@
   }
 
   :global(html:not(.dark)) .cell {
-    border-color: #000;
-  }
-  :global(html:not(.dark)) .val.neg {
-    color: #b00020;
+    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .chip {
-    border-color: #000;
+    border-color: oklch(var(--foreground));
   }
 </style>

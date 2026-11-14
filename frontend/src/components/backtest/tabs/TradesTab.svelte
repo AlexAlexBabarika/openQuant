@@ -149,7 +149,7 @@
     top: 0;
     text-align: left;
     padding: 8px 12px;
-    font-size: 9.5px;
+    font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -196,7 +196,7 @@
   }
   .side {
     text-transform: uppercase;
-    font-size: 10.5px;
+    font-size: 11px;
     letter-spacing: 0.06em;
   }
   .side.buy {

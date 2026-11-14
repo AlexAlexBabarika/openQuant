@@ -50,16 +50,16 @@
   }
   .val {
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     color: oklch(var(--foreground));
     font-variant-numeric: tabular-nums;
   }
   .val.sig {
-    color: #fbbf24;
+    color: oklch(var(--status-warn));
   }
   .note {
     margin: 6px 0 0;
-    font-size: 10.5px;
+    font-size: 11px;
     line-height: 1.4;
     color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
   }

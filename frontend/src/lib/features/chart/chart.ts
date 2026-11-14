@@ -162,7 +162,7 @@ export function resolveGridLineColour(colours?: ChartColours): string {
 }
 
 const DEFAULT_MONO_FONT =
-  "'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+  "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
 
 function getMonoFontFamily(): string {
   if (typeof window === 'undefined') return DEFAULT_MONO_FONT;
