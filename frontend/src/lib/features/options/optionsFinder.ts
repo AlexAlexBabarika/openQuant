@@ -1,3 +1,4 @@
+import { MAX_FINDER_EVALUATIONS, MAX_PRICE } from './optionsBounds';
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
 import type { FinderCandidate, FinderRequest } from './optionsResearchTypes';
 import { optionsErrors } from './optionsValidation';
@@ -94,7 +95,13 @@ export function finderErrors(request: FinderRequest): Record<string, string> {
     true,
   );
   bounded('limit', request.limit ?? 10, 1, 20, true);
-  bounded('max_evaluations', request.max_evaluations ?? 2000, 1, 2000, true);
+  bounded(
+    'max_evaluations',
+    request.max_evaluations ?? MAX_FINDER_EVALUATIONS,
+    1,
+    MAX_FINDER_EVALUATIONS,
+    true,
+  );
   if (!['bullish', 'bearish', 'neutral'].includes(request.thesis))
     errors.thesis = 'Choose a thesis.';
   if (
@@ -102,7 +109,10 @@ export function finderErrors(request: FinderRequest): Record<string, string> {
     request.scenario_spots.length > 9 ||
     request.scenario_spots.some(
       (v, i, a) =>
-        !Number.isFinite(v) || v < 0 || v > 1e6 || (i > 0 && v <= a[i - 1]),
+        !Number.isFinite(v) ||
+        v < 0 ||
+        v > MAX_PRICE ||
+        (i > 0 && v <= a[i - 1]),
     )
   )
     errors.scenario_spots =

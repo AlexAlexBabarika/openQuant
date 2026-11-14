@@ -1,3 +1,4 @@
+import { MAX_DAYS, MAX_PRICE } from './optionsBounds';
 import type {
   OptionsDraft,
   OptionsSurfaceAnalysis,
@@ -42,7 +43,7 @@ export function scenarioInputError(
   if (
     !finiteValue(firstExpiryDays(draft)) ||
     firstExpiryDays(draft) < 0 ||
-    firstExpiryDays(draft) > 3650 ||
+    firstExpiryDays(draft) > MAX_DAYS ||
     !finiteValue(elapsed) ||
     elapsed < 0 ||
     elapsed > firstExpiryDays(draft)
@@ -109,7 +110,7 @@ export function surfaceSettingsErrors(
     !finiteValue(spotStart) ||
     !finiteValue(spotEnd) ||
     spotStart < 0 ||
-    spotEnd > 1000000 ||
+    spotEnd > MAX_PRICE ||
     spotStart >= spotEnd
   )
     errors.spots = 'Use 0 ≤ spot start < end ≤ 1,000,000 USD.';
@@ -124,7 +125,7 @@ export function surfaceSettingsErrors(
   if (
     !bounds ||
     !finiteValue(bounds.max) ||
-    (axis === 'elapsed_days' && (bounds.max < 0 || bounds.max > 3650)) ||
+    (axis === 'elapsed_days' && (bounds.max < 0 || bounds.max > MAX_DAYS)) ||
     !finiteValue(stepStart) ||
     !finiteValue(stepEnd) ||
     stepStart < bounds.min ||
@@ -178,9 +179,11 @@ export function surfaceDataError(
     !['elapsed_days', 'iv_shift_pp'].includes(surface.axis) ||
     !ordered(surface.spots, 41) ||
     !ordered(surface.steps, 21) ||
-    surface.spots.some(s => s < 0 || s > 1000000) ||
+    surface.spots.some(s => s < 0 || s > MAX_PRICE) ||
     surface.steps.some(s =>
-      surface.axis === 'elapsed_days' ? s < 0 || s > 3650 : s < -100 || s > 100,
+      surface.axis === 'elapsed_days'
+        ? s < 0 || s > MAX_DAYS
+        : s < -100 || s > 100,
     ) ||
     !Array.isArray(surface.pnl) ||
     surface.pnl.length > surface.steps.length ||

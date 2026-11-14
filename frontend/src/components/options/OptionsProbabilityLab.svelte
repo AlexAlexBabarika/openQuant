@@ -1,11 +1,11 @@
 <script lang="ts">
   import { formatPercent, formatUsd } from '$lib/features/options/optionsFormat';
-  import { onDestroy, untrack } from 'svelte';
-  import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
+  import type { DistributionRequest, DistributionResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { analyzeDistribution } from '$lib/features/options/optionsResearchApi';
   import { axisValue, exactValue } from '$lib/features/options/optionsChart';
   import {
-    ProbabilityRunner, emptyProbabilityState, probabilityBars, probabilityBinLabel, tallestProbability,
+    probabilityBars, probabilityDataError, probabilityBinLabel, tallestProbability,
     probabilityErrors, probabilityKey, probabilityPercent, probabilityRequest,
     probabilitySettings, terminalProbabilityPlot,
   } from '$lib/features/options/optionsProbability';
@@ -15,34 +15,31 @@
   } = $props();
   const id = $props.id();
   let settings = $state(probabilitySettings());
-  let settingsDocument = $state(untrack(() => documentKey));
   let chartWidth = $state(300);
-  let flight = $state.raw(emptyProbabilityState());
-  const runner = new ProbabilityRunner(analyzeDistribution, next => { flight = next; });
   const errors = $derived(probabilityErrors(draft, settings));
   const inputKey = $derived(`${readOnly}:${probabilityKey(draft, settings)}`);
-  const visible = $derived(flight.documentKey === documentKey ? flight : emptyProbabilityState());
-  const result = $derived(visible.result);
-  const stale = $derived(result !== null && visible.resultKey !== inputKey);
+  const run = useResearchRun<DistributionRequest, DistributionResponse>({
+    documentKey: () => documentKey, inputKey: () => inputKey,
+    copy: {
+      cancelled: 'Request cancelled or inputs replaced. Late responses are ignored. Compute explicitly to retry.',
+      timedOut: 'Distribution request timed out after 15 seconds. Retry explicitly; client abort does not guarantee server cancellation.',
+      failed: () => 'Distribution computation failed. Check the strategy and model assumptions, then retry explicitly. The server may be busy, unavailable, or have rejected the request. No failed result was published.',
+      submitted: () => '',
+    },
+    onDocumentChange: () => { settings = probabilitySettings(); },
+  });
+  const result = $derived(run.result);
+  const stale = $derived(run.stale);
   const width = $derived(Math.max(180, chartWidth));
   const bars = $derived(result ? probabilityBars(result.bins, width) : []);
   const terminal = $derived(result ? terminalProbabilityPlot(result, width) : null);
 
-  $effect(() => {
-    const key = documentKey;
-    if (key !== untrack(() => settingsDocument)) {
-      settingsDocument = key;
-      settings = probabilitySettings();
-    }
-  });
-  $effect(() => { runner.context(documentKey, inputKey); });
-  onDestroy(() => runner.dispose());
 
   function compute(event: SubmitEvent) {
     event.preventDefault();
-    if (visible.pending) return;
+    if (run.pending) return;
     const request = probabilityRequest($state.snapshot(draft), $state.snapshot(settings));
-    if (request) void runner.run(documentKey, inputKey, request);
+    if (request) void run.submit(request, analyzeDistribution, probabilityDataError);
   }
 </script>
 
@@ -91,20 +88,20 @@
     {#if errors.horizon}<p class="notice">{errors.horizon}</p>{/if}
     {#if errors.measure}<p class="notice">{errors.measure}</p>{/if}
     <div class="actions">
-      <button type="submit" class="ot-workbench-primary" disabled={visible.pending || Object.keys(errors).length > 0}>{visible.pending ? 'Computing…' : 'Compute distribution'}</button>
-      {#if visible.pending}<button type="button" class="ot-workbench-ghost" onclick={() => runner.cancel()}>Cancel request</button>{/if}
+      <button type="submit" class="ot-workbench-primary" disabled={run.pending || Object.keys(errors).length > 0}>{run.pending ? 'Computing…' : 'Compute distribution'}</button>
+      {#if run.pending}<button type="button" class="ot-workbench-ghost" onclick={() => run.cancel()}>Cancel request</button>{/if}
     </div>
   </form>
   <div class="feedback" aria-live="polite" aria-atomic="true">
-    {#if visible.pending}<p>{result ? 'Computing submitted inputs; previous completed evidence remains below.' : 'Computing submitted inputs; no completed evidence yet.'} Client cancellation cannot guarantee server process cancellation.</p>{/if}
-    {#if visible.cancelled}<p class="notice">Request cancelled or inputs replaced. Late responses are ignored. Compute explicitly to retry.</p>{/if}
-    {#if visible.error}<p role="alert" class="notice">{visible.error}</p>{/if}
+    {#if run.pending}<p>{result ? 'Computing submitted inputs; previous completed evidence remains below.' : 'Computing submitted inputs; no completed evidence yet.'} Client cancellation cannot guarantee server process cancellation.</p>{/if}
+    {#if run.notice}<p class="notice">{run.notice}</p>{/if}
+    {#if run.error}<p role="alert" class="notice">{run.error}</p>{/if}
     {#if stale}<p class="notice">Stale evidence: draft or probability assumptions changed. All values below still describe the previous submitted snapshot. Compute explicitly to refresh.</p>{/if}
-    {#if !result && !visible.pending && !visible.error}<p class="note">No completed distribution. Changing inputs never submits research automatically.</p>{/if}
+    {#if !result && !run.pending && !run.error}<p class="note">No completed distribution. Changing inputs never submits research automatically.</p>{/if}
   </div>
 
   {#if result}
-    <section class="results" aria-labelledby={`${id}-result-title`} aria-busy={visible.pending}>
+    <section class="results" aria-labelledby={`${id}-result-title`} aria-busy={run.pending}>
       <h4 id={`${id}-result-title`}>Submitted distribution · {result.request.analysis.strategy.name}{stale ? ' · stale' : ''}</h4>
       <p class="note">{result.request.measure === 'risk_neutral' ? 'Risk-neutral model' : 'Hypothetical user-drift model'} · {exactValue(result.horizon_days)} calendar days (ACT/365) · USD total strategy P&amp;L · {result.provenance.exercise_style}, {result.provenance.settlement}-settled.</p>
       {#if result.deterministic}<p class="notice">Deterministic point mass: zero volatility and/or zero time removes model randomness. One exact outcome is not a calibrated forecast or a claim that a real position has zero risk.</p>{/if}

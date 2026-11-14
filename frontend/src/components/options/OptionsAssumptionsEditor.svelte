@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_DAYS, MAX_PRICE } from '$lib/features/options/optionsBounds';
   import { clearCommonDates, commonDateHorizon, optionsEditorErrors, setCommonDate, type OptionsEditorProps } from '$lib/features/options/optionsLegEditor';
   import { addDays, fractionInput, localIsoDate, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
   import { formatPrice } from '$lib/features/options/optionsFormat';
@@ -42,7 +43,7 @@
   {@render error('strategy')}
   <div class="inputs-grid">
     <div class="field">
-      {@render numeric('Spot · USD', 'spot', draft.spot, 0, 1000000, v => onSpot ? onSpot(v) : onEdit(d => { d.spot = v; }))}
+      {@render numeric('Spot · USD', 'spot', draft.spot, 0, MAX_PRICE, v => onSpot ? onSpot(v) : onEdit(d => { d.spot = v; }))}
       {#if workspace?.spot != null && workspace.symbol}
         {#if spotLinked}<small class="hint">From the {workspace.symbol} chart{#if drift} · <button type="button" class="link" onclick={() => onLink?.()}>Update to {formatPrice(workspace.spot)}</button>{/if}</small>
         {:else}<button type="button" class="link" onclick={() => onLink?.()}>Use {workspace.symbol} {formatPrice(workspace.spot)}</button>{/if}
@@ -58,7 +59,7 @@
       </div>
     {:else}
       <div class="field">
-        {@render numeric('Expiry · days', 'strategy.days_to_expiry', draft.strategy.days_to_expiry, 0, 3650, v => onEdit(d => { d.strategy.days_to_expiry = v; }))}
+        {@render numeric('Expiry · days', 'strategy.days_to_expiry', draft.strategy.days_to_expiry, 0, MAX_DAYS, v => onEdit(d => { d.strategy.days_to_expiry = v; }))}
         <button type="button" class="link" disabled={!Number.isInteger(draft.strategy.days_to_expiry)} onclick={useDates}>Use dates</button>
       </div>
     {/if}

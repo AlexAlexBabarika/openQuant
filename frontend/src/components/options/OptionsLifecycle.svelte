@@ -1,40 +1,37 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { MAX_DAYS } from '$lib/features/options/optionsBounds';
+  import { untrack } from 'svelte';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import type { OptionsResearchToolProps, LifecycleRequest, LifecycleResponse } from '$lib/features/options/optionsResearchTypes';
   import { evaluateLifecycle } from '$lib/features/options/optionsResearchApi';
-  import { emptyResearchState, inputKey, lifecycleRequest, MAX_PATH_TEXT, observationIndex, pathChart, pathControls, ResearchJob, researchValue as value, validLifecycle, type PathControls, type ResearchState } from '$lib/features/options/optionsLifecycle';
+  import { inputKey, lifecycleRequest, MAX_PATH_TEXT, observationIndex, pathChart, pathControls, researchValue as value, validLifecycle, type PathControls } from '$lib/features/options/optionsLifecycle';
 
   // The hedge lab reuses only the path inputs; this mode never submits lifecycle work.
   let { draft, onEdit: _onEdit, documentKey, readOnly = false, inputsOnly = false, controls = $bindable<PathControls | undefined>() }: OptionsResearchToolProps & { inputsOnly?: boolean; controls?: PathControls } = $props();
   const uid = $props.id();
   let ownControls = $state<PathControls>(untrack(() => pathControls(draft)));
   const settings = $derived(controls ?? ownControls);
-  let runState = $state.raw<ResearchState<LifecycleResponse>>(emptyResearchState(untrack(() => documentKey)));
-  const job = new ResearchJob<LifecycleRequest, LifecycleResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; }, () => key);
   const prepared = $derived(lifecycleRequest(draft, settings));
   const key = $derived(inputKey(draft, settings));
-  const visible = $derived(runState.documentKey === documentKey ? runState : null);
-  const result = $derived(visible?.result ?? null);
-  const stale = $derived(!!result && key !== visible?.submittedKey);
   let index = $state(0);
   let playing = $state(false);
+  const run = useResearchRun<LifecycleRequest, LifecycleResponse>({
+    documentKey: () => documentKey, inputKey: () => key, readOnly: () => readOnly,
+    onDocumentChange: () => { ownControls = pathControls(draft); if (controls !== undefined) controls = pathControls(draft); index = 0; playing = false; },
+  });
+  const result = $derived(run.result);
+  const stale = $derived(run.stale);
   const active = $derived(result?.ledger[Math.min(index, result.ledger.length - 1)]);
   const chart = $derived(pathChart(result?.ledger.map(row => ({ day: row.day, values: [row.total_pnl, row.remaining_value, row.cumulative_settlement_cash] })) ?? []));
-  $effect.pre(() => {
-    const document = documentKey;
-    untrack(() => { job.reset(document); ownControls = pathControls(draft); if (controls !== undefined) controls = pathControls(draft); index = 0; playing = false; });
-  });
   $effect(() => {
     if (!playing || !result) return;
     const timer = setInterval(() => { if (index >= result.ledger.length - 1) playing = false; else index++; }, 500);
     return () => clearInterval(timer);
   });
-  onDestroy(() => job.reset('unmounted'));
-  $effect(() => { key; readOnly; untrack(() => { if (runState.pending) job.cancel(); }); });
   async function submit() {
-    if (readOnly || inputsOnly || !prepared.request || visible?.pending) return;
+    if (readOnly || inputsOnly || !prepared.request || run.pending) return;
     playing = false; index = 0;
-    await job.submit(structuredClone($state.snapshot(prepared.request)), key, evaluateLifecycle, validLifecycle);
+    await run.submit($state.snapshot(prepared.request), evaluateLifecycle, validLifecycle);
   }
   function move(key: string) {
     const next = observationIndex(index, result?.ledger.length ?? 0, key);
@@ -60,7 +57,7 @@
       {@render fieldError('csv')}
     {:else}
       <div class="fields">
-        {#each ([['seed', 'Seed · uint32', 0, 4294967295, '1'], ['horizon', 'Horizon · calendar days (>0–3650)', 0, 3650, 'any'], ['steps', 'Steps · 1–365', 1, 365, '1'], ['drift', 'Annual drift · fraction (−1–1)', -1, 1, 'any'], ['volatility', 'Annual path volatility · fraction (0–5)', 0, 5, 'any']] as const) as [field, label, min, max, step]}
+        {#each ([['seed', 'Seed · uint32', 0, 4294967295, '1'], ['horizon', 'Horizon · calendar days (>0–3650)', 0, MAX_DAYS, 'any'], ['steps', 'Steps · 1–365', 1, 365, '1'], ['drift', 'Annual drift · fraction (−1–1)', -1, 1, 'any'], ['volatility', 'Annual path volatility · fraction (0–5)', 0, 5, 'any']] as const) as [field, label, min, max, step]}
           <label>{label}<input type="number" name={`lifecycle-${field}`} autocomplete="off" {min} {max} {step} value={settings[field]} aria-invalid={!!prepared.errors[field]} aria-describedby={`${uid}-${field}-error`} oninput={e => { settings[field] = e.currentTarget.value; }} />{@render fieldError(field)}</label>
         {/each}
       </div>
@@ -72,18 +69,18 @@
       <details><summary>Input errors · {Object.keys(prepared.errors).length}</summary><ul>{#each Object.entries(prepared.errors) as [field, message]}<li><strong>{field}</strong>: {message}</li>{/each}</ul></details>
     {/if}
     <div class="actions">
-      <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || !!visible?.pending} onclick={submit}>{visible?.pending ? (result ? 'Refreshing lifecycle…' : 'Evaluating lifecycle…') : 'Evaluate lifecycle'}</button>
-      <button type="button" class="ot-workbench-ghost" disabled={!visible?.pending} onclick={() => { playing = false; job.cancel(); }}>Cancel request</button>
+      <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || run.pending} onclick={submit}>{run.pending ? (result ? 'Refreshing lifecycle…' : 'Evaluating lifecycle…') : 'Evaluate lifecycle'}</button>
+      <button type="button" class="ot-workbench-ghost" disabled={!run.pending} onclick={() => { playing = false; run.cancel(); }}>Cancel request</button>
     </div>
     <div class="feedback" aria-live="polite" aria-atomic="true">
-      {#if visible?.pending}<p>{result ? 'Refreshing; previous submitted evidence is retained below.' : 'Evaluating the submitted path; no result yet.'}</p>{/if}
-      {#if visible?.error}<p role="alert" class="error">{visible.error}</p>{/if}
-      {#if visible?.notice}<p>{visible.notice}</p>{/if}
+      {#if run.pending}<p>{result ? 'Refreshing; previous submitted evidence is retained below.' : 'Evaluating the submitted path; no result yet.'}</p>{/if}
+      {#if run.error}<p role="alert" class="error">{run.error}</p>{/if}
+      {#if run.notice}<p>{run.notice}</p>{/if}
       {#if stale}<p class="notice">STALE INPUTS · Draft or path settings changed. Explicitly evaluate again; old results are not repriced.</p>{/if}
     </div>
-    {#if !result && !visible?.pending}<p class="note">No lifecycle evidence. Supply a path and evaluate explicitly. Results are session-local and are not saved with the draft.</p>{/if}
+    {#if !result && !run.pending}<p class="note">No lifecycle evidence. Supply a path and evaluate explicitly. Results are session-local and are not saved with the draft.</p>{/if}
     {#if result}
-      <h4>{visible?.pending ? 'REFRESHING' : stale ? 'STALE INPUTS' : 'SUBMITTED EVIDENCE'} · {result.request.analysis.strategy.name}</h4>
+      <h4>{run.pending ? 'REFRESHING' : stale ? 'STALE INPUTS' : 'SUBMITTED EVIDENCE'} · {result.request.analysis.strategy.name}</h4>
       <p class="note">Source: {result.request.path.source === 'synthetic' ? `seeded synthetic · seed ${result.request.path.seed ?? 1} · ${result.request.path.generator ?? 'gbm_seeded_v1'}` : 'user-supplied observations · not verified history'}. {result.provenance.model} v{result.provenance.version} · {result.provenance.day_basis}. No financing, dividend cash flows, assignment, reinvestment or duplicated entry fees.</p>
       <p class="readout">Fixed net entry cost: {value(result.net_entry_cost)} USD. Final path P&amp;L: {value(result.final_pnl)} USD. P&amp;L = cumulative settlement cash + remaining marked value − fixed entry cost.</p>
       {#each result.warnings as warning}<p class="notice">{warning}</p>{/each}

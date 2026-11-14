@@ -412,33 +412,47 @@ describe('compiled global selectors', () => {
       background: 'oklch(var(--primary))',
     });
     expect(declarations('html:not(.dark) .tab', panel)).toEqual({});
-    expect(declarations('.ri-time', panel).color).toBe(
-      'oklch(var(--muted-foreground))',
-    );
-    if (filename.includes('IndicatorsPanel')) {
-      expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
-        'oklch(var(--destructive))',
-      );
-      expect(declarations('html:not(.dark) .ri-del', panel).color).toBe(
-        'oklch(var(--foreground))',
-      );
-      expect(
-        declarations('html:not(.dark) .ri-del:hover', panel),
-      ).toMatchObject({
-        background: 'oklch(var(--foreground))',
-        color: 'oklch(var(--card))',
-      });
+    if (filename.includes('IndicatorsPanel'))
       expect(
         declarations('html:not(.dark) .ri-status.running', panel).background,
       ).toBe('oklch(var(--primary))');
-    } else {
-      expect(declarations('.rail-hint.err', panel).color).toBe(
-        'oklch(var(--down-color))',
+  });
+
+  it('keeps the script rail readable on overlay panels and workspace pages', () => {
+    const path = `${base}lib/features/scripts/ScriptRail.svelte`;
+    const rail = postcss.parse(
+      compileSvelte(readFileSync(path, 'utf8'), {
+        filename: path,
+        generate: 'server',
+      }).css!.code,
+    );
+    rail.walkRules(rule => {
+      rule.selectors = rule.selectors.map(selector =>
+        selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
       );
-      expect(declarations('.ri-del', panel).color).toBe(
-        'oklch(var(--muted-foreground))',
-      );
-    }
+    });
+    expect(declarations('.ri-time', rail).color).toBe(
+      'oklch(var(--muted-foreground))',
+    );
+    // Overlay panels: status red in dark, destructive and inverted in light.
+    const light = 'html:not(.dark) .rail:not(.page)';
+    expect(declarations(`${light} .rail-hint.err`, rail).color).toBe(
+      'oklch(var(--destructive))',
+    );
+    expect(declarations(`${light} .ri-del`, rail).color).toBe(
+      'oklch(var(--foreground))',
+    );
+    expect(declarations(`${light} .ri-del:hover`, rail)).toMatchObject({
+      background: 'oklch(var(--foreground))',
+      color: 'oklch(var(--card))',
+    });
+    // Workspace pages: loss red in both themes, no light inversion.
+    expect(declarations('.page .rail-hint.err', rail).color).toBe(
+      'oklch(var(--down-color))',
+    );
+    expect(declarations('.page .ri-del', rail).color).toBe(
+      'oklch(var(--muted-foreground))',
+    );
   });
 
   it('uses the approved dark brand palette independently of return colors', () => {

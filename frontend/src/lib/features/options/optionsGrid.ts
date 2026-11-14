@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import type { Domain } from './optionsChart';
 import type { OptionsDraft } from './optionsTypes';
 import { enabledStrikes, expiryBreakevens } from './optionsPayoff';
@@ -24,7 +25,7 @@ export function fitPriceDomain(
     hi = Math.max(...prices);
   const scale = Number.isFinite(spot) && spot > 0 ? spot : hi;
   const pad = Math.max((hi - lo) * 0.35, scale * 0.06) || 1;
-  return { min: Math.max(0, lo - pad), max: Math.min(1000000, hi + pad) };
+  return { min: Math.max(0, lo - pad), max: Math.min(MAX_PRICE, hi + pad) };
 }
 
 export function fittedSpotGrid(draft: OptionsDraft): number[] {

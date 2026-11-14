@@ -6,11 +6,6 @@
   import ErrorMessage from './components/layout/ErrorMessage.svelte';
   import Chart from './components/chart/Chart.svelte';
   import Sidebar from './components/sidebar/Sidebar.svelte';
-  import type {
-    MovingAverageConfig,
-    BollingerBandsConfig,
-  } from './components/chart/ChartOptionsMenu.svelte';
-  import type { ChartType } from '$lib/features/chart/chartColours';
   import { fetchSMA, fetchEMA, fetchBBands } from '$lib/features/chart/indicators';
   import type { IndicatorPoint, BollingerBandsPoint } from '$lib/core/types';
   import { useIndicatorEffect } from '$lib/features/chart/indicatorEffect.svelte';
@@ -31,49 +26,11 @@
     refreshThemeColours,
     loadChartColoursFromStorage,
     persistChartColours,
-    loadChartSettingsFromStorage,
-    persistChartSettings,
   } from '$lib/features/chart/chartColours';
   import { loadTheme, persistTheme, applyTheme, type Theme } from '$lib/features/theme/theme';
   import { invalidateCssVarCache } from '$lib/features/chart/chart';
-  import type {
-    TickerGroup,
-    FlaggedPriority,
-    FlaggedStance,
-    TickerPriority,
-    TickerStance,
-  } from '$lib/features/market/tickers';
-  import {
-    loadGroupsFromStorage,
-    persistGroups,
-    loadSelectedGroupName,
-    persistSelectedGroupName,
-    loadSelectedPriority,
-    persistSelectedPriority,
-    loadSelectedStance,
-    persistSelectedStance,
-    clearTickerLocalStorage,
-    addGroup,
-    renameGroup,
-    duplicateGroup,
-    deleteGroup,
-    clearGroup,
-    addTickerToGroup,
-    removeTickerFromGroup,
-    setTickerPriority,
-    collectTickersByPriority,
-    collectTickersByStance,
-    priorityCounts as computePriorityCounts,
-    stanceCounts as computeStanceCounts,
-    setPriorityEverywhere,
-    setTickerStance,
-    setStanceEverywhere,
-    removeTickerEverywhere,
-    findPriorityConflict,
-    findStanceConflict,
-    setTickerProvidersEverywhere,
-    findTickerProviders,
-  } from '$lib/features/market/tickers';
+  import { clearTickerLocalStorage } from '$lib/features/market/tickers';
+  import { Watchlist } from '$lib/features/market/watchlist.svelte';
   import {
     buildTickerWorkspacePayload,
     TickerWorkspaceSync,
@@ -115,6 +72,7 @@
   import CommandPalette from './components/dialogs/CommandPalette.svelte';
   import { isCommandShortcut, type ResearchCommand } from '$lib/features/workspace/commands';
   import { listTools } from '$lib/features/drawables';
+  import { WorkbenchLayout } from '$lib/features/workspace/workbenchLayout.svelte';
   import { ResearchShelf, type DraftKind, type ResearchLayout, type ResearchWorkspace } from '$lib/features/workspace/researchShelf.svelte';
   import CompareView from './components/backtest/compare/CompareView.svelte';
   import StrategyPanel from './components/strategy/StrategyPanel.svelte';
@@ -195,35 +153,16 @@
   });
   let comparisonDialogOpen = $state(false);
 
-  const savedSettings = loadChartSettingsFromStorage();
-  let chartType = $state<ChartType>(savedSettings?.chartType ?? 'candlestick');
-  let showArea = $state(savedSettings?.showArea ?? true);
-  let showVolume = $state(savedSettings?.showVolume ?? true);
-  let smaConfig = $state<MovingAverageConfig>({
-    enabled: savedSettings?.smaEnabled ?? false,
-    period: 20,
-    lineWidth: 2,
-  });
-  let emaConfig = $state<MovingAverageConfig>({
-    enabled: savedSettings?.emaEnabled ?? false,
-    period: 20,
-    lineWidth: 2,
-  });
-  let bbandsConfig = $state<BollingerBandsConfig>({
-    enabled: savedSettings?.bbandsEnabled ?? false,
-    period: 20,
-    stdDev: 2,
-    lineWidth: 1,
-  });
+  const workbench = new WorkbenchLayout();
   const indicatorErrorHandler = (msg: string) => {
     chart.errorMessage = msg;
   };
   const sma = useIndicatorEffect<IndicatorPoint>({
-    enabled: () => smaConfig.enabled,
+    enabled: () => workbench.sma.enabled,
     hasCandles: () => hasCandles,
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
-    args: () => [smaConfig.period],
+    args: () => [workbench.sma.period],
     account: () => $authState.user?.id ?? null,
     fetch: (sym, [period], signal) =>
       fetchSMA(sym, period as number, signal).then(r => r.points),
@@ -231,11 +170,11 @@
     label: 'SMA',
   });
   const ema = useIndicatorEffect<IndicatorPoint>({
-    enabled: () => emaConfig.enabled,
+    enabled: () => workbench.ema.enabled,
     hasCandles: () => hasCandles,
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
-    args: () => [emaConfig.period],
+    args: () => [workbench.ema.period],
     account: () => $authState.user?.id ?? null,
     fetch: (sym, [period], signal) =>
       fetchEMA(sym, period as number, signal).then(r => r.points),
@@ -243,11 +182,11 @@
     label: 'EMA',
   });
   const bbands = useIndicatorEffect<BollingerBandsPoint>({
-    enabled: () => bbandsConfig.enabled,
+    enabled: () => workbench.bbands.enabled,
     hasCandles: () => hasCandles,
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
-    args: () => [bbandsConfig.period, bbandsConfig.stdDev],
+    args: () => [workbench.bbands.period, workbench.bbands.stdDev],
     account: () => $authState.user?.id ?? null,
     fetch: (sym, [period, stdDev], signal) =>
       fetchBBands(sym, period as number, stdDev as number, signal).then(r => r.points),
@@ -269,10 +208,9 @@
   }
   let hasCandles = $derived(chart.candles.length > 0);
   let narrow = $state(false);
-  let desktopSidebarVisible = $state(true);
   let watchlistOpen = $state(false);
   let drawingToolsOpen = $state(false);
-  let sidebarVisible = $derived(narrow ? watchlistOpen : desktopSidebarVisible);
+  let sidebarVisible = $derived(narrow ? watchlistOpen : workbench.sidebar);
   let crosshairMode = $state<CrosshairModeName>('normal');
   let activeTool = $state<ActiveTool>(CURSOR);
   let toolSettingsOpen = $state(false);
@@ -284,23 +222,14 @@
     toolSettingsOpen = true;
   }
 
-  const initialGroups = loadGroupsFromStorage();
-  let groups = $state<TickerGroup[]>(initialGroups);
-  let selectedGroupName = $state(loadSelectedGroupName(initialGroups));
-  let selectedPriority = $state<FlaggedPriority | null>(loadSelectedPriority());
-  let selectedStance = $state<FlaggedStance | null>(loadSelectedStance());
+  const watchlist = new Watchlist();
   const authed = $derived($authState.user != null);
   let lastRemoteUserId = $state<string | null>(null);
   let sessionReady = $state(false);
   const workspaceSync = new TickerWorkspaceSync({
     userId: () => $authState.user?.id ?? null,
-    read: () => ({ groups, selectedGroupName, selectedPriority, selectedStance }),
-    apply: next => {
-      groups = next.groups;
-      selectedGroupName = next.selectedGroupName;
-      selectedPriority = next.selectedPriority;
-      selectedStance = next.selectedStance;
-    },
+    read: () => watchlist.snapshot(),
+    apply: next => watchlist.apply(next),
     onHydrated: clearTickerLocalStorage,
     onError: error => console.warn('[openquant] Ticker workspace sync failed', error),
   });
@@ -378,11 +307,7 @@
   const researchShelf = new ResearchShelf();
   let researchWorkspacesOpen = $state(false);
   let dataInspectorOpen = $state(false);
-  let strategyEditorShare = $state(50);
-  let indicatorSplitPct = $state(60);
-  let strategyTab = $state<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor');
   let optionsLink = $state(0);
-  let indicatorTab = $state<'editor' | 'docs'>('editor');
   let commandsOpen = $state(false);
   let guidedExampleOpen = $state(false);
   let guidedExampleReturnFocus = $state<HTMLElement | null>(null);
@@ -444,9 +369,9 @@
   const researchCommands = $derived.by<ResearchCommand[]>(() => {
     const command = (id: string, title: string, action: () => void, group = 'Workspace', detail = ''): ResearchCommand => ({ id, title, group, detail, action: () => void activateCommand(action, group === 'Drawing' || group === 'Symbol') });
     const commands = [
-      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }),
-      command('options', 'Open Options workbench', () => { portfolioRunId = null; strategyTab = 'options'; openStrategy(); }, 'Workspace', 'multi-leg payoff Greeks Python scenarios'),
-      command('indicators', 'Open Indicators editor', () => { indicatorTab = 'editor'; indicatorsOpen = true; }),
+      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; workbench.strategyTab = 'editor'; openStrategy(); }),
+      command('options', 'Open Options workbench', () => { portfolioRunId = null; workbench.strategyTab = 'options'; openStrategy(); }, 'Workspace', 'multi-leg payoff Greeks Python scenarios'),
+      command('indicators', 'Open Indicators editor', () => { workbench.indicatorTab = 'editor'; indicatorsOpen = true; }),
       command('analytics', 'Open Analytics', () => (analyticsOpen = true)),
       command('runs', 'Open Experiment notebook', () => (runsOpen = true), 'Workspace', 'runs baseline notes tags compare'),
       { id: 'workspaces', title: 'Workspaces and draft recovery', group: 'Workspace', action: openResearchWorkspaces },
@@ -457,11 +382,11 @@
       command('cursor', 'Select chart cursor', () => (activeTool = CURSOR), 'Drawing'),
       ...listTools().map(tool => command(`drawing:${tool.type}`, tool.label, () => (activeTool = tool.type), 'Drawing')),
     ];
-    const symbols = new Map(groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
+    const symbols = new Map(watchlist.groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
     for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
     if ($authState.user) {
-      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
-      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.openScript(script.id, () => true); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
+      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; workbench.strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
+      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.select(script.id, () => true); workbench.indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
     }
     commands.push(...runsHistory.entries.map(run => command(`run:${run.run_id}`, run.label, () => openStoredRun(run.run_id), 'Run', `${run.kind} ${run.tags?.join(' ') ?? ''} ${run.baseline ? 'baseline' : ''}`)));
     return commands;
@@ -529,15 +454,12 @@
   }
 
   function currentResearchLayout(): ResearchLayout {
-    const updatedAt = new Date().toISOString();
-    return {
-      symbol: chart.symbol, provider: chart.source, interval: chart.interval, period: chart.period,
-      chartType, showArea, showVolume, sma: { ...smaConfig }, ema: { ...emaConfig }, bbands: { ...bbandsConfig },
-      sidebar: desktopSidebarVisible, strategyOpen, indicatorsOpen,
-      strategyEditorShare, indicatorSplitPct, strategyTab, indicatorTab,
-      strategy: { name: strategy.draftName, code: strategy.draftCode, updatedAt },
-      indicator: { name: indicators.draftName, code: indicators.draftCode, updatedAt },
-    };
+    return workbench.capture({
+      chart: { symbol: chart.symbol, provider: chart.source, interval: chart.interval, period: chart.period },
+      strategy: { name: strategy.draftName, code: strategy.draftCode },
+      indicator: { name: indicators.draftName, code: indicators.draftCode },
+      strategyOpen, indicatorsOpen,
+    });
   }
 
   async function restoreResearchWorkspace(workspace: ResearchWorkspace): Promise<boolean> {
@@ -547,11 +469,7 @@
     indicators.stopAll();
     chart.stopStream(); chart.autoRefresh = false;
     chart.symbol = layout.symbol; chart.source = layout.provider; chart.interval = layout.interval; chart.period = layout.period;
-    chartType = layout.chartType; showArea = layout.showArea; showVolume = layout.showVolume;
-    smaConfig = { ...layout.sma }; emaConfig = { ...layout.ema }; bbandsConfig = { ...layout.bbands };
-    desktopSidebarVisible = layout.sidebar;
-    strategyEditorShare = layout.strategyEditorShare; indicatorSplitPct = layout.indicatorSplitPct;
-    strategyTab = layout.strategyTab; indicatorTab = layout.indicatorTab;
+    workbench.restore(layout);
     portfolioRunId = null;
     for (const [kind, editor] of [['strategy', strategy], ['indicator', indicators]] as const) {
       editor.newDraft(() => true); editor.setName(layout[kind].name); editor.setCode(layout[kind].code); editor.dirty = true;
@@ -592,7 +510,7 @@
       // first so re-opening the same run re-triggers the load effect.
       portfolioRunId = null;
       portfolioRunId = id;
-      strategyTab = 'portfolio';
+      workbench.strategyTab = 'portfolio';
       openStrategy();
       return;
     }
@@ -667,18 +585,15 @@
 
   $effect(() => {
     if (authed || lastRemoteUserId !== null) return;
-    persistGroups(groups);
-    persistSelectedGroupName(selectedGroupName);
-    persistSelectedPriority(selectedPriority);
-    persistSelectedStance(selectedStance);
+    watchlist.saveLocal();
   });
   $effect(() => {
     if (!authed) return;
     const payload = buildTickerWorkspacePayload(
-      groups,
-      selectedGroupName,
-      selectedPriority,
-      selectedStance,
+      watchlist.groups,
+      watchlist.selectedGroupName,
+      watchlist.selectedPriority,
+      watchlist.selectedStance,
     );
     untrack(() => workspaceSync.save(payload));
   });
@@ -686,158 +601,32 @@
     if (!sessionReady) return;
     const id = $authState.user?.id ?? null;
     untrack(() => {
-      if (lastRemoteUserId !== null && id !== lastRemoteUserId) {
-        const g = loadGroupsFromStorage();
-        groups = g;
-        selectedGroupName = loadSelectedGroupName(g);
-        selectedPriority = loadSelectedPriority();
-        selectedStance = loadSelectedStance();
-      }
+      if (lastRemoteUserId !== null && id !== lastRemoteUserId)
+        watchlist.loadLocal();
       lastRemoteUserId = id;
       workspaceSync.setUser(id);
     });
   });
 
-  let currentGroup = $derived(groups.find(g => g.name === selectedGroupName));
-
-  function handleDuplicateGroup() {
-    const result = duplicateGroup(groups, selectedGroupName);
-    if (!result) return;
-    groups = result.groups;
-    selectedGroupName = result.newName;
-  }
-
-  function handleDeleteGroup() {
-    const next = deleteGroup(groups, selectedGroupName);
-    if (!next) return;
-    groups = next;
-    selectedGroupName = next[0].name;
-  }
-
-  function handleClearGroup() {
-    groups = clearGroup(groups, selectedGroupName);
-  }
-
   function handleGroupDialogSubmit(name: string) {
-    if (dialogs.groupDialogMode === 'add') {
-      groups = addGroup(groups, name);
-      selectedGroupName = name;
-      selectedPriority = null;
-      selectedStance = null;
-    } else if (dialogs.groupDialogMode === 'rename') {
-      groups = renameGroup(groups, selectedGroupName, name);
-      selectedGroupName = name;
-    }
-  }
-
-  function handleAddSymbolSubmit(
-    sym: string,
-    providers: SymbolProviders | null,
-  ) {
-    groups = addTickerToGroup(groups, selectedGroupName, sym, providers);
-  }
-
-  function handleSelectGroup(name: string) {
-    selectedGroupName = name;
-    selectedPriority = null;
-    selectedStance = null;
-  }
-
-  function handleSelectPriority(p: FlaggedPriority) {
-    selectedPriority = p;
-    selectedStance = null;
-  }
-
-  function handleSelectStance(s: FlaggedStance) {
-    selectedStance = s;
-    selectedPriority = null;
-  }
-
-  function handleDeleteTicker(sym: string) {
-    groups = selectedPriority || selectedStance
-      ? removeTickerEverywhere(groups, sym)
-      : removeTickerFromGroup(groups, selectedGroupName, sym);
-  }
-
-  function handleSetPriority(sym: string, priority: TickerPriority) {
-    if (selectedPriority) {
-      groups = setPriorityEverywhere(groups, sym, priority);
-      return;
-    }
-    const conflict = findPriorityConflict(
-      groups,
-      sym,
-      priority,
-      selectedGroupName,
-    );
-    if (conflict) {
-      dialogs.showFlagConflict({ kind: 'priority', symbol: sym, desired: priority, conflict });
-      return;
-    }
-    groups = setTickerPriority(groups, selectedGroupName, sym, priority);
-  }
-
-  function handleSetStance(sym: string, stance: TickerStance) {
-    if (selectedStance) {
-      groups = setStanceEverywhere(groups, sym, stance);
-      return;
-    }
-    const conflict = findStanceConflict(
-      groups,
-      sym,
-      stance,
-      selectedGroupName,
-    );
-    if (conflict) {
-      dialogs.showFlagConflict({ kind: 'stance', symbol: sym, desired: stance, conflict });
-      return;
-    }
-    groups = setTickerStance(groups, selectedGroupName, sym, stance);
+    if (dialogs.groupDialogMode === 'add') watchlist.addGroup(name);
+    else if (dialogs.groupDialogMode === 'rename') watchlist.renameGroup(name);
   }
 
   function resolveFlagConflictKeepExisting() {
-    const c = dialogs.flagConflict;
-    if (!c) return;
-    if (c.kind === 'priority') {
-      groups = setTickerPriority(
-        groups,
-        selectedGroupName,
-        c.symbol,
-        c.conflict.existingPriority,
-      );
-    } else {
-      groups = setTickerStance(
-        groups,
-        selectedGroupName,
-        c.symbol,
-        c.conflict.existingStance,
-      );
-    }
+    if (dialogs.flagConflict) watchlist.adoptExistingFlag(dialogs.flagConflict);
     dialogs.clearFlagConflict();
   }
 
   function resolveFlagConflictSwitchGroup(groupName: string) {
-    selectedGroupName = groupName;
-    selectedPriority = null;
-    selectedStance = null;
+    watchlist.selectGroup(groupName);
     dialogs.clearFlagConflict();
   }
 
   let groupDialogInitial = $derived(
-    dialogs.groupDialogMode === 'rename' ? selectedGroupName : '',
+    dialogs.groupDialogMode === 'rename' ? watchlist.selectedGroupName : '',
   );
-  let groupDialogExistingNames = $derived(groups.map(g => g.name));
-  let currentTickers = $derived(currentGroup?.tickers ?? []);
-  let currentTickerSymbols = $derived(currentTickers.map(t => t.symbol));
-  let displayTickers = $derived(
-    selectedStance
-      ? collectTickersByStance(groups, selectedStance)
-      : selectedPriority
-        ? collectTickersByPriority(groups, selectedPriority)
-        : currentTickers,
-  );
-  let priorityCountsMap = $derived(computePriorityCounts(groups));
-  let stanceCountsMap = $derived(computeStanceCounts(groups));
+  let displayTickers = $derived(watchlist.tickers);
 
   let tickerQuotes = $state<Record<string, TickerQuote>>({});
   let quoteUserId = $authState.user?.id ?? null;
@@ -941,32 +730,24 @@
   ): void {
     if (src !== 'yfinance' || candleCount === 0) return;
     if (markedThisSession.has(sym)) return;
-    const cached = findTickerProviders(groups, sym);
+    const cached = watchlist.providersFor(sym);
     if (cached?.yfinance) {
       markedThisSession.add(sym);
       return;
     }
     markedThisSession.add(sym);
     markYFinanceSupported(sym);
-    const nextProviders: SymbolProviders = {
+    watchlist.setProviders(sym, {
       ...(cached ?? DEFAULT_PROVIDERS),
       yfinance: true,
-    };
-    groups = setTickerProvidersEverywhere(groups, sym, nextProviders);
+    });
   }
 
   // Persist chart colours and settings to localStorage only when the page unloads,
   // avoiding excessive writes during drag operations in colour pickers.
   function persistOnUnload() {
     persistChartColours(colours);
-    persistChartSettings({
-      chartType,
-      showArea,
-      showVolume,
-      smaEnabled: smaConfig.enabled,
-      emaEnabled: emaConfig.enabled,
-      bbandsEnabled: bbandsConfig.enabled,
-    });
+    workbench.persistChartSettings();
   }
 
   onMount(async () => {
@@ -1071,15 +852,15 @@
         candleRevision={chart.candleRevision}
         annotationOwner={sessionReady ? ($authState.user ? `user:${$authState.user.id}` : 'guest') : 'pending'}
         symbol={chart.loadedSymbol || chart.symbol}
-        {chartType}
-        {showArea}
-        {showVolume}
+        chartType={workbench.chartType}
+        showArea={workbench.showArea}
+        showVolume={workbench.showVolume}
         smaPoints={sma.points}
         emaPoints={ema.points}
         bbandsPoints={bbands.points}
-        smaLineWidth={smaConfig.lineWidth}
-        emaLineWidth={emaConfig.lineWidth}
-        bbandsLineWidth={bbandsConfig.lineWidth}
+        smaLineWidth={workbench.sma.lineWidth}
+        emaLineWidth={workbench.ema.lineWidth}
+        bbandsLineWidth={workbench.bbands.lineWidth}
         {colours}
         {crosshairMode}
         provider={chart.loadedContext?.source ?? chart.source}
@@ -1101,30 +882,30 @@
         symbolFullName={symbolFullName}
         symbolExchange={symbolExchangeLabel}
         closePrice={lastClose}
-        onoptions={() => { portfolioRunId = null; strategyTab = 'options'; optionsLink++; openStrategy(); }}
-        {groups}
-        {selectedGroupName}
-        {selectedPriority}
-        {selectedStance}
-        priorityCounts={priorityCountsMap}
-        stanceCounts={stanceCountsMap}
+        onoptions={() => { portfolioRunId = null; workbench.strategyTab = 'options'; optionsLink++; openStrategy(); }}
+        groups={watchlist.groups}
+        selectedGroupName={watchlist.selectedGroupName}
+        selectedPriority={watchlist.selectedPriority}
+        selectedStance={watchlist.selectedStance}
+        priorityCounts={watchlist.priorityCounts}
+        stanceCounts={watchlist.stanceCounts}
         tickers={displayTickers}
         quotes={tickerQuotesForGroup}
         groupActions={{
-          select: handleSelectGroup,
+          select: name => watchlist.selectGroup(name),
           rename: () => void openWatchlistDialog(dialogs.openRenameGroup),
-          duplicate: handleDuplicateGroup,
-          clear: handleClearGroup,
+          duplicate: () => watchlist.duplicateGroup(),
+          clear: () => watchlist.clearGroup(),
           add: () => void openWatchlistDialog(dialogs.openAddGroup),
-          delete: handleDeleteGroup,
+          delete: () => watchlist.deleteGroup(),
         }}
         onaddticker={() => void openWatchlistDialog(dialogs.openAddSymbol)}
-        onselectpriority={handleSelectPriority}
-        onselectstance={handleSelectStance}
-        onselectticker={sym => selectChartSymbol(sym, findTickerProviders(groups, sym))}
-        ondeleteticker={handleDeleteTicker}
-        onsetpriority={handleSetPriority}
-        onsetstance={handleSetStance}
+        onselectpriority={p => watchlist.selectPriority(p)}
+        onselectstance={s => watchlist.selectStance(s)}
+        onselectticker={sym => selectChartSymbol(sym, watchlist.providersFor(sym))}
+        ondeleteticker={sym => watchlist.deleteTicker(sym)}
+        onsetpriority={(sym, priority) => { const conflict = watchlist.setPriority(sym, priority); if (conflict) dialogs.showFlagConflict(conflict); }}
+        onsetstance={(sym, stance) => { const conflict = watchlist.setStance(sym, stance); if (conflict) dialogs.showFlagConflict(conflict); }}
         notes={currentNotes}
         onaddnote={symbol => void openWatchlistDialog(() => dialogs.openAddNote(symbol))}
         oneditnote={note => void openWatchlistDialog(() => dialogs.openEditNote(note))}
@@ -1145,17 +926,17 @@
   </div>
   <BottomHeader
     drawingTools={drawingToolsControl}
-    bind:chartType
-    bind:showArea
-    bind:showVolume
-    bind:smaConfig
-    bind:emaConfig
-    bind:bbandsConfig
+    bind:chartType={workbench.chartType}
+    bind:showArea={workbench.showArea}
+    bind:showVolume={workbench.showVolume}
+    bind:smaConfig={workbench.sma}
+    bind:emaConfig={workbench.ema}
+    bind:bbandsConfig={workbench.bbands}
     bind:colours
     {theme}
     onthemechange={setTheme}
     {sidebarVisible}
-    ontogglesidebar={() => { if (narrow) watchlistOpen = !watchlistOpen; else desktopSidebarVisible = !desktopSidebarVisible; }}
+    ontogglesidebar={() => { if (narrow) watchlistOpen = !watchlistOpen; else workbench.sidebar = !workbench.sidebar; }}
     comparisonCount={comparisonController.comparisons.length}
     oncompare={() => (comparisonDialogOpen = true)}
   />
@@ -1163,8 +944,8 @@
   <section class="workbench-view" hidden={activeView !== 'strategy'} inert={activeView !== 'strategy'} aria-label="Strategy workspace">
   <StrategyPanel
     embedded
-    bind:tab={strategyTab}
-    bind:editorShare={strategyEditorShare}
+    bind:tab={workbench.strategyTab}
+    bind:editorShare={workbench.strategyEditorShare}
     recoverySavedAt={localRecoveryTime('strategy')}
     bind:open={strategyOpen}
     symbol={chart.symbol}
@@ -1194,8 +975,8 @@
     onTileSelect={handleToolboxTile}
   />
   <IndicatorsPanel
-    bind:tab={indicatorTab}
-    bind:splitPct={indicatorSplitPct}
+    bind:tab={workbench.indicatorTab}
+    bind:splitPct={workbench.indicatorSplitPct}
     recoverySavedAt={localRecoveryTime('indicator')}
     bind:open={indicatorsOpen}
     symbol={chart.loadedSymbol || chart.symbol}
@@ -1219,16 +1000,16 @@
     bind:open={commandsOpen}
     commands={researchCommands}
     onSymbol={(symbol, providers) => void activateCommand(() => selectChartSymbol(symbol, providers), true)}
-    onLoadScripts={() => { if ($authState.user) { void strategy.load(); void indicators.refresh(); } }}
+    onLoadScripts={() => { if ($authState.user) { void strategy.load(); void indicators.load(); } }}
     scriptStatus={!$authState.user ? 'Sign in to browse account scripts. Local commands and notebook references are available.' : strategy.loading || indicators.loading ? 'Loading saved scripts…' : [strategy.loadError, indicators.loadError].filter(Boolean).join(' · ')}
   />
   <CompareView bind:open={compareOpen} compare={compareState} />
   <AppDialogs
     {groupDialogInitial}
-    {groupDialogExistingNames}
-    existingSymbols={currentTickerSymbols}
+    groupDialogExistingNames={watchlist.groupNames}
+    existingSymbols={watchlist.groupSymbols}
     onGroupDialogSubmit={handleGroupDialogSubmit}
-    onAddSymbolSubmit={handleAddSymbolSubmit}
+    onAddSymbolSubmit={(sym, providers) => watchlist.addTicker(sym, providers)}
     onNoteSubmit={handleNoteSubmit}
     onResolveFlagConflictKeepExisting={resolveFlagConflictKeepExisting}
     onResolveFlagConflictSwitchGroup={resolveFlagConflictSwitchGroup}

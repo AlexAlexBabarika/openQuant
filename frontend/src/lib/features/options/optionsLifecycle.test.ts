@@ -5,7 +5,6 @@ import type { LifecycleResponse } from './optionsResearchTypes';
 import {
   MAX_PATH_POINTS,
   MAX_PATH_TEXT,
-  ResearchJob,
   applyCalendar,
   boundedNumber,
   calendarControls,
@@ -18,11 +17,11 @@ import {
   pathChart,
   pathControls,
   pathRequest,
-  researchError,
   researchValue,
   setLegExpiry,
   validLifecycle,
 } from './optionsLifecycle';
+import { ResearchJob, researchError } from './optionsRequest';
 
 describe('integrated research input and timeout fences', () => {
   it('rejects publication after the account session changes', async () => {
@@ -517,6 +516,7 @@ describe('submitted evidence request fencing', () => {
     expect(job.state).toEqual({
       documentKey: document,
       result: null,
+      submitted: null,
       pending: false,
       submittedKey: '',
       error: '',

@@ -1,3 +1,9 @@
+import {
+  MAX_DAYS,
+  MAX_OPTION_CONTRACTS,
+  MAX_PRICE,
+  MAX_UNDERLYING_SHARES,
+} from './optionsBounds';
 import type { OptionsDraft } from './optionsTypes';
 
 const object = (v: unknown): v is Record<string, unknown> =>
@@ -335,7 +341,7 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     ].includes(d.strategy.template)
   )
     errors.strategy = 'Unknown template label.';
-  number('strategy.days_to_expiry', d.strategy.days_to_expiry, 0, 3650);
+  number('strategy.days_to_expiry', d.strategy.days_to_expiry, 0, MAX_DAYS);
   number(
     'strategy.entry_fee_per_contract',
     d.strategy.entry_fee_per_contract,
@@ -368,7 +374,7 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
       errors['strategy.expiry_date'] =
         'Dates must exactly match the nonnegative common days to expiry.';
   }
-  number('spot', d.spot, Number.MIN_VALUE, 1000000);
+  number('spot', d.spot, Number.MIN_VALUE, MAX_PRICE);
   number('volatility', d.volatility, 0, 5);
   number('rate', d.rate, -1, 1);
   number('dividend_yield', d.dividend_yield, -1, 1);
@@ -381,14 +387,14 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     number(
       `${key}.quantity`,
       l.quantity,
-      l.kind === 'underlying' ? -1000000 : -10000,
-      l.kind === 'underlying' ? 1000000 : 10000,
+      l.kind === 'underlying' ? -MAX_UNDERLYING_SHARES : -MAX_OPTION_CONTRACTS,
+      l.kind === 'underlying' ? MAX_UNDERLYING_SHARES : MAX_OPTION_CONTRACTS,
       true,
     );
     if (l.quantity === 0)
       errors[`${key}.quantity`] =
         'Quantity cannot be zero; use positive buy or negative sell.';
-    number(`${key}.entry_premium`, l.entry_premium, 0, 1000000);
+    number(`${key}.entry_premium`, l.entry_premium, 0, MAX_PRICE);
     number(`${key}.multiplier`, l.multiplier, 1, 1000, true);
     if (l.kind === 'underlying') {
       if (l.days_to_expiry != null || l.expiry_date != null || l.source != null)
@@ -403,12 +409,12 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
         errors[`${key}.implied_volatility`] =
           'Underlying legs cannot carry option IV or quote metadata.';
     } else
-      number(`${key}.strike`, l.strike as number, Number.MIN_VALUE, 1000000);
+      number(`${key}.strike`, l.strike as number, Number.MIN_VALUE, MAX_PRICE);
     if (l.days_to_expiry != null)
-      number(`${key}.days_to_expiry`, l.days_to_expiry, 0, 3650);
+      number(`${key}.days_to_expiry`, l.days_to_expiry, 0, MAX_DAYS);
     if (l.kind !== 'underlying') {
       const days = resolvedLegDays(d.strategy, l);
-      number(`${key}.expiry_date`, days, 0, 3650);
+      number(`${key}.expiry_date`, days, 0, MAX_DAYS);
       if (
         l.expiry_date != null &&
         l.days_to_expiry != null &&
@@ -441,8 +447,8 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     }
     if (l.implied_volatility != null)
       number(`${key}.implied_volatility`, l.implied_volatility, 0, 5);
-    if (l.bid != null) number(`${key}.bid`, l.bid, 0, 1000000);
-    if (l.ask != null) number(`${key}.ask`, l.ask, 0, 1000000);
+    if (l.bid != null) number(`${key}.bid`, l.bid, 0, MAX_PRICE);
+    if (l.ask != null) number(`${key}.ask`, l.ask, 0, MAX_PRICE);
     if (
       (l.bid == null) !== (l.ask == null) ||
       (l.bid != null && (l.bid > l.ask! || l.quote_as_of == null))
@@ -474,7 +480,7 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
       errors[key] =
         `Use 2–${maxLength} strictly increasing values, ${min} to ${max}.`;
   };
-  increasing('spot_grid', d.spot_grid, 201, 0, 1000000);
+  increasing('spot_grid', d.spot_grid, 201, 0, MAX_PRICE);
   const ivs = [
     d.volatility,
     ...d.strategy.legs
@@ -508,7 +514,7 @@ export function optionsErrors(d: OptionsDraft): Record<string, string> {
     const s = d.surface;
     if (!['elapsed_days', 'iv_shift_pp'].includes(s.axis))
       errors['surface.axis'] = 'Choose elapsed_days or iv_shift_pp.';
-    increasing('surface.spots', s.spots, 41, 0, 1000000);
+    increasing('surface.spots', s.spots, 41, 0, MAX_PRICE);
     increasing(
       'surface.steps',
       s.steps,

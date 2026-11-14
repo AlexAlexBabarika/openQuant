@@ -1,3 +1,4 @@
+import { MAX_DAYS, MAX_PRICE } from './optionsBounds';
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
 import { calendar, optionsErrors, quoteTimestamp } from './optionsValidation';
 
@@ -133,7 +134,7 @@ export function commonDateHorizon(
     end = calendar(expiry);
   if (start === null || end === null) return null;
   const days = (end - start) / 86400000;
-  return days >= 0 && days <= 3650 ? days : null;
+  return days >= 0 && days <= MAX_DAYS ? days : null;
 }
 
 export function setCommonDate(
@@ -164,7 +165,7 @@ export function quoteMidpoint(leg: OptionLeg): number | null {
     !Number.isFinite(leg.ask) ||
     leg.bid < 0 ||
     leg.ask < leg.bid ||
-    leg.ask > 1000000
+    leg.ask > MAX_PRICE
   )
     return null;
   return (leg.bid + leg.ask) / 2;
@@ -233,7 +234,7 @@ export function optionsEditorErrors(
         leg[field] != null &&
         (!Number.isFinite(leg[field]) ||
           leg[field]! < 0 ||
-          leg[field]! > 1000000)
+          leg[field]! > MAX_PRICE)
       )
         errors[`${key}.${field}`] =
           'Manual price must be 0–1,000,000 USD/unit, or blank.';

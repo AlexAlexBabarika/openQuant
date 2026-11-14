@@ -61,15 +61,15 @@ describe('indicator account changes', () => {
         .mockReturnValueOnce(latest.promise);
       const state = new IndicatorState();
       state.scripts = [info()];
-      const first = state.delete('s1');
+      const first = state.remove('s1');
       state.clearSaved();
       state.scripts = [info({ name: 'new owner' })];
-      const second = state.delete('s1');
+      const second = state.remove('s1');
       if (outcome === 'resolve') old.resolve();
       else old.reject(new Error('old owner error'));
       await expect(first).resolves.toBeUndefined();
       expect(state.scripts[0]?.name).toBe('new owner');
-      await state.delete('s1');
+      await state.remove('s1');
       expect(deleteScript).toHaveBeenCalledTimes(2);
       latest.resolve();
       await second;
@@ -107,7 +107,7 @@ describe('indicator account changes', () => {
   it('detaches saved scripts and stops runners while retaining editor work', async () => {
     const state = new IndicatorState();
     state.scripts = [info()];
-    state.openScript('s1');
+    state.select('s1');
     state.setCode('draft work');
     await state.run(CTX);
     state.clearSaved();
@@ -122,7 +122,7 @@ describe('indicator account changes', () => {
     const pending = deferred<ScriptInfo[]>();
     vi.mocked(listScripts).mockReturnValue(pending.promise);
     const state = new IndicatorState();
-    const loading = state.refresh();
+    const loading = state.load();
     state.clearSaved();
     pending.resolve([info()]);
     await loading;
@@ -185,10 +185,10 @@ describe('IndicatorState persistence', () => {
     vi.mocked(updateScript).mockReturnValue(pending.promise);
     const state = new IndicatorState();
     state.scripts = [info(), info({ id: 's2' })];
-    state.openScript('s1');
+    state.select('s1');
     state.setCode('submitted');
     const saving = state.save();
-    state.openScript('s2', () => true);
+    state.select('s2', () => true);
     state.setCode('second edited');
     pending.resolve(info({ code: 'submitted' }));
     await saving;
@@ -216,11 +216,11 @@ describe('IndicatorState persistence', () => {
     vi.mocked(updateScript).mockReturnValue(pending.promise);
     const state = new IndicatorState();
     state.scripts = [info({ code: 'original' }), info({ id: 's2' })];
-    state.openScript('s1');
+    state.select('s1');
     state.setCode('submitted');
     const saving = state.save();
-    state.openScript('s2', () => true);
-    state.openScript('s1');
+    state.select('s2', () => true);
+    state.select('s1');
     pending.resolve(info({ code: 'submitted' }));
     await saving;
     expect(state.draftCode).toBe('original');
@@ -256,17 +256,17 @@ describe('IndicatorState persistence', () => {
   it('requires confirmation before switching or resetting dirty drafts and ignores same-id clicks', () => {
     const state = new IndicatorState();
     state.scripts = [info(), info({ id: 's2' })];
-    state.openScript('s1');
+    state.select('s1');
     state.setCode('unsaved');
     const cancel = vi.fn(() => false);
-    state.openScript('s1', cancel);
+    state.select('s1', cancel);
     expect(cancel).not.toHaveBeenCalled();
-    state.openScript('s2', cancel);
+    state.select('s2', cancel);
     state.newDraft(cancel);
     expect(cancel).toHaveBeenCalledTimes(2);
     expect(state.activeId).toBe('s1');
     expect(state.draftCode).toBe('unsaved');
-    state.openScript('s2', () => true);
+    state.select('s2', () => true);
     expect(state.activeId).toBe('s2');
   });
 
@@ -275,8 +275,8 @@ describe('IndicatorState persistence', () => {
     vi.mocked(deleteScript).mockReturnValue(pending.promise);
     const state = new IndicatorState();
     state.scripts = [info()];
-    state.openScript('s1');
-    const deleting = state.delete('s1');
+    state.select('s1');
+    const deleting = state.remove('s1');
     state.setCode('typed during delete');
     pending.resolve();
     await deleting;
@@ -293,13 +293,13 @@ describe('IndicatorState persistence', () => {
     vi.mocked(deleteScript).mockReturnValue(deleting.promise);
     const state = new IndicatorState();
     state.scripts = [info()];
-    state.openScript('s1');
+    state.select('s1');
     const save = state.save();
-    await expect(state.delete('s1')).rejects.toThrow('save');
+    await expect(state.remove('s1')).rejects.toThrow('save');
     expect(deleteScript).not.toHaveBeenCalled();
     saving.resolve(info());
     await save;
-    const remove = state.delete('s1');
+    const remove = state.remove('s1');
     expect(await state.save()).toBeNull();
     expect(state.saveError).toContain('delet');
     deleting.resolve();
@@ -310,9 +310,9 @@ describe('IndicatorState persistence', () => {
     vi.mocked(deleteScript).mockRejectedValue(new Error('delete failed'));
     const state = new IndicatorState();
     state.scripts = [info()];
-    state.openScript('s1');
+    state.select('s1');
     await state.run(CTX);
-    await expect(state.delete('s1')).rejects.toThrow('delete failed');
+    await expect(state.remove('s1')).rejects.toThrow('delete failed');
     expect(state.activeId).toBe('s1');
     expect(state.runners.s1.lastResult).toEqual(result());
   });
@@ -321,7 +321,7 @@ describe('IndicatorState persistence', () => {
     const pending = deferred<ScriptInfo[]>();
     vi.mocked(listScripts).mockReturnValue(pending.promise);
     const state = new IndicatorState();
-    const refreshing = state.refresh();
+    const refreshing = state.load();
     await state.save();
     pending.resolve([]);
     await refreshing;
@@ -333,10 +333,10 @@ describe('IndicatorState persistence', () => {
     vi.mocked(updateScript).mockReturnValue(pending.promise);
     const state = new IndicatorState();
     state.scripts = [info(), info({ id: 's2' })];
-    state.openScript('s1');
+    state.select('s1');
     state.setCode('submitted');
     const running = state.saveAndRun(CTX);
-    state.openScript('s2', () => true);
+    state.select('s2', () => true);
     pending.resolve(info({ code: 'submitted' }));
     await running;
     expect(executeScript).toHaveBeenCalledWith(
@@ -356,7 +356,7 @@ describe('IndicatorState execution', () => {
       .mockReturnValueOnce(latest.promise);
     const state = new IndicatorState();
     state.scripts = [info()];
-    state.openScript('s1');
+    state.select('s1');
     const first = state.run(CTX);
     const second = state.run({ ...CTX, symbol: 'NEW' });
     expect(vi.mocked(executeScript).mock.calls[0][1]?.aborted).toBe(true);
@@ -425,7 +425,7 @@ describe('IndicatorState execution', () => {
   it('executes unsaved editor code without modifying the saved source', async () => {
     const state = new IndicatorState();
     state.scripts = [info()];
-    state.openScript('s1');
+    state.select('s1');
     state.setCode('unsaved code');
     await state.run(CTX);
     expect(executeScript).toHaveBeenCalledWith(

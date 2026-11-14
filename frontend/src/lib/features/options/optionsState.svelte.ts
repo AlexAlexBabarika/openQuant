@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import { apiJson } from '$lib/core/api';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 import {
@@ -258,22 +259,40 @@ export class OptionsState {
     const next = structuredClone(before);
     update(next);
     const resized = this.#resizeTemplate(before, next);
-    if (this.gridAuto && needsRefit(before, next))
-      next.spot_grid = fittedSpotGrid(next);
+    this.#refitGrid(before, next);
     const previous = this.modelLegs;
     this.changed();
     this.#past = [...this.#past, { draft: before, modelLegs: previous }].slice(
       -HISTORY_LIMIT,
     );
     this.#future = [];
+    this.#commit(
+      next,
+      resized
+        ? next.strategy.legs.map(() => true)
+        : tags
+          ? tags(previous, next)
+          : carryModelTags(before, next, previous),
+    );
+  }
+  /**
+   * Every change to the working draft within an account scope lands here, so it is
+   * always autosaved and, unless it came from the analysis itself, re-analysed.
+   */
+  #commit(
+    next: OptionsDraft,
+    modelLegs: boolean[] = this.modelLegs,
+    analyze = true,
+  ): void {
     this.draft = next;
-    this.modelLegs = resized
-      ? next.strategy.legs.map(() => true)
-      : tags
-        ? tags(previous, next)
-        : carryModelTags(before, next, previous);
+    this.modelLegs = modelLegs;
     this.#scheduleRecovery();
-    this.#scheduleAnalysis();
+    if (analyze) this.#scheduleAnalysis();
+  }
+  /** An automatic grid keeps covering the strikes as they move. */
+  #refitGrid(before: OptionsDraft, next: OptionsDraft): void {
+    if (this.gridAuto && needsRefit(before, next))
+      next.spot_grid = fittedSpotGrid(next);
   }
   /** An untouched template keeps its strikes one and two expected moves out as IV and expiry change. */
   #resizeTemplate(before: OptionsDraft, next: OptionsDraft): boolean {
@@ -380,7 +399,7 @@ export class OptionsState {
       spot === null ||
       !Number.isFinite(spot) ||
       spot <= 0 ||
-      spot > 1000000 ||
+      spot > MAX_PRICE ||
       (spot === this.draft.spot &&
         (symbol === null || symbol === this.draft.strategy.underlying))
     )
@@ -395,13 +414,12 @@ export class OptionsState {
     if (template) {
       applyOptionsTemplate(next, template);
       next.strategy.name = before.strategy.name;
-      this.modelLegs = next.strategy.legs.map(() => true);
     }
-    if (this.gridAuto && needsRefit(before, next))
-      next.spot_grid = fittedSpotGrid(next);
-    this.draft = next;
-    this.#scheduleRecovery();
-    this.#scheduleAnalysis();
+    this.#refitGrid(before, next);
+    this.#commit(
+      next,
+      template ? next.strategy.legs.map(() => true) : this.modelLegs,
+    );
   }
   setGrid(grid: number[]): void {
     this.gridAuto = false;
@@ -421,11 +439,8 @@ export class OptionsState {
     this.changed();
     this.#future = [...this.#future, this.#snapshot()].slice(-HISTORY_LIMIT);
     this.#past = this.#past.slice(0, -1);
-    this.draft = structuredClone(previous.draft);
-    this.modelLegs = previous.modelLegs;
+    this.#commit(structuredClone(previous.draft), previous.modelLegs);
     this.#unlinkIfElsewhere();
-    this.#scheduleRecovery();
-    this.#scheduleAnalysis();
     return true;
   }
   redo(): boolean {
@@ -434,11 +449,8 @@ export class OptionsState {
     this.changed();
     this.#past = [...this.#past, this.#snapshot()].slice(-HISTORY_LIMIT);
     this.#future = this.#future.slice(0, -1);
-    this.draft = structuredClone(next.draft);
-    this.modelLegs = next.modelLegs;
+    this.#commit(structuredClone(next.draft), next.modelLegs);
     this.#unlinkIfElsewhere();
-    this.#scheduleRecovery();
-    this.#scheduleAnalysis();
     return true;
   }
   /** History can bring back another instrument; then the draft no longer follows the chart. */
@@ -658,10 +670,7 @@ export class OptionsState {
         changed = true;
       }
     });
-    if (changed) {
-      this.draft = draft;
-      this.#scheduleRecovery();
-    }
+    if (changed) this.#commit(draft, tags, false);
     return true;
   }
   #scheduleRecovery(): void {
@@ -724,16 +733,17 @@ export class OptionsState {
     this.changed();
     this.#past = [...this.#past, this.#snapshot()].slice(-HISTORY_LIMIT);
     this.#future = [];
-    this.draft = structuredClone(value.draft);
-    this.modelLegs = this.draft.strategy.legs.map(() => false);
-    this.spotLinked = false;
-    this.gridAuto = sameGrid(this.draft.spot_grid, fittedSpotGrid(this.draft));
+    const draft = structuredClone(value.draft);
     this.source = value.source;
     this.mode = value.mode;
+    this.#commit(
+      draft,
+      draft.strategy.legs.map(() => false),
+    );
+    this.spotLinked = false;
+    this.gridAuto = sameGrid(this.draft.spot_grid, fittedSpotGrid(this.draft));
     this.documentKey++;
     this.#submittedKey = '';
-    this.#scheduleRecovery();
-    this.#scheduleAnalysis();
     this.notice = notice;
   }
   recover(): boolean {

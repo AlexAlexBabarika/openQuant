@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_CHAIN_EXPIRATIONS, MAX_CHAIN_QUOTES, MAX_OPTION_CONTRACTS, MAX_PRICE, SYMBOL_PATTERN } from '$lib/features/options/optionsBounds';
   import { onDestroy, untrack } from 'svelte';
   import { getAccessToken } from '$lib/core/api';
   import { getChainStatus, getChainExpirations, getOptionChain } from '$lib/features/options/optionsResearchApi';
@@ -26,7 +27,7 @@
   const scopeKey = () => `${documentKey}:${readOnly}:${queryKey}`;
   const activeStatus = $derived(status?.environments.find(s => s.environment === environment));
   const connected = $derived(activeStatus?.configured === true && activeStatus?.available === true);
-  const symbolError = $derived(/^[A-Za-z0-9.^_/-]{1,32}$/.test(normalizedSymbol) ? '' : 'Enter a symbol of 1–32 letters, digits, . ^ _ / or - .');
+  const symbolError = $derived(SYMBOL_PATTERN.test(normalizedSymbol) ? '' : 'Enter a symbol of 1–32 letters, digits, . ^ _ / or - .');
   const matchingExpirations = $derived(expirations?.environment === environment && expirations.symbol === normalizedSymbol ? expirations : null);
   const stale = $derived(response !== null && queryKey !== responseKey);
   const filterErrors = $derived(chainFilterErrors(filters));
@@ -80,14 +81,14 @@
       } else if (kind === 'expirations') {
         const next = await getChainExpirations(query.symbol, query.environment, run.signal);
         if (!run.current()) return;
-        if (next.symbol !== query.symbol || next.environment !== query.environment || next.expirations.length > 128) throw new Error('Mismatched expiration response.');
+        if (next.symbol !== query.symbol || next.environment !== query.environment || next.expirations.length > MAX_CHAIN_EXPIRATIONS) throw new Error('Mismatched expiration response.');
         pending = null; expirations = next;
         if (!next.expirations.includes(expiration)) expiration = '';
         notice = next.expirations.length ? 'Expirations fetched. Choose a date and explicitly Load chain.' : 'No expirations returned for this symbol/environment.';
       } else {
         const next = await getOptionChain(query.symbol, query.expiration, query.environment, run.signal);
         if (!run.current()) return;
-        if (next.symbol !== query.symbol || next.environment !== query.environment || next.expiration !== query.expiration || next.quotes.length > 2000 || next.quotes.some(q => q.expiration !== query.expiration || q.underlying.toUpperCase() !== query.symbol || q.source.environment !== query.environment)) throw new Error('Mismatched chain response.');
+        if (next.symbol !== query.symbol || next.environment !== query.environment || next.expiration !== query.expiration || next.quotes.length > MAX_CHAIN_QUOTES || next.quotes.some(q => q.expiration !== query.expiration || q.underlying.toUpperCase() !== query.symbol || q.source.environment !== query.environment)) throw new Error('Mismatched chain response.');
         pending = null; response = next; responseKey = submittedKey; selected = null; filters.page = 0;
         notice = next.quotes.length ? 'Read-only observations fetched. Buy/Sell below only prepares an explicit draft import, not an order.' : 'Chain fetched successfully: no contracts returned.';
       }
@@ -161,8 +162,8 @@
       <legend>Filter and sort observations · unknown values sort last</legend>
       <div class="grid">
         <label><span>Kind</span><select name="chain-filter-kind" bind:value={filters.kind}><option value="all">Calls and puts</option><option value="call">Calls</option><option value="put">Puts</option></select></label>
-        <label><span>Minimum strike · USD, optional</span><input type="number" name="chain-min-strike" autocomplete="off" min="0" max="1000000" step="any" value={filters.minStrike ?? ''} oninput={e => filters.minStrike = e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber} aria-invalid={!!filterErrors.minStrike} aria-describedby={`${id}-minStrike-error`} /><small id={`${id}-minStrike-error`}>{filterErrors.minStrike ?? ''}</small></label>
-        <label><span>Maximum strike · USD, optional</span><input type="number" name="chain-max-strike" autocomplete="off" min="0" max="1000000" step="any" value={filters.maxStrike ?? ''} oninput={e => filters.maxStrike = e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber} aria-invalid={!!filterErrors.maxStrike} aria-describedby={`${id}-maxStrike-error`} /><small id={`${id}-maxStrike-error`}>{filterErrors.maxStrike ?? ''}</small></label>
+        <label><span>Minimum strike · USD, optional</span><input type="number" name="chain-min-strike" autocomplete="off" min="0" max={MAX_PRICE} step="any" value={filters.minStrike ?? ''} oninput={e => filters.minStrike = e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber} aria-invalid={!!filterErrors.minStrike} aria-describedby={`${id}-minStrike-error`} /><small id={`${id}-minStrike-error`}>{filterErrors.minStrike ?? ''}</small></label>
+        <label><span>Maximum strike · USD, optional</span><input type="number" name="chain-max-strike" autocomplete="off" min="0" max={MAX_PRICE} step="any" value={filters.maxStrike ?? ''} oninput={e => filters.maxStrike = e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber} aria-invalid={!!filterErrors.maxStrike} aria-describedby={`${id}-maxStrike-error`} /><small id={`${id}-maxStrike-error`}>{filterErrors.maxStrike ?? ''}</small></label>
         <label><span>Sort column</span><select name="chain-sort" bind:value={filters.sort}><option value="strike">Strike</option><option value="bid">Bid</option><option value="ask">Ask</option><option value="spread">Spread width</option><option value="volume">Volume</option><option value="open_interest">Open interest</option></select></label>
         <label><span>Sort direction</span><select name="chain-order" value={filters.descending ? 'descending' : 'ascending'} onchange={e => filters.descending = e.currentTarget.value === 'descending'}><option value="ascending">Ascending</option><option value="descending">Descending</option></select></label>
       </div>
@@ -197,9 +198,9 @@
         <legend>Explicit entry and model assumptions</legend>
         <div class="grid">
           <label><span>Side · signed contracts</span><select name="chain-import-side" bind:value={settings.side}><option value="buy">Buy (+)</option><option value="sell">Sell (−)</option></select>{@render error('side')}</label>
-          <label><span>Size · 1–10000 contracts</span><input type="number" name="chain-import-size" autocomplete="off" min="1" max="10000" step="1" bind:value={settings.size} aria-invalid={attempted && !!importErrors.size} aria-describedby={attempted && importErrors.size ? errorId('size') : undefined} />{@render error('size')}</label>
+          <label><span>Size · 1–10000 contracts</span><input type="number" name="chain-import-size" autocomplete="off" min="1" max={MAX_OPTION_CONTRACTS} step="1" bind:value={settings.size} aria-invalid={attempted && !!importErrors.size} aria-describedby={attempted && importErrors.size ? errorId('size') : undefined} />{@render error('size')}</label>
           <label><span>Entry premium choice · USD/unit</span><select name="chain-import-premium" bind:value={settings.premiumChoice} onchange={() => settings.acknowledgeQuote = false} aria-invalid={attempted && !!importErrors.premiumChoice} aria-describedby={attempted && importErrors.premiumChoice ? errorId('premiumChoice') : undefined}><option value="">Choose explicitly</option><option value="bid" disabled={chainPremium(selected, 'bid', 0) === null}>Observed bid · {value(selected.bid)}</option><option value="ask" disabled={chainPremium(selected, 'ask', 0) === null}>Observed ask · {value(selected.ask)}</option><option value="mid" disabled={chainPremium(selected, 'mid', 0) === null}>Observed midpoint · {value(chainPremium(selected, 'mid', 0))}</option><option value="custom">Custom hypothetical premium</option></select>{@render error('premiumChoice')}</label>
-          {#if settings.premiumChoice === 'custom'}<label><span>Custom entry premium · 0–1m USD/unit</span><input type="number" name="chain-import-custom-premium" autocomplete="off" min="0" max="1000000" step="any" value={Number.isFinite(settings.customPremium) ? settings.customPremium : ''} oninput={e => settings.customPremium = e.currentTarget.valueAsNumber} /></label>{/if}
+          {#if settings.premiumChoice === 'custom'}<label><span>Custom entry premium · 0–1m USD/unit</span><input type="number" name="chain-import-custom-premium" autocomplete="off" min="0" max={MAX_PRICE} step="any" value={Number.isFinite(settings.customPremium) ? settings.customPremium : ''} oninput={e => settings.customPremium = e.currentTarget.valueAsNumber} /></label>{/if}
           <label><span>Multiplier · units/contract, 1–1000 ({selected.multiplier === null ? 'unknown: supply explicitly' : 'provider-reported'})</span><input type="number" name="chain-import-multiplier" autocomplete="off" min="1" max="1000" step="1" value={Number.isFinite(settings.multiplier) ? settings.multiplier : ''} disabled={selected.multiplier !== null} oninput={e => settings.multiplier = e.currentTarget.valueAsNumber} aria-invalid={attempted && !!importErrors.multiplier} aria-describedby={attempted && importErrors.multiplier ? errorId('multiplier') : undefined} />{@render error('multiplier')}</label>
           <label><span>Valuation date · explicit UTC, expiry {selected.expiration}</span><input type="date" name="chain-import-valuation-date" min="0001-01-01" max="9999-12-31" bind:value={settings.valuationDate} disabled={!!draft.strategy.valuation_date} aria-invalid={attempted && !!importErrors.valuationDate} aria-describedby={attempted && importErrors.valuationDate ? errorId('valuationDate') : undefined} />{@render error('valuationDate')}{@render error('expiration')}</label>
           <label><span>Annual IV assumption · fraction (0–5)</span><select name="chain-import-iv" bind:value={settings.ivChoice} aria-invalid={attempted && !!importErrors.ivChoice} aria-describedby={attempted && importErrors.ivChoice ? errorId('ivChoice') : undefined}><option value="">Choose explicitly</option><option value="draft">Inherit draft base IV · {exactValue(draft.volatility)}</option><option value="quote" disabled={selected.implied_volatility === null}>Observed IV · {value(selected.implied_volatility)}</option><option value="custom">Custom hypothetical IV</option></select>{@render error('ivChoice')}</label>

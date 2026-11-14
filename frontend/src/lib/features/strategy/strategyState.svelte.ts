@@ -1,11 +1,12 @@
 /**
  * Strategy editor state: the live strategy source (`draftCode`) that feeds both
  * the single-run backtest path and the sweep panel, plus saved-strategy CRUD.
- * Runes-based, mirroring `IndicatorState`; the HTTP client is injectable so
- * tests stub the network, mirroring `SweepState`.
+ * The draft and saved-strategy machinery is `SavedScriptDraft`; the HTTP client is
+ * injectable so tests stub the network, mirroring `SweepState`.
  */
 import { BacktestState } from '$lib/features/backtest/backtestState.svelte';
 import type { DataQualityReport } from '$lib/features/runs/dataQuality';
+import { SavedScriptDraft } from '$lib/features/scripts/savedScriptDraft.svelte';
 import {
   httpStrategyClient,
   type BacktestRunParams,
@@ -37,19 +38,7 @@ def on_bar(ctx):
 
 export type RunContext = Omit<BacktestRunParams, 'code'>;
 
-export class StrategyState {
-  scripts = $state<StrategyInfo[]>([]);
-  loading = $state(false);
-  loadError = $state<string | null>(null);
-
-  activeId = $state<string | null>(null);
-  draftName = $state('Untitled strategy');
-  draftCode = $state(SEED_CODE);
-  dirty = $state(false);
-
-  isSaving = $state(false);
-  saveError = $state<string | null>(null);
-
+export class StrategyState extends SavedScriptDraft<StrategyInfo> {
   /** Result of the latest `runBacktest()`, rendered by `BacktestPanel`. */
   backtest = $state<BacktestState | null>(null);
   isRunning = $state(false);
@@ -57,197 +46,24 @@ export class StrategyState {
   dataQuality = $state<DataQualityReport | null>(null);
 
   #client: StrategyClient;
-  #draftVersion = $state(0);
-  #revision = 0;
-  #listRequest = 0;
-  #scriptsRevision = 0;
-  #savingId: string | null = null;
-  #deleting = new Set<string>();
-  #accountVersion = 0;
 
-  clearSaved(): void {
-    this.#accountVersion++;
-    this.#listRequest++;
-    this.#scriptsRevision++;
-    this.#draftVersion++;
-    this.scripts = [];
-    this.loading = false;
-    this.loadError = null;
-    this.saveError = null;
-    this.isSaving = false;
-    this.#savingId = null;
-    this.#deleting.clear();
-    if (this.activeId) this.dirty = true;
-    this.activeId = null;
+  constructor(client: StrategyClient = httpStrategyClient) {
+    super({
+      store: client,
+      untitled: 'Untitled strategy',
+      starterCode: SEED_CODE,
+      loadFailed: 'Failed to load strategies',
+    });
+    this.#client = client;
+  }
+
+  override clearSaved(): void {
+    super.clearSaved();
     this.backtest?.dispose();
     this.backtest = null;
     this.dataQuality = null;
     this.isRunning = false;
     this.runError = null;
-  }
-
-  constructor(client: StrategyClient = httpStrategyClient) {
-    this.#client = client;
-  }
-
-  dispose(): void {
-    this.clearSaved();
-  }
-
-  get draftVersion(): number {
-    return this.#draftVersion;
-  }
-
-  active = $derived.by(() =>
-    this.activeId
-      ? (this.scripts.find(s => s.id === this.activeId) ?? null)
-      : null,
-  );
-
-  async load(): Promise<void> {
-    const request = ++this.#listRequest;
-    const revision = this.#scriptsRevision;
-    this.loading = true;
-    this.loadError = null;
-    try {
-      const scripts = await this.#client.list();
-      if (request === this.#listRequest && revision === this.#scriptsRevision)
-        this.scripts = scripts;
-    } catch (err) {
-      if (request === this.#listRequest && revision === this.#scriptsRevision)
-        this.loadError =
-          err instanceof Error ? err.message : 'Failed to load strategies';
-    } finally {
-      if (request === this.#listRequest) this.loading = false;
-    }
-  }
-
-  newDraft(discard = () => false): void {
-    if (this.dirty && !discard()) return;
-    this.#draftVersion++;
-    this.activeId = null;
-    this.draftName = 'Untitled strategy';
-    this.draftCode = SEED_CODE;
-    this.dirty = false;
-    this.saveError = null;
-  }
-
-  select(id: string, discard = () => false): void {
-    if (id === this.activeId) return;
-    const s = this.scripts.find(x => x.id === id);
-    if (!s) return;
-    if (this.dirty && !discard()) return;
-    this.#draftVersion++;
-    this.activeId = id;
-    this.draftName = s.name;
-    this.draftCode = s.code;
-    this.dirty = false;
-    this.saveError = null;
-  }
-
-  setName(name: string): void {
-    if (this.draftName === name) return;
-    this.draftName = name;
-    this.#revision++;
-    this.dirty = true;
-  }
-
-  setCode(code: string): void {
-    if (this.draftCode === code) return;
-    this.draftCode = code;
-    this.#revision++;
-    this.dirty = true;
-  }
-
-  async save(): Promise<StrategyInfo | null> {
-    if (this.isSaving) return null;
-    const id = this.activeId;
-    if (id && this.#deleting.has(id)) {
-      this.saveError = 'Wait for deletion to finish before saving';
-      return null;
-    }
-    const name = this.draftName.trim();
-    if (!name) {
-      this.saveError = 'Name is required';
-      return null;
-    }
-    this.isSaving = true;
-    this.#savingId = id;
-    this.saveError = null;
-    const version = this.#draftVersion;
-    const revision = this.#revision;
-    const code = this.draftCode;
-    const accountVersion = this.#accountVersion;
-    try {
-      let saved: StrategyInfo;
-      if (id) {
-        saved = await this.#client.update(id, {
-          name,
-          code,
-        });
-      } else {
-        saved = await this.#client.create(name, code);
-      }
-      if (accountVersion !== this.#accountVersion) return null;
-      this.#scriptsRevision++;
-      const idx = this.scripts.findIndex(s => s.id === saved.id);
-      if (idx >= 0) this.scripts[idx] = saved;
-      else this.scripts = [saved, ...this.scripts];
-      if (version === this.#draftVersion) {
-        this.activeId = saved.id;
-        if (revision === this.#revision) {
-          this.draftName = saved.name;
-          this.dirty = false;
-        }
-      } else if (
-        this.activeId === saved.id &&
-        (this.draftCode !== saved.code || this.draftName !== saved.name)
-      ) {
-        this.dirty = true;
-      }
-      return saved;
-    } catch (err) {
-      if (
-        accountVersion === this.#accountVersion &&
-        version === this.#draftVersion
-      )
-        this.saveError = err instanceof Error ? err.message : 'Failed to save';
-      return null;
-    } finally {
-      if (accountVersion === this.#accountVersion) {
-        this.isSaving = false;
-        this.#savingId = null;
-      }
-    }
-  }
-
-  async remove(id: string): Promise<void> {
-    if (this.isSaving && this.#savingId === id)
-      throw new Error('Wait for the save to finish before deleting');
-    if (this.#deleting.has(id)) return;
-    this.#deleting.add(id);
-    const version = this.#draftVersion;
-    const revision = this.#revision;
-    const accountVersion = this.#accountVersion;
-    try {
-      await this.#client.remove(id);
-      if (accountVersion !== this.#accountVersion) return;
-      this.#scriptsRevision++;
-      this.scripts = this.scripts.filter(s => s.id !== id);
-      if (this.activeId === id) {
-        if (version === this.#draftVersion && revision === this.#revision)
-          this.newDraft(() => true);
-        else {
-          this.#draftVersion++;
-          this.activeId = null;
-          this.dirty = true;
-        }
-      }
-    } catch (err) {
-      if (accountVersion === this.#accountVersion) throw err;
-    } finally {
-      if (accountVersion === this.#accountVersion) this.#deleting.delete(id);
-    }
   }
 
   /**
@@ -258,16 +74,16 @@ export class StrategyState {
   async runBacktest(ctx: RunContext): Promise<BacktestState> {
     this.backtest?.dispose();
     const code = this.draftCode;
-    const account = this.#accountVersion;
+    const account = this.accountVersion;
     this.dataQuality = null;
     this.isRunning = true;
     this.runError = null;
     const bt = new BacktestState(async () => {
       const res = await this.#client.runBacktest({ code, ...ctx }, quality => {
-        if (account === this.#accountVersion && this.backtest === bt)
+        if (account === this.accountVersion && this.backtest === bt)
           this.dataQuality = quality;
       });
-      if (account !== this.#accountVersion)
+      if (account !== this.accountVersion)
         throw new Error('Account changed. Run again.');
       if (this.backtest === bt)
         this.dataQuality = res.meta.data_quality ?? this.dataQuality;

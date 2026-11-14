@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_DAYS, MAX_OPTION_CONTRACTS, MAX_PRICE } from '$lib/features/options/optionsBounds';
   import { untrack } from 'svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { applyCalendar, calendarControls, calendarProposal, researchValue, setLegExpiry, type CalendarControls } from '$lib/features/options/optionsLifecycle';
@@ -35,7 +36,7 @@
         <div class="leg">
           <h4>Leg {i + 1} · {leg.kind} · {leg.quantity} signed contracts{!leg.enabled ? ' · disabled (still validated)' : ''}</h4>
           <div class="fields">
-            <label>Override · calendar days (0–3650)<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
+            <label>Override · calendar days (0–3650)<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
             <label>Override · expiry date (UTC)<input type="date" name={`legs.${i}.expiry_date`} value={leg.expiry_date ?? ''} aria-invalid={!!errors[`legs.${i}.expiry_date`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'expiry_date', e.currentTarget.value || null)} /></label>
           </div>
           <p id={`${uid}-leg-${i}`}>{errors[`legs.${i}.days_to_expiry`] ?? errors[`legs.${i}.expiry_date`] ?? `Resolved horizon: ${researchValue(resolvedLegDays(draft.strategy, leg))} calendar days.`}</p>
@@ -52,7 +53,7 @@
       <div class="fields">
         <label>Construction<select name="construction-template" bind:value={construction.template}><option value="calendar">Calendar · equal strikes</option><option value="diagonal">Diagonal · different strikes</option></select></label>
         <label>Option kind<select name="construction-kind" bind:value={construction.kind}><option value="call">Call</option><option value="put">Put</option></select></label>
-        {#each ([['nearDays', 'Near expiry · calendar days', 0, 3650], ['farDays', 'Far expiry · calendar days', 0, 3650], ['nearStrike', 'Near strike · USD', 0, 1000000], ['farStrike', 'Far strike · USD', 0, 1000000], ['nearPremium', 'Near entry premium · USD/unit', 0, 1000000], ['farPremium', 'Far entry premium · USD/unit', 0, 1000000], ['contracts', 'Size · contracts per leg', 1, 10000], ['multiplier', 'Multiplier · units/contract', 1, 1000]] as const) as [key, label, min, max]}
+        {#each ([['nearDays', 'Near expiry · calendar days', 0, MAX_DAYS], ['farDays', 'Far expiry · calendar days', 0, MAX_DAYS], ['nearStrike', 'Near strike · USD', 0, MAX_PRICE], ['farStrike', 'Far strike · USD', 0, MAX_PRICE], ['nearPremium', 'Near entry premium · USD/unit', 0, MAX_PRICE], ['farPremium', 'Far entry premium · USD/unit', 0, MAX_PRICE], ['contracts', 'Size · contracts per leg', 1, MAX_OPTION_CONTRACTS], ['multiplier', 'Multiplier · units/contract', 1, 1000]] as const) as [key, label, min, max]}
           {#if key !== 'farStrike' || construction.template === 'diagonal'}
             <label>{label}<input type="number" name={`construction-${key}`} autocomplete="off" {min} {max} step={key === 'contracts' || key === 'multiplier' ? '1' : 'any'} value={construction[key]} aria-invalid={!!proposal.errors[key]} aria-describedby={`${uid}-${key}`} oninput={e => { construction[key] = e.currentTarget.value; }} /><small id={`${uid}-${key}`}>{proposal.errors[key] ?? (key.includes('Premium') ? 'Required; explicit zero is allowed.' : '')}</small></label>
           {/if}

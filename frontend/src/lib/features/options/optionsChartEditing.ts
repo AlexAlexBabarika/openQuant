@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import { apiJson } from '$lib/core/api';
 import {
   exactTerminalAvailable,
@@ -12,7 +13,7 @@ import { requestChanged } from './optionsScenario';
 import type { OptionsAnalysis, OptionsDraft } from './optionsTypes';
 
 export const STRIKE_STEPS = [0.01, 0.1, 1, 5] as const;
-export const MAX_STRIKE = 1_000_000;
+export const MAX_STRIKE = MAX_PRICE;
 
 export function validStrike(value: unknown): value is number {
   return finiteValue(value) && value > 0 && value <= MAX_STRIKE;

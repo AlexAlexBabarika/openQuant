@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_PRICE } from '$lib/features/options/optionsBounds';
   import type { OptionsDraft, OptionsAnalysis } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { buildSurface, ivShiftBounds, scenarioInputError, scenarioNameError, surfaceCellLabel, surfaceDataError, surfaceKeyboardCell, surfaceSettings, surfaceSettingsErrors, surfaceValue } from '$lib/features/options/optionsScenario';
@@ -104,8 +105,8 @@
     <form onsubmit={applySurface}>
       <fieldset class="grid-fields"><legend>Requested surface · draft inputs</legend>
         <label for={`${id}-axis`}>Step axis<select name="surface-axis" id={`${id}-axis`} value={settings.axis} onchange={e => changeAxis(e.currentTarget.value as SurfaceSettings['axis'])}><option value="elapsed_days">Spot × elapsed calendar days</option><option value="iv_shift_pp">Spot × IV shift (pp)</option></select></label>
-        <label for={`${id}-spot-start`}>Spot start (USD)<input id={`${id}-spot-start`} type="number" name="surface-spot-start" autocomplete="off" min="0" max="1000000" step="any" bind:value={settings.spotStart} aria-invalid={!!errors.spots} aria-describedby={`${id}-spots-error`} /></label>
-        <label for={`${id}-spot-end`}>Spot end (USD)<input id={`${id}-spot-end`} type="number" name="surface-spot-end" autocomplete="off" min="0" max="1000000" step="any" bind:value={settings.spotEnd} aria-invalid={!!errors.spots} aria-describedby={`${id}-spots-error`} /></label>
+        <label for={`${id}-spot-start`}>Spot start (USD)<input id={`${id}-spot-start`} type="number" name="surface-spot-start" autocomplete="off" min="0" max={MAX_PRICE} step="any" bind:value={settings.spotStart} aria-invalid={!!errors.spots} aria-describedby={`${id}-spots-error`} /></label>
+        <label for={`${id}-spot-end`}>Spot end (USD)<input id={`${id}-spot-end`} type="number" name="surface-spot-end" autocomplete="off" min="0" max={MAX_PRICE} step="any" bind:value={settings.spotEnd} aria-invalid={!!errors.spots} aria-describedby={`${id}-spots-error`} /></label>
         <p id={`${id}-spots-error`} class="field-note">{errors.spots ?? 'Strictly increasing USD prices.'}</p>
         <label for={`${id}-spot-count`}>Spot columns (2–41)<input id={`${id}-spot-count`} type="number" name="surface-spot-count" autocomplete="off" min="2" max="41" step="1" bind:value={settings.spotCount} aria-invalid={!!errors.spotCount} aria-describedby={`${id}-columns-error`} /></label>
         <p id={`${id}-columns-error`} class="field-note">{errors.spotCount ?? 'Up to 41 columns.'}</p>

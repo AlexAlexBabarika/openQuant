@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_PRICE } from '$lib/features/options/optionsBounds';
   import { onMount, untrack } from 'svelte';
   import { authState } from '$lib/features/auth/auth';
   import { getSessionGeneration } from '$lib/core/api';
@@ -161,8 +162,8 @@
             <p class="hint">Display grid only; common-expiry risk and breakevens cover all nonnegative spots, even outside this range. Mixed-expiry terminal risk is unavailable.</p>
             <p class="hint">{options.gridAuto ? 'Fitted to strikes, spot and breakevens.' : 'Manual grid.'} <button type="button" class="ot-workbench-ghost" disabled={options.gridAuto} onclick={() => options.fitGrid()}>Fit to strikes</button></p>
             <div class="inputs-grid">
-              {@render numeric('Grid start · USD (0–1m)', 'spot_grid', gridStart, 0, 1000000, 'any', v => { gridStart = v; updateGrid(); })}
-              {@render numeric('Grid end · USD (0–1m)', 'spot_grid', gridEnd, 0, 1000000, 'any', v => { gridEnd = v; updateGrid(); })}
+              {@render numeric('Grid start · USD (0–1m)', 'spot_grid', gridStart, 0, MAX_PRICE, 'any', v => { gridStart = v; updateGrid(); })}
+              {@render numeric('Grid end · USD (0–1m)', 'spot_grid', gridEnd, 0, MAX_PRICE, 'any', v => { gridEnd = v; updateGrid(); })}
               {@render numeric('Grid points (2–201)', 'spot_grid', gridCount, 2, 201, '1', v => { gridCount = v; updateGrid(); })}
             </div>
           </details>

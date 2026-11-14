@@ -1529,6 +1529,23 @@ describe('workspace following without background churn', () => {
     expect(s.result).not.toBeNull();
   });
 
+  it('analyzes an editor draft restored while Python mode was showing', async () => {
+    vi.useFakeTimers();
+    const analyze = vi.fn(async (_path: string, init: RequestInit) =>
+      priced(init),
+    );
+    const s = new OptionsState(storage(), analyze, 300);
+    s.setAccount(null);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(s.save('Editor draft')).toBe(true);
+    s.setMode('python');
+    analyze.mockClear();
+    expect(s.restore(0)).toBe(true);
+    expect(s.mode).toBe('editor');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(analyze).toHaveBeenCalled();
+  });
+
   it('analyzes a workspace change that lands during a request', async () => {
     vi.useFakeTimers();
     const pending: (() => void)[] = [];

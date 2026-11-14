@@ -1,8 +1,8 @@
 <script lang="ts">
   import { formatGreek, formatUsd } from '$lib/features/options/optionsFormat';
-  import { untrack } from 'svelte';
-  import { RequestFlight } from '$lib/features/options/optionsRequest';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
+  import type { OptionsDraft } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { firstExpiryDays } from '$lib/features/options/optionsValidation';
   import { ivShiftBounds } from '$lib/features/options/optionsScenario';
@@ -21,47 +21,35 @@
   const horizon = $derived(firstExpiryDays(draft));
   const bounds = $derived(ivShiftBounds(draft));
   const inputKey = $derived(JSON.stringify([draft, settings]));
-  let result = $state<StressResult | null>(null);
-  let submittedSettings = $state<StressSettings | null>(null);
-  let submittedKey = $state('');
-  const stale = $derived(!!result && inputKey !== submittedKey);
+  const run = useResearchRun<{ draft: OptionsDraft; settings: StressSettings }, StressResult>({
+    documentKey: () => documentKey, inputKey: () => inputKey, readOnly: () => readOnly,
+    copy: {
+      cancelled: 'Stress run cancelled. Previous submitted evidence is unchanged.',
+      inputsChanged: 'Stress request cancelled because inputs changed. Run explicitly to refresh.',
+      timedOut: 'Stress analysis timed out. Retry explicitly.',
+      failed: () => 'Canonical stress analysis failed. Check inputs and retry; draft and premiums are unchanged.',
+      submitted: () => '',
+    },
+    onDocumentChange: () => { name = STRESS_PRESETS[0].name; gap = String(STRESS_PRESETS[0].spotChangePct); elapsed = String(STRESS_PRESETS[0].elapsedDays); shift = String(STRESS_PRESETS[0].ivShiftPP); },
+  });
+  const result = $derived(run.result), submittedSettings = $derived(run.submitted?.settings ?? null);
+  const stale = $derived(run.stale), pending = $derived(run.pending), error = $derived(run.error), notice = $derived(run.notice);
   const evidence = $derived(result ? stressEvidence(result) : null);
-  let pending = $state(false), error = $state(''), notice = $state('');
-  const flight = new RequestFlight();
   const display = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? exactValue(value, true) : 'Unavailable';
 
-  function stop() { flight.cancel(); pending = false; }
-  function cancel() { stop(); notice = 'Stress run cancelled. Previous submitted evidence is unchanged.'; }
+  const cancel = () => run.cancel();
   function loadPreset(index: number) {
     if (readOnly) return;
     const preset = STRESS_PRESETS[index];
     name = preset.name; gap = String(preset.spotChangePct); elapsed = String(preset.elapsedDays); shift = String(preset.ivShiftPP);
-    error = ''; notice = 'Preset loaded as editable hypothetical assumptions only. No request was sent; invalid time/IV is not clipped.';
+    run.error = ''; run.notice = 'Preset loaded as editable hypothetical assumptions only. No request was sent; invalid time/IV is not clipped.';
   }
-  $effect(() => {
-    documentKey;
-    untrack(() => { stop(); result = null; submittedSettings = null; submittedKey = ''; error = ''; notice = ''; name = STRESS_PRESETS[0].name; gap = String(STRESS_PRESETS[0].spotChangePct); elapsed = String(STRESS_PRESETS[0].elapsedDays); shift = String(STRESS_PRESETS[0].ivShiftPP); });
-    return stop;
-  });
-  $effect(() => { if (readOnly) untrack(stop); });
-  $effect(() => { inputKey; untrack(() => { if (pending) { stop(); notice = 'Stress request cancelled because inputs changed. Run explicitly to refresh.'; } }); });
 
   async function submit(event: SubmitEvent) {
     event.preventDefault(); if (readOnly || pending) return;
     const snapshot = structuredClone($state.snapshot(draft)), submitted = { ...settings };
-    try { stressRequests(snapshot, submitted); } catch (e) { error = e instanceof Error ? e.message : 'Correct draft inputs before running.'; return; }
-    const key = inputKey;
-    const run = flight.start(() => `${documentKey}:${inputKey}`, () => { pending = false; error = 'Stress analysis timed out. Retry explicitly.'; });
-    pending = true; error = ''; notice = '';
-    try {
-      const response = await runStress(snapshot, submitted, run.signal);
-      if (run.current()) { result = response; submittedSettings = submitted; submittedKey = key; }
-    } catch {
-      if (run.current()) error = 'Canonical stress analysis failed. Check inputs and retry; draft and premiums are unchanged.';
-    } finally {
-      if (run.current()) pending = false;
-      run.finish();
-    }
+    try { stressRequests(snapshot, submitted); } catch (e) { run.error = e instanceof Error ? e.message : 'Correct draft inputs before running.'; return; }
+    await run.submit({ draft: snapshot, settings: submitted }, (request, signal) => runStress(request.draft, request.settings, signal));
   }
   function apply() {
     if (readOnly) return;
@@ -69,8 +57,8 @@
       const snapshot = structuredClone($state.snapshot(draft)), submitted = { ...settings };
       applyStressScenario(snapshot, submitted);
       onEdit(d => applyStressScenario(d, submitted));
-      error = ''; notice = 'Time/IV scenario applied to draft only. The spot shock stays local to this lab; entry premiums and current spot are unchanged. Analyze explicitly.';
-    } catch (e) { error = e instanceof Error ? e.message : 'Scenario was not applied.'; }
+      run.error = ''; run.notice = 'Time/IV scenario applied to draft only. The spot shock stays local to this lab; entry premiums and current spot are unchanged. Analyze explicitly.';
+    } catch (e) { run.error = e instanceof Error ? e.message : 'Scenario was not applied.'; }
   }
 </script>
 

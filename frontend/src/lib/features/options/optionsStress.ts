@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import { apiJson } from '$lib/core/api';
 import { scenarioInputError } from './optionsScenario';
 import { optionsErrors } from './optionsValidation';
@@ -44,7 +45,7 @@ export function stressErrors(
     settings.spotChangePct > 1000 ||
     !Number.isFinite(spot) ||
     spot <= 0 ||
-    spot > 1000000
+    spot > MAX_PRICE
   )
     errors.spotChangePct =
       'Use −100% < spot change ≤ 1000%, with resulting spot >0 and ≤1,000,000 USD.';
