@@ -1,8 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { RequestFlight } from '$lib/features/options/optionsRequest';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
-  import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
+  import type { OptionsAnalysis, OptionsDraft } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { compareSkew, editSkewPoint, skewComparisonRequests, skewPoints, skewSeries, transformSkew } from '$lib/features/options/optionsSkew';
   import { GREEK_KEYS, researchDifference } from '$lib/features/options/optionsStress';
@@ -16,24 +16,20 @@
   let edits = $state<Record<number, string>>({});
   let pointErrors = $state<Record<number, string>>({});
   let editError = $state('');
-  let notice = $state('');
-  let error = $state('');
-  let pending = $state(false);
-  let submittedKey = $state('');
-  let result = $state<{ flat: OptionsAnalysis; skew: OptionsAnalysis } | null>(null);
-  const stale = $derived(!!result && submittedKey !== draftKey);
-  const flight = new RequestFlight();
-
-  function stop() { flight.cancel(); pending = false; }
-  function cancel() { stop(); notice = 'Comparison cancelled. Previous submitted evidence is unchanged.'; }
-  $effect(() => {
-    documentKey;
-    untrack(() => { stop(); result = null; submittedKey = ''; error = ''; notice = ''; editError = ''; edits = {}; pointErrors = {}; parallel = '0'; twist = '0'; curvature = '0'; });
-    return stop;
+  const run = useResearchRun<OptionsDraft, { flat: OptionsAnalysis; skew: OptionsAnalysis }>({
+    documentKey: () => documentKey, inputKey: () => draftKey, readOnly: () => readOnly,
+    copy: {
+      cancelled: 'Comparison cancelled. Previous submitted evidence is unchanged.',
+      inputsChanged: 'Comparison cancelled because inputs changed. Compare explicitly to refresh.',
+      timedOut: 'Comparison timed out. Retry explicitly.',
+      failed: () => 'Canonical comparison failed. Check draft inputs and retry; no inputs were changed.',
+      submitted: () => '',
+    },
+    onDocumentChange: () => { editError = ''; edits = {}; pointErrors = {}; parallel = '0'; twist = '0'; curvature = '0'; },
   });
+  const result = $derived(run.result), stale = $derived(run.stale), pending = $derived(run.pending), error = $derived(run.error), notice = $derived(run.notice);
+  const cancel = () => run.cancel();
   $effect(() => { draftKey; untrack(() => { edits = {}; pointErrors = {}; }); });
-  $effect(() => { if (readOnly) untrack(stop); });
-  $effect(() => { draftKey; untrack(() => { if (pending) { stop(); notice = 'Comparison cancelled because inputs changed. Compare explicitly to refresh.'; } }); });
 
   const numeric = (value: string) => value.trim() === '' ? NaN : Number(value);
   const display = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? exactValue(value, true) : 'Unavailable';
@@ -51,7 +47,7 @@
       const copy = structuredClone($state.snapshot(draft));
       editSkewPoint(copy, index, iv);
       onEdit(d => editSkewPoint(d, index, iv));
-      pointErrors[index] = ''; notice = 'IV edit applied to draft only. Compare explicitly for canonical marks.';
+      pointErrors[index] = ''; run.notice = 'IV edit applied to draft only. Compare explicitly for canonical marks.';
     } catch (e) { pointErrors[index] = e instanceof Error ? e.message : 'IV edit failed.'; }
   }
   function applyTransform(event: SubmitEvent) {
@@ -59,29 +55,18 @@
     try {
       const next = transformSkew($state.snapshot(draft), { parallelPP: numeric(parallel), twistPP: numeric(twist), curvaturePP: numeric(curvature) });
       onEdit(d => { d.volatility = next.volatility; next.strategy.legs.forEach((leg, index) => { if (leg.enabled && leg.kind !== 'underlying') d.strategy.legs[index].implied_volatility = leg.implied_volatility; }); });
-      editError = ''; notice = 'Transform applied atomically to draft IVs. Premiums and source provenance are unchanged.';
+      editError = ''; run.notice = 'Transform applied atomically to draft IVs. Premiums and source provenance are unchanged.';
     } catch (e) { editError = e instanceof Error ? e.message : 'Transform failed. Nothing applied.'; }
   }
   function reset(index?: number) {
     if (readOnly) return;
     onEdit(d => { d.strategy.legs.forEach((leg, i) => { if (leg.enabled && leg.kind !== 'underlying' && (index == null || i === index)) leg.implied_volatility = null; }); });
-    notice = 'Enabled option overrides reset to declared base IV. Disabled legs, premiums and provenance are unchanged.';
+    run.notice = 'Enabled option overrides reset to declared base IV. Disabled legs, premiums and provenance are unchanged.';
   }
   async function compare() {
     if (readOnly || pending) return;
-    try { skewComparisonRequests($state.snapshot(draft)); } catch (e) { error = e instanceof Error ? e.message : 'Correct draft inputs before comparing.'; return; }
-    const key = draftKey, snapshot = structuredClone($state.snapshot(draft));
-    const run = flight.start(() => `${documentKey}:${draftKey}`, () => { pending = false; error = 'Comparison timed out. Retry explicitly.'; });
-    pending = true; error = ''; notice = '';
-    try {
-      const response = await compareSkew(snapshot, run.signal);
-      if (run.current()) { result = response; submittedKey = key; }
-    } catch {
-      if (run.current()) error = 'Canonical comparison failed. Check draft inputs and retry; no inputs were changed.';
-    } finally {
-      if (run.current()) pending = false;
-      run.finish();
-    }
+    try { skewComparisonRequests($state.snapshot(draft)); } catch (e) { run.error = e instanceof Error ? e.message : 'Correct draft inputs before comparing.'; return; }
+    await run.submit($state.snapshot(draft), compareSkew);
   }
 </script>
 

@@ -1,25 +1,19 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import { findStrategies } from '$lib/features/options/optionsResearchApi';
   import type { FinderRequest, FinderResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import type { OptionLeg } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { formatTime } from '$lib/features/options/optionsFormat';
   import { applyFinderCandidate, editFinderContract, finderErrors, manualFinderContract, parseFinderSpots, seedFinderUniverse } from '$lib/features/options/optionsFinder';
-  import { RequestFlight } from '$lib/features/options/optionsRequest';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const id = $props.id();
-  const flight = new RequestFlight();
   let universe = $state<OptionLeg[]>([]);
   let thesis = $state<FinderRequest['thesis']>('neutral');
   let maxDebit = $state(1000), maxLoss = $state(1000), maxContracts = $state(4), maxLegs = $state(4);
   let limit = $state(10), maxEvaluations = $state(2000), scenarioText = $state('');
-  let result = $state<FinderResponse | null>(null);
-  let submitted = $state<FinderRequest | null>(null);
-  let submittedKey = $state('');
-  let pending = $state(false), attempted = $state(false);
-  let failure = $state(''), notice = $state('');
+  let attempted = $state(false);
   const request: FinderRequest = $derived({
     analysis: draft, universe, thesis,
     constraints: { max_entry_debit: maxDebit, max_loss: maxLoss, max_total_contracts: maxContracts, max_legs: maxLegs },
@@ -27,25 +21,24 @@
   });
   const requestKey = $derived(JSON.stringify(request));
   const errors = $derived(finderErrors(request));
-  const stale = $derived(result !== null && requestKey !== submittedKey);
-  const key = () => `${documentKey}:${readOnly}:${requestKey}`;
+  const run = useResearchRun<FinderRequest, FinderResponse>({
+    documentKey: () => documentKey, inputKey: () => requestKey, readOnly: () => readOnly,
+    copy: {
+      cancelled: 'Search cancelled. Any previous submitted evidence remains below.',
+      inputsChanged: 'Search cancelled because its inputs changed. Submit explicitly to search again.',
+      timedOut: 'Search timed out. Inputs are unchanged; retry explicitly with a smaller search limit.',
+      failed: () => 'Strategy search failed. Check the field constraints and retry explicitly; no candidate was applied.',
+      submitted: response => response.candidates.length ? 'Search complete. Review the submitted evidence before applying a candidate.' : 'Search complete: no candidates satisfy these constraints in the submitted universe.',
+    },
+    onDocumentChange: () => {
+      universe = []; scenarioText = ''; thesis = 'neutral'; maxDebit = 1000; maxLoss = 1000; maxContracts = 4; maxLegs = 4; limit = 10; maxEvaluations = 2000;
+      attempted = false;
+    },
+  });
+  const result = $derived(run.result), submitted = $derived(run.submitted), stale = $derived(run.stale);
+  const pending = $derived(run.pending), failure = $derived(run.error), notice = $derived(run.notice);
   const errorId = (field: string) => `${id}-${field.replace(/\./g, '-')}-error`;
 
-  $effect(() => {
-    documentKey;
-    untrack(() => {
-      flight.cancel(); pending = false; result = null; submitted = null; submittedKey = '';
-      universe = []; scenarioText = ''; thesis = 'neutral'; maxDebit = 1000; maxLoss = 1000; maxContracts = 4; maxLegs = 4; limit = 10; maxEvaluations = 2000;
-      attempted = false; failure = ''; notice = '';
-    });
-  });
-  $effect(() => {
-    requestKey; readOnly;
-    untrack(() => {
-      if (pending) { flight.cancel(); pending = false; notice = 'Search cancelled because its inputs changed. Submit explicitly to search again.'; }
-    });
-  });
-  onDestroy(() => flight.cancel());
 
   function edit(index: number, update: Partial<OptionLeg>) {
     if (!readOnly) universe[index] = editFinderContract($state.snapshot(universe[index]), update);
@@ -53,33 +46,17 @@
   async function search(event: SubmitEvent) {
     event.preventDefault();
     if (readOnly || pending) return;
-    attempted = true; failure = ''; notice = '';
+    attempted = true; run.error = ''; run.notice = '';
     if (Object.keys(errors).length) return;
-    const snapshot = structuredClone($state.snapshot(request));
-    const inputKey = requestKey;
-    const run = flight.start(key, () => { pending = false; failure = 'Search timed out. Inputs are unchanged; retry explicitly with a smaller search limit.'; });
-    pending = true;
-    try {
-      const response = await findStrategies(snapshot, run.signal);
-      if (!run.current()) return;
-      result = response; submitted = snapshot; submittedKey = inputKey;
-      notice = response.candidates.length ? 'Search complete. Review the submitted evidence before applying a candidate.' : 'Search complete: no candidates satisfy these constraints in the submitted universe.';
-    } catch {
-      if (run.current()) failure = 'Strategy search failed. Check the field constraints and retry explicitly; no candidate was applied.';
-    } finally {
-      if (run.current()) pending = false;
-      run.finish();
-    }
+    await run.submit($state.snapshot(request), findStrategies);
   }
-  function cancel() {
-    flight.cancel(); pending = false; notice = 'Search cancelled. Any previous submitted evidence remains below.';
-  }
+  const cancel = () => run.cancel();
   function apply(index: number) {
     if (readOnly || pending || stale || !result || !submitted) return;
     const candidate = structuredClone($state.snapshot(result.candidates[index]));
     const snapshot = structuredClone($state.snapshot(submitted));
     onEdit(current => {
-      if (applyFinderCandidate(current, snapshot, candidate)) notice = `Candidate ${candidate.rank} applied to the draft. Analyze explicitly for updated workbench evidence.`;
+      if (applyFinderCandidate(current, snapshot, candidate)) run.notice = `Candidate ${candidate.rank} applied to the draft. Analyze explicitly for updated workbench evidence.`;
     });
   }
 </script>

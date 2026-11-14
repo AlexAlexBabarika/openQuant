@@ -7,7 +7,6 @@ import type {
   ResearchProvenance,
 } from './optionsResearchTypes';
 import { editLegContract } from './optionsLegEditor';
-import { RequestFlight } from './optionsRequest';
 import { optionsErrors, resolvedLegDays } from './optionsValidation';
 
 export const MAX_PATH_POINTS = 366;
@@ -282,107 +281,6 @@ export function applyCalendar(
   return true;
 }
 
-export interface ResearchState<R> {
-  documentKey: string;
-  result: R | null;
-  submittedKey: string;
-  pending: boolean;
-  error: string;
-  notice: string;
-}
-export const emptyResearchState = <R>(
-  documentKey: string,
-): ResearchState<R> => ({
-  documentKey,
-  result: null,
-  submittedKey: '',
-  pending: false,
-  error: '',
-  notice: '',
-});
-export function researchError(error: unknown): string {
-  const message = error instanceof Error ? error.message.toLowerCase() : '';
-  if (/timeout|timed out/.test(message))
-    return 'Research timed out. Reduce path steps or retry explicitly.';
-  if (/too large|oversize|size limit/.test(message))
-    return 'Research exceeds the request/output limit. Reduce path steps.';
-  if (/rate limit|too many|saturat/.test(message))
-    return 'Research is busy or rate limited. Retry explicitly later.';
-  return 'Research request failed. Inputs are retained. Check the draft/path and retry; the research endpoint may be unavailable.';
-}
-
-/** No result may cross a document/account boundary, even if abort is ignored. */
-export class ResearchJob<Q, R> {
-  state: ResearchState<R>;
-  #flight = new RequestFlight();
-  constructor(
-    documentKey: string,
-    private currentDocument: () => string,
-    private publish: (state: ResearchState<R>) => void,
-    private currentInput?: () => string,
-  ) {
-    this.state = emptyResearchState(documentKey);
-  }
-  #update(patch: Partial<ResearchState<R>>): void {
-    this.state = { ...this.state, ...patch };
-    this.publish(this.state);
-  }
-  reset(documentKey: string): void {
-    this.#flight.cancel();
-    this.state = emptyResearchState(documentKey);
-    this.publish(this.state);
-  }
-  cancel(): void {
-    this.#flight.cancel();
-    this.#update({
-      pending: false,
-      error: '',
-      notice:
-        'Cancelled. Previous submitted evidence, if any, is unchanged. Browser abort does not guarantee server computation stopped.',
-    });
-  }
-  async submit(
-    request: Q,
-    key: string,
-    call: (request: Q, signal: AbortSignal) => Promise<R>,
-    validate: (result: R) => boolean,
-  ): Promise<void> {
-    const flight = this.#flight.start(
-      () => this.currentDocument(),
-      () => {
-        this.cancel();
-        this.#update({
-          error:
-            'Research timed out after 15 seconds. Reduce path steps and retry explicitly.',
-        });
-      },
-    );
-    const documentKey = this.currentDocument();
-    if (this.state.documentKey !== documentKey) {
-      this.state = emptyResearchState(documentKey);
-    }
-    const snapshot = structuredClone(request);
-    this.#update({ pending: true, error: '', notice: '', documentKey });
-    const current = () =>
-      flight.current() && (!this.currentInput || key === this.currentInput());
-    try {
-      const result = await call(snapshot, flight.signal);
-      if (!current()) return;
-      if (!validate(result)) throw new Error('Invalid research response');
-      this.#update({
-        result,
-        submittedKey: key,
-        notice:
-          'Submitted evidence · session only. Values below use the returned request, not live inputs.',
-      });
-    } catch (error) {
-      if (current()) this.#update({ error: researchError(error) });
-    } finally {
-      flight.finish();
-      if (current()) this.#update({ pending: false });
-    }
-  }
-}
 export function validResearchContext(result: {
   provenance: ResearchProvenance;
   warnings: string[];

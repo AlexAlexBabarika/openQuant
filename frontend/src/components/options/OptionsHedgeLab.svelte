@@ -1,39 +1,38 @@
 <script lang="ts">
   import { formatUsd } from '$lib/features/options/optionsFormat';
-  import { onDestroy, untrack } from 'svelte';
+  import { untrack } from 'svelte';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import OptionsLifecycle from './OptionsLifecycle.svelte';
   import type { HedgeRequest, HedgeResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { simulateHedge } from '$lib/features/options/optionsResearchApi';
   import { hedgeControls, hedgeRequest, validHedge, type HedgeControls } from '$lib/features/options/optionsHedge';
-  import { emptyResearchState, inputKey, observationIndex, pathChart, pathControls, ResearchJob, researchValue as value, type PathControls, type ResearchState } from '$lib/features/options/optionsLifecycle';
+  import { inputKey, observationIndex, pathChart, pathControls, researchValue as value, type PathControls } from '$lib/features/options/optionsLifecycle';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const uid = $props.id();
   let path = $state<PathControls>(untrack(() => pathControls(draft)));
   let settings = $state<HedgeControls>(hedgeControls());
-  let runState = $state.raw<ResearchState<HedgeResponse>>(emptyResearchState(untrack(() => documentKey)));
-  const job = new ResearchJob<HedgeRequest, HedgeResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; }, () => key);
   const prepared = $derived(hedgeRequest(draft, path, settings));
   const key = $derived(inputKey(draft, [path, settings]));
-  const visible = $derived(runState.documentKey === documentKey ? runState : null);
-  const result = $derived(visible?.result ?? null);
-  const stale = $derived(!!result && key !== visible?.submittedKey);
   let index = $state(0);
   let playing = $state(false);
+  const run = useResearchRun<HedgeRequest, HedgeResponse>({
+    documentKey: () => documentKey, inputKey: () => key, readOnly: () => readOnly,
+    onDocumentChange: () => { path = pathControls(draft); settings = hedgeControls(); index = 0; playing = false; },
+  });
+  const result = $derived(run.result);
+  const stale = $derived(run.stale);
   const active = $derived(result?.ledger[Math.min(index, result.ledger.length - 1)]);
   const chart = $derived(pathChart(result?.ledger.map(row => ({ day: row.day, values: [row.unhedged_pnl, row.hedged_pnl] })) ?? []));
-  $effect.pre(() => { const document = documentKey; untrack(() => { job.reset(document); path = pathControls(draft); settings = hedgeControls(); index = 0; playing = false; }); });
   $effect(() => {
     if (!playing || !result) return;
     const timer = setInterval(() => { if (index >= result.ledger.length - 1) playing = false; else index++; }, 500);
     return () => clearInterval(timer);
   });
-  onDestroy(() => job.reset('unmounted'));
-  $effect(() => { key; readOnly; untrack(() => { if (runState.pending) job.cancel(); }); });
   async function submit() {
-    if (readOnly || !prepared.request || visible?.pending) return;
+    if (readOnly || !prepared.request || run.pending) return;
     playing = false; index = 0;
-    await job.submit(structuredClone($state.snapshot(prepared.request)), key, simulateHedge, validHedge);
+    await run.submit($state.snapshot(prepared.request), simulateHedge, validHedge);
   }
   function move(key: string) {
     const next = observationIndex(index, result?.ledger.length ?? 0, key);
@@ -60,18 +59,18 @@
   <p class="note">Trades use current observed delta only, with no lookahead or hidden reinvestment. No interest on cash or market impact. Slippage is only the explicit basis-point assumption above; zero excludes it. Dividend yield may affect canonical option marks, not dividend cash income.</p>
   {#if Object.keys(prepared.errors).length}<details><summary>Input errors · {Object.keys(prepared.errors).length}</summary><ul>{#each Object.entries(prepared.errors) as [field, message]}<li><strong>{field}</strong>: {message}</li>{/each}</ul></details>{/if}
   <div class="actions">
-    <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || !!visible?.pending} onclick={submit}>{visible?.pending ? (result ? 'Refreshing hedge path…' : 'Simulating hedge path…') : 'Simulate hedge path'}</button>
-    <button type="button" class="ot-workbench-ghost" disabled={!visible?.pending} onclick={() => { playing = false; job.cancel(); }}>Cancel request</button>
+    <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || run.pending} onclick={submit}>{run.pending ? (result ? 'Refreshing hedge path…' : 'Simulating hedge path…') : 'Simulate hedge path'}</button>
+    <button type="button" class="ot-workbench-ghost" disabled={!run.pending} onclick={() => { playing = false; run.cancel(); }}>Cancel request</button>
   </div>
   <div class="feedback" aria-live="polite" aria-atomic="true">
-    {#if visible?.pending}<p>{result ? 'Refreshing; previous submitted evidence is retained below.' : 'Simulating the submitted path; no result yet.'}</p>{/if}
-    {#if visible?.error}<p role="alert" class="error">{visible.error}</p>{/if}
-    {#if visible?.notice}<p>{visible.notice}</p>{/if}
+    {#if run.pending}<p>{result ? 'Refreshing; previous submitted evidence is retained below.' : 'Simulating the submitted path; no result yet.'}</p>{/if}
+    {#if run.error}<p role="alert" class="error">{run.error}</p>{/if}
+    {#if run.notice}<p>{run.notice}</p>{/if}
     {#if stale}<p class="notice">STALE INPUTS · Draft, path or hedge settings changed. Simulate explicitly to refresh; old ledger values are unchanged.</p>{/if}
   </div>
-  {#if !result && !visible?.pending}<p class="note">No hedge evidence. Submit explicitly. Known returned observations may then be played or scrubbed; playback never generates or reprices a path.</p>{/if}
+  {#if !result && !run.pending}<p class="note">No hedge evidence. Submit explicitly. Known returned observations may then be played or scrubbed; playback never generates or reprices a path.</p>{/if}
   {#if result}
-    <h4>{visible?.pending ? 'REFRESHING' : stale ? 'STALE INPUTS' : 'SUBMITTED EVIDENCE'} · {result.request.analysis.strategy.name}</h4>
+    <h4>{run.pending ? 'REFRESHING' : stale ? 'STALE INPUTS' : 'SUBMITTED EVIDENCE'} · {result.request.analysis.strategy.name}</h4>
     <p class="note">Submitted policy: {result.request.policy?.mode ?? 'daily'} · source: {result.request.path.source === 'synthetic' ? `seeded synthetic · seed ${result.request.path.seed ?? 1} · ${result.request.path.generator ?? 'gbm_seeded_v1'}` : 'user-supplied assumptions · not verified history'}. {result.provenance.model} v{result.provenance.version} · {result.provenance.day_basis}. These results are session-local, not saved account research.</p>
     <p class="readout">Final unhedged P&amp;L: {value(result.unhedged_final_pnl)} USD · final hedged P&amp;L: {value(result.hedged_final_pnl)} USD. Fixed strategy entry cost: {value(result.lifecycle.net_entry_cost)} USD.</p>
     {#each result.warnings as warning}<p class="notice">{warning}</p>{/each}
