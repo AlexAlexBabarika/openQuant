@@ -17,8 +17,8 @@
   import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Play from '@lucide/svelte/icons/play';
   import Save from '@lucide/svelte/icons/save';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
   import X from '@lucide/svelte/icons/x';
+  import ScriptRail from '$lib/features/scripts/ScriptRail.svelte';
   import ScriptEditor from '../indicators/ScriptEditor.svelte';
   import StrategyDocs from './StrategyDocs.svelte';
   import OptionsPanel from '../options/OptionsPanel.svelte';
@@ -206,19 +206,6 @@
     if (id === strat.activeId) return;
     if (await confirmDiscard(strat.dirty, 'strategy')) strat.select(id, () => true);
   }
-
-  function fmtRelative(iso: string): string {
-    const t = Date.parse(iso);
-    if (Number.isNaN(t)) return '';
-    const ms = Date.now() - t;
-    const m = Math.round(ms / 60_000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m ago`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.round(h / 24);
-    return `${d}d ago`;
-  }
 </script>
 
 {#snippet panelContent(props: Record<string, unknown> = {})}
@@ -318,67 +305,29 @@
       {:else if tab === 'sweep'}
         <SweepPanel code={strat.draftCode} {symbol} {provider} {sweep} />
       {:else if tab !== 'options'}
-        {#if libraryOpen}<aside class="rail" id="strategy-library" aria-label="Saved strategies">
-          <div class="rail-head">
-            <span class="rail-title">strategies</span>
-            <span class="rail-count">{strat.scripts.length}</span>
-            <button
-              type="button"
-              class="iconbtn"
-              onclick={() => void newDraft()}
-              title="New strategy (clears editor)"
-              aria-label="New strategy"
-            >
-              <Plus class="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          <div class="rail-list">
-            {#if !$authState.user}
-              <p class="rail-hint">Sign in to load and save strategies. You can backtest an unsaved draft without an account.</p>
-              <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
-            {:else if strat.loading && strat.scripts.length === 0}
-              <p class="rail-hint">loading…</p>
-            {:else if strat.loadError}
-              <p class="rail-hint err">{strat.loadError}</p>
-            {:else if strat.scripts.length === 0}
-              <p class="rail-hint">
-                no saved strategies yet.<br />
-                <span class="dim">draft one on the right and hit save.</span>
-              </p>
-            {/if}
-
-            {#each ($authState.user ? strat.scripts : []) as s (s.id)}
-              <div
-                class="rail-item"
-                class:active={strat.activeId === s.id}
-              >
-                <button
-                  type="button"
-                  class="ri-select"
-                  aria-pressed={strat.activeId === s.id}
-                  onclick={() => void selectScript(s.id)}
-                >
-                  <span class="ri-name">{s.name}</span>
-                  <span class="ri-time">{fmtRelative(s.updated_at)}</span>
-                </button>
-                <button
-                  type="button"
-                  class="ri-del"
-                  aria-label="Delete strategy {s.name}"
-                  onclick={() => void confirmDelete(s.id, s.name)}
-                >
-                  <Trash2 class="h-3 w-3" />
-                </button>
-              </div>
-            {/each}
-          </div>
-
-          <footer class="rail-foot">
-            <span class="legend"><span class="kbd">⌘↵</span> backtest</span>
-            <span class="legend"><span class="kbd">⌘S</span> save</span>
-          </footer>
-        </aside>{/if}
+        {#if libraryOpen}<ScriptRail
+          id="strategy-library"
+          tone="page"
+          library={strat}
+          signedIn={!!$authState.user}
+          copy={{
+            label: 'Saved strategies',
+            title: 'strategies',
+            newLabel: 'New strategy',
+            signInHint: 'Sign in to load and save strategies. You can backtest an unsaved draft without an account.',
+            empty: 'no saved strategies yet.',
+            emptyDetail: 'draft one on the right and hit save.',
+            deleteNoun: 'strategy',
+            runLabel: 'backtest',
+          }}
+          onNew={() => void newDraft()}
+          onSelect={id => void selectScript(id)}
+          onDelete={(id, name) => void confirmDelete(id, name)}
+        >
+          {#snippet signIn()}
+            <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
+          {/snippet}
+        </ScriptRail>{/if}
 
         <main class="work">
           <div class="work-head">
@@ -698,136 +647,6 @@
     grid-template-columns: 1fr;
   }
 
-  .rail {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-right: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: oklch(var(--card));
-  }
-  .rail-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 16px 10px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: oklch(var(--muted-foreground));
-    border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-  }
-  .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
-  .rail-count {
-    margin-left: 2px;
-    padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 999px;
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-head .iconbtn { margin-left: auto; }
-
-  .rail-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 8px 8px;
-  }
-  .rail-hint {
-    margin: 12px 12px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-hint .dim { color: oklch(var(--muted-foreground)); }
-  .rail-hint.err { color: oklch(var(--down-color)); }
-
-  .rail-item {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
-    margin: 0 0 2px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--foreground));
-    text-align: left;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  .rail-item:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
-  }
-  .rail-item.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
-    border-color: transparent;
-  }
-  .rail-item.active::before {
-    content: '';
-    position: absolute;
-    left: -1px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 60%;
-    background: oklch(var(--primary));
-    border-radius: 0 2px 2px 0;
-    pointer-events: none;
-  }
-  .ri-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-  }
-  .ri-time {
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-    letter-spacing: 0.04em;
-  }
-  .ri-del {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; height: 22px;
-    margin-left: 4px;
-    color: oklch(var(--muted-foreground));
-    border-radius: 3px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 120ms, color 120ms, background 120ms;
-  }
-  .rail-item:hover .ri-del { opacity: 1; }
-  .ri-del:hover {
-    color: oklch(var(--down-color));
-    background: oklch(var(--down-color) / 0.1);
-  }
-
-  .rail-foot {
-    display: flex;
-    gap: 12px;
-    padding: 10px 16px;
-    border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    color: oklch(var(--muted-foreground));
-  }
-  .legend { display: inline-flex; align-items: center; gap: 6px; }
-  .kbd {
-    padding: 1px 5px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 10px;
-    color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-  }
-
   .work {
     display: flex;
     flex-direction: column;
@@ -942,9 +761,6 @@
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
     .body:not(.library-collapsed):not(.sweep-mode):not(.docs-mode):not(.options-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.sweep-mode, .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
-    .rail { border-bottom: 1px solid oklch(var(--border)); }
-    .rail-head { padding: 8px 12px; }
-    .rail-foot { display: none; }
   }
 
   @media (max-width: 900px) {
@@ -975,21 +791,6 @@
   }
 
   .work { min-width: 0; }
-  .ri-select {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    min-width: 0;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .ri-del { border: 0; padding: 0; background: transparent; opacity: 1; }
   button:focus-visible, input:focus-visible {
     outline: 2px solid oklch(var(--foreground));
     outline-offset: 2px;

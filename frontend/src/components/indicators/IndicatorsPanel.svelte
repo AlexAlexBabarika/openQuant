@@ -8,8 +8,8 @@
   import Play from '@lucide/svelte/icons/play';
   import Square from '@lucide/svelte/icons/square';
   import Save from '@lucide/svelte/icons/save';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
   import X from '@lucide/svelte/icons/x';
+  import ScriptRail from '$lib/features/scripts/ScriptRail.svelte';
   import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Activity from '@lucide/svelte/icons/activity';
   import ScriptEditor from './ScriptEditor.svelte';
@@ -140,19 +140,6 @@
     if (id === ind.activeId) return;
     if (await confirmDiscard(ind.dirty, 'indicator')) ind.select(id, () => true);
   }
-
-  function fmtRelative(iso: string): string {
-    const t = Date.parse(iso);
-    if (Number.isNaN(t)) return '';
-    const ms = Date.now() - t;
-    const m = Math.round(ms / 60_000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m ago`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.round(h / 24);
-    return `${d}d ago`;
-  }
 </script>
 
 <Dialog.Root {open} onOpenChange={v => { if (!v) close(); }}>
@@ -223,75 +210,38 @@
       {#if tab === 'docs'}
         <ScriptDocs />
       {:else}
-      {#if libraryOpen}<aside class="rail" id="indicator-library" aria-label="Saved scripts">
-        <div class="rail-head">
-          <span class="rail-title">scripts</span>
-          <span class="rail-count">{ind.scripts.length}</span>
+      {#if libraryOpen}<ScriptRail
+        id="indicator-library"
+        library={ind}
+        signedIn={!!$authState.user}
+        copy={{
+          label: 'Saved scripts',
+          title: 'scripts',
+          newLabel: 'New indicator',
+          signInHint: 'Sign in to load and save indicators. You can run an unsaved draft without an account.',
+          empty: 'no saved scripts yet.',
+          emptyDetail: 'draft something on the right and hit save.',
+          deleteNoun: 'script',
+          runLabel: 'run',
+        }}
+        onNew={() => void newDraft()}
+        onSelect={id => void openScript(id)}
+        onDelete={(id, name) => void confirmDelete(id, name)}
+      >
+        {#snippet signIn()}
+          <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
+        {/snippet}
+        {#snippet status(s)}
           <button
             type="button"
-            class="iconbtn"
-            onclick={() => void newDraft()}
-            title="New indicator (clears editor)"
-            aria-label="New indicator"
-          >
-            <Plus class="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div class="rail-list">
-          {#if !$authState.user}
-            <p class="rail-hint">Sign in to load and save indicators. You can run an unsaved draft without an account.</p>
-            <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
-          {:else if ind.loading && ind.scripts.length === 0}
-            <p class="rail-hint">loading…</p>
-          {:else if ind.loadError}
-            <p class="rail-hint err">{ind.loadError}</p>
-          {:else if ind.scripts.length === 0}
-            <p class="rail-hint">
-              no saved scripts yet.<br />
-              <span class="dim">draft something on the right and hit save.</span>
-            </p>
-          {/if}
-
-          {#each ($authState.user ? ind.scripts : []) as s (s.id)}
-            <div
-              class="rail-item"
-              class:active={ind.activeId === s.id}
-            >
-              <button
-                type="button"
-                class="ri-status"
-                class:running={ind.isRunningOk(s.id)}
-                aria-label={`${ind.runners[s.id] ? 'Stop' : 'Start'} script ${s.name}`}
-                title={ind.runners[s.id] ? 'stop script' : 'start script'}
-                onclick={() => void toggleScriptRun(s.id)}
-              ></button>
-              <button
-                type="button"
-                class="ri-select"
-                aria-pressed={ind.activeId === s.id}
-                onclick={() => void openScript(s.id)}
-              >
-                <span class="ri-name">{s.name}</span>
-                <span class="ri-time">{fmtRelative(s.updated_at)}</span>
-              </button>
-              <button
-                type="button"
-                class="ri-del"
-                aria-label="Delete script {s.name}"
-                onclick={() => void confirmDelete(s.id, s.name)}
-              >
-                <Trash2 class="h-3 w-3" />
-              </button>
-            </div>
-          {/each}
-        </div>
-
-        <footer class="rail-foot">
-          <span class="legend"><span class="kbd">⌘↵</span> run</span>
-          <span class="legend"><span class="kbd">⌘S</span> save</span>
-        </footer>
-      </aside>{/if}
+            class="ri-status"
+            class:running={ind.isRunningOk(s.id)}
+            aria-label={`${ind.runners[s.id] ? 'Stop' : 'Start'} script ${s.name}`}
+            title={ind.runners[s.id] ? 'stop script' : 'start script'}
+            onclick={() => void toggleScriptRun(s.id)}
+          ></button>
+        {/snippet}
+      </ScriptRail>{/if}
 
       <main class="work">
         <div class="work-head">
@@ -590,94 +540,6 @@
     grid-template-columns: 1fr;
   }
   .body.library-collapsed { grid-template-columns: minmax(0, 1fr); }
-
-  .rail {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-right: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
-      );
-  }
-  .rail-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 16px 10px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: oklch(var(--muted-foreground));
-    border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-  }
-  .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
-  .rail-count {
-    margin-left: 2px;
-    padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 999px;
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-head .iconbtn { margin-left: auto; }
-
-  .rail-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 8px 8px;
-  }
-  .rail-hint {
-    margin: 12px 12px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-hint .dim { color: oklch(var(--muted-foreground)); }
-  .rail-hint.err { color: oklch(var(--status-error)); }
-
-  .rail-item {
-    position: relative;
-    display: grid;
-    grid-template-columns: 14px minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
-    margin: 0 0 2px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--foreground));
-    text-align: left;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  .rail-item:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
-  }
-  .rail-item.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
-    border-color: transparent;
-  }
-  .rail-item.active::before {
-    content: '';
-    position: absolute;
-    left: -1px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 60%;
-    background: oklch(var(--primary));
-    border-radius: 0 2px 2px 0;
-    pointer-events: none;
-  }
   .ri-status {
     border: 0;
     padding: 0;
@@ -702,53 +564,6 @@
   @keyframes pulseDot {
     0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-ok)) 22%, transparent); }
     50% { box-shadow: 0 0 0 4px color-mix(in oklab, oklch(var(--status-ok)) 32%, transparent); }
-  }
-  .ri-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-  }
-  .ri-time {
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-    letter-spacing: 0.04em;
-  }
-  .ri-del {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; height: 22px;
-    margin-left: 4px;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    border-radius: 3px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 120ms, color 120ms, background 120ms;
-  }
-  .rail-item:hover .ri-del { opacity: 1; }
-  .ri-del:hover {
-    color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
-  }
-
-  .rail-foot {
-    display: flex;
-    gap: 12px;
-    padding: 10px 16px;
-    border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    color: oklch(var(--muted-foreground));
-  }
-  .legend { display: inline-flex; align-items: center; gap: 6px; }
-  .kbd {
-    padding: 1px 5px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 10px;
-    color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
   }
 
   .work {
@@ -810,7 +625,6 @@
     align-items: center;
     gap: 8px;
   }
-
 
   .btn {
     display: inline-flex;
@@ -897,9 +711,6 @@
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
     .body:not(.library-collapsed):not(.docs-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
-    .rail { border-bottom: 1px solid oklch(var(--border)); }
-    .rail-head { padding: 8px 12px; }
-    .rail-foot { display: none; }
   }
 
   @media (max-width: 900px) {
@@ -911,21 +722,6 @@
   }
 
   .work { min-width: 0; }
-  .ri-select {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    min-width: 0;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .ri-del { border: 0; padding: 0; background: transparent; opacity: 1; }
   button:focus-visible, input:focus-visible {
     outline: 2px solid oklch(var(--foreground));
     outline-offset: 2px;
@@ -974,41 +770,10 @@
     color: oklch(var(--card));
     border-color: oklch(var(--foreground));
   }
-  :global(html:not(.dark)) .rail {
-    background: oklch(var(--card));
-    border-right: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-head {
-    border-bottom: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-hint.err {
-    color: oklch(var(--destructive));
-  }
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
     box-shadow: 0 0 0 2px
       color-mix(in oklab, oklch(var(--primary)) 22%, transparent);
-  }
-  :global(html:not(.dark)) .ri-del {
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .ri-del:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .rail-count {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-foot {
-    border-top: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .work-head {
     background: oklch(var(--card));
