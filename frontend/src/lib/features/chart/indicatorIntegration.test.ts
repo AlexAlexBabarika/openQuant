@@ -22,9 +22,11 @@ describe('built-in indicator caller integration', () => {
     vi.useFakeTimers();
     const context = client.proxy({
       chart: { loadedSymbol: 'AAA', marketDataVersion: 1, errorMessage: '' },
-      smaConfig: { enabled: true, period: 20 },
-      emaConfig: { enabled: true, period: 20 },
-      bbandsConfig: { enabled: true, period: 20, stdDev: 2 },
+      workbench: {
+        sma: { enabled: true, period: 20 },
+        ema: { enabled: true, period: 20 },
+        bbands: { enabled: true, period: 20, stdDev: 2 },
+      },
       auth: { user: { id: 'one' } },
       hasCandles: true,
     });
@@ -69,7 +71,7 @@ describe('built-in indicator caller integration', () => {
         },
       },
       `<script lang="ts">
-      import { chart, smaConfig, emaConfig, bbandsConfig, authState, hasCandles } from 'test:context';
+      import { chart, workbench, authState, hasCandles } from 'test:context';
       import { useIndicatorEffect } from 'test:effect';
       import { fetchSMA, fetchEMA, fetchBBands } from 'test:api';
       import { capture } from 'test:capture';

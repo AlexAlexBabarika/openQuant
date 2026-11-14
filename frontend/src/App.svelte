@@ -6,11 +6,6 @@
   import ErrorMessage from './components/layout/ErrorMessage.svelte';
   import Chart from './components/chart/Chart.svelte';
   import Sidebar from './components/sidebar/Sidebar.svelte';
-  import type {
-    MovingAverageConfig,
-    BollingerBandsConfig,
-  } from './components/chart/ChartOptionsMenu.svelte';
-  import type { ChartType } from '$lib/features/chart/chartColours';
   import { fetchSMA, fetchEMA, fetchBBands } from '$lib/features/chart/indicators';
   import type { IndicatorPoint, BollingerBandsPoint } from '$lib/core/types';
   import { useIndicatorEffect } from '$lib/features/chart/indicatorEffect.svelte';
@@ -31,8 +26,6 @@
     refreshThemeColours,
     loadChartColoursFromStorage,
     persistChartColours,
-    loadChartSettingsFromStorage,
-    persistChartSettings,
   } from '$lib/features/chart/chartColours';
   import { loadTheme, persistTheme, applyTheme, type Theme } from '$lib/features/theme/theme';
   import { invalidateCssVarCache } from '$lib/features/chart/chart';
@@ -79,6 +72,7 @@
   import CommandPalette from './components/dialogs/CommandPalette.svelte';
   import { isCommandShortcut, type ResearchCommand } from '$lib/features/workspace/commands';
   import { listTools } from '$lib/features/drawables';
+  import { WorkbenchLayout } from '$lib/features/workspace/workbenchLayout.svelte';
   import { ResearchShelf, type DraftKind, type ResearchLayout, type ResearchWorkspace } from '$lib/features/workspace/researchShelf.svelte';
   import CompareView from './components/backtest/compare/CompareView.svelte';
   import StrategyPanel from './components/strategy/StrategyPanel.svelte';
@@ -159,35 +153,16 @@
   });
   let comparisonDialogOpen = $state(false);
 
-  const savedSettings = loadChartSettingsFromStorage();
-  let chartType = $state<ChartType>(savedSettings?.chartType ?? 'candlestick');
-  let showArea = $state(savedSettings?.showArea ?? true);
-  let showVolume = $state(savedSettings?.showVolume ?? true);
-  let smaConfig = $state<MovingAverageConfig>({
-    enabled: savedSettings?.smaEnabled ?? false,
-    period: 20,
-    lineWidth: 2,
-  });
-  let emaConfig = $state<MovingAverageConfig>({
-    enabled: savedSettings?.emaEnabled ?? false,
-    period: 20,
-    lineWidth: 2,
-  });
-  let bbandsConfig = $state<BollingerBandsConfig>({
-    enabled: savedSettings?.bbandsEnabled ?? false,
-    period: 20,
-    stdDev: 2,
-    lineWidth: 1,
-  });
+  const workbench = new WorkbenchLayout();
   const indicatorErrorHandler = (msg: string) => {
     chart.errorMessage = msg;
   };
   const sma = useIndicatorEffect<IndicatorPoint>({
-    enabled: () => smaConfig.enabled,
+    enabled: () => workbench.sma.enabled,
     hasCandles: () => hasCandles,
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
-    args: () => [smaConfig.period],
+    args: () => [workbench.sma.period],
     account: () => $authState.user?.id ?? null,
     fetch: (sym, [period], signal) =>
       fetchSMA(sym, period as number, signal).then(r => r.points),
@@ -195,11 +170,11 @@
     label: 'SMA',
   });
   const ema = useIndicatorEffect<IndicatorPoint>({
-    enabled: () => emaConfig.enabled,
+    enabled: () => workbench.ema.enabled,
     hasCandles: () => hasCandles,
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
-    args: () => [emaConfig.period],
+    args: () => [workbench.ema.period],
     account: () => $authState.user?.id ?? null,
     fetch: (sym, [period], signal) =>
       fetchEMA(sym, period as number, signal).then(r => r.points),
@@ -207,11 +182,11 @@
     label: 'EMA',
   });
   const bbands = useIndicatorEffect<BollingerBandsPoint>({
-    enabled: () => bbandsConfig.enabled,
+    enabled: () => workbench.bbands.enabled,
     hasCandles: () => hasCandles,
     symbol: () => chart.loadedSymbol,
     version: () => chart.marketDataVersion,
-    args: () => [bbandsConfig.period, bbandsConfig.stdDev],
+    args: () => [workbench.bbands.period, workbench.bbands.stdDev],
     account: () => $authState.user?.id ?? null,
     fetch: (sym, [period, stdDev], signal) =>
       fetchBBands(sym, period as number, stdDev as number, signal).then(r => r.points),
@@ -233,10 +208,9 @@
   }
   let hasCandles = $derived(chart.candles.length > 0);
   let narrow = $state(false);
-  let desktopSidebarVisible = $state(true);
   let watchlistOpen = $state(false);
   let drawingToolsOpen = $state(false);
-  let sidebarVisible = $derived(narrow ? watchlistOpen : desktopSidebarVisible);
+  let sidebarVisible = $derived(narrow ? watchlistOpen : workbench.sidebar);
   let crosshairMode = $state<CrosshairModeName>('normal');
   let activeTool = $state<ActiveTool>(CURSOR);
   let toolSettingsOpen = $state(false);
@@ -333,11 +307,7 @@
   const researchShelf = new ResearchShelf();
   let researchWorkspacesOpen = $state(false);
   let dataInspectorOpen = $state(false);
-  let strategyEditorShare = $state(50);
-  let indicatorSplitPct = $state(60);
-  let strategyTab = $state<'editor' | 'options' | 'sweep' | 'portfolio' | 'docs'>('editor');
   let optionsLink = $state(0);
-  let indicatorTab = $state<'editor' | 'docs'>('editor');
   let commandsOpen = $state(false);
   let guidedExampleOpen = $state(false);
   let guidedExampleReturnFocus = $state<HTMLElement | null>(null);
@@ -399,9 +369,9 @@
   const researchCommands = $derived.by<ResearchCommand[]>(() => {
     const command = (id: string, title: string, action: () => void, group = 'Workspace', detail = ''): ResearchCommand => ({ id, title, group, detail, action: () => void activateCommand(action, group === 'Drawing' || group === 'Symbol') });
     const commands = [
-      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }),
-      command('options', 'Open Options workbench', () => { portfolioRunId = null; strategyTab = 'options'; openStrategy(); }, 'Workspace', 'multi-leg payoff Greeks Python scenarios'),
-      command('indicators', 'Open Indicators editor', () => { indicatorTab = 'editor'; indicatorsOpen = true; }),
+      command('strategy', 'Open Strategy editor', () => { portfolioRunId = null; workbench.strategyTab = 'editor'; openStrategy(); }),
+      command('options', 'Open Options workbench', () => { portfolioRunId = null; workbench.strategyTab = 'options'; openStrategy(); }, 'Workspace', 'multi-leg payoff Greeks Python scenarios'),
+      command('indicators', 'Open Indicators editor', () => { workbench.indicatorTab = 'editor'; indicatorsOpen = true; }),
       command('analytics', 'Open Analytics', () => (analyticsOpen = true)),
       command('runs', 'Open Experiment notebook', () => (runsOpen = true), 'Workspace', 'runs baseline notes tags compare'),
       { id: 'workspaces', title: 'Workspaces and draft recovery', group: 'Workspace', action: openResearchWorkspaces },
@@ -415,8 +385,8 @@
     const symbols = new Map(watchlist.groups.flatMap(group => group.tickers).map(ticker => [ticker.symbol, ticker]));
     for (const ticker of symbols.values()) commands.push(command(`watchlist:${ticker.symbol}`, ticker.symbol, () => selectChartSymbol(ticker.symbol, ticker.providers ?? null), 'Symbol', 'watchlist'));
     if ($authState.user) {
-      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
-      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.select(script.id, () => true); indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
+      commands.push(...strategy.scripts.map(script => command(`strategy:${script.id}`, script.name, async () => { if (script.id !== strategy.activeId && !(await confirmDiscard(strategy.dirty, 'strategy'))) return; strategy.select(script.id, () => true); portfolioRunId = null; workbench.strategyTab = 'editor'; openStrategy(); }, 'Strategy', 'saved script')));
+      commands.push(...indicators.scripts.map(script => command(`indicator:${script.id}`, script.name, async () => { if (script.id !== indicators.activeId && !(await confirmDiscard(indicators.dirty, 'indicator'))) return; indicators.select(script.id, () => true); workbench.indicatorTab = 'editor'; indicatorsOpen = true; }, 'Indicator', 'saved script')));
     }
     commands.push(...runsHistory.entries.map(run => command(`run:${run.run_id}`, run.label, () => openStoredRun(run.run_id), 'Run', `${run.kind} ${run.tags?.join(' ') ?? ''} ${run.baseline ? 'baseline' : ''}`)));
     return commands;
@@ -484,15 +454,12 @@
   }
 
   function currentResearchLayout(): ResearchLayout {
-    const updatedAt = new Date().toISOString();
-    return {
-      symbol: chart.symbol, provider: chart.source, interval: chart.interval, period: chart.period,
-      chartType, showArea, showVolume, sma: { ...smaConfig }, ema: { ...emaConfig }, bbands: { ...bbandsConfig },
-      sidebar: desktopSidebarVisible, strategyOpen, indicatorsOpen,
-      strategyEditorShare, indicatorSplitPct, strategyTab, indicatorTab,
-      strategy: { name: strategy.draftName, code: strategy.draftCode, updatedAt },
-      indicator: { name: indicators.draftName, code: indicators.draftCode, updatedAt },
-    };
+    return workbench.capture({
+      chart: { symbol: chart.symbol, provider: chart.source, interval: chart.interval, period: chart.period },
+      strategy: { name: strategy.draftName, code: strategy.draftCode },
+      indicator: { name: indicators.draftName, code: indicators.draftCode },
+      strategyOpen, indicatorsOpen,
+    });
   }
 
   async function restoreResearchWorkspace(workspace: ResearchWorkspace): Promise<boolean> {
@@ -502,11 +469,7 @@
     indicators.stopAll();
     chart.stopStream(); chart.autoRefresh = false;
     chart.symbol = layout.symbol; chart.source = layout.provider; chart.interval = layout.interval; chart.period = layout.period;
-    chartType = layout.chartType; showArea = layout.showArea; showVolume = layout.showVolume;
-    smaConfig = { ...layout.sma }; emaConfig = { ...layout.ema }; bbandsConfig = { ...layout.bbands };
-    desktopSidebarVisible = layout.sidebar;
-    strategyEditorShare = layout.strategyEditorShare; indicatorSplitPct = layout.indicatorSplitPct;
-    strategyTab = layout.strategyTab; indicatorTab = layout.indicatorTab;
+    workbench.restore(layout);
     portfolioRunId = null;
     for (const [kind, editor] of [['strategy', strategy], ['indicator', indicators]] as const) {
       editor.newDraft(() => true); editor.setName(layout[kind].name); editor.setCode(layout[kind].code); editor.dirty = true;
@@ -547,7 +510,7 @@
       // first so re-opening the same run re-triggers the load effect.
       portfolioRunId = null;
       portfolioRunId = id;
-      strategyTab = 'portfolio';
+      workbench.strategyTab = 'portfolio';
       openStrategy();
       return;
     }
@@ -784,14 +747,7 @@
   // avoiding excessive writes during drag operations in colour pickers.
   function persistOnUnload() {
     persistChartColours(colours);
-    persistChartSettings({
-      chartType,
-      showArea,
-      showVolume,
-      smaEnabled: smaConfig.enabled,
-      emaEnabled: emaConfig.enabled,
-      bbandsEnabled: bbandsConfig.enabled,
-    });
+    workbench.persistChartSettings();
   }
 
   onMount(async () => {
@@ -896,15 +852,15 @@
         candleRevision={chart.candleRevision}
         annotationOwner={sessionReady ? ($authState.user ? `user:${$authState.user.id}` : 'guest') : 'pending'}
         symbol={chart.loadedSymbol || chart.symbol}
-        {chartType}
-        {showArea}
-        {showVolume}
+        chartType={workbench.chartType}
+        showArea={workbench.showArea}
+        showVolume={workbench.showVolume}
         smaPoints={sma.points}
         emaPoints={ema.points}
         bbandsPoints={bbands.points}
-        smaLineWidth={smaConfig.lineWidth}
-        emaLineWidth={emaConfig.lineWidth}
-        bbandsLineWidth={bbandsConfig.lineWidth}
+        smaLineWidth={workbench.sma.lineWidth}
+        emaLineWidth={workbench.ema.lineWidth}
+        bbandsLineWidth={workbench.bbands.lineWidth}
         {colours}
         {crosshairMode}
         provider={chart.loadedContext?.source ?? chart.source}
@@ -926,7 +882,7 @@
         symbolFullName={symbolFullName}
         symbolExchange={symbolExchangeLabel}
         closePrice={lastClose}
-        onoptions={() => { portfolioRunId = null; strategyTab = 'options'; optionsLink++; openStrategy(); }}
+        onoptions={() => { portfolioRunId = null; workbench.strategyTab = 'options'; optionsLink++; openStrategy(); }}
         groups={watchlist.groups}
         selectedGroupName={watchlist.selectedGroupName}
         selectedPriority={watchlist.selectedPriority}
@@ -970,17 +926,17 @@
   </div>
   <BottomHeader
     drawingTools={drawingToolsControl}
-    bind:chartType
-    bind:showArea
-    bind:showVolume
-    bind:smaConfig
-    bind:emaConfig
-    bind:bbandsConfig
+    bind:chartType={workbench.chartType}
+    bind:showArea={workbench.showArea}
+    bind:showVolume={workbench.showVolume}
+    bind:smaConfig={workbench.sma}
+    bind:emaConfig={workbench.ema}
+    bind:bbandsConfig={workbench.bbands}
     bind:colours
     {theme}
     onthemechange={setTheme}
     {sidebarVisible}
-    ontogglesidebar={() => { if (narrow) watchlistOpen = !watchlistOpen; else desktopSidebarVisible = !desktopSidebarVisible; }}
+    ontogglesidebar={() => { if (narrow) watchlistOpen = !watchlistOpen; else workbench.sidebar = !workbench.sidebar; }}
     comparisonCount={comparisonController.comparisons.length}
     oncompare={() => (comparisonDialogOpen = true)}
   />
@@ -988,8 +944,8 @@
   <section class="workbench-view" hidden={activeView !== 'strategy'} inert={activeView !== 'strategy'} aria-label="Strategy workspace">
   <StrategyPanel
     embedded
-    bind:tab={strategyTab}
-    bind:editorShare={strategyEditorShare}
+    bind:tab={workbench.strategyTab}
+    bind:editorShare={workbench.strategyEditorShare}
     recoverySavedAt={localRecoveryTime('strategy')}
     bind:open={strategyOpen}
     symbol={chart.symbol}
@@ -1019,8 +975,8 @@
     onTileSelect={handleToolboxTile}
   />
   <IndicatorsPanel
-    bind:tab={indicatorTab}
-    bind:splitPct={indicatorSplitPct}
+    bind:tab={workbench.indicatorTab}
+    bind:splitPct={workbench.indicatorSplitPct}
     recoverySavedAt={localRecoveryTime('indicator')}
     bind:open={indicatorsOpen}
     symbol={chart.loadedSymbol || chart.symbol}
