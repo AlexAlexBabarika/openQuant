@@ -383,39 +383,50 @@ describe('compiled global selectors', () => {
     }
   });
 
-  it.each([
-    'components/strategy/StrategyPanel.svelte',
-    'components/indicators/IndicatorsPanel.svelte',
-  ])('keeps %s tabs on semantic readable colors in both themes', filename => {
-    const path = `${base}${filename}`;
-    const panel = postcss.parse(
+  function compiledRules(file: string) {
+    const path = `${base}${file}`;
+    const root = postcss.parse(
       compileSvelte(readFileSync(path, 'utf8'), {
         filename: path,
         generate: 'server',
       }).css!.code,
     );
-    panel.walkRules(rule => {
+    root.walkRules(rule => {
       rule.selectors = rule.selectors.map(selector =>
         selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
       );
     });
+    return root;
+  }
 
-    expect(declarations('.tab', panel)).toMatchObject({
+  it('keeps panel tabs on semantic readable colors in both themes and tones', () => {
+    const bar = compiledRules('components/layout/PanelTopbar.svelte');
+    expect(declarations('.tab', bar)).toMatchObject({
       color: 'oklch(var(--muted-foreground))',
       background: 'transparent',
     });
-    expect(declarations('.tab:hover', panel).color).toBe(
+    expect(declarations('.tab:hover', bar).color).toBe(
       'oklch(var(--foreground))',
     );
-    expect(declarations('.tab.active', panel)).toMatchObject({
+    expect(declarations('.tab.active', bar)).toMatchObject({
       color: 'oklch(var(--primary-foreground))',
       background: 'oklch(var(--primary))',
     });
-    expect(declarations('html:not(.dark) .tab', panel)).toEqual({});
-    if (filename.includes('IndicatorsPanel'))
-      expect(
-        declarations('html:not(.dark) .ri-status.running', panel).background,
-      ).toBe('oklch(var(--primary))');
+    // Neither theme nor tone overrides the tab colours themselves.
+    for (const selector of [
+      'html:not(.dark) .tab',
+      'html:not(.dark) .topbar:not(.page) .tab',
+      '.page .tab',
+      '.page .tab.active',
+    ])
+      expect(declarations(selector, bar)).toEqual({});
+  });
+
+  it('keeps the running indicator dot on the primary color in light theme', () => {
+    const panel = compiledRules('components/indicators/IndicatorsPanel.svelte');
+    expect(
+      declarations('html:not(.dark) .ri-status.running', panel).background,
+    ).toBe('oklch(var(--primary))');
   });
 
   it('keeps the script rail readable on overlay panels and workspace pages', () => {

@@ -8,7 +8,7 @@
   import Play from '@lucide/svelte/icons/play';
   import Square from '@lucide/svelte/icons/square';
   import Save from '@lucide/svelte/icons/save';
-  import X from '@lucide/svelte/icons/x';
+  import PanelTopbar from '../layout/PanelTopbar.svelte';
   import ScriptRail from '$lib/features/scripts/ScriptRail.svelte';
   import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Activity from '@lucide/svelte/icons/activity';
@@ -165,46 +165,17 @@
     <!-- <span class="corner tl" aria-hidden="true"></span>
     <span class="corner tr" aria-hidden="true"></span> -->
 
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark"><Activity class="h-3.5 w-3.5" /></span>
-        <span class="brand-title">Indicators</span>
-        <span class="brand-sub">/ workbench</span>
-      </div>
-
-      <nav class="tabs" aria-label="Workbench tabs">
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'editor'}
-          onclick={() => (tab = 'editor')}
-        >Editor</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'docs'}
-          onclick={() => (tab = 'docs')}
-        >Docs</button>
-      </nav>
+    <PanelTopbar
+      title="Indicators"
+      tabs={[{ id: 'editor', label: 'Editor' }, { id: 'docs', label: 'Docs' }]}
+      activeTab={tab}
+      onTab={id => (tab = id)}
+      context={{ symbol, provider, interval, period }}
+      onClose={close}
+    >
+      {#snippet mark()}<Activity class="h-3.5 w-3.5" />{/snippet}
       {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
-
-      <div class="ctx" aria-label="Active market context">
-        <span class="ctx-label">CTX</span>
-        <span class="ctx-pair">
-          <span class="ctx-sym">{symbol || '—'}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-prov">{provider}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-iv">{interval}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-pd">{period}</span>
-        </span>
-      </div>
-
-      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
-        <X class="h-3.5 w-3.5" />
-      </button>
-    </header>
+    </PanelTopbar>
 
     <div class="body" class:docs-mode={tab === 'docs'} class:library-collapsed={!libraryOpen}>
       {#if tab === 'docs'}
@@ -415,120 +386,6 @@
   .corner.tl { top: 12px; left: 12px; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
   .corner.tr { top: 12px; right: 12px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; }
 
-  .topbar {
-    display: grid;
-    grid-template-columns: auto auto 1fr auto;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 22px;
-    border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
-  }
-
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-  }
-  .brand-mark {
-    color: oklch(var(--primary));
-    font-size: 14px;
-    transform: translateY(1px);
-  }
-  .brand-title { font-weight: 600; }
-  .brand-sub {
-    color: oklch(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .ctx {
-    justify-self: center;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 4px 10px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
-  }
-  .ctx-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
-  }
-  .ctx-pair {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-  .ctx-sym {
-    color: oklch(var(--foreground));
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
-
-  .iconbtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--muted-foreground));
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .iconbtn:hover {
-    color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
-  }
-  .iconbtn.close:hover {
-    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
-    color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
-  }
-
-  .tabs {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
-  }
-  .tab {
-    appearance: none;
-    border: 0;
-    padding: 4px 12px;
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    color: oklch(var(--muted-foreground));
-    background: transparent;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .tab:hover { color: oklch(var(--foreground)); }
-  .tab.active {
-    color: oklch(var(--primary-foreground));
-    background: oklch(var(--primary));
-    font-weight: 600;
-  }
-
   .body {
     flex: 1 1 auto;
     min-height: 0;
@@ -712,9 +569,6 @@
   }
 
   @media (max-width: 900px) {
-    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
-    .topbar .close { margin-left: auto; }
-    .ctx, .ctx-pair { flex-wrap: wrap; }
     .work-head { flex-wrap: wrap; padding: 8px 12px; }
     .actions { flex-wrap: wrap; }
   }
@@ -740,33 +594,6 @@
       0 -1px 0 0 oklch(var(--foreground)) inset,
       0 -8px 24px -16px rgba(0, 0, 0, 0.18);
     border-top: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar {
-    background: oklch(var(--card));
-    border-bottom: 1px dashed oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .ctx {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .ctx-label,
-  :global(html:not(.dark)) .ctx-sep {
-    color: oklch(var(--foreground));
-    opacity: 0.55;
-  }
-  :global(html:not(.dark)) .tabs {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .iconbtn:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-    border-color: oklch(var(--foreground));
   }
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
