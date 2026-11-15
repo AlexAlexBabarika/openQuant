@@ -124,17 +124,17 @@
         class="btn ghost"
         onclick={addTickers}
         disabled={!tickerInput.trim()}
-      >add</button>
+      >Add</button>
     </div>
 
     {#if portfolio.symbols.length === 0}
       <p class="hint">
-        list or paste tickers above — the strategy's <code>ctx.universe</code>
+        List or paste tickers above — the strategy's <code>ctx.universe</code>
         will contain exactly these symbols.
       </p>
     {:else}
       <p class="hint">
-        portfolio strategies are per-symbol:
+        Portfolio strategies are per-symbol:
         <code>ctx.position(symbol)</code>, <code>ctx.buy(symbol, qty)</code>,
         <code>ctx.target_weight(symbol, w)</code> + <code>ctx.rebalance()</code>
         — single-symbol code like <code>ctx.position.quantity</code> won't run
@@ -178,7 +178,7 @@
         title="Fetch & store market data for the universe so backtests find bars"
       >
         <Database class="h-3.5 w-3.5" />
-        <span>{portfolio.isIngesting ? 'ingesting…' : 'ingest data'}</span>
+        <span>{portfolio.isIngesting ? 'Ingesting…' : 'Ingest data'}</span>
       </button>
       <button
         type="button"
@@ -187,13 +187,13 @@
         disabled={portfolio.isRunning || portfolio.symbols.length === 0}
       >
         <Play class="h-3.5 w-3.5" />
-        <span>{portfolio.isRunning ? 'running…' : 'run portfolio backtest'}</span>
+        <span>{portfolio.isRunning ? 'Running…' : 'Run portfolio backtest'}</span>
       </button>
     </footer>
 
     {#if portfolio.ingestReport && portfolio.ingestReport.gap_warnings.length > 0}
       <p class="hint">
-        data gaps detected — {portfolio.ingestReport.gap_warnings[0]}
+        Data gaps detected — {portfolio.ingestReport.gap_warnings[0]}
         {#if portfolio.ingestReport.gap_warnings.length > 1}
           (+{portfolio.ingestReport.gap_warnings.length - 1} more)
         {/if}
@@ -420,7 +420,6 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.04em;
-    text-transform: lowercase;
     cursor: pointer;
     transition: all 120ms ease;
   }

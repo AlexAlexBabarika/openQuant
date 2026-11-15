@@ -10,6 +10,8 @@ import {
   MAX_PRICE,
   MAX_UNDERLYING_SHARES,
   SYMBOL_PATTERN,
+  grouped,
+  short,
 } from './optionsBounds';
 
 const backend = (file: string) =>
@@ -78,5 +80,14 @@ describe('options bounds match the backend models', () => {
     expect(declared(research, /^Symbol = .*pattern=r"([^"]+)"/m)).toBe(
       SYMBOL_PATTERN.source.replace('\\/', '/'),
     );
+  });
+});
+
+describe('bounds as quoted in copy', () => {
+  it('groups digits for messages and abbreviates whole millions for labels', () => {
+    expect(grouped(MAX_PRICE)).toBe('1,000,000');
+    expect(grouped(MAX_OPTION_CONTRACTS)).toBe('10,000');
+    expect(short(MAX_PRICE)).toBe('1m');
+    expect(short(MAX_DAYS)).toBe('3,650');
   });
 });

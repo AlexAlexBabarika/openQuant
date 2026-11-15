@@ -17,7 +17,7 @@
   import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Play from '@lucide/svelte/icons/play';
   import Save from '@lucide/svelte/icons/save';
-  import X from '@lucide/svelte/icons/x';
+  import PanelTopbar from '../layout/PanelTopbar.svelte';
   import ScriptRail from '$lib/features/scripts/ScriptRail.svelte';
   import ScriptEditor from '../indicators/ScriptEditor.svelte';
   import StrategyDocs from './StrategyDocs.svelte';
@@ -223,65 +223,20 @@
       else if (event.key.toLowerCase() === 's') { event.preventDefault(); void saveNow(); }
     }}
   >
-    <header class="topbar">
-      {#if !embedded}<div class="brand">
-        <span class="brand-mark">∿</span>
-        <span class="brand-title">strategy</span>
-        <span class="brand-sub">/ workbench</span>
-      </div>{/if}
-
-      <nav class="tabs" aria-label="Strategy views">
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'editor'}
-          onclick={() => (tab = 'editor')}
-        >editor</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'options'}
-          onclick={() => (tab = 'options')}
-        >options</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'sweep'}
-          onclick={() => (tab = 'sweep')}
-        >sweep</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'portfolio'}
-          onclick={openPortfolioTab}
-        >portfolio</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'docs'}
-          onclick={() => (tab = 'docs')}
-        >docs</button>
-      </nav>
+    <PanelTopbar
+      title="Strategy"
+      tone="page"
+      {embedded}
+      tabsLabel="Strategy views"
+      tabs={[{ id: 'editor', label: 'Editor' }, { id: 'options', label: 'Options' }, { id: 'sweep', label: 'Sweep' }, { id: 'portfolio', label: 'Portfolio' }, { id: 'docs', label: 'Docs' }]}
+      activeTab={tab}
+      onTab={id => { if (id === 'portfolio') openPortfolioTab(); else tab = id; }}
+      context={{ symbol, provider, interval, period }}
+      onClose={close}
+    >
+      {#snippet mark()}∿{/snippet}
       {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
-
-      {#if !embedded}<div class="ctx" aria-label="Active market context">
-        <span class="ctx-label">CTX</span>
-        <span class="ctx-pair">
-          <span class="ctx-sym">{symbol || '—'}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-prov">{provider}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-iv">{interval}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-pd">{period}</span>
-        </span>
-      </div>
-
-      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
-        <X class="h-3.5 w-3.5" />
-      </button>
-      {/if}
-    </header>
+    </PanelTopbar>
 
     <div
       class="body"
@@ -315,8 +270,8 @@
             title: 'strategies',
             newLabel: 'New strategy',
             signInHint: 'Sign in to load and save strategies. You can backtest an unsaved draft without an account.',
-            empty: 'no saved strategies yet.',
-            emptyDetail: 'draft one on the right and hit save.',
+            empty: 'No saved strategies yet.',
+            emptyDetail: 'Draft one on the right and save it.',
             deleteNoun: 'strategy',
             runLabel: 'backtest',
           }}
@@ -348,8 +303,8 @@
             </div>
 
             <div class="actions">
-              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
-              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
+              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
+              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>Robustness</button>{/if}
               <button
                 type="button"
                 class="btn ghost"
@@ -358,7 +313,7 @@
                 title="Save (⌘S)"
               >
                 <Save class="h-3.5 w-3.5" />
-                <span>{strat.isSaving ? 'saving…' : 'save'}</span>
+                <span>{strat.isSaving ? 'Saving…' : 'Save'}</span>
               </button>
 
               <button
@@ -369,7 +324,7 @@
                 title="Run backtest (⌘↵)"
               >
                 <Play class="h-3.5 w-3.5" />
-                <span>{strat.isRunning ? 'running…' : 'backtest'}</span>
+                <span>{strat.isRunning ? 'Running…' : 'Backtest'}</span>
               </button>
               <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
                 <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
@@ -481,127 +436,7 @@
   }
 
   .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); overflow-y: auto; }
-  .embedded .topbar { flex-shrink: 0; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
-  .embedded .tabs { min-width: 0; overflow-x: auto; }
-  .embedded .tabs .tab { flex: none; }
-  .embedded .topbar > .ot-workbench-ghost { flex: none; }
   .embedded .body { flex-shrink: 0; min-height: min(600px, 75dvh); }
-
-  .topbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 22px;
-    border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
-  }
-
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-  }
-  .brand-mark {
-    color: oklch(var(--primary));
-    font-size: 14px;
-    transform: translateY(1px);
-  }
-  .brand-title { font-weight: 600; }
-  .brand-sub {
-    color: oklch(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .ctx {
-    margin-left: auto;
-    justify-self: center;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 4px 10px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    color: oklch(var(--muted-foreground));
-    background: oklch(var(--background));
-  }
-  .ctx-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
-  }
-  .ctx-pair {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-  .ctx-sym {
-    color: oklch(var(--foreground));
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
-
-  .iconbtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--muted-foreground));
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .iconbtn:hover {
-    color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
-  }
-  .iconbtn.close:hover {
-    border-color: oklch(var(--down-color));
-    color: oklch(var(--down-color));
-    background: oklch(var(--down-color) / 0.1);
-  }
-
-  .tabs {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: oklch(var(--background));
-  }
-  .tab {
-    appearance: none;
-    border: 0;
-    padding: 4px 12px;
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: lowercase;
-    color: oklch(var(--muted-foreground));
-    background: transparent;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .tab:hover { color: oklch(var(--foreground)); }
-  .tab.active {
-    color: oklch(var(--primary-foreground));
-    background: oklch(var(--primary));
-    font-weight: 600;
-  }
 
   .body {
     flex: 1 1 auto;
@@ -729,7 +564,6 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.04em;
-    text-transform: lowercase;
     cursor: pointer;
     transition: all 120ms ease;
   }
@@ -764,16 +598,10 @@
   }
 
   @media (max-width: 900px) {
-    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
-    .topbar .close { margin-left: auto; }
-    .ctx { flex-wrap: wrap; }
     .work-head { flex-wrap: wrap; padding: 8px 12px; }
     .actions { flex-wrap: wrap; }
   }
   @media (max-width: 760px) {
-    .embedded .topbar { flex-wrap: nowrap; padding: 0 8px; }
-    .embedded .tab { min-height: 36px; padding: 4px 9px; }
-    .embedded .topbar > .ot-workbench-ghost { min-height: 44px; }
     .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 12px; }
     .actions { flex-wrap: nowrap; gap: 6px; }
     .actions .btn { min-height: 44px; font-size: 13px; }

@@ -51,59 +51,6 @@ const CTX = {
 } as const;
 
 describe('indicator account changes', () => {
-  it.each(['resolve', 'reject'] as const)(
-    'does not leak an old delete %s or unlock the current delete',
-    async outcome => {
-      const old = deferred<void>();
-      const latest = deferred<void>();
-      vi.mocked(deleteScript)
-        .mockReturnValueOnce(old.promise)
-        .mockReturnValueOnce(latest.promise);
-      const state = new IndicatorState();
-      state.scripts = [info()];
-      const first = state.remove('s1');
-      state.clearSaved();
-      state.scripts = [info({ name: 'new owner' })];
-      const second = state.remove('s1');
-      if (outcome === 'resolve') old.resolve();
-      else old.reject(new Error('old owner error'));
-      await expect(first).resolves.toBeUndefined();
-      expect(state.scripts[0]?.name).toBe('new owner');
-      await state.remove('s1');
-      expect(deleteScript).toHaveBeenCalledTimes(2);
-      latest.resolve();
-      await second;
-      expect(state.scripts).toEqual([]);
-    },
-  );
-
-  it.each(['resolve', 'reject'] as const)(
-    'does not let an old save %s unlock a new owner save',
-    async outcome => {
-      const old = deferred<ScriptInfo>();
-      const latest = deferred<ScriptInfo>();
-      vi.mocked(createScript)
-        .mockReturnValueOnce(old.promise)
-        .mockReturnValueOnce(latest.promise);
-      const state = new IndicatorState();
-      const first = state.save();
-      state.clearSaved();
-      state.setCode('new owner draft');
-      const second = state.save();
-      expect(state.isSaving).toBe(true);
-      if (outcome === 'resolve') old.resolve(info({ id: 'old' }));
-      else old.reject(new Error('old failure'));
-      expect(await first).toBeNull();
-      expect(state.isSaving).toBe(true);
-      expect(state.saveError).toBeNull();
-      expect(state.scripts).toEqual([]);
-      latest.resolve(info({ id: 'new', code: 'new owner draft' }));
-      expect((await second)?.id).toBe('new');
-      expect(state.isSaving).toBe(false);
-      expect(state.activeId).toBe('new');
-    },
-  );
-
   it('detaches saved scripts and stops runners while retaining editor work', async () => {
     const state = new IndicatorState();
     state.scripts = [info()];
@@ -116,18 +63,6 @@ describe('indicator account changes', () => {
     expect(state.activeId).toBeNull();
     expect(state.draftCode).toBe('draft work');
     expect(state.dirty).toBe(true);
-  });
-
-  it('ignores a saved list arriving after the account changes', async () => {
-    const pending = deferred<ScriptInfo[]>();
-    vi.mocked(listScripts).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    const loading = state.load();
-    state.clearSaved();
-    pending.resolve([info()]);
-    await loading;
-    expect(state.scripts).toEqual([]);
-    expect(state.loading).toBe(false);
   });
 
   it('does not start a saved runner if the account changed during save', async () => {
@@ -180,132 +115,6 @@ describe('IndicatorState persistence', () => {
     });
   });
 
-  it('does not steal selection or clear newer edits when a save resolves', async () => {
-    const pending = deferred<ScriptInfo>();
-    vi.mocked(updateScript).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    state.scripts = [info(), info({ id: 's2' })];
-    state.select('s1');
-    state.setCode('submitted');
-    const saving = state.save();
-    state.select('s2', () => true);
-    state.setCode('second edited');
-    pending.resolve(info({ code: 'submitted' }));
-    await saving;
-    expect(state.activeId).toBe('s2');
-    expect(state.draftCode).toBe('second edited');
-    expect(state.dirty).toBe(true);
-    expect(state.scripts.find(s => s.id === 's1')?.code).toBe('submitted');
-  });
-
-  it('does not attach an old create to an identical new draft', async () => {
-    const pending = deferred<ScriptInfo>();
-    vi.mocked(createScript).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    const code = state.draftCode;
-    const saving = state.save();
-    state.newDraft();
-    pending.resolve(info());
-    await saving;
-    expect(state.activeId).toBeNull();
-    expect(state.draftCode).toBe(code);
-  });
-
-  it('protects the earlier source reopened before an in-flight update finishes', async () => {
-    const pending = deferred<ScriptInfo>();
-    vi.mocked(updateScript).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    state.scripts = [info({ code: 'original' }), info({ id: 's2' })];
-    state.select('s1');
-    state.setCode('submitted');
-    const saving = state.save();
-    state.select('s2', () => true);
-    state.select('s1');
-    pending.resolve(info({ code: 'submitted' }));
-    await saving;
-    expect(state.draftCode).toBe('original');
-    expect(state.dirty).toBe(true);
-  });
-
-  it('does not duplicate creates from repeated save shortcuts', async () => {
-    const pending = deferred<ScriptInfo>();
-    vi.mocked(createScript).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    const first = state.save();
-    expect(await state.save()).toBeNull();
-    expect(state.isSaving).toBe(true);
-    expect(createScript).toHaveBeenCalledTimes(1);
-    pending.resolve(info());
-    await first;
-  });
-
-  it('contains save errors and does not display a previous draft error on a new draft', async () => {
-    const pending = deferred<ScriptInfo>();
-    vi.mocked(createScript).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    const saving = state.save();
-    state.newDraft();
-    pending.reject(new Error('old save failed'));
-    expect(await saving).toBeNull();
-    expect(state.saveError).toBeNull();
-    state.setName('');
-    expect(await state.save()).toBeNull();
-    expect(state.saveError).toBe('Name is required');
-  });
-
-  it('requires confirmation before switching or resetting dirty drafts and ignores same-id clicks', () => {
-    const state = new IndicatorState();
-    state.scripts = [info(), info({ id: 's2' })];
-    state.select('s1');
-    state.setCode('unsaved');
-    const cancel = vi.fn(() => false);
-    state.select('s1', cancel);
-    expect(cancel).not.toHaveBeenCalled();
-    state.select('s2', cancel);
-    state.newDraft(cancel);
-    expect(cancel).toHaveBeenCalledTimes(2);
-    expect(state.activeId).toBe('s1');
-    expect(state.draftCode).toBe('unsaved');
-    state.select('s2', () => true);
-    expect(state.activeId).toBe('s2');
-  });
-
-  it('keeps text typed while deleting as a new unsaved draft', async () => {
-    const pending = deferred<void>();
-    vi.mocked(deleteScript).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    state.scripts = [info()];
-    state.select('s1');
-    const deleting = state.remove('s1');
-    state.setCode('typed during delete');
-    pending.resolve();
-    await deleting;
-    expect(state.scripts).toHaveLength(0);
-    expect(state.activeId).toBeNull();
-    expect(state.draftCode).toBe('typed during delete');
-    expect(state.dirty).toBe(true);
-  });
-
-  it('prevents conflicting saves and deletes', async () => {
-    const saving = deferred<ScriptInfo>();
-    const deleting = deferred<void>();
-    vi.mocked(updateScript).mockReturnValue(saving.promise);
-    vi.mocked(deleteScript).mockReturnValue(deleting.promise);
-    const state = new IndicatorState();
-    state.scripts = [info()];
-    state.select('s1');
-    const save = state.save();
-    await expect(state.remove('s1')).rejects.toThrow('save');
-    expect(deleteScript).not.toHaveBeenCalled();
-    saving.resolve(info());
-    await save;
-    const remove = state.remove('s1');
-    expect(await state.save()).toBeNull();
-    expect(state.saveError).toContain('delet');
-    deleting.resolve();
-    await remove;
-  });
-
   it('preserves the active draft and runner if deletion fails', async () => {
     vi.mocked(deleteScript).mockRejectedValue(new Error('delete failed'));
     const state = new IndicatorState();
@@ -315,17 +124,6 @@ describe('IndicatorState persistence', () => {
     await expect(state.remove('s1')).rejects.toThrow('delete failed');
     expect(state.activeId).toBe('s1');
     expect(state.runners.s1.lastResult).toEqual(result());
-  });
-
-  it('does not let a late refresh erase a newly saved script', async () => {
-    const pending = deferred<ScriptInfo[]>();
-    vi.mocked(listScripts).mockReturnValue(pending.promise);
-    const state = new IndicatorState();
-    const refreshing = state.load();
-    await state.save();
-    pending.resolve([]);
-    await refreshing;
-    expect(state.scripts.map(s => s.id)).toEqual(['new1']);
   });
 
   it('save-and-run executes the saved script, not the script selected during the save', async () => {

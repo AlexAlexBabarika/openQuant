@@ -3,6 +3,7 @@ import {
   MAX_OPTION_CONTRACTS,
   MAX_PATH_POINTS,
   MAX_PRICE,
+  grouped,
 } from './optionsBounds';
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
 import type {
@@ -80,7 +81,7 @@ export function parsePathCsv(text: string): {
   if (!lines.length || lines.length > MAX_PATH_POINTS)
     return {
       points: [],
-      error: 'Supply 1–366 day,spot rows with an optional day,spot header.',
+      error: `Supply 1–${MAX_PATH_POINTS} day,spot rows with an optional day,spot header.`,
     };
   const points: PathPoint[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -90,7 +91,7 @@ export function parsePathCsv(text: string): {
     if (cells.length !== 2 || day === null || spot === null)
       return {
         points: [],
-        error: `Row ${i + 1}: enter day 0–3650 and spot 0–1,000,000 USD, separated by one comma. Blank is not zero.`,
+        error: `Row ${i + 1}: enter day 0–${MAX_DAYS} and spot 0–${grouped(MAX_PRICE)} USD, separated by one comma. Blank is not zero.`,
       };
     if ((i === 0 && day !== 0) || (i > 0 && day <= points[i - 1].day))
       return {

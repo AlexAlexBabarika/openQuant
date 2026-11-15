@@ -143,14 +143,14 @@ display.table(["time", "close"], [[str(t), float(c)] for t, c in zip(last["times
   ];
 </script>
 
-<ReferencePage title="indicator scripting">
+<ReferencePage title="Indicator scripting">
   {#snippet lede()}
         Write Python that runs against the currently loaded OHLCV. Use
         <code>display.*</code> to project results onto the chart.
   {/snippet}
 
     <section>
-      <h2><span class="hash">§</span> globals</h2>
+      <h2><span class="hash">§</span> Globals</h2>
       <p class="dim">Available in every script — no import required.</p>
       <ul class="defs">
         {#each dataGlobals as g (g.name)}
@@ -164,7 +164,7 @@ display.table(["time", "close"], [[str(t), float(c)] for t, c in zip(last["times
     </section>
 
     <section>
-      <h2><span class="hash">§</span> helpers</h2>
+      <h2><span class="hash">§</span> Helpers</h2>
       <p class="dim">Built-in TA primitives. Compose with pd / np for the rest.</p>
       <ul class="defs">
         {#each helpers as h (h.name)}
@@ -177,7 +177,7 @@ display.table(["time", "close"], [[str(t), float(c)] for t, c in zip(last["times
     </section>
 
     <section>
-      <h2><span class="hash">§</span> display api</h2>
+      <h2><span class="hash">§</span> Display API</h2>
       <p class="dim">Push outputs to the chart and console. Each call queues one output (max 50 per run).</p>
       <ul class="defs">
         {#each displayApi as h (h.name)}
@@ -190,7 +190,7 @@ display.table(["time", "close"], [[str(t), float(c)] for t, c in zip(last["times
     </section>
 
     <section>
-      <h2><span class="hash">§</span> allowed imports</h2>
+      <h2><span class="hash">§</span> Allowed imports</h2>
       <p class="dim">stdlib modules permitted by the AST guard.</p>
       <p class="tags">
         {#each allowedImports as m (m)}
@@ -200,7 +200,7 @@ display.table(["time", "close"], [[str(t), float(c)] for t, c in zip(last["times
     </section>
 
     <section>
-      <h2><span class="hash">§</span> sandbox limits</h2>
+      <h2><span class="hash">§</span> Sandbox limits</h2>
       <ul class="bullets">
         {#each limits as l (l)}
           <li>{l}</li>
@@ -209,7 +209,7 @@ display.table(["time", "close"], [[str(t), float(c)] for t, c in zip(last["times
     </section>
 
     <section>
-      <h2><span class="hash">§</span> examples</h2>
+      <h2><span class="hash">§</span> Examples</h2>
       {#each examples as ex (ex.title)}
         <div class="example">
           <div class="example-title">{ex.title}</div>

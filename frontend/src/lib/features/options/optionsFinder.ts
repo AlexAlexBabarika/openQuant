@@ -115,8 +115,7 @@ export function finderErrors(request: FinderRequest): Record<string, string> {
         (i > 0 && v <= a[i - 1]),
     )
   )
-    errors.scenario_spots =
-      'Enter 1–9 strictly increasing spots, 0–1000000 USD, separated by commas or spaces.';
+    errors.scenario_spots = `Enter 1–9 strictly increasing spots, 0–${MAX_PRICE} USD, separated by commas or spaces.`;
   if (request.universe.length < 1 || request.universe.length > 24)
     errors.universe =
       'Explicitly author or seed 1–24 enabled unit option contracts.';

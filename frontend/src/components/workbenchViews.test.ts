@@ -240,7 +240,7 @@ describe('persistent research task views', () => {
     expect(html).not.toContain('aria-label="Active market context"');
     expect(html).toContain('aria-label="More strategy actions"');
     expect(html).toContain('New strategy');
-    expect(html).toContain('backtest');
+    expect(html).toContain('Backtest');
     expect(html).toContain('Local starter draft');
     expect(html).not.toContain('aria-modal="true"');
     expect(html).not.toContain('class="backdrop');
