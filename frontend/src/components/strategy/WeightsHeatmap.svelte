@@ -80,7 +80,7 @@
   .label {
     height: 16px;
     line-height: 16px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-align: right;
@@ -91,13 +91,13 @@
     display: block;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 60%, transparent);
     border-radius: 3px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
   }
   .axis {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.06em;
     color: oklch(var(--muted-foreground));
   }

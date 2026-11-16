@@ -29,7 +29,7 @@
       sideOffset={8}
       collisionPadding={8}
       style="max-height: min(var(--bits-popover-content-available-height, 100dvh), calc(100dvh - 1rem));"
-      class="z-[80] w-64 max-w-[calc(100dvw-1rem)] overflow-y-auto overscroll-contain rounded-lg border border-border bg-card p-4 shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
+      class="z-(--z-dialog-popover) w-64 max-w-[calc(100dvw-1rem)] overflow-y-auto overscroll-contain rounded-lg border border-border bg-card p-4 shadow-popover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
     >
       <ColourPicker bind:colour />
     </Popover.Content>

@@ -259,9 +259,9 @@
         color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
         transparent 60%
       ),
-      color-mix(in oklab, oklch(var(--popover)) 96%, black 4%);
+      color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
     border-top: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     box-shadow:
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
       0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent)
@@ -303,11 +303,11 @@
     flex-direction: column;
     min-height: 0;
     border-right: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     background: linear-gradient(
       180deg,
-      color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-      color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
+      color-mix(in oklab, oklch(var(--card)) 100%, black 4%),
+      color-mix(in oklab, oklch(var(--card)) 100%, black 10%)
     );
   }
 
@@ -327,11 +327,11 @@
     border: 0;
     outline: none;
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--foreground));
   }
   .search input::placeholder {
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 
   .rail-list {
@@ -346,7 +346,7 @@
   }
   .group-head {
     padding: 8px 10px 4px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -369,8 +369,8 @@
     cursor: pointer;
     font-family: inherit;
     transition:
-      background 120ms ease,
-      border-color 120ms ease;
+      background var(--motion-fast),
+      border-color var(--motion-fast);
   }
   .row:hover {
     background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
@@ -399,8 +399,8 @@
     border-radius: 999px;
     background: color-mix(in oklab, oklch(var(--foreground)) 22%, transparent);
     transition:
-      background 120ms ease,
-      box-shadow 120ms ease;
+      background var(--motion-fast),
+      box-shadow var(--motion-fast);
   }
   .dot.on {
     background: oklch(var(--primary));
@@ -414,20 +414,20 @@
     min-width: 0;
   }
   .row-name {
-    font-size: 13px;
+    font-size: var(--font-size-control);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .row-desc {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.4;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 
   .hint {
     margin: 14px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--muted-foreground));
   }
 
@@ -438,7 +438,7 @@
     padding: 10px 14px;
     border-top: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.06em;
     color: oklch(var(--muted-foreground));
   }
@@ -450,9 +450,9 @@
   .kbd {
     padding: 1px 5px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 3px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
     background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
   }
@@ -467,7 +467,7 @@
     margin: auto;
     padding: 24px;
     color: oklch(var(--muted-foreground));
-    font-size: 13px;
+    font-size: var(--font-size-control);
     letter-spacing: 0.04em;
   }
   .grid {
@@ -483,7 +483,7 @@
       grid-template-rows: minmax(110px, 35%) minmax(0, 1fr);
     }
     .rail {
-      border-bottom: 1px solid oklch(var(--border));
+      border-bottom: 1px solid oklch(var(--border-subtle));
     }
     .rail-foot { display: none; }
     .grid { grid-template-columns: minmax(0, 1fr); }

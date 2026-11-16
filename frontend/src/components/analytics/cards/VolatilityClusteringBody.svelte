@@ -43,13 +43,13 @@
   }
   .lbl {
     width: 88px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .val {
-    font-size: 14px;
+    font-size: var(--font-size-body);
     font-weight: 600;
     color: oklch(var(--foreground));
     font-variant-numeric: tabular-nums;
@@ -59,8 +59,8 @@
   }
   .note {
     margin: 6px 0 0;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.4;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 </style>

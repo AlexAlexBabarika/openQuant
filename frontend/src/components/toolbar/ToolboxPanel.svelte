@@ -297,7 +297,7 @@
     inert={!open}
     aria-hidden={!open}
     bind:this={panelEl}
-    class="absolute left-0 right-0 bottom-0 h-[min(480px,80dvh)] bg-popover text-popover-foreground rounded-t-lg shadow-lg border-t border-border overflow-hidden"
+    class="absolute left-0 right-0 bottom-0 h-[min(480px,80dvh)] bg-popover text-popover-foreground rounded-t-lg shadow-popover border-t border-border-subtle overflow-hidden"
     style:transform="translateY({translatePct}%)"
     style:pointer-events={interactive ? 'auto' : 'none'}
     aria-label="Toolbox"

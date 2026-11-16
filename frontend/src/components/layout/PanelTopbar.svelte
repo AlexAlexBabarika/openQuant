@@ -105,7 +105,7 @@
     gap: 16px;
     padding: 14px 22px;
     border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    background: oklch(var(--card));
   }
   .topbar.with-tabs { grid-template-columns: auto auto 1fr auto; }
   .topbar.page { display: flex; flex-wrap: wrap; }
@@ -116,18 +116,18 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     letter-spacing: 0.04em;
   }
   .brand-mark {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
     transform: translateY(1px);
   }
   .brand-title { font-weight: 600; }
   .brand-sub {
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -140,16 +140,16 @@
     padding: 4px 10px;
     border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.04em;
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
   }
   .page .ctx { margin-left: auto; background: oklch(var(--background)); }
   .ctx-label {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .ctx-pair {
     display: inline-flex;
@@ -163,24 +163,24 @@
     letter-spacing: 0.06em;
   }
   .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
+  .ctx-prov, .ctx-iv, .ctx-pd { font-size: var(--font-size-label); }
 
   .iconbtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 4px;
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn:hover {
     color: oklch(var(--foreground));
     border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .iconbtn.close:hover {
     border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
@@ -198,9 +198,9 @@
     align-items: center;
     gap: 2px;
     padding: 2px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
   }
   .page .tabs { background: oklch(var(--background)); }
   .embedded .tabs { min-width: 0; overflow-x: auto; }
@@ -211,12 +211,12 @@
     background: transparent;
     color: oklch(var(--muted-foreground));
     font-family: inherit;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     padding: 4px 12px;
     border-radius: 3px;
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .tab:hover { color: oklch(var(--foreground)); }
   .tab.active {

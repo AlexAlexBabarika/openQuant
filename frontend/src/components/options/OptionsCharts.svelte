@@ -608,19 +608,19 @@
 </section>
 
 <style>
-  .options-charts { min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
+  .options-charts { min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: var(--font-size-chrome); }
   header, .pane-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  header { padding: 10px 0; border-bottom: 1px solid oklch(var(--border)); }
+  header { padding: 10px 0; border-bottom: 1px solid oklch(var(--border-subtle)); }
   h3, h4, p { margin: 0; }
   h3 { margin-top: 4px; font-size: 15px; overflow-wrap: anywhere; }
-  h4 { font-size: 12px; }
+  h4 { font-size: var(--font-size-chrome); }
   .eyebrow, .context, .note, .marker-key, .unit, .pane-title > span { color: oklch(var(--muted-foreground)); }
   .eyebrow { font: 10px var(--font-sans); }
-  .context { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+  .context { font-size: var(--font-size-label); line-height: 1.6; overflow-wrap: anywhere; }
   .update-note { display: block; height: 1.6em; overflow-wrap: normal; white-space: nowrap; color: oklch(var(--risk)); }
   .context b { color: oklch(var(--foreground)); font-variant-numeric: tabular-nums; }
   .domain-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0 6px; }
-  label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: var(--font-size-label); }
   .domain-controls label { flex: 1 1 90px; min-width: 0; max-width: 140px; }
   input, select, button { min-height: 28px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--card)); color: oklch(var(--foreground)); font: inherit; }
   input { width: 100%; min-width: 0; padding: 3px 6px; font-variant-numeric: tabular-nums; }
@@ -629,9 +629,9 @@
   button:hover { background: oklch(var(--accent)); }
   .actions { display: flex; flex-wrap: wrap; gap: 6px; }
   button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .chart-control:focus-visible, .table-scroll:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
-  .note, .marker-key { font-size: 11px; line-height: 1.55; margin: 6px 0; overflow-wrap: anywhere; }
+  .note, .marker-key { font-size: var(--font-size-label); line-height: 1.55; margin: 6px 0; overflow-wrap: anywhere; }
   .offscreen { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .first-run { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0; padding: 8px; border-radius: 4px; background: oklch(var(--accent)); line-height: 1.5; font-size: 12px; }
+  .first-run { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0; padding: 8px; border-radius: 4px; background: oklch(var(--accent)); line-height: 1.5; font-size: var(--font-size-chrome); }
   .notice { padding: 8px; margin: 8px 0; border: 1px dashed oklch(var(--input)); border-radius: 4px; color: oklch(var(--foreground)); background: oklch(var(--background)); line-height: 1.5; overflow-wrap: anywhere; }
   .pane-title { margin-top: 14px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; }
@@ -639,7 +639,7 @@
   .swatch { width: 28px; height: 10px; flex: 0 0 28px; }
   .swatch path { stroke: currentColor; stroke-width: 2; fill: none; }
   .graph { position: relative; min-width: 0; width: 100%; }
-  .strike-editor { min-width: 0; padding-bottom: 8px; border-bottom: 1px solid oklch(var(--border)); }
+  .strike-editor { min-width: 0; padding-bottom: 8px; border-bottom: 1px solid oklch(var(--border-subtle)); }
   .leg-selectors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
   .leg-selectors button { white-space: normal; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
   .strike-handles { position: absolute; inset: 0; pointer-events: none; }
@@ -683,17 +683,17 @@
   .readout, .aggregate { padding: 10px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); line-height: 1.5; overflow-wrap: anywhere; }
   .readout { min-height: 60px; }
   .aggregate { margin: 6px 0 10px; }
-  .unit { margin: 5px 0; font-size: 11px; overflow-wrap: anywhere; }
+  .unit { margin: 5px 0; font-size: var(--font-size-label); overflow-wrap: anywhere; }
   dl { margin: 8px 0 0; }
   dl > div { display: grid; grid-template-columns: minmax(85px, 1fr) minmax(0, 2fr); gap: 8px; margin: 5px 0; }
   dt { color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
   dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  .evidence { padding: 8px 0; border-top: 1px solid oklch(var(--border)); }
-  summary { cursor: pointer; font-size: 12px; font-weight: 600; line-height: 1.6; }
+  .evidence { padding: 8px 0; border-top: 1px solid oklch(var(--border-subtle)); }
+  summary { cursor: pointer; font-size: var(--font-size-chrome); font-weight: 600; line-height: 1.6; }
   .table-scroll { overflow: auto; max-height: 340px; margin-top: 8px; border: 1px solid oklch(var(--border)); }
   table { border-collapse: collapse; width: 100%; font: 11px var(--font-sans); font-variant-numeric: tabular-nums; }
   caption { text-align: left; padding: 8px; font-family: var(--font-sans); background: oklch(var(--background)); }
-  th, td { padding: 7px 8px; border-bottom: 1px solid oklch(var(--border)); text-align: right; white-space: nowrap; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid oklch(var(--border-subtle)); text-align: right; white-space: nowrap; }
   thead th { position: sticky; top: 0; background: oklch(var(--card)); z-index: 1; }
   th:first-child { text-align: left; }
   .table-unit { display: block; max-width: 210px; white-space: normal; font: 11px var(--font-sans); color: oklch(var(--muted-foreground)); }

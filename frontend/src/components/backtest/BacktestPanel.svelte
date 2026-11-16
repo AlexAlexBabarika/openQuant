@@ -204,11 +204,11 @@
     color: oklch(var(--foreground));
     background: oklch(var(--card));
     border-top: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     box-shadow: 0 -30px 60px -20px rgba(0, 0, 0, 0.5);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--font-size-body);
     line-height: 20px;
     overflow: hidden;
     animation: slideUp 280ms cubic-bezier(0.18, 0.9, 0.24, 1);
@@ -240,25 +240,25 @@
     padding: 14px 22px;
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    background: oklch(var(--card));
   }
   .brand {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     letter-spacing: 0.04em;
   }
   .brand-mark {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .brand-title {
     font-weight: 600;
   }
   .brand-sub {
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -274,13 +274,13 @@
     padding: 4px 10px;
     border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     color: oklch(var(--muted-foreground));
   }
   .ctx-label {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .ctx-sym {
     color: oklch(var(--foreground));
@@ -295,12 +295,12 @@
     justify-content: center;
     width: 26px;
     height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 4px;
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn.close:hover {
     border-color: oklch(var(--down-color));
@@ -329,13 +329,13 @@
   }
   .tabs-pane {
     border-top: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
   }
   .status {
     margin: auto;
     padding: 24px;
     color: oklch(var(--muted-foreground));
-    font-size: 13px;
+    font-size: var(--font-size-control);
     letter-spacing: 0.06em;
   }
   .err {

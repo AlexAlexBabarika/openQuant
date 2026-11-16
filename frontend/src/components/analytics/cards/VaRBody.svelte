@@ -34,13 +34,13 @@
   }
   .lvl {
     width: 36px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .val {
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     font-variant-numeric: tabular-nums;
@@ -50,8 +50,8 @@
   }
   .n {
     margin-top: 4px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.06em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 </style>

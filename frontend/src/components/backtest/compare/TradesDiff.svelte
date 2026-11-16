@@ -10,7 +10,7 @@
 {#snippet entries(rows: TradeDiffEntry[])}
   <ul class="text-sm">
     {#each rows as c (entryId(c))}
-      <li class="border-b border-border/50 py-1">
+      <li class="border-b border-border-subtle/50 py-1">
         <span class="font-mono">{keyStr(c.key)} · occurrence {c.occurrence ?? 1}</span>
         {#each Object.entries(c.fields) as [field, d] (field)}
           <div class="ml-2 break-words text-xs text-muted-foreground">{field}: A {recordedValue(d.a, d.available?.a)} → B {recordedValue(d.b, d.available?.b)}{d.status === 'unavailable' || d.a == null || d.b == null ? ' · Not comparable' : ''}</div>

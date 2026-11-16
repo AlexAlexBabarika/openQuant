@@ -115,7 +115,7 @@
 
 <style>
   .hedge-lab { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; color: oklch(var(--foreground)); font: 12px var(--font-sans); }
-  header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } header { justify-content: space-between; } h3, h4, p { margin: 0; } h3 { font-size: 14px; } h4 { font-size: 12px; }
+  header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } header { justify-content: space-between; } h3, h4, p { margin: 0; } h3 { font-size: var(--font-size-body); } h4 { font-size: var(--font-size-chrome); }
   .note, small { color: oklch(var(--muted-foreground)); line-height: 1.6; overflow-wrap: anywhere; } .error { color: oklch(var(--foreground)); border-left: 3px solid oklch(var(--destructive)); padding-left: 6px; } .notice, .readout { border: 1px dashed oklch(var(--border)); padding: 8px; border-radius: 4px; overflow-wrap: anywhere; line-height: 1.6; }
   fieldset { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; } legend, summary { font-weight: 600; } summary { cursor: pointer; padding: 4px 0; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 8px; } label { min-width: 0; display: flex; flex-direction: column; gap: 4px; margin: 4px 0; }
@@ -123,7 +123,7 @@
   .readout, table { font-variant-numeric: tabular-nums; } pre { font-family: var(--font-mono); max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
   .table-scroll, .chart-scroll { max-width: 100%; overflow: auto; border: 1px solid oklch(var(--border)); } .table-scroll { max-height: min(320px, 55vh); } svg { display: block; min-width: 520px; width: 100%; max-height: 260px; } svg text { fill: currentColor; font: 10px var(--font-sans); font-variant-numeric: tabular-nums; }
   .axis { stroke: currentColor; opacity: .35; } .series { stroke: currentColor; fill: none; stroke-width: 2; } .series-1 { stroke-dasharray: 7 4; } .cursor { stroke: currentColor; stroke-dasharray: 3 3; }
-  table { border-collapse: collapse; width: 100%; font-size: 11px; } th, td { text-align: right; white-space: nowrap; padding: 6px; border-bottom: 1px solid oklch(var(--border)); } caption { text-align: left; white-space: normal; padding: 8px; font-family: var(--font-sans); } thead th { position: sticky; top: 0; background: oklch(var(--card)); } [aria-current='true'] { outline: 1px dashed currentColor; outline-offset: -1px; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--font-size-label); } th, td { text-align: right; white-space: nowrap; padding: 6px; border-bottom: 1px solid oklch(var(--border-subtle)); } caption { text-align: left; white-space: normal; padding: 8px; font-family: var(--font-sans); } thead th { position: sticky; top: 0; background: oklch(var(--card)); } [aria-current='true'] { outline: 1px dashed currentColor; outline-offset: -1px; }
   :is(button, input, select, summary, [tabindex]):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; } [aria-invalid='true'] { border-color: oklch(var(--destructive)); }
   @media (forced-colors: active) { :is(button, input, select, summary, [tabindex]):focus-visible { outline-color: Highlight; } input, select, .notice, .readout, .table-scroll, .chart-scroll { border-color: CanvasText; } }
   @media (pointer: coarse) { button, input, select { min-height: var(--control-touch-height); } }

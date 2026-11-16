@@ -279,9 +279,9 @@
   }
 
   .card {
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 8px;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 3%);
+    background: color-mix(in oklab, oklch(var(--card)) 100%, black 3%);
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
@@ -292,7 +292,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -300,9 +300,9 @@
   .card-title { font-weight: 600; color: oklch(var(--foreground)); }
   .count {
     padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 999px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
   }
   .linkbtn {
     margin-left: auto;
@@ -310,7 +310,7 @@
     background: transparent;
     color: oklch(var(--muted-foreground));
     font-family: inherit;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.08em;
     cursor: pointer;
   }
@@ -324,15 +324,15 @@
     flex: 1 1 auto;
     min-width: 0;
     padding: 7px 10px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: 0.04em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .universe-input input:focus {
     border-color: color-mix(in oklab, oklch(var(--primary)) 70%, transparent);
@@ -340,14 +340,14 @@
 
   .hint {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
   .hint code {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     padding: 1px 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 3px;
   }
 
@@ -361,9 +361,9 @@
     align-items: center;
     gap: 5px;
     padding: 3px 6px 3px 9px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     font-weight: 600;
     letter-spacing: 0.06em;
     color: oklch(var(--foreground));
@@ -378,7 +378,7 @@
     border: 0;
     border-radius: 999px;
     background: transparent;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    color: oklch(var(--foreground-tertiary));
     cursor: pointer;
   }
   .chip-x:hover {
@@ -400,11 +400,11 @@
     white-space: nowrap;
     padding: 4px 10px;
     border-radius: 3px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
   }
   .banner.ok {
     border: 1px solid color-mix(in oklab, oklch(var(--primary)) 45%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    background: oklch(var(--surface-selected));
     color: oklch(var(--foreground));
   }
 
@@ -414,19 +414,19 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
   .btn.ghost:hover:not(:disabled) {
-    border-color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -437,7 +437,6 @@
     letter-spacing: 0.1em;
   }
   .btn.primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
     transform: translateY(-1px);
   }
 
@@ -455,7 +454,7 @@
     border-radius: 6px;
   }
   .stat-label {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -472,7 +471,7 @@
     gap: 8px;
   }
   .sharpes-title {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -486,11 +485,11 @@
   .bindings-list {
     margin: 0;
     padding-left: 18px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.6;
     color: oklch(var(--muted-foreground));
   }
-  .dim { color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent); }
+  .dim { color: oklch(var(--foreground-tertiary)); }
 
   /* Light theme, mirroring StrategyPanel chrome. */
   :global(html:not(.dark)) .card {

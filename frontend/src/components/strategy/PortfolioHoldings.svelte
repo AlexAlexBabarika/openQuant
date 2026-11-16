@@ -58,11 +58,11 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th {
     padding: 4px 10px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -88,7 +88,7 @@
     display: block;
     height: 8px;
     border-radius: 2px;
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    background: oklch(var(--surface-hover));
     overflow: hidden;
   }
   .bar {

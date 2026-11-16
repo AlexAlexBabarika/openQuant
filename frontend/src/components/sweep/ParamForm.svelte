@@ -120,16 +120,16 @@
   }
   legend {
     padding: 0 6px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
-  .param { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
+  .param { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: var(--font-size-chrome); }
   .pname { font-weight: 600; }
   .prange { color: oklch(var(--muted-foreground)); }
   .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-  .row label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: oklch(var(--muted-foreground)); }
+  .row label { display: flex; flex-direction: column; gap: 4px; font-size: var(--font-size-label); color: oklch(var(--muted-foreground)); }
   /* Match the portfolio tab's "run portfolio backtest" button (.btn.primary). */
   .btn {
     display: inline-flex;
@@ -137,17 +137,17 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .btn:disabled {
-    opacity: 0.45;
+    opacity: var(--opacity-disabled);
     cursor: not-allowed;
   }
   .btn.primary {
@@ -159,8 +159,6 @@
     letter-spacing: 0.1em;
   }
   .btn.primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px
-      color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
     transform: translateY(-1px);
   }
   :global(html:not(.dark)) .btn {
@@ -175,5 +173,5 @@
   .run {
     margin-left: auto;
   }
-  .hint { font-size: 12px; color: oklch(var(--muted-foreground)); }
+  .hint { font-size: var(--font-size-chrome); color: oklch(var(--muted-foreground)); }
 </style>

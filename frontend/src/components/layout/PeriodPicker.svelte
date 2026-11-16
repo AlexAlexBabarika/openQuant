@@ -78,7 +78,7 @@
       <DropdownMenu.Content
         align="end"
         sideOffset={6}
-        class="z-50 w-64 max-h-[28rem] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1 outline-none"
+        class="z-50 w-64 max-h-[28rem] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-popover py-1 outline-none"
       >
         {#each GROUPED_PERIODS as group, gi (group.category)}
           {#if gi > 0}

@@ -142,18 +142,18 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th {
     position: sticky;
     top: 0;
     text-align: left;
     padding: 8px 12px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 6%);
+    background: color-mix(in oklab, oklch(var(--card)) 100%, black 6%);
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
     user-select: none;
@@ -196,7 +196,7 @@
   }
   .side {
     text-transform: uppercase;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.06em;
   }
   .side.buy {

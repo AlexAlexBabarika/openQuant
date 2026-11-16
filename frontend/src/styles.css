@@ -69,6 +69,7 @@
   --color-border: oklch(var(--border));
   --color-input: oklch(var(--input));
   --color-ring: oklch(var(--ring));
+  --color-border-subtle: oklch(var(--border-subtle));
   --color-chart-1: oklch(var(--chart-1));
   --color-chart-2: oklch(var(--chart-2));
   --color-chart-3: oklch(var(--chart-3));
@@ -82,6 +83,8 @@
   --color-sidebar-accent-foreground: oklch(var(--sidebar-accent-foreground));
   --color-sidebar-border: oklch(var(--sidebar-border));
   --color-sidebar-ring: oklch(var(--sidebar-ring));
+  --shadow-popover: var(--elevation-popover);
+  --shadow-dialog: var(--elevation-dialog);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -100,6 +103,11 @@
     --foreground: 0.261752 0.030029 256.8554; /* #1B2533 */
     --muted-foreground: 0.482663 0.038518 252.7259; /* #4F6074 */
     --border: 0.863696 0.016362 253.9149; /* #CBD3DD */
+    --border-subtle: 0.915 0.01 252;
+    --surface-sunken: 0.955 0.005 248;
+    --surface-raised: var(--card);
+    --elevation-popover: 0 8px 24px oklch(0.26 0.03 257 / 12%);
+    --elevation-dialog: 0 16px 48px oklch(0.26 0.03 257 / 18%);
     --input: 0.623487 0.029861 250.0131; /* #7A8999 */
     --primary: 0.482958 0.109009 132.9835; /* #456B24 */
     --primary-foreground: 1 0 0; /* #FFFFFF */
@@ -112,7 +120,7 @@
 
     --radius: 0.375rem;
     --card-foreground: var(--foreground);
-    --popover: var(--card);
+    --popover: var(--surface-raised);
     --popover-foreground: var(--foreground);
     --secondary: var(--background);
     --secondary-foreground: var(--foreground);
@@ -139,6 +147,38 @@
     --in-market-color: var(--ring) / 16%;
     --control-height: 32px;
     --control-touch-height: 44px;
+    --control-height-compact: 28px;
+
+    /* Derived colour levels. Same triplet convention as above: wrap in oklch(). */
+    --foreground-tertiary: var(--foreground) / 50%;
+    --border-strong: var(--foreground) / 35%;
+    --surface-hover: var(--foreground) / 6%;
+    --surface-selected: var(--primary) / 10%;
+
+    /* Type steps. Sizes below 14px are whole pixels. */
+    --font-size-annotation: 10px;
+    --font-size-label: 11px;
+    --font-size-chrome: 12px;
+    --font-size-control: 13px;
+    --font-size-body: 14px;
+    --font-size-title: 16px;
+    --line-height-chrome: 16px;
+    --line-height-control: 18px;
+    --line-height-body: 20px;
+    --tracking-caps: 0.06em;
+
+    /* Duration and easing pairs, for use inside a transition shorthand. */
+    --motion-fast: 120ms ease;
+    --motion-base: 160ms ease-out;
+
+    --opacity-disabled: 0.45;
+
+    /* Stacking layers, lowest to highest. */
+    --z-header: 40;
+    --z-popover: 60;
+    --z-dialog: 70;
+    --z-dialog-popover: 80;
+    --z-top: 90;
     --chart-grid: #e4e9ef;
     --risk: 0.497536 0.105747 62.890023;
     --status-error: 0.5013 0.1783 28.7; /* #B3261E */
@@ -154,6 +194,11 @@
     --foreground: 0.943129 0.013156 251.5615; /* #E6EDF5 */
     --muted-foreground: 0.731769 0.032933 252.7588; /* #9AAABD */
     --border: 0.365351 0.028254 248.6061; /* #33404D */
+    --border-subtle: 0.3 0.025 250;
+    --surface-sunken: 0.1386 0.013 255.74; /* #06090E */
+    --surface-raised: 0.275 0.025 251;
+    --elevation-popover: 0 8px 24px oklch(0 0 0 / 40%);
+    --elevation-dialog: 0 16px 48px oklch(0 0 0 / 50%);
     --input: 0.561971 0.037753 251.2179; /* #65778B */
     --primary: 0.81521 0.161156 128.5003; /* #A3D65C */
     --primary-foreground: 0.197976 0.018626 255.7404; /* #10161E */
@@ -175,8 +220,8 @@
 @layer components {
   .ot-mono-chrome {
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 18px;
+    font-size: var(--font-size-control);
+    line-height: var(--line-height-control);
   }
 
   /* Dashed-border ctx pill. Matches the existing `CTX  AAPL · yfinance · 1d`
@@ -193,12 +238,12 @@
     background: oklch(var(--card));
     color: oklch(var(--muted-foreground));
     font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 16px;
+    font-size: var(--font-size-chrome);
+    line-height: var(--line-height-chrome);
     transition:
-      color 120ms ease,
-      border-color 120ms ease,
-      background 120ms ease;
+      color var(--motion-fast),
+      border-color var(--motion-fast),
+      background var(--motion-fast);
   }
   .ot-ctx-pill:hover:not(:disabled) {
     color: oklch(var(--foreground));
@@ -230,14 +275,14 @@
     background: oklch(var(--primary));
     color: oklch(var(--primary-foreground));
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 18px;
+    font-size: var(--font-size-control);
+    line-height: var(--line-height-control);
     font-weight: 600;
     cursor: pointer;
     transition:
-      background-color 160ms ease-out,
-      border-color 160ms ease-out,
-      transform 160ms ease-out;
+      background-color var(--motion-base),
+      border-color var(--motion-base),
+      transform var(--motion-base);
   }
   .ot-workbench-primary:hover:not(:disabled) {
     background: color-mix(
@@ -255,7 +300,7 @@
     transform: translateY(1px);
   }
   .ot-workbench-primary:disabled {
-    opacity: 0.45;
+    opacity: var(--opacity-disabled);
     cursor: not-allowed;
   }
 
@@ -272,22 +317,18 @@
     background: transparent;
     color: oklch(var(--foreground));
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 18px;
+    font-size: var(--font-size-control);
+    line-height: var(--line-height-control);
     cursor: pointer;
     transition:
-      background-color 160ms ease-out,
-      border-color 160ms ease-out,
-      color 160ms ease-out,
-      transform 160ms ease-out;
+      background-color var(--motion-base),
+      border-color var(--motion-base),
+      color var(--motion-base),
+      transform var(--motion-base);
   }
   .ot-workbench-ghost:hover:not(:disabled) {
-    border-color: color-mix(
-      in oklab,
-      oklch(var(--foreground)) 35%,
-      transparent
-    );
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-hover));
   }
   .ot-workbench-ghost:active:not(:disabled) {
     background: color-mix(in oklab, oklch(var(--foreground)) 11%, transparent);
@@ -304,7 +345,7 @@
     color: oklch(var(--foreground));
   }
   .ot-workbench-ghost:disabled {
-    opacity: 0.45;
+    opacity: var(--opacity-disabled);
     cursor: not-allowed;
   }
 
@@ -314,7 +355,7 @@
     width: 1px;
     align-self: stretch;
     margin: 0 4px;
-    background: color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    background: oklch(var(--border-subtle));
   }
 
   /* Pulsing connected-stream dot — keeps the same green as

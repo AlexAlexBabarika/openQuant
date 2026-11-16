@@ -35,12 +35,12 @@
       <div class="mt-2 overflow-x-auto" tabindex="0" role="region" aria-label="Recorded lineage inputs">
         <table class="w-full min-w-[34rem] text-left text-xs">
           <caption class="sr-only">Recorded inputs and their availability for runs A and B</caption>
-          <thead><tr class="border-b border-border"><th scope="col" class="p-2">Input</th><th scope="col" class="p-2">A</th><th scope="col" class="p-2">B</th><th scope="col" class="p-2">Comparison</th></tr></thead>
+          <thead><tr class="border-b border-border-subtle"><th scope="col" class="p-2">Input</th><th scope="col" class="p-2">A</th><th scope="col" class="p-2">B</th><th scope="col" class="p-2">Comparison</th></tr></thead>
           <tbody>
             {#each groups as group (group.label)}
-              <tr class="border-b border-border bg-muted/30"><th colspan="4" scope="colgroup" class="p-2 text-left font-semibold">{group.label}</th></tr>
+              <tr class="border-b border-border-subtle bg-muted/30"><th colspan="4" scope="colgroup" class="p-2 text-left font-semibold">{group.label}</th></tr>
               {#each group.rows as row (row.path)}
-              <tr class="border-b border-border/50 align-top">
+              <tr class="border-b border-border-subtle/50 align-top">
                 <th scope="row" class="p-2 font-normal">{row.label}</th>
                 <td class="max-w-64 p-2">{@render value(row.a)}</td>
                 <td class="max-w-64 p-2">{@render value(row.b)}</td>

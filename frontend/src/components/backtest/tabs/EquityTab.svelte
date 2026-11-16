@@ -49,7 +49,7 @@
     display: flex;
     gap: 18px;
     padding: 8px 14px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--muted-foreground));
   }
   .key {
@@ -74,7 +74,7 @@
   }
   .sub-label {
     padding: 4px 14px 0;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));

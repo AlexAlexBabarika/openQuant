@@ -34,7 +34,7 @@
   <Popover.Portal>
     <Popover.Content
       sideOffset={8}
-      class="z-[60] w-64 rounded-lg border border-border bg-card p-4 shadow-xl outline-none"
+      class="z-(--z-popover) w-64 rounded-lg border border-border bg-card p-4 shadow-popover outline-none"
     >
       <ColourPicker bind:colour={local} />
     </Popover.Content>

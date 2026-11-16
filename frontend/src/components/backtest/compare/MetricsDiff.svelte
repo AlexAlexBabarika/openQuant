@@ -15,9 +15,9 @@
     <thead><tr class="text-muted-foreground"><th scope="col" class="text-left">Metric</th><th scope="col" class="text-right">A</th><th scope="col" class="text-right">B</th><th scope="col" class="text-right">Δ (B − A)</th></tr></thead>
     <tbody>
       {#each groups as group (group.label)}
-        <tr class="border-b border-border bg-muted/30"><th colspan="4" scope="colgroup" class="p-1 text-left text-xs font-semibold">{group.label}</th></tr>
+        <tr class="border-b border-border-subtle bg-muted/30"><th colspan="4" scope="colgroup" class="p-1 text-left text-xs font-semibold">{group.label}</th></tr>
         {#each group.rows as r (r.metric)}
-        <tr class="border-b border-border/50">
+        <tr class="border-b border-border-subtle/50">
           <th scope="row" class="py-1 text-left font-normal" title={r.metric}>{r.label ?? r.metric}</th>
           <td class="max-w-64 break-words p-1 text-right font-mono">{recordedValue(r.a, r.available?.a)}</td>
           <td class="max-w-64 break-words p-1 text-right font-mono">{recordedValue(r.b, r.available?.b)}</td>

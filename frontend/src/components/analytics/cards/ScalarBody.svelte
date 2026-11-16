@@ -36,8 +36,8 @@
     color: oklch(var(--down-color));
   }
   .n {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.06em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 </style>

@@ -191,8 +191,8 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    background: color-mix(in oklab, oklch(var(--background)) 86%, black 14%);
-    border-top: 1px solid oklch(var(--border));
+    background: oklch(var(--surface-sunken));
+    border-top: 1px solid oklch(var(--border-subtle));
     font-family: var(--font-mono);
     color: oklch(var(--foreground));
   }
@@ -206,11 +206,11 @@
     align-items: center;
     gap: 12px;
     padding: 10px 16px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 80%, transparent);
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
   }
   :global(html:not(.dark)) .status {
     background: oklch(var(--card));
@@ -275,7 +275,7 @@
   .dot-err  { background: oklch(var(--status-error)); }
   .dot-idle {
     background: transparent;
-    border: 1px dashed color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    border: 1px dashed oklch(var(--border-strong));
   }
 
   .label { font-weight: 600; }
@@ -286,7 +286,7 @@
 
   .meta {
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
     text-transform: lowercase;
     letter-spacing: 0.04em;
   }
@@ -298,10 +298,10 @@
     display: inline-block;
     padding: 0 5px;
     margin: 0 1px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 3px;
     font-family: inherit;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
     background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
   }
@@ -327,7 +327,7 @@
     min-height: 0;
     overflow-y: auto;
     padding: 12px 16px 32px;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     line-height: 1.55;
   }
 
@@ -342,7 +342,7 @@
   .empty-line .ink {
     font-style: normal;
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    background: oklch(var(--surface-hover));
     padding: 1px 5px;
     border-radius: 3px;
   }
@@ -356,7 +356,7 @@
     gap: 8px;
     margin-bottom: 4px;
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -389,7 +389,7 @@
     border-left: 2px solid color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
     border-radius: 0 4px 4px 0;
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.55;
     white-space: pre-wrap;
     word-break: break-word;
@@ -402,16 +402,16 @@
   .table-block .table-scroll {
     max-height: 360px;
     overflow: auto;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 80%, black 20%);
+    background: oklch(var(--surface-sunken));
   }
   table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-variant-numeric: tabular-nums;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th, td {
     padding: 6px 12px;
@@ -421,19 +421,19 @@
   th {
     position: sticky;
     top: 0;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
     color: oklch(var(--muted-foreground));
     font-weight: 600;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    border-bottom: 1px solid oklch(var(--border));
+    border-bottom: 1px solid oklch(var(--border-subtle));
   }
   tbody tr:nth-child(odd) td {
     background: color-mix(in oklab, oklch(var(--foreground)) 2.5%, transparent);
   }
   tbody tr:hover td {
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    background: oklch(var(--surface-selected));
   }
 
   .deferred .deferred-list {
@@ -446,7 +446,7 @@
   }
   .deferred .deferred-list li {
     padding: 2px 0;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   .deferred .deferred-list li::before {
     content: '· ';

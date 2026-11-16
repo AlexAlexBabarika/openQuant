@@ -88,8 +88,8 @@
 </section>
 
 <style>
-  .assumptions { container-type: inline-size; display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
-  h3 { margin: 0; font-size: 12px; }
+  .assumptions { container-type: inline-size; display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: var(--font-size-chrome); }
+  h3 { margin: 0; font-size: var(--font-size-chrome); }
   .hint { margin: 0; color: oklch(var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
   .inputs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
@@ -97,11 +97,11 @@
   input[type="number"] { font-variant-numeric: tabular-nums; }
   input:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
-  .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+  .field-error { color: oklch(var(--down-color)); font-size: var(--font-size-chrome); line-height: 1.5; overflow-wrap: anywhere; }
   button { justify-self: start; white-space: normal; height: auto; min-height: 28px; overflow-wrap: anywhere; }
   .link { align-self: start; min-height: 24px; padding: 0; border: 0; background: none; color: oklch(var(--ring)); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .link:disabled { color: oklch(var(--muted-foreground)); cursor: not-allowed; text-decoration: none; }
-  .pricing { border-top: 1px solid oklch(var(--border)); padding-top: 4px; }
+  .pricing { border-top: 1px solid oklch(var(--border-subtle)); padding-top: 4px; }
   .pricing > :not(summary) { margin-top: 8px; }
   summary { cursor: pointer; min-height: 28px; line-height: 28px; font-weight: 600; }
   @container (max-width: 340px) { .inputs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

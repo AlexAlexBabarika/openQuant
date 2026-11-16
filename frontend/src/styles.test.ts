@@ -296,7 +296,7 @@ describe('compiled global selectors', () => {
         readFileSync(
           `${base}lib/components/ui/dialog/${name}.svelte`,
           'utf8',
-        ).match(/z-\[\d+\]/)![0],
+        ).match(/z-\(--[\w-]+\)/)![0],
     );
     const compiled = await compileCss(source, { base, onDependency() {} });
     const layerCss = postcss.parse(
@@ -305,9 +305,9 @@ describe('compiled global selectors', () => {
     );
     const layer = (className: string) =>
       Number(
-        declarations(`.${className.replace(/[\[\]]/g, '\\$&')}`, layerCss)[
+        declarations(`.${className.replace(/[()]/g, '\\$&')}`, layerCss)[
           'z-index'
-        ],
+        ].replace(/var\((--[\w-]+)\)/, (_, key) => declarations(':root')[key]),
       );
     for (const modal of modalLayers)
       expect(layer(popupLayer)).toBeGreaterThan(layer(modal));
@@ -516,9 +516,7 @@ describe('compiled global selectors', () => {
       background: 'oklch(var(--card))',
     });
     expect(ghost).toMatchObject({ color: 'oklch(var(--foreground))' });
-    expect(hover.background).toBe(
-      'color-mix(in oklab, oklch(var(--foreground)) 6%, transparent)',
-    );
+    expect(hover.background).toBe('oklch(var(--surface-hover))');
     expect(declarations('.ot-ctx-pill').color).toBe(
       'oklch(var(--muted-foreground))',
     );

@@ -26,7 +26,7 @@
 </section>
 
 <style>
-  .report-context { border-left: 2px solid oklch(var(--border)); padding: 8px 12px; margin-bottom: 16px; font-size: 12px; line-height: 16px; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
+  .report-context { border-left: 2px solid oklch(var(--border)); padding: 8px 12px; margin-bottom: 16px; font-size: var(--font-size-chrome); line-height: 16px; color: oklch(var(--muted-foreground)); overflow-wrap: anywhere; }
   p + p, details { margin-top: 6px; }
   strong, summary { color: oklch(var(--foreground)); }
   summary { cursor: pointer; }

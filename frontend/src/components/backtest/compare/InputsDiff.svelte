@@ -15,7 +15,7 @@
       <thead><tr class="text-left text-muted-foreground"><th scope="col">Input</th><th scope="col">A</th><th scope="col">B</th><th scope="col">Comparison</th></tr></thead>
       <tbody>
         {#each rows as r (r.path)}
-          <tr class="border-b border-border/50">
+          <tr class="border-b border-border-subtle/50">
             <th scope="row" class="py-1 text-left font-mono font-normal">{r.path}</th>
             <td class="max-w-64 break-words p-1 font-mono text-muted-foreground">{recordedValue(r.a, r.available?.a)}</td>
             <td class="max-w-64 break-words p-1 font-mono">{recordedValue(r.b, r.available?.b)}</td>

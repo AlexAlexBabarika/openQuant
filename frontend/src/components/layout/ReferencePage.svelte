@@ -27,8 +27,8 @@
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
+        color-mix(in oklab, oklch(var(--card)) 100%, black 4%),
+        color-mix(in oklab, oklch(var(--card)) 100%, black 10%)
       );
   }
 
@@ -38,7 +38,7 @@
     padding: 28px 32px 64px;
     color: oklch(var(--foreground));
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: var(--font-size-control);
     line-height: 1.65;
   }
 
@@ -49,7 +49,7 @@
       color-mix(in oklab, oklch(var(--border)) 90%, transparent);
   }
   .kicker {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -77,7 +77,7 @@
     align-items: baseline;
     gap: 8px;
     margin: 0 0 6px;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     letter-spacing: 0.06em;
   }
   article :global(.hash) {
@@ -87,7 +87,7 @@
   article :global(.dim) {
     margin: 0 0 10px;
     color: oklch(var(--muted-foreground));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
 
   article :global(.defs) {
@@ -105,7 +105,7 @@
     align-items: baseline;
     padding: 6px 10px;
     border-left: 2px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     background: color-mix(in oklab, oklch(var(--foreground)) 3%, transparent);
     border-radius: 0 4px 4px 0;
   }
@@ -123,10 +123,10 @@
     word-break: break-word;
   }
   article :global(.defs .type) {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     padding: 1px 6px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 999px;
     color: oklch(var(--muted-foreground));
   }
@@ -140,9 +140,9 @@
     margin: 2px 6px 2px 0;
     padding: 2px 8px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 3px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     color: oklch(var(--foreground));
     background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
   }
@@ -159,7 +159,7 @@
   }
   article :global(.example-title) {
     margin: 0 0 4px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -168,11 +168,11 @@
     margin: 0;
     padding: 12px 14px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
     overflow-x: auto;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.55;
   }
   article :global(pre code) { color: oklch(var(--foreground)); }

@@ -50,7 +50,7 @@
   .wf { display: flex; flex-direction: column; gap: 16px; padding: 12px 16px; }
   .aggregate { display: flex; gap: 12px; }
   .agg { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; border: 1px solid oklch(var(--border)); border-radius: 8px; }
-  .agg .lbl { font-size: 10px; color: oklch(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.08em; }
+  .agg .lbl { font-size: var(--font-size-annotation); color: oklch(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.08em; }
   .agg .val { font-size: 18px; font-weight: 600; }
   .agg.gap.alarm { border-color: oklch(var(--status-error)); color: oklch(var(--status-error)); }
   .bars { display: flex; gap: 10px; align-items: flex-end; min-height: 80px; }
@@ -59,9 +59,9 @@
   .bar { width: 10px; border-radius: 2px 2px 0 0; }
   .bar.is { background: oklch(var(--primary)); }
   .bar.oos { background: oklch(0.65 0.15 30); }
-  .wlabel { font-size: 10px; color: oklch(var(--muted-foreground)); }
-  .stability h4 { font-size: 12px; margin: 0 0 6px; }
-  .srow { display: grid; grid-template-columns: 80px 1fr auto; gap: 8px; font-size: 11px; padding: 3px 0; }
+  .wlabel { font-size: var(--font-size-annotation); color: oklch(var(--muted-foreground)); }
+  .stability h4 { font-size: var(--font-size-chrome); margin: 0 0 6px; }
+  .srow { display: grid; grid-template-columns: 80px 1fr auto; gap: 8px; font-size: var(--font-size-label); padding: 3px 0; }
   .srow.jumpy { color: oklch(var(--status-error)); }
   .sname { font-weight: 600; }
   .svals { color: oklch(var(--muted-foreground)); }

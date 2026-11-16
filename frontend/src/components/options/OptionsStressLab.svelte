@@ -115,8 +115,8 @@
 </section>
 
 <style>
-  .stress-tool { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; container-type: inline-size; }
-  h3, h4, p { margin: 0; } h3, h4 { font-size: 12px; } p { line-height: 1.5; overflow-wrap: anywhere; }
+  .stress-tool { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: var(--font-size-chrome); container-type: inline-size; }
+  h3, h4, p { margin: 0; } h3, h4 { font-size: var(--font-size-chrome); } p { line-height: 1.5; overflow-wrap: anywhere; }
   .note { color: oklch(var(--muted-foreground)); } .notice { border-left: 2px solid currentColor; padding-left: 8px; }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; }
   fieldset { min-width: 0; display: grid; gap: 8px; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; } legend { padding: 0 4px; }
@@ -126,7 +126,7 @@
   button { min-height: 28px; height: auto; white-space: normal; overflow-wrap: anywhere; } button:disabled { cursor: not-allowed; }
   :is(input, button, [tabindex]):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   .results { overflow: auto; max-height: 320px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
-  table { width: 100%; border-collapse: collapse; } td, th { padding: 6px; border-bottom: 1px solid oklch(var(--border)); text-align: right; } th:first-child { text-align: left; } td { white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; } td, th { padding: 6px; border-bottom: 1px solid oklch(var(--border-subtle)); text-align: right; } th:first-child { text-align: left; } td { white-space: nowrap; }
   @media (forced-colors: active) { fieldset, input, .results { border-color: CanvasText; } :is(input, button, [tabindex]):focus-visible { outline-color: Highlight; } input[aria-invalid="true"] { outline: 1px solid CanvasText; } }
   @media (pointer: coarse) { input, button { min-height: var(--control-touch-height); } }
 </style>

@@ -67,11 +67,11 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 2px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     font-variant-numeric: tabular-nums;
   }
   th {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -85,7 +85,7 @@
   }
   .year-cell {
     color: oklch(var(--foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
   }
   td {
     text-align: center;

@@ -366,8 +366,8 @@
         color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
         transparent 60%
       ),
-      color-mix(in oklab, oklch(var(--popover)) 96%, black 4%);
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
+    border-top: 1px solid oklch(var(--border-subtle));
     box-shadow:
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
       0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
@@ -381,7 +381,7 @@
     width: 18px;
     height: 18px;
     pointer-events: none;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .corner.tl { top: 12px; left: 12px; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
   .corner.tr { top: 12px; right: 12px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; }
@@ -404,7 +404,7 @@
     border-radius: 999px;
     background: oklch(var(--status-error));
     box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-error)) 22%, transparent);
-    transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
     align-self: center;
     justify-self: center;
     cursor: pointer;
@@ -433,8 +433,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 18px;
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    border-bottom: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
   .name-wrap {
     display: flex;
@@ -445,7 +445,7 @@
   }
   .name-prefix {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .name-input {
     flex: 1 1 auto;
@@ -455,12 +455,12 @@
     border-bottom: 1px solid transparent;
     padding: 4px 0;
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .name-input:hover {
     border-bottom-color:
@@ -472,7 +472,7 @@
   }
   .dirty {
     color: oklch(var(--primary));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1;
   }
 
@@ -488,19 +488,19 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
   .btn.ghost:hover:not(:disabled) {
-    border-color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -511,7 +511,6 @@
     letter-spacing: 0.1em;
   }
   .btn.primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
     transform: translateY(-1px);
   }
   .btn.primary:active:not(:disabled) { transform: translateY(0); }
@@ -519,9 +518,6 @@
     background: oklch(var(--destructive));
     border-color: oklch(var(--destructive));
     color: oklch(var(--destructive-foreground));
-  }
-  .btn.primary.stop:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--destructive)) 60%, transparent);
   }
 
   .split {
@@ -534,9 +530,9 @@
   .splitter {
     position: relative;
     cursor: ns-resize;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 8%);
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    background: color-mix(in oklab, oklch(var(--card)) 100%, black 8%);
+    border-top: 1px solid oklch(var(--border-subtle));
+    border-bottom: 1px solid oklch(var(--border-subtle));
     user-select: none;
     touch-action: none;
   }

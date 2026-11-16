@@ -329,7 +329,7 @@
               </button>
               <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
                 <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
-                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-[60] flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-lg">
+                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-(--z-popover) flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-popover">
                   <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => void newDraft())}>New strategy</button>
                   {#if onRobustness}<button type="button" class="btn ghost min-h-11" disabled={strat.isRunning || !symbol} onclick={() => void selectAction(onRobustness)}>Robustness</button>{/if}
                 </Popover.Content></Popover.Portal>
@@ -425,13 +425,13 @@
     flex-direction: column;
     color: oklch(var(--foreground));
     background: oklch(var(--card));
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-top: 1px solid oklch(var(--border-subtle));
     box-shadow:
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
       0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--font-size-body);
     line-height: 20px;
     overflow: hidden;
   }
@@ -451,8 +451,8 @@
   .embedded .body.options-mode { flex-shrink: 1; min-height: 0; }
   .options-host { min-width: 0; min-height: 0; }
   .options-host[hidden] { display: none; }
-  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
-  .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
+  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); }
+  .editor-views span { color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
   .compact-view { display: none; }
   .single .compact-view { display: inline-flex; }
   .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
@@ -465,8 +465,8 @@
   .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
   .editor-splitter:hover, .editor-splitter:focus-visible { background: oklch(var(--accent)); outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .results-pane { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); font-size: 11px; overflow-wrap: anywhere; }
-  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: 12px; }
+  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); overflow-wrap: anywhere; }
+  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); }
   .results-empty h2 { color: oklch(var(--foreground)); margin-bottom: 12px; }
   @media (max-width: 1100px) {
     .editing-panes { grid-template-columns: minmax(0, 1fr); }
@@ -494,8 +494,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 18px;
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    border-bottom: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
   .name-wrap {
     display: flex;
@@ -506,7 +506,7 @@
   }
   .name-prefix {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .name-input {
     flex: 1 1 auto;
@@ -516,12 +516,12 @@
     border-bottom: 1px solid transparent;
     padding: 4px 0;
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .name-input:hover {
     border-bottom-color:
@@ -533,7 +533,7 @@
   }
   .dirty {
     color: oklch(var(--primary));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1;
   }
 
@@ -559,19 +559,19 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
   .btn.ghost:hover:not(:disabled) {
     border-color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -605,7 +605,7 @@
   @media (max-width: 760px) {
     .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 12px; }
     .actions { flex-wrap: nowrap; gap: 6px; }
-    .actions .btn { min-height: 44px; font-size: 13px; }
+    .actions .btn { min-height: 44px; font-size: var(--font-size-control); }
     .wide-action { display: none; }
     .mobile-actions { display: flex; }
     .editor-views { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
@@ -614,7 +614,7 @@
     .editor-views .compact-view:first-of-type { grid-column: 1; }
     .editor-views .compact-view:nth-of-type(2) { grid-column: 2; }
     .editor-views button:not(.compact-view) { grid-column: 1 / -1; }
-    .editor-views > span { grid-column: 3; font-size: 11px; line-height: 14px; }
+    .editor-views > span { grid-column: 3; font-size: var(--font-size-label); line-height: 14px; }
     .editor-views > span:first-child { grid-row: 1; align-self: end; }
     .editor-views > span[role="status"] { grid-row: 2; align-self: start; }
   }

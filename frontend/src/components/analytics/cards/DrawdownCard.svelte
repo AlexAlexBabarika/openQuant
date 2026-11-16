@@ -98,13 +98,13 @@
     gap: 10px;
   }
   .lbl {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .val {
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--down-color));
     font-variant-numeric: tabular-nums;

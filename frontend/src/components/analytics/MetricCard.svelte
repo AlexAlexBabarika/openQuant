@@ -75,11 +75,11 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 6px;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 4%);
+    background: color-mix(in oklab, oklch(var(--card)) 100%, black 4%);
     overflow: hidden;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .card.err {
     border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
@@ -100,14 +100,14 @@
     flex: 1 1 auto;
   }
   .cat {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .title {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     font-weight: 600;
     color: oklch(var(--foreground));
     overflow: hidden;
@@ -122,12 +122,12 @@
     width: 22px;
     height: 22px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 4px;
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn:hover {
     color: oklch(var(--status-error));
@@ -139,18 +139,18 @@
     flex: 1 1 auto;
     min-height: 96px;
     padding: 10px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--foreground));
   }
   .empty {
     margin: 0;
     color: oklch(var(--muted-foreground));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   .err-msg {
     margin: 0;
     color: oklch(var(--status-error));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.45;
   }
   .err-msg.inline {
@@ -161,7 +161,7 @@
   }
   .placeholder {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.45;
     color: color-mix(in oklab, oklch(var(--foreground)) 75%, transparent);
     overflow: auto;
@@ -179,9 +179,9 @@
     border-radius: 3px;
     background: linear-gradient(
       90deg,
-      color-mix(in oklab, oklch(var(--foreground)) 6%, transparent) 0%,
+      oklch(var(--surface-hover)) 0%,
       color-mix(in oklab, oklch(var(--foreground)) 14%, transparent) 50%,
-      color-mix(in oklab, oklch(var(--foreground)) 6%, transparent) 100%
+      oklch(var(--surface-hover)) 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.4s linear infinite;

@@ -26,7 +26,7 @@
 </script>
 
 <div
-  class="absolute z-20 flex items-center gap-0.5 rounded-md border border-border bg-popover px-1 py-1 shadow-lg"
+  class="absolute z-20 flex items-center gap-0.5 rounded-md border border-border bg-popover px-1 py-1 shadow-popover"
   style:left="{anchor.x + OFFSET_X}px"
   style:top="{anchor.y + OFFSET_Y}px"
   role="toolbar"

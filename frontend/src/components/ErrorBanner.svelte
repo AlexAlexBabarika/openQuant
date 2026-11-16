@@ -31,7 +31,7 @@
     border-radius: 3px;
     background: color-mix(in oklab, oklch(var(--status-error)) 10%, transparent);
     color: oklch(var(--status-error));
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.02em;
     font-family: inherit;
     text-align: left;

@@ -125,28 +125,28 @@
     align-items: center;
     justify-content: center;
     width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 4px;
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn:hover {
     color: oklch(var(--foreground));
     border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .rail {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-right: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-right: 1px solid oklch(var(--border-subtle));
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
+        color-mix(in oklab, oklch(var(--card)) 100%, black 4%),
+        color-mix(in oklab, oklch(var(--card)) 100%, black 10%)
       );
   }
   .rail.page { background: oklch(var(--card)); }
@@ -155,7 +155,7 @@
     align-items: center;
     gap: 8px;
     padding: 14px 16px 10px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
@@ -166,9 +166,9 @@
   .rail-count {
     margin-left: 2px;
     padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 999px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--muted-foreground));
   }
   .rail-head .iconbtn { margin-left: auto; }
@@ -180,7 +180,7 @@
   }
   .rail-hint {
     margin: 12px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
@@ -203,7 +203,7 @@
     text-align: left;
     cursor: pointer;
     font-family: inherit;
-    transition: background 120ms ease, border-color 120ms ease;
+    transition: background var(--motion-fast), border-color var(--motion-fast);
   }
   .rail-item.with-status { grid-template-columns: 14px minmax(0, 1fr) auto; }
   .rail-item:hover {
@@ -243,10 +243,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: var(--font-size-control);
   }
   .ri-time {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--muted-foreground));
     letter-spacing: 0.04em;
   }
@@ -259,7 +259,7 @@
     border: 0;
     padding: 0;
     background: transparent;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
     border-radius: 3px;
     cursor: pointer;
     transition: opacity 120ms, color 120ms, background 120ms;
@@ -278,21 +278,21 @@
     gap: 12px;
     padding: 10px 16px;
     border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     letter-spacing: 0.06em;
     color: oklch(var(--muted-foreground));
   }
   .legend { display: inline-flex; align-items: center; gap: 6px; }
   .kbd {
     padding: 1px 5px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 3px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
     background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
   }
   @media (max-width: 760px) {
-    .rail { border-bottom: 1px solid oklch(var(--border)); }
+    .rail { border-bottom: 1px solid oklch(var(--border-subtle)); }
     .rail-head { padding: 8px 12px; }
     .rail-foot { display: none; }
   }
