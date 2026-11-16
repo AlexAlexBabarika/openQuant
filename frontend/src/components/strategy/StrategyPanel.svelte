@@ -25,6 +25,7 @@
   import SweepPanel from '../sweep/SweepPanel.svelte';
   import PortfolioPanel from './PortfolioPanel.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
+  import { formatIsoMinute } from '$lib/features/backtest/format';
   import DataQualityEvidence from '../backtest/DataQualityEvidence.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
   import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
@@ -367,7 +368,7 @@
           <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
           <div class="results-pane" class:inactive={editorView !== 'results'}>
             {#if completedResult === strat.backtest && strat.backtest?.result && completedMarket}
-              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval}<br />Completed {strat.backtest.result.meta.finished_at} · simulated</p>
+              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval}<br />Completed <time datetime={strat.backtest.result.meta.finished_at} title={strat.backtest.result.meta.finished_at}>{formatIsoMinute(strat.backtest.result.meta.finished_at)}</time> · simulated</p>
             {/if}
             {#if strat.backtest}
               <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />

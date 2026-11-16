@@ -107,3 +107,10 @@ export function formatIsoDate(iso: string | null | undefined): string {
   if (!iso) return EM_DASH;
   return iso.slice(0, 10);
 }
+
+/** An ISO-8601 timestamp as "YYYY-MM-DD HH:MM UTC". */
+export function formatIsoMinute(iso: string | null | undefined): string {
+  const date = new Date(iso ?? '');
+  if (Number.isNaN(date.getTime())) return EM_DASH;
+  return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
