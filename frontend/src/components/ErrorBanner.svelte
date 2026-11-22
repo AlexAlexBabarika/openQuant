@@ -27,9 +27,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 4px 10px;
-    border: 1px solid color-mix(in oklab, oklch(var(--status-error)) 50%, transparent);
-    border-radius: 3px;
-    background: color-mix(in oklab, oklch(var(--status-error)) 10%, transparent);
+    border: 1px solid oklch(var(--status-error-border));
+    border-radius: var(--radius-sm);
+    background: oklch(var(--status-error-wash));
     color: oklch(var(--status-error));
     font-size: var(--font-size-label);
     letter-spacing: 0.02em;

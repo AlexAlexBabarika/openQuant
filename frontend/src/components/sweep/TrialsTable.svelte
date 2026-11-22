@@ -77,7 +77,7 @@
     color: oklch(var(--foreground));
     background: transparent;
     border: 1px solid oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
   }
   .controls button {
     padding: 2px 8px;
@@ -85,7 +85,7 @@
     color: oklch(var(--foreground));
     background: transparent;
     border: 1px solid oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     cursor: pointer;
   }
   .count { margin-left: auto; }
@@ -93,5 +93,5 @@
   th, td { text-align: right; padding: 4px 10px; border-bottom: 1px solid oklch(var(--border) / 0.4); }
   th { position: sticky; top: 0; z-index: 1; background: oklch(var(--card)); }
   tr.best { background: oklch(var(--primary) / 0.12); }
-  .open { font-size: var(--font-size-label); padding: 2px 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: transparent; color: oklch(var(--foreground)); cursor: pointer; }
+  .open { font-size: var(--font-size-label); padding: 2px 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: transparent; color: oklch(var(--foreground)); cursor: pointer; }
 </style>

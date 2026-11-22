@@ -329,7 +329,7 @@
 </Dialog.Root>
 
 <style>
-  .tool-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; text-align: left; background: oklch(var(--background)); border: 1px solid oklch(var(--border)); border-radius: 4px; cursor: pointer; }
+  .tool-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; text-align: left; background: oklch(var(--background)); border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); cursor: pointer; }
   .tool-card:hover { background: oklch(var(--accent)); }
   .toolbox-trigger { position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%); z-index: 40; }
   .pull-handle:focus-visible, button:focus-visible {

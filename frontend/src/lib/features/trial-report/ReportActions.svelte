@@ -85,5 +85,5 @@
   button:focus-visible, input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
   .notice { font-size: 0.8rem; max-width: 75ch; color: oklch(var(--muted-foreground)); margin: 0.75rem 0; }
   label { display: block; margin-bottom: 0.4rem; }
-  input { width: 100%; padding: 0.65rem; border: 1px solid currentColor; border-radius: 0.3rem; font: inherit; background: transparent; color: inherit; }
+  input { width: 100%; padding: 0.65rem; border: 1px solid currentColor; border-radius: var(--radius-md); font: inherit; background: transparent; color: inherit; }
 </style>

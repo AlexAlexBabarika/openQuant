@@ -44,7 +44,7 @@
   .lbl {
     width: 88px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.14em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--foreground-tertiary));
   }

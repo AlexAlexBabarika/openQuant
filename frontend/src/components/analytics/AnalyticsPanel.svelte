@@ -256,7 +256,7 @@
     background:
       radial-gradient(
         1200px 600px at 20% -200px,
-        color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
+        oklch(var(--surface-selected)),
         transparent 60%
       ),
       color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
@@ -264,7 +264,7 @@
       oklch(var(--border));
     box-shadow:
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent)
+      0 -1px 0 0 oklch(var(--surface-hover))
         inset;
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
@@ -317,7 +317,7 @@
     gap: 8px;
     padding: 12px 14px;
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
     color: oklch(var(--muted-foreground));
   }
   .search input {
@@ -347,7 +347,7 @@
   .group-head {
     padding: 8px 10px 4px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.18em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -362,7 +362,7 @@
     padding: 8px 10px;
     margin: 0 0 2px;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--foreground));
     text-align: left;
@@ -373,10 +373,10 @@
       border-color var(--motion-fast);
   }
   .row:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .row.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
+    background: oklch(var(--surface-selected));
     border-color: transparent;
   }
   .row.active::before {
@@ -437,9 +437,9 @@
     gap: 12px;
     padding: 10px 14px;
     border-top: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--muted-foreground));
   }
   .legend {
@@ -451,10 +451,10 @@
     padding: 1px 5px;
     border: 1px solid
       oklch(var(--border));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
 
   .work {
@@ -468,7 +468,7 @@
     padding: 24px;
     color: oklch(var(--muted-foreground));
     font-size: var(--font-size-control);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .grid {
     display: grid;

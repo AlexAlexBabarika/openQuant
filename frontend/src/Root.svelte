@@ -30,7 +30,7 @@
 {/if}
 
 <style>
-  aside { padding: 12px 18px; background: oklch(var(--muted)); color: oklch(var(--foreground)); font: 11px/1.6 var(--font-mono); border-bottom: 1px solid oklch(var(--border-subtle)); }
+  aside { padding: 12px 18px; background: oklch(var(--muted)); color: oklch(var(--foreground)); font: var(--font-size-label)/1.6 var(--font-mono); border-bottom: 1px solid oklch(var(--border-subtle)); }
   aside:target { outline: 2px solid oklch(var(--primary)); outline-offset: -2px; }
   aside a { color: inherit; text-decoration: underline; margin-left: .5rem; }
 </style>

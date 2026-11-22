@@ -46,17 +46,17 @@
     margin-bottom: 28px;
     padding-bottom: 18px;
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .kicker {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.18em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   h1 {
     margin: 4px 0 6px;
-    font-size: 22px;
+    font-size: var(--font-size-display);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
@@ -78,7 +78,7 @@
     gap: 8px;
     margin: 0 0 6px;
     font-size: var(--font-size-control);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
   }
   article :global(.hash) {
     color: oklch(var(--primary));
@@ -106,7 +106,7 @@
     padding: 6px 10px;
     border-left: 2px solid
       oklch(var(--border));
-    background: color-mix(in oklab, oklch(var(--foreground)) 3%, transparent);
+    background: oklch(var(--surface-hover));
     border-radius: 0 4px 4px 0;
   }
   article :global(.defs li.block) {
@@ -141,10 +141,10 @@
     padding: 2px 8px;
     border: 1px solid
       oklch(var(--border));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     font-size: var(--font-size-label);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
 
   article :global(.bullets) {
@@ -160,7 +160,7 @@
   article :global(.example-title) {
     margin: 0 0 4px;
     font-size: var(--font-size-label);
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -169,7 +169,7 @@
     padding: 12px 14px;
     border: 1px solid
       oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: oklch(var(--surface-sunken));
     overflow-x: auto;
     font-size: var(--font-size-chrome);

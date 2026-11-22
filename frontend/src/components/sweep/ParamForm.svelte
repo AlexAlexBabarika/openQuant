@@ -121,7 +121,7 @@
   legend {
     padding: 0 6px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.16em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -136,13 +136,13 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
     font-size: var(--font-size-chrome);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
     transition: all var(--motion-fast);
   }
@@ -156,7 +156,7 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
     transform: translateY(-1px);

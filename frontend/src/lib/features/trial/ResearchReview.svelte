@@ -108,7 +108,7 @@
   summary { cursor: pointer; font-size: var(--font-size-chrome); }
   summary:focus-visible { outline: 2px solid oklch(var(--primary)); outline-offset: 2px; }
   label { display: block; font-size: var(--font-size-label); margin: 12px 0 6px; }
-  select, textarea { width: 100%; font: inherit; color: oklch(var(--foreground)); background: oklch(var(--background)); border: 1px solid oklch(var(--input)); border-radius: 4px; padding: 6px 8px; }
+  select, textarea { width: 100%; font: inherit; color: oklch(var(--foreground)); background: oklch(var(--background)); border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); padding: 6px 8px; }
   textarea { resize: vertical; }
   select:focus-visible, textarea:focus-visible { outline: 2px solid oklch(var(--primary)); outline-offset: 2px; }
 </style>

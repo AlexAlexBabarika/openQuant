@@ -72,7 +72,7 @@
   }
   th {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     font-weight: 600;
@@ -90,7 +90,7 @@
   td {
     text-align: center;
     padding: 6px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     color: oklch(var(--foreground));
     min-width: 44px;
   }

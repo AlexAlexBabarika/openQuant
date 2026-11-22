@@ -101,7 +101,7 @@
   }
   .lbl {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.16em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--foreground-tertiary));
   }

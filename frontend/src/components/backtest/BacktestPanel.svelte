@@ -238,7 +238,7 @@
     gap: 16px;
     padding: 14px 22px;
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
     background: oklch(var(--card));
   }
   .brand {
@@ -246,7 +246,7 @@
     align-items: baseline;
     gap: 8px;
     font-size: var(--font-size-control);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .brand-mark {
     color: oklch(var(--primary));
@@ -265,21 +265,21 @@
     align-items: baseline;
     gap: 10px;
     padding: 4px 10px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+    border: 1px dashed oklch(var(--border));
     border-radius: 999px;
     font-size: var(--font-size-label);
     color: oklch(var(--muted-foreground));
   }
   .ctx-label {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.18em;
+    letter-spacing: var(--tracking-wide);
     color: oklch(var(--foreground-tertiary));
   }
   .ctx-sym {
     color: oklch(var(--foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
   }
   .iconbtn {
     flex-shrink: 0;
@@ -289,7 +289,7 @@
     width: 26px;
     height: 26px;
     border: 1px solid oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
@@ -329,7 +329,7 @@
     padding: 24px;
     color: oklch(var(--muted-foreground));
     font-size: var(--font-size-control);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
   }
   .err {
     color: oklch(var(--down-color));

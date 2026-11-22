@@ -363,14 +363,14 @@
     background:
       radial-gradient(
         1200px 600px at 20% -200px,
-        color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
+        oklch(var(--surface-selected)),
         transparent 60%
       ),
       color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
     border-top: 1px solid oklch(var(--border-subtle));
     box-shadow:
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
+      0 -1px 0 0 oklch(var(--surface-hover)) inset;
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
     overflow: hidden;
@@ -403,7 +403,7 @@
     height: 8px;
     border-radius: 999px;
     background: oklch(var(--status-error));
-    box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-error)) 22%, transparent);
+    box-shadow: 0 0 0 2px oklch(var(--status-error-wash));
     transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
     align-self: center;
     justify-self: center;
@@ -468,7 +468,7 @@
   }
   .name-input:focus {
     border-bottom-color:
-      color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+      oklch(var(--primary-border));
   }
   .dirty {
     color: oklch(var(--primary));
@@ -487,13 +487,13 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
     font-size: var(--font-size-chrome);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
     transition: all var(--motion-fast);
   }
@@ -509,7 +509,7 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -538,7 +538,7 @@
     touch-action: none;
   }
   .splitter:hover, .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .grip {
     position: absolute;
@@ -595,7 +595,7 @@
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
     box-shadow: 0 0 0 2px
-      color-mix(in oklab, oklch(var(--primary)) 22%, transparent);
+      oklch(var(--surface-selected));
   }
   :global(html:not(.dark)) .work-head {
     background: oklch(var(--card));

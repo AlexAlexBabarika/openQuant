@@ -115,7 +115,7 @@
     color: oklch(var(--muted-foreground));
     font-family: inherit;
     font-size: var(--font-size-chrome);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
     transition: color var(--motion-fast);
   }

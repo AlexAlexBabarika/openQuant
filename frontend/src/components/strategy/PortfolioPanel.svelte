@@ -293,7 +293,7 @@
     align-items: center;
     gap: 8px;
     font-size: var(--font-size-label);
-    letter-spacing: 0.18em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -311,7 +311,7 @@
     color: oklch(var(--muted-foreground));
     font-family: inherit;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
   }
   .linkbtn:hover { color: oklch(var(--foreground)); text-decoration: underline; }
@@ -325,17 +325,17 @@
     min-width: 0;
     padding: 7px 10px;
     border: 1px solid oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: oklch(var(--surface-sunken));
     color: oklch(var(--foreground));
     font-family: inherit;
     font-size: var(--font-size-chrome);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     outline: none;
     transition: border-color var(--motion-fast);
   }
   .universe-input input:focus {
-    border-color: color-mix(in oklab, oklch(var(--primary)) 70%, transparent);
+    border-color: oklch(var(--primary-border));
   }
 
   .hint {
@@ -348,7 +348,7 @@
     font-size: var(--font-size-label);
     padding: 1px 4px;
     border: 1px solid oklch(var(--border));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 
   .chips {
@@ -365,9 +365,9 @@
     border-radius: 999px;
     font-size: var(--font-size-label);
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .chip-x {
     display: inline-flex;
@@ -383,7 +383,7 @@
   }
   .chip-x:hover {
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
+    background: oklch(var(--status-error-wash));
   }
 
   .card-foot {
@@ -399,11 +399,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 4px 10px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     font-size: var(--font-size-label);
   }
   .banner.ok {
-    border: 1px solid color-mix(in oklab, oklch(var(--primary)) 45%, transparent);
+    border: 1px solid oklch(var(--primary-border));
     background: oklch(var(--surface-selected));
     color: oklch(var(--foreground));
   }
@@ -413,13 +413,13 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
     font-size: var(--font-size-chrome);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
     transition: all var(--motion-fast);
   }
@@ -434,7 +434,7 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -450,17 +450,17 @@
     flex-direction: column;
     gap: 4px;
     padding: 10px 12px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 6px;
+    border: 1px dashed oklch(var(--border));
+    border-radius: var(--radius-lg);
   }
   .stat-label {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.14em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   .stat-value {
-    font-size: 15px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
   }
@@ -472,7 +472,7 @@
   }
   .sharpes-title {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.14em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }

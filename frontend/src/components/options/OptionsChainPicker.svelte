@@ -217,14 +217,14 @@
 </section>
 
 <style>
-  .chain { container-type: inline-size; display: grid; gap: 8px; min-width: 0; font: 12px var(--font-sans); color: oklch(var(--foreground)); }
+  .chain { container-type: inline-size; display: grid; gap: 8px; min-width: 0; font: var(--font-size-chrome) var(--font-sans); color: oklch(var(--foreground)); }
   h3, h4, p { margin: 0; } h3, h4 { font-size: var(--font-size-chrome); } p, li, small { overflow-wrap: anywhere; line-height: 1.5; } p, small { color: oklch(var(--muted-foreground)); } small { font-size: var(--font-size-chrome); }
-  form, fieldset { min-width: 0; display: grid; gap: 8px; } fieldset { margin: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; } legend { padding: 0 4px; font-weight: 600; }
+  form, fieldset { min-width: 0; display: grid; gap: 8px; } fieldset { margin: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); } legend { padding: 0 4px; font-weight: 600; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; min-width: 0; }
   label { display: grid; gap: 4px; min-width: 0; line-height: 1.5; } .check { display: flex; align-items: start; gap: 8px; } .check input { width: auto; flex: 0 0 auto; min-height: auto; margin-top: 3px; }
-  input, select { box-sizing: border-box; min-width: 0; width: 100%; min-height: 32px; padding: 5px 7px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
+  input, select { box-sizing: border-box; min-width: 0; width: 100%; min-height: var(--control-height); padding: 5px 7px; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
   input[type="number"], td { font-variant-numeric: tabular-nums; }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; } button { height: auto; min-height: 28px; white-space: normal; overflow-wrap: anywhere; justify-self: start; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; } button { height: auto; min-height: var(--control-height-compact); white-space: normal; overflow-wrap: anywhere; justify-self: start; }
   .notice { padding: 8px; border: 1px solid oklch(var(--border)); color: oklch(var(--foreground)); } .error { color: oklch(var(--foreground)); } [aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .table-scroll { max-width: 100%; max-height: 360px; overflow: auto; border: 1px solid oklch(var(--border)); }
   table { border-collapse: collapse; width: 100%; } caption { padding: 6px; text-align: left; } th, td { text-align: right; padding: 6px; border-bottom: 1px solid oklch(var(--border-subtle)); vertical-align: top; white-space: nowrap; } thead th { position: sticky; top: 0; background: oklch(var(--card)); } tbody th { text-align: left; font-weight: 400; } td small { display: block; white-space: normal; max-width: 260px; }

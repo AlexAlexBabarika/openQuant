@@ -35,7 +35,7 @@
   .lvl {
     width: 36px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.16em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--foreground-tertiary));
   }
@@ -51,7 +51,7 @@
   .n {
     margin-top: 4px;
     font-size: var(--font-size-label);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground-tertiary));
   }
 </style>

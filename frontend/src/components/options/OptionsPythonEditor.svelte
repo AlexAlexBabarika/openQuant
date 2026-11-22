@@ -140,7 +140,7 @@
   .options-python { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); }
   .actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
   .heading { font-family: var(--font-mono); font-size: var(--font-size-label); overflow-wrap: anywhere; }
-  .code-region { height: 360px; min-height: 240px; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; overflow: hidden; }
+  .code-region { height: 360px; min-height: 240px; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); overflow: hidden; }
   .code-region :global(.cm-tooltip) { background: oklch(var(--card)); color: oklch(var(--popover-foreground)); border-color: oklch(var(--border)); }
   .code-region :global(.cm-tooltip-autocomplete ul li[aria-selected="true"]) { background: oklch(var(--accent)); color: oklch(var(--accent-foreground)); }
   .code-region :global(.cm-completionInfo) { font-family: var(--font-sans); font-size: var(--font-size-chrome); line-height: 1.5; }
@@ -148,7 +148,7 @@
   code, pre { font-family: var(--font-mono); }
   .editor-error { color: oklch(var(--down-color)); font-size: var(--font-size-chrome); line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
   .console { display: grid; gap: 8px; min-width: 0; border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; }
-  pre { max-height: 200px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; padding: 8px; background: oklch(var(--background)); font-size: var(--font-size-chrome); line-height: 1.6; }
+  pre { max-height: 200px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); padding: 8px; background: oklch(var(--background)); font-size: var(--font-size-chrome); line-height: 1.6; }
   pre:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   @media (forced-colors: active) { .code-region, pre { border-color: CanvasText; } pre:focus-visible { outline-color: Highlight; } .editor-error { color: CanvasText; } }
 </style>

@@ -583,7 +583,7 @@
   h2 { margin-bottom: 8px; }
   h3 { margin-bottom: 12px; }
   p { margin: 0 0 12px; }
-  .badge { border: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); border-radius: 3px; padding: 2px 6px; font-size: var(--font-size-annotation); letter-spacing: .04em; white-space: nowrap; }
+  .badge { border: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); border-radius: var(--radius-sm); padding: 2px 6px; font-size: var(--font-size-annotation); letter-spacing: var(--tracking-label); white-space: nowrap; }
   .workbench { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; }
   .configuration { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid oklch(var(--border-subtle)); background: oklch(var(--card)); }
   .config-scroll { min-height: 0; flex: 1; overflow-y: auto; padding: 18px; }
@@ -592,7 +592,7 @@
   .run-controls span { font-size: var(--font-size-annotation); }
   form { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
   label, legend { font-size: var(--font-size-label); font-weight: 600; }
-  input, select, textarea { width: 100%; min-height: 36px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
+  input, select, textarea { width: 100%; min-height: 36px; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; padding: 6px 8px; }
   textarea { resize: vertical; }
   fieldset { display: flex; flex-direction: column; gap: 8px; padding: 14px 0 0; margin: 0 0 8px; border: 0; border-top: 1px solid oklch(var(--border-subtle)); }
   legend { padding: 0 6px 0 0; }
@@ -608,7 +608,7 @@
   .notice p { margin-bottom: 8px; }
   .error { color: oklch(var(--down-color)); }
   .result-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  .result-heading h2 { font-size: 20px; line-height: 28px; }
+  .result-heading h2 { font-size: 20px; line-height: var(--control-height-compact); }
   .result-heading p { margin: 0; }
   .metric-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid oklch(var(--border)); margin-bottom: 18px; }
   .metric-strip > div { display: flex; flex-direction: column; gap: 4px; padding: 12px; background: oklch(var(--muted) / .4); }

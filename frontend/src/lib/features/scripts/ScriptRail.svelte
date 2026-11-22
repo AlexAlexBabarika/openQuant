@@ -126,7 +126,7 @@
     justify-content: center;
     width: 26px; height: 26px;
     border: 1px solid oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
@@ -134,7 +134,7 @@
   }
   .iconbtn:hover {
     color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
+    border-color: oklch(var(--primary-border));
     background: oklch(var(--surface-selected));
   }
   .rail {
@@ -156,11 +156,11 @@
     gap: 8px;
     padding: 14px 16px 10px;
     font-size: var(--font-size-label);
-    letter-spacing: 0.18em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
   .rail-count {
@@ -197,7 +197,7 @@
     padding: 8px 10px;
     margin: 0 0 2px;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--foreground));
     text-align: left;
@@ -207,10 +207,10 @@
   }
   .rail-item.with-status { grid-template-columns: 14px minmax(0, 1fr) auto; }
   .rail-item:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .rail-item.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
+    background: oklch(var(--surface-selected));
     border-color: transparent;
   }
   .rail-item.active::before {
@@ -248,7 +248,7 @@
   .ri-time {
     font-size: var(--font-size-annotation);
     color: oklch(var(--muted-foreground));
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .ri-del {
     display: inline-flex;
@@ -260,14 +260,14 @@
     padding: 0;
     background: transparent;
     color: oklch(var(--foreground-tertiary));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: opacity 120ms, color 120ms, background 120ms;
   }
   .page .ri-del { color: oklch(var(--muted-foreground)); }
   .ri-del:hover {
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
+    background: oklch(var(--status-error-wash));
   }
   .page .ri-del:hover {
     color: oklch(var(--down-color));
@@ -277,19 +277,19 @@
     display: flex;
     gap: 12px;
     padding: 10px 16px;
-    border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+    border-top: 1px dashed oklch(var(--border));
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--muted-foreground));
   }
   .legend { display: inline-flex; align-items: center; gap: 6px; }
   .kbd {
     padding: 1px 5px;
     border: 1px solid oklch(var(--border));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
   @media (max-width: 760px) {
     .rail { border-bottom: 1px solid oklch(var(--border-subtle)); }

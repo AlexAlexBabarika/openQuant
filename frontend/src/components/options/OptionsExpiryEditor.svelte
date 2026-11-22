@@ -66,13 +66,13 @@
 </section>
 
 <style>
-  .expiry-editor { min-width: 0; display: grid; gap: 8px; padding: 10px; color: oklch(var(--foreground)); font-family: var(--font-sans); border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  .expiry-editor { min-width: 0; display: grid; gap: 8px; padding: 10px; color: oklch(var(--foreground)); font-family: var(--font-sans); border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   h3, h4, p { margin: 0; } h3 { font-size: var(--font-size-control); } h4 { font-size: var(--font-size-chrome); }
   p, small { color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); overflow-wrap: anywhere; }
   fieldset { min-width: 0; border: 0; padding: 0; display: grid; gap: 8px; } legend { font-size: var(--font-size-chrome); padding: 4px 0; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 8px; }
-  label { display: grid; gap: 4px; min-width: 0; font-size: var(--font-size-chrome); } input, select { width: 100%; min-width: 0; min-height: 28px; padding: 4px 6px; border: 1px solid oklch(var(--border)); border-radius: 4px; color: oklch(var(--foreground)); background: oklch(var(--background)); }
-  .leg { display: grid; gap: 6px; border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; } button { white-space: normal; height: auto; min-height: 28px; justify-self: start; }
+  label { display: grid; gap: 4px; min-width: 0; font-size: var(--font-size-chrome); } input, select { width: 100%; min-width: 0; min-height: var(--control-height-compact); padding: 4px 6px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); color: oklch(var(--foreground)); background: oklch(var(--background)); }
+  .leg { display: grid; gap: 6px; border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; } button { white-space: normal; height: auto; min-height: var(--control-height-compact); justify-self: start; }
   summary { cursor: pointer; font-size: var(--font-size-chrome); padding: 6px 0; } :is(input, select, button, summary):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   [aria-invalid="true"] { border-color: oklch(var(--destructive)); } @media (forced-colors: active) { :is(input, select, button, summary):focus-visible { outline-color: Highlight; } [aria-invalid="true"] { outline: 1px solid CanvasText; } }
   @media (pointer: coarse) { input, select, button { min-height: var(--control-touch-height); } }

@@ -38,7 +38,7 @@
   }
   .group {
     border: 1px solid oklch(var(--border));
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: oklch(var(--card));
     overflow: hidden;
   }
@@ -50,7 +50,7 @@
     text-transform: none;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .rows {
     margin: 0;

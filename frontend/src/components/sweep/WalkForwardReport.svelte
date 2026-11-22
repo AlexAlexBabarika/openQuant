@@ -50,8 +50,8 @@
   .wf { display: flex; flex-direction: column; gap: 16px; padding: 12px 16px; }
   .aggregate { display: flex; gap: 12px; }
   .agg { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; border: 1px solid oklch(var(--border)); border-radius: 8px; }
-  .agg .lbl { font-size: var(--font-size-annotation); color: oklch(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.08em; }
-  .agg .val { font-size: 18px; font-weight: 600; }
+  .agg .lbl { font-size: var(--font-size-annotation); color: oklch(var(--muted-foreground)); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+  .agg .val { font-size: var(--font-size-display); font-weight: 600; }
   .agg.gap.alarm { border-color: oklch(var(--status-error)); color: oklch(var(--status-error)); }
   .bars { display: flex; gap: 10px; align-items: flex-end; min-height: 80px; }
   .window { display: flex; flex-direction: column; align-items: center; gap: 4px; }

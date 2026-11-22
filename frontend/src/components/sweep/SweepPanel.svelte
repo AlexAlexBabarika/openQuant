@@ -127,13 +127,13 @@
   legend {
     padding: 0 6px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.16em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   .status { display: flex; align-items: center; gap: 12px; font-size: var(--font-size-chrome); }
   .status progress { flex: 0 0 200px; }
-  .status button { padding: 2px 10px; font: inherit; font-size: var(--font-size-label); color: oklch(var(--foreground)); background: transparent; border: 1px solid oklch(var(--border)); border-radius: 4px; cursor: pointer; }
+  .status button { padding: 2px 10px; font: inherit; font-size: var(--font-size-label); color: oklch(var(--foreground)); background: transparent; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); cursor: pointer; }
   .badge { padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-annotation); text-transform: uppercase; border: 1px solid oklch(var(--border)); }
   .badge.done { color: oklch(var(--primary)); }
   .badge.error { color: oklch(var(--status-error)); }

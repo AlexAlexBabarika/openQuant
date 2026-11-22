@@ -431,7 +431,7 @@
     border-top: 1px solid oklch(var(--border-subtle));
     box-shadow:
       0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
+      0 -1px 0 0 oklch(var(--surface-hover)) inset;
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
     font-size: var(--font-size-body);
@@ -456,8 +456,8 @@
   .options-host[hidden] { display: none; }
   .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .editor-views span { color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
-  .view-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--surface-sunken)); }
-  .view-switch button { border: 0; border-radius: 3px; padding: 4px 12px; background: transparent; color: oklch(var(--muted-foreground)); font: var(--font-size-chrome) var(--font-sans); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
+  .view-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: oklch(var(--surface-sunken)); }
+  .view-switch button { border: 0; border-radius: var(--radius-sm); padding: 4px 12px; background: transparent; color: oklch(var(--muted-foreground)); font: var(--font-size-chrome) var(--font-sans); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
   .view-switch button:hover { color: oklch(var(--foreground)); }
   .view-switch button[aria-pressed="true"] { background: oklch(var(--accent)); color: oklch(var(--accent-foreground)); font-weight: 600; }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
@@ -533,7 +533,7 @@
   }
   .name-input:focus {
     border-bottom-color:
-      color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+      oklch(var(--primary-border));
   }
   .dirty {
     color: oklch(var(--primary));
@@ -562,13 +562,13 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
     font-size: var(--font-size-chrome);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
     transition: all var(--motion-fast);
   }
@@ -584,7 +584,7 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
     background: color-mix(in oklab, oklch(var(--primary)) 94%, oklch(var(--primary-foreground)));

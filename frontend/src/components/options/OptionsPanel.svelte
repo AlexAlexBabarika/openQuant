@@ -258,7 +258,7 @@
   .status[data-status="invalid"] i, .status[data-status="error"] i { background: oklch(var(--down-color)); }
   .status[data-status="invalid"], .status[data-status="error"] { color: oklch(var(--foreground)); }
   /* Reserve the Cancel button's height so the panel doesn't shift while an update runs. */
-  .run-actions { min-height: 32px; }
+  .run-actions { min-height: var(--control-height); }
   .run-actions, .mode-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .panel-scroll { min-height: 0; flex: 1; overflow: auto; padding: 12px; scrollbar-gutter: stable; }
   p { line-height: 1.5; margin: 8px 0; overflow-wrap: anywhere; }
@@ -275,8 +275,8 @@
   .mode-row button[aria-pressed="true"] { background: oklch(var(--accent)); box-shadow: inset 0 -2px oklch(var(--primary)); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: oklch(var(--foreground)); }
   .field > span:first-child { line-height: 1.4; }
-  input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
-  input { min-height: 32px; }
+  input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
+  input { min-height: var(--control-height); }
   input[type="number"] { font-size: var(--font-size-chrome); font-variant-numeric: tabular-nums; }
   input:focus-visible, summary:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
@@ -285,7 +285,7 @@
   .hint { font-size: var(--font-size-chrome); margin: 0; }
   h3 { font-size: var(--font-size-chrome); font-weight: 600; margin: 8px 0; overflow-wrap: anywhere; }
   .configuration { border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; }
-  summary { cursor: pointer; min-height: 28px; line-height: 28px; }
+  summary { cursor: pointer; min-height: var(--control-height-compact); line-height: var(--control-height-compact); }
   .configuration > :not(summary) { margin-top: 8px; }
   .submitted-source { font-family: var(--font-mono); }
   .export-controls { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid oklch(var(--border-subtle)); }
@@ -294,7 +294,7 @@
   .evidence-heading { margin: 12px 0 8px; }
   .evidence-heading span { font-size: var(--font-size-label); }
   .summary-grid, .greeks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; margin: 8px 0; }
-  .summary-grid > div, .greeks-grid > div { min-width: 0; border: 1px solid oklch(var(--border)); padding: 8px; border-radius: 4px; }
+  .summary-grid > div, .greeks-grid > div { min-width: 0; border: 1px solid oklch(var(--border)); padding: 8px; border-radius: var(--radius-md); }
   dt { color: oklch(var(--muted-foreground)); line-height: 1.5; }
   dd { font-variant-numeric: tabular-nums; margin: 4px 0 0; font-size: var(--font-size-body); overflow-wrap: anywhere; }
   .greeks-grid small { display: block; margin-top: 5px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); line-height: 1.5; }

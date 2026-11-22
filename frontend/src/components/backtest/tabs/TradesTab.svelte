@@ -150,12 +150,12 @@
     text-align: left;
     padding: 8px 12px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     background: color-mix(in oklab, oklch(var(--card)) 100%, black 6%);
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
     user-select: none;
     white-space: nowrap;
   }
@@ -189,7 +189,7 @@
   }
   tbody tr:hover,
   tbody tr.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .num {
     text-align: right;
@@ -197,7 +197,7 @@
   .side {
     text-transform: uppercase;
     font-size: var(--font-size-label);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
   }
   .side.buy {
     color: oklch(var(--up-color));

@@ -27,7 +27,7 @@
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 1px;
-    background: color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+    background: oklch(var(--border));
     border-bottom: 1px solid
       oklch(var(--border));
   }

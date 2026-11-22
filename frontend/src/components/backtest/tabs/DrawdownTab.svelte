@@ -74,12 +74,12 @@
     text-align: left;
     padding: 7px 12px;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.12em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     background: color-mix(in oklab, oklch(var(--card)) 100%, black 6%);
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   td {
     padding: 6px 12px;

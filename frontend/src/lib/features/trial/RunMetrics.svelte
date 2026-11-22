@@ -20,7 +20,7 @@
 </div>
 
 <style>
-  .table-scroll { overflow-x: auto; border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  .table-scroll { overflow-x: auto; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   .table-scroll:focus-visible { outline: 2px solid oklch(var(--primary)); outline-offset: 4px; }
   table { width: 100%; border-collapse: collapse; text-align: right; color: oklch(var(--foreground)); font-size: 0.8rem; }
   caption { padding: 1rem; text-align: left; color: oklch(var(--muted-foreground)); background: oklch(var(--muted)); font-size: 0.75rem; }

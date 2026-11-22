@@ -119,14 +119,14 @@
   }
   .lbl {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.16em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--foreground-tertiary));
   }
   .self {
     font-size: var(--font-size-label);
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground));
   }
 
@@ -145,9 +145,9 @@
     border-radius: 999px;
     font-size: var(--font-size-label);
     line-height: 1;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
+    background: oklch(var(--surface-hover));
     font-family: inherit;
   }
   .chip-name {
@@ -170,7 +170,7 @@
   }
   .chip-x:hover {
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 18%, transparent);
+    background: oklch(var(--status-error-wash));
   }
   .chip.add {
     padding: 2px 8px 2px 6px;
@@ -185,12 +185,12 @@
   }
   .chip.add:hover {
     color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
+    border-color: oklch(var(--primary-border));
     background: oklch(var(--surface-selected));
   }
   .add-lbl {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.12em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
   }
 
@@ -208,16 +208,16 @@
     padding: 10px 6px;
     border: 1px solid
       oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     font-variant-numeric: tabular-nums;
   }
   .cell.pending {
     border-style: dashed;
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .bench {
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.12em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 60%, transparent);
   }

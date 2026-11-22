@@ -207,7 +207,7 @@
     gap: 12px;
     padding: 10px 16px;
     font-size: var(--font-size-label);
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-label);
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 80%, transparent);
     background: oklch(var(--surface-sunken));
@@ -288,7 +288,7 @@
     color: oklch(var(--muted-foreground));
     font-size: var(--font-size-label);
     text-transform: lowercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .meta .num {
     color: oklch(var(--foreground));
@@ -299,11 +299,11 @@
     padding: 0 5px;
     margin: 0 1px;
     border: 1px solid oklch(var(--border));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     font-family: inherit;
     font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
@@ -344,7 +344,7 @@
     color: oklch(var(--foreground));
     background: oklch(var(--surface-hover));
     padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 
   .block {
@@ -357,7 +357,7 @@
     margin-bottom: 4px;
     color: oklch(var(--muted-foreground));
     font-size: var(--font-size-label);
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
   .prefix {
@@ -385,8 +385,8 @@
   .trace {
     margin: 0;
     padding: 10px 12px;
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-    border-left: 2px solid color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    background: oklch(var(--surface-hover));
+    border-left: 2px solid oklch(var(--status-error-border));
     border-radius: 0 4px 4px 0;
     font-family: inherit;
     font-size: var(--font-size-chrome);
@@ -396,14 +396,14 @@
     color: color-mix(in oklab, oklch(var(--foreground)) 92%, transparent);
   }
   .stdout .trace {
-    border-left-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
+    border-left-color: oklch(var(--primary-border));
   }
 
   .table-block .table-scroll {
     max-height: 360px;
     overflow: auto;
     border: 1px solid oklch(var(--border));
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: oklch(var(--surface-sunken));
   }
   table {
@@ -425,7 +425,7 @@
     color: oklch(var(--muted-foreground));
     font-weight: 600;
     font-size: var(--font-size-label);
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     border-bottom: 1px solid oklch(var(--border-subtle));
   }
@@ -440,8 +440,8 @@
     margin: 0;
     padding: 8px 14px;
     list-style: none;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 4px;
+    border: 1px dashed oklch(var(--border));
+    border-radius: var(--radius-md);
     color: oklch(var(--muted-foreground));
   }
   .deferred .deferred-list li {

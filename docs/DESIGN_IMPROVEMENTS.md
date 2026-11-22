@@ -273,15 +273,44 @@ Checked in both themes with the frontend dev server and mocked API responses
   across the bar and pushed the close button onto a second row. The bar is now
   a flex row with the context pill centred.
 
+- **Backtest header.** The `/ simulated results · no real orders` line is
+  removed.
+- **Token cleanup.**
+  - Radii: hardcoded 2, 3, 4 and 6px use `--radius-sm`, `--radius-md` and
+    `--radius-lg`. The radius steps moved to a `@theme static` block so they
+    are emitted as variables for scoped CSS.
+  - Letter-spacing: 0.04 to 0.1em use `--tracking-label` (0.06em); 0.12 to
+    0.18em use `--tracking-wide` (0.16em).
+  - Font sizes: `font:` shorthands use the size tokens; 15px moved to
+    `--font-size-title`, 18 and 22px to a new `--font-size-display` (20px).
+  - Control heights: 28px and 32px use `--control-height-compact` and
+    `--control-height`.
+  - Colour mixes: hover washes (3 to 8% foreground) use `--surface-hover`;
+    primary washes (8 to 22%) use `--surface-selected`; primary borders (45 to
+    80%) use `--primary-border`; error washes and borders use
+    `--status-error-wash` and `--status-error-border`; `--border` at 90% is
+    plain `--border`.
+
+### Decisions
+
+- **Action colour: lime stays.** Lime is for the run action and the brand;
+  selection and active states are neutral.
+- **Uppercase labels stay** on the run buttons, the `SRC` value and the
+  `WORKSPACE STRATEGY` badge.
+
 ### Not migrated, and why
 
 - **Local stacking and the select primitive.** `z-10`, `z-20`, `z-50` and
   small scoped `z-index` values order elements inside one component; they are
   not app layers.
-- **Hardcoded radii, letter-spacing, line heights and odd font sizes** (15, 18,
-  20, 22px and `rem` values). Not yet touched.
-- **Other colour mixes.** One-off percentages (for example primary at 8, 12,
-  18, 50, 60 and 80%) need a decision on which levels to keep.
+- **The robustness-examples pages** (`lib/features/trial`, `trial-report`).
+  They size type in `rem` throughout, so their font sizes were left alone.
+- **Chart legend sizes, 8px and larger radii, pills, line heights.** Left as
+  they are.
+- **Remaining colour mixes.** Foreground at 55 to 92% (secondary text), 11 to
+  30% (separators and borders), mixes onto an opaque base, and the stream-dot
+  pulse.
+- **Tailwind arbitrary classes** such as `text-[10px]` in markup.
 - **Light-theme overrides.** About 70 `html:not(.dark)` rules restyle overlay
   panels for light mode and are pinned by tests. Folding them into tokens is a
   separate piece of work.
@@ -301,6 +330,7 @@ checked: populated sweep, options and portfolio results, forced colours, and
 - Chrome height, remaining steps: the embedded backtest header and the data
   context row. Both need a product decision (what the header must always state,
   and whether the data row may collapse outside the chart view).
-- The remaining uppercase labels from item 2.
+- Remaining lime outside the run action (name-field focus line, the active
+  keyline, selected-row washes), to bring in line with the decision above.
 - The action-colour decision (lime or neutral), then the palette retune.
 - Update `FRONTEND_DESIGN.md` to describe the tokens.

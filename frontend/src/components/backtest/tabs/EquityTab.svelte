@@ -60,7 +60,7 @@
   .swatch {
     width: 12px;
     height: 3px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
   .benchmark {
     background: none;
@@ -75,7 +75,7 @@
   .sub-label {
     padding: 4px 14px 0;
     font-size: var(--font-size-annotation);
-    letter-spacing: 0.16em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }

@@ -49,7 +49,7 @@
   .comparison { display: grid; gap: 8px; min-width: 0; }
   header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 8px; }
-  article { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  article { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   p, small, li, caption { font-size: var(--font-size-chrome); overflow-wrap: anywhere; color: oklch(var(--muted-foreground)); }
   p, ul, dl { margin: 0; }
   ul { padding-left: 16px; }
