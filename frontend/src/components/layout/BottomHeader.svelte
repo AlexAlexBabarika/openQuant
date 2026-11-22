@@ -97,7 +97,7 @@
         onclick={onopenindicators}
         title="Open indicators workbench"
       >
-        <Activity class="h-3 w-3 text-primary" />
+        <Activity class="h-3 w-3" />
         <span>Indicators</span>
       </button>
     {/if}
@@ -109,7 +109,7 @@
         onclick={onopenanalytics}
         title="Open analytics workbench"
       >
-        <Sigma class="h-3 w-3 text-primary" />
+        <Sigma class="h-3 w-3" />
         <span>Analytics</span>
       </button>
     {/if}

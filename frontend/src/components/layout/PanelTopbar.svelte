@@ -240,5 +240,6 @@
   }
   @media (forced-colors: active) {
     button:focus-visible { outline-color: Highlight; }
+    .tabs .tab.active { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   }
 </style>

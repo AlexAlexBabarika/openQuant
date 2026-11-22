@@ -80,7 +80,7 @@
     {/if}
 
     {#if info}
-      <div class="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">
+      <div class="rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground">
         {info}
       </div>
     {/if}
@@ -122,7 +122,7 @@
         Don't have an account?
         <button
           type="button"
-          class="underline text-primary hover:text-primary/80"
+          class="underline text-foreground hover:text-muted-foreground"
           onclick={switchMode}
         >
           Sign up
@@ -131,7 +131,7 @@
         Already have an account?
         <button
           type="button"
-          class="underline text-primary hover:text-primary/80"
+          class="underline text-foreground hover:text-muted-foreground"
           onclick={switchMode}
         >
           Sign in

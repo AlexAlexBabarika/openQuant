@@ -188,6 +188,10 @@
   .task-link:hover { color: oklch(var(--foreground)); background: oklch(var(--accent)); }
   .task-link[aria-current] { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--foreground)); }
   .task-link:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
+  @media (forced-colors: active) {
+    .task-link { border-bottom-color: Canvas; }
+    .task-link[aria-current] { border-bottom-color: Highlight; }
+  }
   .context-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .context-label { font: var(--font-size-chrome) var(--font-sans); color: oklch(var(--muted-foreground)); }
   .stream-control[aria-pressed="true"] { border-color: oklch(var(--status-ok)); }

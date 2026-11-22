@@ -59,7 +59,7 @@
       type="button"
       title={findLongLabel(fav)}
       class="px-2 h-7 rounded-sm font-mono text-[11px] lowercase tracking-[0.04em] transition-colors {value === fav
-        ? 'bg-accent text-accent-foreground'
+        ? 'bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
         : 'text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground'}"
       onclick={() => selectValue(fav)}
     >

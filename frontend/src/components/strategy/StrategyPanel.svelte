@@ -626,5 +626,6 @@
   }
   @media (forced-colors: active) {
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
+    .view-switch button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   }
 </style>

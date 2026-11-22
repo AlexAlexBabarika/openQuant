@@ -309,6 +309,15 @@ Checked in both themes with the frontend dev server and mocked API responses
   button. The "clear all drawables" button is a quiet bin icon instead of a
   solid red square.
 
+- **More lime removed.** The tool icons in the bottom bar and the links and
+  notice in the sign-in dialog are neutral.
+- **Light selected fill.** Light `--accent` is slightly deeper (`#DCE7F8`) so
+  selected tabs and rows are visible on white.
+- **Forced colours.** The current navigation link, the active panel tab, the
+  pressed view segment and the selected interval and range use the system
+  highlight colours. Before, selection was only a fill, which forced-colours
+  mode removes.
+
 ### Decisions
 
 - **Action colour: lime stays.** Lime is for the run action and the brand;
@@ -340,16 +349,21 @@ Checked in both themes with the frontend dev server and mocked API responses
 
 Opened with mocked data and no backend, so sweep, options and portfolio showed
 their error or empty states: chart, strategy (editor, results, split), options,
-sweep, portfolio, docs, robustness, the indicators and analytics panels. Not
-checked: populated sweep, options and portfolio results, forced colours, and
-200% zoom.
+sweep, portfolio, docs, robustness, the indicators and analytics panels. The
+chart, strategy results and analytics panel were also checked in forced
+colours and at 200% zoom (no horizontal overflow). Not checked: populated
+sweep, options and portfolio results.
+
+### Left as they are
+
+- Lime in the walk-forward in-sample bars (a chart colour, which
+  `FRONTEND_DESIGN.md` says UI work must not change) and the docs page accents.
+- `--border-subtle`, `--surface-raised` and `--surface-sunken` keep their
+  first values; nothing in the checked views argued for changing them.
 
 ### Next
 
-- Lime still used outside the run action: the tool icons in the bottom bar,
-  links and the notice in the sign-in dialog, the in-sample bars in the
-  walk-forward report, and the docs page accents.
-- Tune the first-pass values of `--border-subtle`, `--surface-raised` and
-  `--surface-sunken`, and the pale selected fill in light mode.
 - Check populated sweep, options and portfolio results against a running
-  backend, plus forced colours and 200% zoom.
+  backend. They have only been seen in empty or error states.
+- Forced colours: selected list rows and option buttons outside the places
+  listed above still rely on a fill.
