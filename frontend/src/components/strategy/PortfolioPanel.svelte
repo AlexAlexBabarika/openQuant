@@ -281,7 +281,7 @@
   .card {
     border: 1px solid oklch(var(--border));
     border-radius: 8px;
-    background: color-mix(in oklab, oklch(var(--card)) 100%, black 3%);
+    background: oklch(var(--background));
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
@@ -490,31 +490,4 @@
     color: oklch(var(--muted-foreground));
   }
   .dim { color: oklch(var(--foreground-tertiary)); }
-
-  /* Light theme, mirroring StrategyPanel chrome. */
-  :global(html:not(.dark)) .card {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .universe-input input {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .btn.primary {
-    background: oklch(var(--primary));
-    color: oklch(var(--primary-foreground));
-  }
-  :global(html:not(.dark)) .chip { border-color: oklch(var(--foreground)); color: oklch(var(--foreground)); }
-  :global(html:not(.dark)) .count { border-color: oklch(var(--foreground)); color: oklch(var(--foreground)); }
-  :global(html:not(.dark)) .stat { border-color: oklch(var(--foreground)); }
 </style>

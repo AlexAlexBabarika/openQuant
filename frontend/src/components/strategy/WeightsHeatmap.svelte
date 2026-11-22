@@ -116,8 +116,4 @@
   .swatch.short { background: rgba(239, 68, 68, 0.85); }
   .swatch.short { margin-left: 8px; }
 
-  :global(html:not(.dark)) svg {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
 </style>

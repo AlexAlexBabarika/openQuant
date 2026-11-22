@@ -445,19 +445,17 @@ describe('compiled global selectors', () => {
     expect(declarations('.ri-time', rail).color).toBe(
       'oklch(var(--muted-foreground))',
     );
-    // Overlay panels: status red in dark, destructive and inverted in light.
+    // Overlay panels: status red in both themes, from the themed token.
+    expect(declarations('.rail-hint.err', rail).color).toBe(
+      'oklch(var(--status-error))',
+    );
+    expect(declarations('.ri-del:hover', rail).color).toBe(
+      'oklch(var(--status-error))',
+    );
     const light = 'html:not(.dark) .rail:not(.page)';
-    expect(declarations(`${light} .rail-hint.err`, rail).color).toBe(
-      'oklch(var(--destructive))',
-    );
-    expect(declarations(`${light} .ri-del`, rail).color).toBe(
-      'oklch(var(--foreground))',
-    );
-    expect(declarations(`${light} .ri-del:hover`, rail)).toMatchObject({
-      background: 'oklch(var(--foreground))',
-      color: 'oklch(var(--card))',
-    });
-    // Workspace pages: loss red in both themes, no light inversion.
+    for (const selector of ['.rail-hint.err', '.ri-del', '.ri-del:hover'])
+      expect(declarations(`${light} ${selector}`, rail)).toEqual({});
+    // Workspace pages: loss red in both themes.
     expect(declarations('.page .rail-hint.err', rail).color).toBe(
       'oklch(var(--down-color))',
     );

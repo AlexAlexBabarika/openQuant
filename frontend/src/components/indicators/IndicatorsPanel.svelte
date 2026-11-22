@@ -360,17 +360,9 @@
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
-    background:
-      radial-gradient(
-        1200px 600px at 20% -200px,
-        oklch(var(--primary) / 10%),
-        transparent 60%
-      ),
-      color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
+    background: oklch(var(--card));
     border-top: 1px solid oklch(var(--border-subtle));
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 oklch(var(--surface-hover)) inset;
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
     overflow: hidden;
@@ -530,7 +522,7 @@
   .splitter {
     position: relative;
     cursor: ns-resize;
-    background: color-mix(in oklab, oklch(var(--card)) 100%, black 8%);
+    background: oklch(var(--background));
     border-top: 1px solid oklch(var(--border-subtle));
     border-bottom: 1px solid oklch(var(--border-subtle));
     user-select: none;
@@ -578,47 +570,8 @@
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Light theme: pure white chrome, no greys, no top vignette.       */
-  /* The default styles above target dark mode; this block strips the */
-  /* radial-gradient halo, the heavy upward box-shadow, and every     */
-  /* color-mix(...black...) grey wash from the panel surfaces.        */
-  /* ---------------------------------------------------------------- */
-  :global(html:not(.dark)) .panel {
-    background: oklch(var(--card));
-    box-shadow:
-      0 -1px 0 0 oklch(var(--foreground)) inset,
-      0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid oklch(var(--foreground));
-  }
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
     box-shadow: 0 0 0 2px oklch(var(--primary) / 22%);
-  }
-  :global(html:not(.dark)) .work-head {
-    background: oklch(var(--card));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: oklch(var(--foreground));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .splitter {
-    background: oklch(var(--card));
-    border-top: 1px solid oklch(var(--foreground));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .splitter:hover,
-  :global(html:not(.dark)) .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 14%, oklch(var(--card)));
-  }
-  :global(html:not(.dark)) .grip i {
-    background: oklch(var(--foreground));
   }
 </style>

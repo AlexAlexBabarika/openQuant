@@ -253,19 +253,10 @@
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
-    background:
-      radial-gradient(
-        1200px 600px at 20% -200px,
-        oklch(var(--primary) / 10%),
-        transparent 60%
-      ),
-      color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
+    background: oklch(var(--card));
     border-top: 1px solid
       oklch(var(--border));
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 oklch(var(--surface-hover))
-        inset;
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
     overflow: hidden;
@@ -304,11 +295,7 @@
     min-height: 0;
     border-right: 1px solid
       oklch(var(--border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, oklch(var(--card)) 100%, black 4%),
-      color-mix(in oklab, oklch(var(--card)) 100%, black 10%)
-    );
+    background: oklch(var(--card));
   }
 
   .search {
@@ -496,28 +483,4 @@
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
-  :global(html:not(.dark)) .panel {
-    background: oklch(var(--card));
-    box-shadow:
-      0 -1px 0 0 oklch(var(--foreground)) inset,
-      0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail {
-    background: oklch(var(--card));
-    border-right: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .search {
-    border-bottom: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-foot {
-    border-top: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
 </style>

@@ -196,10 +196,6 @@
     font-family: var(--font-mono);
     color: oklch(var(--foreground));
   }
-  :global(html:not(.dark)) .console {
-    background: oklch(var(--card));
-    border-top: 1px solid oklch(var(--foreground));
-  }
 
   .status {
     display: flex;
@@ -211,50 +207,6 @@
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 80%, transparent);
     background: oklch(var(--surface-sunken));
-  }
-  :global(html:not(.dark)) .status {
-    background: oklch(var(--card));
-    border-bottom: 1px dashed oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .meta { color: oklch(var(--foreground)); opacity: 0.7; }
-  :global(html:not(.dark)) .tone-ok { color: oklch(var(--primary)); }
-  :global(html:not(.dark)) .tone-err,
-  :global(html:not(.dark)) .text-line.tone-error,
-  :global(html:not(.dark)) .text-line.tone-error .prefix {
-    color: oklch(var(--destructive));
-  }
-  :global(html:not(.dark)) .meta kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .empty-line .ink {
-    background: oklch(var(--card));
-    color: oklch(var(--foreground));
-    border: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .block-title { color: oklch(var(--foreground)); opacity: 1; }
-  :global(html:not(.dark)) .trace {
-    background: oklch(var(--card));
-    border-left: 2px solid oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .table-block .table-scroll {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) th {
-    background: oklch(var(--card));
-    color: oklch(var(--foreground));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) tbody tr:nth-child(odd) td { background: oklch(var(--card)); }
-  :global(html:not(.dark)) tbody tr:hover td {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, oklch(var(--card)));
-  }
-  :global(html:not(.dark)) .deferred .deferred-list {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
   }
   .dot {
     width: 8px;

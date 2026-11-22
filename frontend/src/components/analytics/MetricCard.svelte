@@ -77,7 +77,7 @@
     min-width: 0;
     border: 1px solid oklch(var(--border));
     border-radius: var(--radius-lg);
-    background: color-mix(in oklab, oklch(var(--card)) 100%, black 4%);
+    background: oklch(var(--background));
     overflow: hidden;
     transition: border-color var(--motion-fast);
   }
@@ -198,15 +198,4 @@
     }
   }
 
-  :global(html:not(.dark)) .card {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .card-head {
-    border-bottom-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
 </style>

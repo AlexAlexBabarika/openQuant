@@ -24,12 +24,7 @@
   .docs {
     height: 100%;
     overflow-y: auto;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, oklch(var(--card)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--card)) 100%, black 10%)
-      );
+    background: oklch(var(--card));
   }
 
   article {
@@ -176,26 +171,4 @@
     line-height: 1.55;
   }
   article :global(pre code) { color: oklch(var(--foreground)); }
-
-  /* Light theme: pure white surfaces, black hairlines, no greys. */
-  :global(html:not(.dark)) .docs { background: oklch(var(--card)); }
-  :global(html:not(.dark)) .hero { border-bottom: 1px dashed oklch(var(--foreground)); }
-  :global(html:not(.dark)) article :global(.defs li) {
-    background: oklch(var(--card));
-    border-left: 2px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) article :global(.defs .type) {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) article :global(.tag) {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) article :global(pre) {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
 </style>

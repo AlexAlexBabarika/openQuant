@@ -83,9 +83,8 @@ font sizes, letter-spacing, radii, shadows and easing.
 
 ### 7. Drop the gimmicks
 
-The glitch effect on the error dialog title (`components/layout/GlitchText.svelte`)
-undermines trust in a tool whose pitch is reproducible results. Errors should
-be the calmest, clearest surface in the app.
+This item came from a screenshot dated August. The error dialog no longer used
+the glitch effect; `GlitchText.svelte` was unused and has been deleted.
 
 ### 8. Give the brand a real mark
 
@@ -298,12 +297,28 @@ Checked in both themes with the frontend dev server and mocked API responses
   the portfolio success banner use status colours. `--primary-border` is gone.
 - **`FRONTEND_DESIGN.md`** has a design tokens section.
 
+- **Light theme.** The `html:not(.dark)` rules that gave overlay panels a
+  separate ink-on-white look are removed, apart from the running-indicator dot.
+  Indicators, analytics, portfolio and the docs pages now use the same themed
+  tokens in light mode as the rest of the app. The panels' green haze and
+  heavy upward shadow, and the "card plus black" fills and gradients, are
+  replaced by `--card`, `--background` and `--elevation-dialog` in both themes.
+- **Glitch effect.** `GlitchText.svelte` was unused; deleted.
+- **Polish.** The Tools bar is a slim centred dock handle. The empty watchlist
+  has an `Add a symbol` button and the empty results pane a `Run backtest`
+  button. The "clear all drawables" button is a quiet bin icon instead of a
+  solid red square.
+
 ### Decisions
 
 - **Action colour: lime stays.** Lime is for the run action and the brand;
   selection and active states are neutral.
 - **Uppercase labels stay** on the run buttons, the `SRC` value and the
   `WORKSPACE STRATEGY` badge.
+- **Logo:** the stock candlestick icon stays.
+- **Data context row stays visible in every view.** It holds the symbol,
+  interval, source and range a backtest or robustness run uses, so collapsing
+  it would hide the inputs to the run for about 45px of height.
 
 ### Not migrated, and why
 
@@ -318,9 +333,6 @@ Checked in both themes with the frontend dev server and mocked API responses
   30% (separators and borders), mixes onto an opaque base, and the stream-dot
   pulse.
 - **Tailwind arbitrary classes** such as `text-[10px]` in markup.
-- **Light-theme overrides.** About 70 `html:not(.dark)` rules restyle overlay
-  panels for light mode and are pinned by tests. Folding them into tokens is a
-  separate piece of work.
 - **Spacing.** No token added; Tailwind's scale exists and scoped CSS uses raw
   pixels.
 
@@ -334,11 +346,10 @@ checked: populated sweep, options and portfolio results, forced colours, and
 
 ### Next
 
-- Chrome height, remaining steps: the embedded backtest header and the data
-  context row. Both need a product decision (what the header must always state,
-  and whether the data row may collapse outside the chart view).
-- Lime still used outside the run action: the green haze behind the indicators
-  and analytics panels, the tool icons in the bottom bar, links and the notice
-  in the sign-in dialog, the in-sample bars in the walk-forward report, and the
-  docs page accents.
-- The action-colour decision (lime or neutral), then the palette retune.
+- Lime still used outside the run action: the tool icons in the bottom bar,
+  links and the notice in the sign-in dialog, the in-sample bars in the
+  walk-forward report, and the docs page accents.
+- Tune the first-pass values of `--border-subtle`, `--surface-raised` and
+  `--surface-sunken`, and the pale selected fill in light mode.
+- Check populated sweep, options and portfolio results against a running
+  backend, plus forced colours and 200% zoom.

@@ -161,15 +161,6 @@
   .btn.primary:hover:not(:disabled) {
     transform: translateY(-1px);
   }
-  :global(html:not(.dark)) .btn {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn.primary {
-    background: oklch(var(--primary));
-    color: oklch(var(--primary-foreground));
-  }
   .run {
     margin-left: auto;
   }

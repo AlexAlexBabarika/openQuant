@@ -99,5 +99,4 @@
   }
   .bar.short { background: oklch(var(--down-color)); }
 
-  :global(html:not(.dark)) th { border-bottom-color: oklch(var(--foreground)); }
 </style>

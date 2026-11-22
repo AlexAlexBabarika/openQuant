@@ -241,33 +241,4 @@
   @media (forced-colors: active) {
     button:focus-visible { outline-color: Highlight; }
   }
-
-  /* Light theme on an overlay panel: pure white surfaces, dark hairlines. */
-  :global(html:not(.dark)) .topbar:not(.page) {
-    background: oklch(var(--card));
-    border-bottom: 1px dashed oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .ctx {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .ctx-label,
-  :global(html:not(.dark)) .topbar:not(.page) .ctx-sep {
-    color: oklch(var(--foreground));
-    opacity: 0.55;
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .tabs {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .iconbtn:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
 </style>

@@ -142,14 +142,8 @@
     flex-direction: column;
     min-height: 0;
     border-right: 1px solid oklch(var(--border-subtle));
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, oklch(var(--card)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--card)) 100%, black 10%)
-      );
+    background: oklch(var(--card));
   }
-  .rail.page { background: oklch(var(--card)); }
   .rail-head {
     display: flex;
     align-items: center;
@@ -295,47 +289,5 @@
     .rail { border-bottom: 1px solid oklch(var(--border-subtle)); }
     .rail-head { padding: 8px 12px; }
     .rail-foot { display: none; }
-  }
-
-  /* Light theme on an overlay panel: pure white surfaces, dark hairlines. */
-  :global(html:not(.dark)) .rail:not(.page) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .iconbtn:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) {
-    background: oklch(var(--card));
-    border-right: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-head {
-    border-bottom: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-hint.err {
-    color: oklch(var(--destructive));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .ri-del {
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .ri-del:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-count {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-foot {
-    border-top: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
   }
 </style>

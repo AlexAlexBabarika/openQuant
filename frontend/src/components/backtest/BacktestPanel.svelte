@@ -204,7 +204,7 @@
     background: oklch(var(--card));
     border-top: 1px solid
       oklch(var(--border));
-    box-shadow: 0 -30px 60px -20px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
     font-size: var(--font-size-body);

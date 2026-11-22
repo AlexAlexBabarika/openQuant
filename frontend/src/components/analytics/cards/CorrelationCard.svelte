@@ -238,10 +238,4 @@
     color: oklch(var(--muted-foreground));
   }
 
-  :global(html:not(.dark)) .cell {
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .chip {
-    border-color: oklch(var(--foreground));
-  }
 </style>

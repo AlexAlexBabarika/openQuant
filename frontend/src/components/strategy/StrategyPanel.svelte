@@ -429,9 +429,7 @@
     color: oklch(var(--foreground));
     background: oklch(var(--card));
     border-top: 1px solid oklch(var(--border-subtle));
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 oklch(var(--surface-hover)) inset;
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
     font-size: var(--font-size-body);
@@ -629,8 +627,4 @@
   @media (forced-colors: active) {
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
-
-  /* ---------------------------------------------------------------- */
-  /* Light theme: pure white chrome, mirroring IndicatorsPanel.        */
-  /* ---------------------------------------------------------------- */
 </style>

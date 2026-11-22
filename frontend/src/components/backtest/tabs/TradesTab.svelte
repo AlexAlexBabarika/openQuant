@@ -153,7 +153,7 @@
     letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--card)) 100%, black 6%);
+    background: oklch(var(--background));
     border-bottom: 1px dashed
       oklch(var(--border));
     user-select: none;
