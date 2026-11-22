@@ -220,7 +220,7 @@
 </script>
 
 <Dialog.Root bind:open onOpenChangeComplete={value => { if (!value) { modal.close(); void tick().then(focusTrigger); } }}>
-    <Dialog.Trigger bind:ref={triggerEl} type="button" class="toolbox-trigger ot-workbench-ghost" aria-label="Open toolbox" style="visibility: {open ? 'hidden' : 'visible'}; transition-property: color, background-color, border-color, box-shadow" inert={open}>Tools</Dialog.Trigger>
+    <Dialog.Trigger bind:ref={triggerEl} type="button" class="toolbox-trigger flex min-h-7 w-full shrink-0 items-center justify-center gap-1.5 border-t border-border-subtle bg-background text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground pointer-coarse:min-h-11" aria-label="Open toolbox" style="visibility: {open ? 'hidden' : 'visible'}" inert={open}><ChevronUp class="h-3 w-3" aria-hidden="true" /><span>Tools</span></Dialog.Trigger>
   <Dialog.Portal disabled={typeof window === 'undefined'}>
     <Dialog.Overlay>
       {#snippet child({ props })}
@@ -331,7 +331,6 @@
 <style>
   .tool-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; text-align: left; background: oklch(var(--background)); border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); cursor: pointer; }
   .tool-card:hover { background: oklch(var(--accent)); }
-  .toolbox-trigger { position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%); z-index: 40; }
   .pull-handle:focus-visible, button:focus-visible {
     outline: 2px solid oklch(var(--foreground));
     outline-offset: 2px;

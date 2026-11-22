@@ -4,7 +4,7 @@
   import Crosshair from '@lucide/svelte/icons/crosshair';
   import Check from '@lucide/svelte/icons/check';
   import Settings from '@lucide/svelte/icons/settings';
-  import X from '@lucide/svelte/icons/x';
+  import Trash2 from '@lucide/svelte/icons/trash-2';
   import {
     CROSSHAIR_MODES,
     type CrosshairModeName,
@@ -233,15 +233,12 @@
   <div class="mt-auto flex flex-col items-center pt-2">
     <button
       type="button"
-      class="flex items-center justify-center w-8 h-8 rounded-sm bg-destructive hover:bg-destructive/90 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight] shrink-0"
+      class="flex items-center justify-center w-8 h-8 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight] shrink-0"
       aria-label="Clear all drawables on chart"
       title="Clear all drawables"
       onclick={clearDrawablesForChart}
     >
-      <X
-        class="h-4 w-4 text-white dark:text-zinc-950"
-        strokeWidth={2.5}
-      />
+      <Trash2 class="h-4 w-4" />
     </button>
   </div>
 </div>

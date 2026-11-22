@@ -148,7 +148,8 @@
         {:else if selectedPriority}
           No tickers with this priority.
         {:else}
-          No symbols yet. Click + to add one.
+          <p>No symbols yet.</p>
+          <button type="button" class="ot-workbench-ghost mt-2" onclick={onaddticker}>Add a symbol</button>
         {/if}
       </div>
     {:else}

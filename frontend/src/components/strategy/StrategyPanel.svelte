@@ -376,7 +376,7 @@
             {#if strat.backtest}
               <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />
             {:else}
-              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p></div>
+              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p><button type="button" class="ot-workbench-ghost mt-3" onclick={runNow} disabled={strat.isRunning || !symbol}>Run backtest</button></div>
             {/if}
           </div>
           </div>
