@@ -132,7 +132,7 @@
     right: 8px;
     bottom: -1px;
     height: 2px;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 2px 2px 0 0;
   }
   .pane {

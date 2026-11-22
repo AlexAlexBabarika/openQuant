@@ -256,7 +256,7 @@
     background:
       radial-gradient(
         1200px 600px at 20% -200px,
-        oklch(var(--surface-selected)),
+        oklch(var(--primary) / 10%),
         transparent 60%
       ),
       color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
@@ -387,7 +387,7 @@
     transform: translateY(-50%);
     width: 2px;
     height: 60%;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 0 2px 2px 0;
     pointer-events: none;
   }
@@ -403,9 +403,8 @@
       box-shadow var(--motion-fast);
   }
   .dot.on {
-    background: oklch(var(--primary));
-    box-shadow: 0 0 0 2px
-      color-mix(in oklab, oklch(var(--primary)) 28%, transparent);
+    background: oklch(var(--status-ok));
+    box-shadow: 0 0 0 2px oklch(var(--status-ok) / 28%);
   }
 
   .row-text {

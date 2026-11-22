@@ -186,11 +186,11 @@
   .task-navigation { display: flex; align-items: center; align-self: stretch; gap: 4px; }
   .task-link { background: transparent; border: 0; border-bottom: 2px solid transparent; color: oklch(var(--muted-foreground)); padding: 6px 10px; font: 600 var(--font-size-control) var(--font-sans); cursor: pointer; }
   .task-link:hover { color: oklch(var(--foreground)); background: oklch(var(--accent)); }
-  .task-link[aria-current] { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--primary)); }
+  .task-link[aria-current] { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--foreground)); }
   .task-link:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .context-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .context-label { font: var(--font-size-chrome) var(--font-sans); color: oklch(var(--muted-foreground)); }
-  .stream-control[aria-pressed="true"] { border-color: oklch(var(--primary)); }
+  .stream-control[aria-pressed="true"] { border-color: oklch(var(--status-ok)); }
   .request-status { font: var(--font-size-label) var(--font-mono); color: oklch(var(--muted-foreground)); }
   @media (max-width: 760px) {
     .global-row { flex-wrap: wrap; gap: 4px; padding: 6px 8px; }

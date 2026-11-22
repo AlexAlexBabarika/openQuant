@@ -335,7 +335,7 @@
     transition: border-color var(--motion-fast);
   }
   .universe-input input:focus {
-    border-color: oklch(var(--primary-border));
+    border-color: oklch(var(--ring));
   }
 
   .hint {
@@ -403,8 +403,8 @@
     font-size: var(--font-size-label);
   }
   .banner.ok {
-    border: 1px solid oklch(var(--primary-border));
-    background: oklch(var(--surface-selected));
+    border: 1px solid oklch(var(--status-ok) / 60%);
+    background: oklch(var(--status-ok) / 12%);
     color: oklch(var(--foreground));
   }
 

@@ -161,7 +161,7 @@
               <button
                 type="button"
                 class="ot-keyline-host ot-keyline-flush relative flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition-colors {isLoaded
-                  ? 'ot-keyline-active bg-primary/[0.08]'
+                  ? 'ot-keyline-active bg-accent'
                   : ''}"
                 aria-current={isLoaded ? 'true' : undefined}
                 onclick={() => onselectticker(ticker.symbol)}

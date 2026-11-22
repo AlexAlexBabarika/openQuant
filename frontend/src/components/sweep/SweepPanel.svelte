@@ -135,7 +135,7 @@
   .status progress { flex: 0 0 200px; }
   .status button { padding: 2px 10px; font: inherit; font-size: var(--font-size-label); color: oklch(var(--foreground)); background: transparent; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); cursor: pointer; }
   .badge { padding: 2px 8px; border-radius: 999px; font-size: var(--font-size-annotation); text-transform: uppercase; border: 1px solid oklch(var(--border)); }
-  .badge.done { color: oklch(var(--primary)); }
+  .badge.done { color: oklch(var(--status-ok)); }
   .badge.error { color: oklch(var(--status-error)); }
   .err { color: oklch(var(--status-error)); }
 </style>

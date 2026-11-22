@@ -363,7 +363,7 @@
     background:
       radial-gradient(
         1200px 600px at 20% -200px,
-        oklch(var(--surface-selected)),
+        oklch(var(--primary) / 10%),
         transparent 60%
       ),
       color-mix(in oklab, oklch(var(--card)) 96%, black 4%);
@@ -467,11 +467,10 @@
       color-mix(in oklab, oklch(var(--foreground)) 18%, transparent);
   }
   .name-input:focus {
-    border-bottom-color:
-      oklch(var(--primary-border));
+    border-bottom-color: oklch(var(--ring));
   }
   .dirty {
-    color: oklch(var(--primary));
+    color: oklch(var(--status-warn));
     font-size: var(--font-size-chrome);
     line-height: 1;
   }
@@ -594,8 +593,7 @@
   }
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
-    box-shadow: 0 0 0 2px
-      oklch(var(--surface-selected));
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 22%);
   }
   :global(html:not(.dark)) .work-head {
     background: oklch(var(--card));

@@ -157,8 +157,7 @@
     --foreground-tertiary: var(--foreground) / 50%;
     --border-strong: var(--foreground) / 35%;
     --surface-hover: var(--foreground) / 6%;
-    --surface-selected: var(--primary) / 10%;
-    --primary-border: var(--primary) / 60%;
+    --surface-selected: var(--accent);
     --status-error-wash: var(--status-error) / 12%;
     --status-error-border: var(--status-error) / 60%;
 
@@ -256,7 +255,7 @@
   }
   .ot-ctx-pill:hover:not(:disabled) {
     color: oklch(var(--foreground));
-    border-color: oklch(var(--primary-border));
+    border-color: oklch(var(--border-strong));
   }
   .ot-ctx-pill .ot-ctx-label {
     font-family: var(--font-sans);
@@ -402,9 +401,9 @@
     }
   }
 
-  /* Active-row keyline. A 2px primary-green bar on the left edge of a row,
+  /* Active-row keyline. A 2px foreground bar on the left edge of a row,
      used to mark the "currently active" item in sidebar / panel lists.
-     Pairs with an 8% primary wash on the row background. Gives the eye a
+     Pairs with the accent fill on the row background. Gives the eye a
      fixed anchor that survives hover on neighbouring rows. */
   .ot-keyline-host {
     position: relative;
@@ -420,7 +419,7 @@
     transform: translateY(-50%);
     width: 2px;
     height: 60%;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 0 2px 2px 0;
     pointer-events: none;
   }

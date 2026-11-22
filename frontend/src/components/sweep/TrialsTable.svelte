@@ -92,6 +92,6 @@
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--font-size-chrome); }
   th, td { text-align: right; padding: 4px 10px; border-bottom: 1px solid oklch(var(--border) / 0.4); }
   th { position: sticky; top: 0; z-index: 1; background: oklch(var(--card)); }
-  tr.best { background: oklch(var(--primary) / 0.12); }
+  tr.best { background: oklch(var(--surface-selected)); }
   .open { font-size: var(--font-size-label); padding: 2px 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: transparent; color: oklch(var(--foreground)); cursor: pointer; }
 </style>

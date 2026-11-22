@@ -185,7 +185,7 @@
   }
   .chip.add:hover {
     color: oklch(var(--foreground));
-    border-color: oklch(var(--primary-border));
+    border-color: oklch(var(--border-strong));
     background: oklch(var(--surface-selected));
   }
   .add-lbl {

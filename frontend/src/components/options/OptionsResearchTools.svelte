@@ -63,7 +63,7 @@
   .research-tools { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; margin-top: 12px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   .tabs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid oklch(var(--border-subtle)); overflow-x: auto; }
   [role="tab"] { min-height: 36px; padding: 6px 10px; border: 0; background: none; color: oklch(var(--muted-foreground)); font: inherit; font-size: var(--font-size-chrome); white-space: nowrap; cursor: pointer; box-shadow: inset 0 -2px transparent; }
-  [role="tab"][aria-selected="true"] { color: oklch(var(--foreground)); box-shadow: inset 0 -2px oklch(var(--primary)); }
+  [role="tab"][aria-selected="true"] { color: oklch(var(--foreground)); box-shadow: inset 0 -2px oklch(var(--foreground)); }
   [role="tab"]:hover { color: oklch(var(--foreground)); }
   [role="tab"]:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .panel { display: grid; gap: 8px; min-width: 0; padding: 8px; }

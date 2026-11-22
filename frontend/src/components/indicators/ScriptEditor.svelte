@@ -125,7 +125,7 @@
         background:
           'oklch(var(--surface-selected))',
         outline:
-          '1px solid oklch(var(--primary-border))',
+          '1px solid oklch(var(--border-strong))',
       },
     },
   );

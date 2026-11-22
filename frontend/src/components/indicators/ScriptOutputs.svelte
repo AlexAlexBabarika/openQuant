@@ -396,7 +396,7 @@
     color: color-mix(in oklab, oklch(var(--foreground)) 92%, transparent);
   }
   .stdout .trace {
-    border-left-color: oklch(var(--primary-border));
+    border-left-color: oklch(var(--border-strong));
   }
 
   .table-block .table-scroll {

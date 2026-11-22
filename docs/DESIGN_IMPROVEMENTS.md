@@ -291,6 +291,13 @@ Checked in both themes with the frontend dev server and mocked API responses
     `--status-error-wash` and `--status-error-border`; `--border` at 90% is
     plain `--border`.
 
+- **Lime only for the run action and brand.** Selected rows, pressed options,
+  hover fills and the best-trial row use `--accent`; keylines and tab
+  underlines use the foreground colour; focus lines use `--ring`; the unsaved
+  dot, the stream border, the sweep "done" badge, the enabled-metric dot and
+  the portfolio success banner use status colours. `--primary-border` is gone.
+- **`FRONTEND_DESIGN.md`** has a design tokens section.
+
 ### Decisions
 
 - **Action colour: lime stays.** Lime is for the run action and the brand;
@@ -330,7 +337,8 @@ checked: populated sweep, options and portfolio results, forced colours, and
 - Chrome height, remaining steps: the embedded backtest header and the data
   context row. Both need a product decision (what the header must always state,
   and whether the data row may collapse outside the chart view).
-- Remaining lime outside the run action (name-field focus line, the active
-  keyline, selected-row washes), to bring in line with the decision above.
+- Lime still used outside the run action: the green haze behind the indicators
+  and analytics panels, the tool icons in the bottom bar, links and the notice
+  in the sign-in dialog, the in-sample bars in the walk-forward report, and the
+  docs page accents.
 - The action-colour decision (lime or neutral), then the palette retune.
-- Update `FRONTEND_DESIGN.md` to describe the tokens.

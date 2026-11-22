@@ -134,7 +134,7 @@
   }
   .iconbtn:hover {
     color: oklch(var(--foreground));
-    border-color: oklch(var(--primary-border));
+    border-color: oklch(var(--border-strong));
     background: oklch(var(--surface-selected));
   }
   .rail {
@@ -221,7 +221,7 @@
     transform: translateY(-50%);
     width: 2px;
     height: 60%;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 0 2px 2px 0;
     pointer-events: none;
   }

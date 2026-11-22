@@ -272,7 +272,7 @@
     .editor-column, .evidence-column { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
   }
   .editor-column { display: grid; gap: 8px; }
-  .mode-row button[aria-pressed="true"] { background: oklch(var(--accent)); box-shadow: inset 0 -2px oklch(var(--primary)); }
+  .mode-row button[aria-pressed="true"] { background: oklch(var(--accent)); box-shadow: inset 0 -2px oklch(var(--foreground)); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: oklch(var(--foreground)); }
   .field > span:first-child { line-height: 1.4; }
   input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }

@@ -532,11 +532,10 @@
       color-mix(in oklab, oklch(var(--foreground)) 18%, transparent);
   }
   .name-input:focus {
-    border-bottom-color:
-      oklch(var(--primary-border));
+    border-bottom-color: oklch(var(--ring));
   }
   .dirty {
-    color: oklch(var(--primary));
+    color: oklch(var(--status-warn));
     font-size: var(--font-size-chrome);
     line-height: 1;
   }
