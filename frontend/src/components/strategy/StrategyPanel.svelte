@@ -303,6 +303,17 @@
               {/if}
             </div>
 
+            <div class="editor-views" aria-label="Editor and results views">
+              <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
+              <div class="view-switch" role="group" aria-label="Visible panes">
+                <button type="button" aria-pressed={!splitEnabled && editorView === 'editor'} onclick={() => { splitEnabled = false; editorView = 'editor'; }}>Editor</button>
+                <button type="button" aria-pressed={!splitEnabled && editorView === 'results'} onclick={() => { splitEnabled = false; editorView = 'results'; }}>Results</button>
+                <button type="button" class="split-view" aria-pressed={splitEnabled} onclick={() => (splitEnabled = true)}>Split view</button>
+              </div>
+              {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost quiet" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
+              <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
+            </div>
+
             <div class="actions">
               <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
               {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>Robustness</button>{/if}
@@ -346,16 +357,6 @@
             </div>
           {/if}
 
-          <div class="editor-views" aria-label="Editor and results views">
-            <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
-            <div class="view-switch" role="group" aria-label="Visible panes">
-              <button type="button" aria-pressed={!splitEnabled && editorView === 'editor'} onclick={() => { splitEnabled = false; editorView = 'editor'; }}>Editor</button>
-              <button type="button" aria-pressed={!splitEnabled && editorView === 'results'} onclick={() => { splitEnabled = false; editorView = 'results'; }}>Results</button>
-              <button type="button" class="split-view" aria-pressed={splitEnabled} onclick={() => (splitEnabled = true)}>Split view</button>
-            </div>
-            {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost quiet" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
-            <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
-          </div>
           <div class="editing-panes" class:single={!splitEnabled} class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
           <div class="editor-pane" class:inactive={editorView !== 'editor'}>
             <ScriptEditor
@@ -370,7 +371,7 @@
           <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
           <div class="results-pane" class:inactive={editorView !== 'results'}>
             {#if completedResult === strat.backtest && strat.backtest?.result && completedMarket}
-              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval}<br />Completed <time datetime={strat.backtest.result.meta.finished_at} title={strat.backtest.result.meta.finished_at}>{formatIsoMinute(strat.backtest.result.meta.finished_at)}</time> · simulated</p>
+              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval} · completed <time datetime={strat.backtest.result.meta.finished_at} title={strat.backtest.result.meta.finished_at}>{formatIsoMinute(strat.backtest.result.meta.finished_at)}</time> · simulated</p>
             {/if}
             {#if strat.backtest}
               <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />
@@ -453,7 +454,7 @@
   .embedded .body.options-mode { flex-shrink: 1; min-height: 0; }
   .options-host { min-width: 0; min-height: 0; }
   .options-host[hidden] { display: none; }
-  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); }
+  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .editor-views span { color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
   .view-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--surface-sunken)); }
   .view-switch button { border: 0; border-radius: 3px; padding: 4px 12px; background: transparent; color: oklch(var(--muted-foreground)); font: var(--font-size-chrome) var(--font-sans); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
@@ -494,8 +495,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 18px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 18px;
     border-bottom: 1px solid oklch(var(--border-subtle));
     background: oklch(var(--card));
   }
@@ -503,7 +505,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    flex: 1 1 auto;
+    flex: 1 1 12rem;
     min-width: 0;
   }
   .name-prefix {
@@ -611,7 +613,7 @@
     .actions .btn { min-height: 44px; font-size: var(--font-size-control); }
     .wide-action { display: none; }
     .mobile-actions { display: flex; }
-    .editor-views { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
+    .editor-views { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; }
     .editor-views .ot-workbench-ghost, .view-switch button { min-height: 44px; }
     .view-switch { grid-column: 1; grid-row: 1 / span 2; }
     .editor-views > button { grid-column: 1 / -1; }

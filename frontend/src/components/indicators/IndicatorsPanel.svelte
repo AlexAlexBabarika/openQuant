@@ -174,7 +174,7 @@
       onClose={close}
     >
       {#snippet mark()}<Activity class="h-3.5 w-3.5" />{/snippet}
-      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost quiet" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
     </PanelTopbar>
 
     <div class="body" class:docs-mode={tab === 'docs'} class:library-collapsed={!libraryOpen}>
@@ -498,8 +498,9 @@
     transition: all var(--motion-fast);
   }
   .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+  .btn.ghost { border-color: transparent; color: oklch(var(--muted-foreground)); }
   .btn.ghost:hover:not(:disabled) {
-    border-color: oklch(var(--border-strong));
+    color: oklch(var(--foreground));
     background: oklch(var(--surface-hover));
   }
   .btn.primary {

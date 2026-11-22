@@ -262,6 +262,17 @@ Checked in both themes with the frontend dev server and mocked API responses
   segment use `--accent`, the same selected style as the interval and range
   pickers. The fill is left to the run action.
 
+- **Chrome height** (Part 1, item 1), first step. In the Strategy view the
+  save status, view switch and run status moved into the title row, and the
+  completed-run context is one line. With a result open at 1440px the metrics
+  start about 315px down instead of 390px. The title row wraps to two lines on
+  narrower windows, which is the height it had before.
+- **Indicators panel.** `New`, `Save`, `Save & run` and `Library` are quiet in
+  dark mode. Light mode keeps its outlined ink style.
+- **Panel top bar layout.** In overlay panels the `Library` button stretched
+  across the bar and pushed the close button onto a second row. The bar is now
+  a flex row with the context pill centred.
+
 ### Not migrated, and why
 
 - **Local stacking and the select primitive.** `z-10`, `z-20`, `z-50` and
@@ -277,15 +288,19 @@ Checked in both themes with the frontend dev server and mocked API responses
 - **Spacing.** No token added; Tailwind's scale exists and scoped CSS uses raw
   pixels.
 
-### Not visually checked
+### Visual coverage
 
-Sweep, options, portfolio, analytics, the indicators panel and the docs pages
-were changed by the same mechanical replacements but were not opened.
+Opened with mocked data and no backend, so sweep, options and portfolio showed
+their error or empty states: chart, strategy (editor, results, split), options,
+sweep, portfolio, docs, robustness, the indicators and analytics panels. Not
+checked: populated sweep, options and portfolio results, forced colours, and
+200% zoom.
 
 ### Next
 
-- Part 1 item 1 (chrome height) and the remaining uppercase labels from item 2.
-- The same quiet button treatment for the indicators and portfolio panels, whose
-  `.btn.ghost` buttons are still outlined.
+- Chrome height, remaining steps: the embedded backtest header and the data
+  context row. Both need a product decision (what the header must always state,
+  and whether the data row may collapse outside the chart view).
+- The remaining uppercase labels from item 2.
 - The action-colour decision (lime or neutral), then the palette retune.
 - Update `FRONTEND_DESIGN.md` to describe the tokens.

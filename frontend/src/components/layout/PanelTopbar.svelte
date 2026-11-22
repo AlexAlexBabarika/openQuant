@@ -43,7 +43,6 @@
   class="topbar"
   class:page={tone === 'page'}
   class:embedded
-  class:with-tabs={!!tabs}
 >
   {#if !embedded}<div class="brand">
       <span class="brand-mark">{@render mark()}</span>
@@ -99,16 +98,14 @@
 
 <style>
   .topbar {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    display: flex;
     align-items: center;
     gap: 16px;
     padding: 14px 22px;
     border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
     background: oklch(var(--card));
   }
-  .topbar.with-tabs { grid-template-columns: auto auto 1fr auto; }
-  .topbar.page { display: flex; flex-wrap: wrap; }
+  .topbar.page { flex-wrap: wrap; }
   .topbar.embedded { flex-shrink: 0; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
   .embedded > :global(.ot-workbench-ghost) { flex: none; }
 
@@ -133,7 +130,7 @@
   }
 
   .ctx {
-    justify-self: center;
+    margin-inline: auto;
     display: inline-flex;
     align-items: baseline;
     gap: 10px;
@@ -145,7 +142,7 @@
     color: oklch(var(--muted-foreground));
     background: oklch(var(--surface-sunken));
   }
-  .page .ctx { margin-left: auto; background: oklch(var(--background)); }
+  .page .ctx { margin-right: 0; background: oklch(var(--background)); }
   .ctx-label {
     font-size: var(--font-size-annotation);
     letter-spacing: 0.18em;
@@ -226,7 +223,7 @@
   }
 
   @media (max-width: 900px) {
-    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .topbar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
     .topbar .close { margin-left: auto; }
     .ctx { flex-wrap: wrap; }
     .topbar:not(.page) .ctx-pair { flex-wrap: wrap; }
