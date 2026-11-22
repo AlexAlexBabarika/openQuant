@@ -409,8 +409,8 @@ describe('compiled global selectors', () => {
       'oklch(var(--foreground))',
     );
     expect(declarations('.tab.active', bar)).toMatchObject({
-      color: 'oklch(var(--primary-foreground))',
-      background: 'oklch(var(--primary))',
+      color: 'oklch(var(--accent-foreground))',
+      background: 'oklch(var(--accent))',
     });
     // Neither theme nor tone overrides the tab colours themselves.
     for (const selector of [

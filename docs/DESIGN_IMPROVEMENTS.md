@@ -253,6 +253,15 @@ Checked in both themes with the frontend dev server and mocked API responses
   attribute. UTC rather than local time, to match the other dates in the
   results and keep runs comparable across machines.
 
+- **Outlined buttons** (Part 1, item 3). In the Strategy view, `New`,
+  `Robustness`, `Save`, `Library` and `Expand results` are quiet, as is `Stream`
+  in the header. `Load history` and `Sign in` keep their outline as the key
+  action of their bar. The `Editor`, `Results` and `Split view` buttons are one
+  segmented control; choosing `Editor` or `Results` now also leaves split view.
+- **Primary green** (Part 1, item 4). Active panel tabs and the pressed view
+  segment use `--accent`, the same selected style as the interval and range
+  pickers. The fill is left to the run action.
+
 ### Not migrated, and why
 
 - **Local stacking and the select primitive.** `z-10`, `z-20`, `z-50` and
@@ -275,6 +284,8 @@ were changed by the same mechanical replacements but were not opened.
 
 ### Next
 
-- Part 1 items 1, 3 and 4, and the remaining uppercase labels from item 2.
+- Part 1 item 1 (chrome height) and the remaining uppercase labels from item 2.
+- The same quiet button treatment for the indicators and portfolio panels, whose
+  `.btn.ghost` buttons are still outlined.
 - The action-colour decision (lime or neutral), then the palette retune.
 - Update `FRONTEND_DESIGN.md` to describe the tokens.

@@ -220,8 +220,8 @@
   }
   .tab:hover { color: oklch(var(--foreground)); }
   .tab.active {
-    background: oklch(var(--primary));
-    color: oklch(var(--primary-foreground));
+    background: oklch(var(--accent));
+    color: oklch(var(--accent-foreground));
     font-weight: 600;
   }
 

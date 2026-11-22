@@ -117,7 +117,7 @@
       {#if isLoading}<LoaderCircle class="h-3 w-3 animate-spin" />{/if}
       <span>{isLoading ? 'Loading…' : source === 'csv' ? 'Upload CSV' : 'Load history'}</span>
     </button>
-  <button type="button" class="ot-workbench-ghost stream-control" onclick={onstream} disabled={(!streamActive && (!streamable || !symbol.trim())) || isLoading} aria-pressed={streamActive} title={!streamable ? `Live streaming is not available for ${source}.` : streamActive ? 'Stop the live stream' : 'Start a live stream; matching history is loaded if needed'}>
+  <button type="button" class="ot-workbench-ghost quiet stream-control" onclick={onstream} disabled={(!streamActive && (!streamable || !symbol.trim())) || isLoading} aria-pressed={streamActive} title={!streamable ? `Live streaming is not available for ${source}.` : streamActive ? 'Stop the live stream' : 'Start a live stream; matching history is loaded if needed'}>
     <span>{streamActive ? 'Stop stream' : 'Stream'}</span>
     {#if connectionStatus === 'connecting'}<span class="ot-stream-dot idle"></span>
     {:else if connectionStatus === 'connected'}<span class="ot-stream-dot" aria-label="Connected"></span>

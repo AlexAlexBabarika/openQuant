@@ -236,7 +236,7 @@
       onClose={close}
     >
       {#snippet mark()}∿{/snippet}
-      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost quiet" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
     </PanelTopbar>
 
     <div
@@ -346,12 +346,14 @@
             </div>
           {/if}
 
-          <div class="editor-views" class:single={!splitEnabled} aria-label="Editor and results views">
+          <div class="editor-views" aria-label="Editor and results views">
             <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
-            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'editor'} onclick={() => (editorView = 'editor')}>Editor</button>
-            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'results'} onclick={() => (editorView = 'results')}>Results</button>
-            <button type="button" class="split-view ot-workbench-ghost" aria-pressed={splitEnabled} onclick={() => (splitEnabled = !splitEnabled)}>Split view</button>
-            {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
+            <div class="view-switch" role="group" aria-label="Visible panes">
+              <button type="button" aria-pressed={!splitEnabled && editorView === 'editor'} onclick={() => { splitEnabled = false; editorView = 'editor'; }}>Editor</button>
+              <button type="button" aria-pressed={!splitEnabled && editorView === 'results'} onclick={() => { splitEnabled = false; editorView = 'results'; }}>Results</button>
+              <button type="button" class="split-view" aria-pressed={splitEnabled} onclick={() => (splitEnabled = true)}>Split view</button>
+            </div>
+            {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost quiet" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
             <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
           </div>
           <div class="editing-panes" class:single={!splitEnabled} class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
@@ -453,9 +455,10 @@
   .options-host[hidden] { display: none; }
   .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); }
   .editor-views span { color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
-  .compact-view { display: none; }
-  .single .compact-view { display: inline-flex; }
-  .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
+  .view-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--surface-sunken)); }
+  .view-switch button { border: 0; border-radius: 3px; padding: 4px 12px; background: transparent; color: oklch(var(--muted-foreground)); font: var(--font-size-chrome) var(--font-sans); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
+  .view-switch button:hover { color: oklch(var(--foreground)); }
+  .view-switch button[aria-pressed="true"] { background: oklch(var(--accent)); color: oklch(var(--accent-foreground)); font-weight: 600; }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
   .editing-panes.resizing { user-select: none; }
   .embedded .editing-panes { min-height: 240px; flex-shrink: 0; }
@@ -471,7 +474,6 @@
   @media (max-width: 1100px) {
     .editing-panes { grid-template-columns: minmax(0, 1fr); }
     .editing-panes .inactive, .editor-splitter { display: none; }
-    .compact-view { display: inline-flex; }
     .split-view { display: none; }
   }
   .body.sweep-mode {
@@ -569,8 +571,9 @@
     transition: all var(--motion-fast);
   }
   .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+  .btn.ghost { border-color: transparent; color: oklch(var(--muted-foreground)); }
   .btn.ghost:hover:not(:disabled) {
-    border-color: oklch(var(--muted-foreground));
+    color: oklch(var(--foreground));
     background: oklch(var(--surface-hover));
   }
   .btn.primary {
@@ -608,13 +611,11 @@
     .actions .btn { min-height: 44px; font-size: var(--font-size-control); }
     .wide-action { display: none; }
     .mobile-actions { display: flex; }
-    .editor-views { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
-    .editor-views .ot-workbench-ghost { min-height: 44px; }
-    .editor-views .compact-view { grid-row: 1 / span 2; }
-    .editor-views .compact-view:first-of-type { grid-column: 1; }
-    .editor-views .compact-view:nth-of-type(2) { grid-column: 2; }
-    .editor-views button:not(.compact-view) { grid-column: 1 / -1; }
-    .editor-views > span { grid-column: 3; font-size: var(--font-size-label); line-height: 14px; }
+    .editor-views { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
+    .editor-views .ot-workbench-ghost, .view-switch button { min-height: 44px; }
+    .view-switch { grid-column: 1; grid-row: 1 / span 2; }
+    .editor-views > button { grid-column: 1 / -1; }
+    .editor-views > span { grid-column: 2; font-size: var(--font-size-label); line-height: 14px; }
     .editor-views > span:first-child { grid-row: 1; align-self: end; }
     .editor-views > span[role="status"] { grid-row: 2; align-self: start; }
   }
