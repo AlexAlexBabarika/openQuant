@@ -90,7 +90,6 @@
       <div class="brand">
         <span class="brand-mark">≈</span>
         <span class="brand-title">backtest</span>
-        <span class="brand-sub">/ simulated results · no real orders</span>
       </div>
 
       <div class="ctx" aria-label="Strategy">
@@ -256,12 +255,6 @@
   .brand-title {
     font-weight: 600;
   }
-  .brand-sub {
-    color: oklch(var(--muted-foreground));
-    font-size: var(--font-size-label);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
   .ctx {
     min-width: 0;
     max-width: 100%;
@@ -346,7 +339,6 @@
   @media (max-width: 900px) {
     .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
     .brand { flex: 1 1 14rem; min-width: 0; flex-wrap: wrap; }
-    .brand-sub { flex-basis: 100%; }
     .topbar .close { order: 1; margin-left: auto; }
     .ctx { order: 2; flex-basis: 100%; }
   }
