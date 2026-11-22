@@ -481,6 +481,8 @@
   }
   @media (forced-colors: active) {
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
+    .row.active { border-color: Highlight; }
+    .row.active::before { forced-color-adjust: none; background: Highlight; }
   }
 
 </style>

@@ -93,5 +93,8 @@
   th, td { text-align: right; padding: 4px 10px; border-bottom: 1px solid oklch(var(--border) / 0.4); }
   th { position: sticky; top: 0; z-index: 1; background: oklch(var(--card)); }
   tr.best { background: oklch(var(--surface-selected)); }
+  @media (forced-colors: active) {
+    tr.best { outline: 2px solid Highlight; outline-offset: -2px; }
+  }
   .open { font-size: var(--font-size-label); padding: 2px 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: transparent; color: oklch(var(--foreground)); cursor: pointer; }
 </style>

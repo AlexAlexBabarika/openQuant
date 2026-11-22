@@ -175,6 +175,7 @@
   }
   @media (forced-colors: active) {
     th button:focus-visible { outline-color: Highlight; }
+    tbody tr.active { outline: 2px solid Highlight; outline-offset: -2px; }
   }
   td {
     padding: 6px 12px;

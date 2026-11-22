@@ -290,4 +290,8 @@
     .rail-head { padding: 8px 12px; }
     .rail-foot { display: none; }
   }
+  @media (forced-colors: active) {
+    .rail-item.active { border-color: Highlight; }
+    .rail-item.active::before { forced-color-adjust: none; background: Highlight; }
+  }
 </style>

@@ -462,6 +462,13 @@ html .btn.primary.stop[class]:hover:not(:disabled) {
   }
 }
 
+@media (forced-colors: active) {
+  .ot-keyline-active::before {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

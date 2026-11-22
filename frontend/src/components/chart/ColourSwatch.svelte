@@ -19,7 +19,7 @@
     aria-label={ariaLabel ?? `Pick colour for ${label}`}
   >
     <span
-      class="block w-6 h-6 rounded border border-border group-hover:border-foreground transition-colors cursor-pointer"
+      class="block w-6 h-6 rounded border border-border group-hover:border-foreground transition-colors cursor-pointer forced-color-adjust-none"
       style="background-color: {colour};"
     ></span>
     <span class="text-xs text-muted-foreground">{label}</span>

@@ -316,7 +316,9 @@ Checked in both themes with the frontend dev server and mocked API responses
 - **Forced colours.** The current navigation link, the active panel tab, the
   pressed view segment and the selected interval and range use the system
   highlight colours. Before, selection was only a fill, which forced-colours
-  mode removes.
+  mode removes. Selected list rows (analytics metrics, script rail, watchlist
+  keyline, active trade, best sweep trial) and pressed chart options are marked
+  the same way, and the chart colour swatches keep their colours.
 
 ### Decisions
 
@@ -365,5 +367,3 @@ sweep, options and portfolio results.
 
 - Check populated sweep, options and portfolio results against a running
   backend. They have only been seen in empty or error states.
-- Forced colours: selected list rows and option buttons outside the places
-  listed above still rely on a fill.
