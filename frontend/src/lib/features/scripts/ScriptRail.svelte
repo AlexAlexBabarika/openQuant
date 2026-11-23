@@ -125,50 +125,44 @@
     align-items: center;
     justify-content: center;
     width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn:hover {
     color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-selected));
   }
   .rail {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-right: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
-      );
+    border-right: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
-  .rail.page { background: oklch(var(--card)); }
   .rail-head {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 14px 16px 10px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
   .rail-count {
     margin-left: 2px;
     padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 999px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--muted-foreground));
   }
   .rail-head .iconbtn { margin-left: auto; }
@@ -180,7 +174,7 @@
   }
   .rail-hint {
     margin: 12px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
@@ -197,20 +191,20 @@
     padding: 8px 10px;
     margin: 0 0 2px;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--foreground));
     text-align: left;
     cursor: pointer;
     font-family: inherit;
-    transition: background 120ms ease, border-color 120ms ease;
+    transition: background var(--motion-fast), border-color var(--motion-fast);
   }
   .rail-item.with-status { grid-template-columns: 14px minmax(0, 1fr) auto; }
   .rail-item:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .rail-item.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
+    background: oklch(var(--surface-selected));
     border-color: transparent;
   }
   .rail-item.active::before {
@@ -221,7 +215,7 @@
     transform: translateY(-50%);
     width: 2px;
     height: 60%;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 0 2px 2px 0;
     pointer-events: none;
   }
@@ -243,12 +237,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: var(--font-size-control);
   }
   .ri-time {
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--muted-foreground));
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .ri-del {
     display: inline-flex;
@@ -259,15 +253,15 @@
     border: 0;
     padding: 0;
     background: transparent;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    border-radius: 3px;
+    color: oklch(var(--foreground-tertiary));
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: opacity 120ms, color 120ms, background 120ms;
   }
   .page .ri-del { color: oklch(var(--muted-foreground)); }
   .ri-del:hover {
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
+    background: oklch(var(--status-error-wash));
   }
   .page .ri-del:hover {
     color: oklch(var(--down-color));
@@ -277,65 +271,27 @@
     display: flex;
     gap: 12px;
     padding: 10px 16px;
-    border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
-    letter-spacing: 0.06em;
+    border-top: 1px dashed oklch(var(--border));
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--muted-foreground));
   }
   .legend { display: inline-flex; align-items: center; gap: 6px; }
   .kbd {
     padding: 1px 5px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 10px;
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
   @media (max-width: 760px) {
-    .rail { border-bottom: 1px solid oklch(var(--border)); }
+    .rail { border-bottom: 1px solid oklch(var(--border-subtle)); }
     .rail-head { padding: 8px 12px; }
     .rail-foot { display: none; }
   }
-
-  /* Light theme on an overlay panel: pure white surfaces, dark hairlines. */
-  :global(html:not(.dark)) .rail:not(.page) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .iconbtn:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) {
-    background: oklch(var(--card));
-    border-right: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-head {
-    border-bottom: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-hint.err {
-    color: oklch(var(--destructive));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .ri-del {
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .ri-del:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-count {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .rail-foot {
-    border-top: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail:not(.page) .kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
+  @media (forced-colors: active) {
+    .rail-item.active { border-color: Highlight; }
+    .rail-item.active::before { forced-color-adjust: none; background: Highlight; }
   }
 </style>

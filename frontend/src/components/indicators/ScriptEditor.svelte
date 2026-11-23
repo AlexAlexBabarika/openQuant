@@ -123,9 +123,9 @@
       '.cm-lineNumbers .cm-gutterElement': { padding: '0 8px 0 0' },
       '.cm-matchingBracket': {
         background:
-          'color-mix(in oklab, oklch(var(--primary)) 18%, transparent)',
+          'oklch(var(--surface-selected))',
         outline:
-          '1px solid color-mix(in oklab, oklch(var(--primary)) 55%, transparent)',
+          '1px solid oklch(var(--border-strong))',
       },
     },
   );

@@ -56,7 +56,7 @@
 <style>
   .pc { width: 100%; height: 100%; }
   .axis { stroke: oklch(var(--border)); stroke-width: 1; }
-  .label { fill: oklch(var(--muted-foreground)); font-size: 10px; text-anchor: middle; }
+  .label { fill: oklch(var(--muted-foreground)); font-size: var(--font-size-annotation); text-anchor: middle; }
   .trial { fill: none; stroke-width: 1.25; opacity: 0.5; cursor: pointer; }
   .trial:hover { opacity: 1; stroke-width: 2.5; }
 </style>

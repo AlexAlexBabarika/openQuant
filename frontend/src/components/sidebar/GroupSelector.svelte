@@ -76,7 +76,7 @@
     <DropdownMenu.Content
       align="start"
       sideOffset={4}
-      class="z-[80] w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-md py-1 outline-none"
+      class="z-(--z-dialog-popover) w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-popover py-1 outline-none"
     >
       {#if inGroupMode}
         <DropdownMenu.Item
@@ -121,7 +121,7 @@
             onSelect={() => actions.select(group.name)}
             class="ot-keyline-host ot-keyline-flush relative flex w-full items-center px-3 py-1.5 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {inGroupMode &&
             group.name === selectedName
-              ? 'ot-keyline-active bg-primary/[0.08]'
+              ? 'ot-keyline-active bg-accent'
               : ''}"
           >
             <span class="truncate">{group.name}</span>
@@ -141,7 +141,7 @@
           onSelect={() => onselectpriority(p)}
           class="ot-keyline-host ot-keyline-flush relative flex w-full items-center gap-2 px-3 py-1.5 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {selectedPriority ===
           p
-            ? 'ot-keyline-active bg-primary/[0.08]'
+            ? 'ot-keyline-active bg-accent'
             : ''}"
         >
           <Flag
@@ -170,7 +170,7 @@
           onSelect={() => onselectstance(s)}
           class="ot-keyline-host ot-keyline-flush relative flex w-full items-center gap-2 px-3 py-1.5 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground cursor-default outline-none {selectedStance ===
           s
-            ? 'ot-keyline-active bg-primary/[0.08]'
+            ? 'ot-keyline-active bg-accent'
             : ''}"
         >
           <Tag

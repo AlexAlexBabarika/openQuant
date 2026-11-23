@@ -194,46 +194,46 @@
 </section>
 
 <style>
-  .leg-editor { container-type: inline-size; min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
+  .leg-editor { container-type: inline-size; min-width: 0; display: grid; gap: 8px; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: var(--font-size-chrome); }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
   header { justify-content: space-between; }
-  h3 { margin: 0; font-size: 12px; }
+  h3 { margin: 0; font-size: var(--font-size-chrome); }
   h3 span { color: oklch(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
   .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
-  .chip { display: grid; gap: 4px; justify-items: start; min-height: 48px; padding: 6px 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
+  .chip { display: grid; gap: 4px; justify-items: start; min-height: 48px; padding: 6px 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
   .chip svg { width: 100%; height: 18px; overflow: visible; }
   .chip path { fill: none; stroke: oklch(var(--muted-foreground)); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   .chip:hover { border-color: oklch(var(--input)); }
   .chip[aria-pressed="true"] { border-color: oklch(var(--ring)); background: oklch(var(--accent)); }
   .chip[aria-pressed="true"] path { stroke: oklch(var(--foreground)); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
-  input, select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 30px; padding: 4px 6px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
+  input, select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 30px; padding: 4px 6px; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
   input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; }
   .chip:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   [aria-invalid="true"] { border-color: oklch(var(--destructive)); }
-  .field-error { display: block; font-size: 11px; color: oklch(var(--down-color)); line-height: 1.4; overflow-wrap: anywhere; }
+  .field-error { display: block; font-size: var(--font-size-label); color: oklch(var(--down-color)); line-height: 1.4; overflow-wrap: anywhere; }
   .hint { margin: 0; color: oklch(var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
   .legs { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .legs th { padding: 0 4px 6px; text-align: left; font-size: 11px; font-weight: 600; color: oklch(var(--muted-foreground)); white-space: nowrap; }
+  .legs th { padding: 0 4px 6px; text-align: left; font-size: var(--font-size-label); font-weight: 600; color: oklch(var(--muted-foreground)); white-space: nowrap; }
   .legs th:nth-child(1) { width: 52px; } .legs th:nth-child(2) { width: 56px; } .legs th:nth-child(3) { width: 78px; } .legs th:nth-child(6) { width: 32px; }
   .legs th.num { text-align: right; }
   .legs td { padding: 3px 4px; vertical-align: top; }
-  .legs tbody + tbody tr:first-child td { border-top: 1px solid oklch(var(--border)); }
+  .legs tbody + tbody tr:first-child td { border-top: 1px solid oklch(var(--border-subtle)); }
   .off > tr:first-child td:not([data-k="menu"]) { opacity: 0.55; }
-  .off-tag { display: block; color: oklch(var(--muted-foreground)); font-size: 11px; }
-  .side { width: 100%; min-height: 30px; border: 1px solid; border-radius: 4px; background: transparent; font: inherit; font-weight: 600; cursor: pointer; }
+  .off-tag { display: block; color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
+  .side { width: 100%; min-height: 30px; border: 1px solid; border-radius: var(--radius-md); background: transparent; font: inherit; font-weight: 600; cursor: pointer; }
   .side.buy { color: oklch(var(--up-color)); border-color: oklch(var(--up-color)); }
   .side.sell { color: oklch(var(--down-color)); border-color: oklch(var(--down-color)); }
   .na { display: block; min-height: 30px; line-height: 30px; text-align: right; color: oklch(var(--muted-foreground)); }
-  .premium-source { display: block; margin-top: 2px; color: oklch(var(--muted-foreground)); font-size: 11px; line-height: 1.4; text-align: right; }
+  .premium-source { display: block; margin-top: 2px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); line-height: 1.4; text-align: right; }
   .premium-source.manual { color: oklch(var(--risk)); }
   .link { min-height: 0; padding: 0; border: 0; background: none; color: oklch(var(--ring)); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .menu { position: relative; }
-  .menu summary { list-style: none; width: 28px; min-height: 30px; line-height: 28px; border: 1px solid transparent; border-radius: 4px; text-align: center; cursor: pointer; color: oklch(var(--muted-foreground)); }
+  .menu summary { list-style: none; width: 28px; min-height: 30px; line-height: var(--control-height-compact); border: 1px solid transparent; border-radius: var(--radius-md); text-align: center; cursor: pointer; color: oklch(var(--muted-foreground)); }
   .menu summary::-webkit-details-marker { font-size: 0; }
   .menu summary:hover, .menu[open] summary { border-color: oklch(var(--border)); color: oklch(var(--foreground)); }
-  .menu-items { position: absolute; right: 0; top: calc(100% + 4px); z-index: 4; display: grid; min-width: 168px; padding: 4px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--card)); box-shadow: 0 6px 18px rgb(0 0 0 / 0.25); }
-  .menu-items button { min-height: 28px; padding: 4px 8px; border: 0; border-radius: 3px; background: none; color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
+  .menu-items { position: absolute; right: 0; top: calc(100% + 4px); z-index: 4; display: grid; min-width: 168px; padding: 4px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: oklch(var(--card)); box-shadow: var(--elevation-popover); }
+  .menu-items button { min-height: var(--control-height-compact); padding: 4px 8px; border: 0; border-radius: var(--radius-sm); background: none; color: oklch(var(--foreground)); font: inherit; text-align: left; cursor: pointer; }
   .menu-items button:hover:not(:disabled) { background: oklch(var(--accent)); }
   .menu-items button:disabled { color: oklch(var(--muted-foreground)); cursor: not-allowed; }
   .more td { padding: 4px 4px 10px; }
@@ -249,10 +249,10 @@
     .legs tbody > tr.more { display: block; }
     .legs td { padding: 0; }
     .legs tbody + tbody tr:first-child td { border-top: 0; }
-    .legs tbody + tbody { border-top: 1px solid oklch(var(--border)); }
+    .legs tbody + tbody { border-top: 1px solid oklch(var(--border-subtle)); }
     td[data-k="side"] { grid-area: side; } td[data-k="qty"] { grid-area: qty; } td[data-k="type"] { grid-area: type; }
     td[data-k="strike"] { grid-area: strike; align-self: start; } td[data-k="prem"] { grid-area: prem; align-self: start; } td[data-k="menu"] { grid-area: menu; }
-    td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 2px; color: oklch(var(--muted-foreground)); font-size: 11px; }
+    td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 2px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
     .detail-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   }
   @media (pointer: coarse) { input, select, summary, .side, .menu-items button { min-height: var(--control-touch-height); } }

@@ -106,13 +106,13 @@
 
 <style>
   .risk { color: oklch(var(--risk)); }
-  .library { display: grid; gap: 8px; min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  .library { display: grid; gap: 8px; min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   header, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
   header span, p { color: oklch(var(--muted-foreground)); }
-  p { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
-  label { display: grid; gap: 4px; font-size: 12px; min-width: 0; max-width: 100%; }
+  p { margin: 0; font-size: var(--font-size-chrome); overflow-wrap: anywhere; }
+  label { display: grid; gap: 4px; font-size: var(--font-size-chrome); min-width: 0; max-width: 100%; }
   .checkbox { display: flex; align-items: center; }
-  input, select { border: 1px solid oklch(var(--input)); background: oklch(var(--background)); color: oklch(var(--foreground)); border-radius: 4px; min-height: var(--control-height); min-width: 0; max-width: 100%; padding: 2px 6px; }
+  input, select { border: 1px solid oklch(var(--input)); background: oklch(var(--background)); color: oklch(var(--foreground)); border-radius: var(--radius-md); min-height: var(--control-height); min-width: 0; max-width: 100%; padding: 2px 6px; }
   input[type='file'] { width: 230px; }
   button { white-space: normal; height: auto; min-height: var(--control-height); }
   input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }

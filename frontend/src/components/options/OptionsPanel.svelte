@@ -243,12 +243,12 @@
 </section>
 
 <style>
-  .options-panel { container-type: inline-size; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: oklch(var(--foreground)); background: oklch(var(--card)); font-family: var(--font-sans); font-size: 12px; }
-  .panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); flex: none; }
+  .options-panel { container-type: inline-size; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: oklch(var(--foreground)); background: oklch(var(--card)); font-family: var(--font-sans); font-size: var(--font-size-chrome); }
+  .panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); flex: none; }
   .identity { display: grid; gap: 4px; min-width: 0; }
-  .identity strong { font-size: 13px; }
+  .identity strong { font-size: var(--font-size-control); }
   .shortcut, .hint, .feedback, .evidence-heading span, .model-line { color: oklch(var(--muted-foreground)); }
-  .model-line { margin-top: 10px; font-size: 12px; }
+  .model-line { margin-top: 10px; font-size: var(--font-size-chrome); }
   .model-line p { margin: 0; }
   .model-line summary { color: oklch(var(--ring)); min-height: 24px; line-height: 24px; }
   .model-line ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.5; }
@@ -258,7 +258,7 @@
   .status[data-status="invalid"] i, .status[data-status="error"] i { background: oklch(var(--down-color)); }
   .status[data-status="invalid"], .status[data-status="error"] { color: oklch(var(--foreground)); }
   /* Reserve the Cancel button's height so the panel doesn't shift while an update runs. */
-  .run-actions { min-height: 32px; }
+  .run-actions { min-height: var(--control-height); }
   .run-actions, .mode-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .panel-scroll { min-height: 0; flex: 1; overflow: auto; padding: 12px; scrollbar-gutter: stable; }
   p { line-height: 1.5; margin: 8px 0; overflow-wrap: anywhere; }
@@ -272,32 +272,32 @@
     .editor-column, .evidence-column { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
   }
   .editor-column { display: grid; gap: 8px; }
-  .mode-row button[aria-pressed="true"] { background: oklch(var(--accent)); box-shadow: inset 0 -2px oklch(var(--primary)); }
+  .mode-row button[aria-pressed="true"] { background: oklch(var(--accent)); box-shadow: inset 0 -2px oklch(var(--foreground)); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: oklch(var(--foreground)); }
   .field > span:first-child { line-height: 1.4; }
-  input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
-  input { min-height: 32px; }
-  input[type="number"] { font-size: 12px; font-variant-numeric: tabular-nums; }
+  input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
+  input { min-height: var(--control-height); }
+  input[type="number"] { font-size: var(--font-size-chrome); font-variant-numeric: tabular-nums; }
   input:focus-visible, summary:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
-  .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+  .field-error { color: oklch(var(--down-color)); font-size: var(--font-size-chrome); line-height: 1.5; overflow-wrap: anywhere; }
   .inputs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .hint { font-size: 12px; margin: 0; }
-  h3 { font-size: 12px; font-weight: 600; margin: 8px 0; overflow-wrap: anywhere; }
-  .configuration { border-top: 1px solid oklch(var(--border)); padding-top: 8px; }
-  summary { cursor: pointer; min-height: 28px; line-height: 28px; }
+  .hint { font-size: var(--font-size-chrome); margin: 0; }
+  h3 { font-size: var(--font-size-chrome); font-weight: 600; margin: 8px 0; overflow-wrap: anywhere; }
+  .configuration { border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; }
+  summary { cursor: pointer; min-height: var(--control-height-compact); line-height: var(--control-height-compact); }
   .configuration > :not(summary) { margin-top: 8px; }
   .submitted-source { font-family: var(--font-mono); }
-  .export-controls { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid oklch(var(--border)); }
+  .export-controls { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid oklch(var(--border-subtle)); }
   .risk { color: oklch(var(--risk)); }
   .error-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border: 1px solid oklch(var(--destructive)); padding: 8px; margin: 8px 0; color: oklch(var(--down-color)); overflow-wrap: anywhere; }
   .evidence-heading { margin: 12px 0 8px; }
-  .evidence-heading span { font-size: 11px; }
+  .evidence-heading span { font-size: var(--font-size-label); }
   .summary-grid, .greeks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; margin: 8px 0; }
-  .summary-grid > div, .greeks-grid > div { min-width: 0; border: 1px solid oklch(var(--border)); padding: 8px; border-radius: 4px; }
+  .summary-grid > div, .greeks-grid > div { min-width: 0; border: 1px solid oklch(var(--border)); padding: 8px; border-radius: var(--radius-md); }
   dt { color: oklch(var(--muted-foreground)); line-height: 1.5; }
-  dd { font-variant-numeric: tabular-nums; margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
-  .greeks-grid small { display: block; margin-top: 5px; color: oklch(var(--muted-foreground)); font-size: 12px; line-height: 1.5; }
+  dd { font-variant-numeric: tabular-nums; margin: 4px 0 0; font-size: var(--font-size-body); overflow-wrap: anywhere; }
+  .greeks-grid small { display: block; margin-top: 5px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); line-height: 1.5; }
   .breakevens { font-variant-numeric: tabular-nums; line-height: 1.7; }
   .submitted-legs, .warnings { padding-left: 18px; overflow-wrap: anywhere; line-height: 1.6; }
   .submitted-legs li, .warnings li { margin: 6px 0; }

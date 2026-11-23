@@ -105,7 +105,7 @@
     gap: 2px;
     padding: 0 10px;
     border-bottom: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
   }
   .tab {
     position: relative;
@@ -114,10 +114,10 @@
     background: transparent;
     color: oklch(var(--muted-foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.06em;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
-    transition: color 120ms ease;
+    transition: color var(--motion-fast);
   }
   .tab:hover {
     color: oklch(var(--foreground));
@@ -132,7 +132,7 @@
     right: 8px;
     bottom: -1px;
     height: 2px;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 2px 2px 0 0;
   }
   .pane {

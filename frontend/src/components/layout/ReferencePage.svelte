@@ -24,12 +24,7 @@
   .docs {
     height: 100%;
     overflow-y: auto;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
-      );
+    background: oklch(var(--card));
   }
 
   article {
@@ -38,7 +33,7 @@
     padding: 28px 32px 64px;
     color: oklch(var(--foreground));
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: var(--font-size-control);
     line-height: 1.65;
   }
 
@@ -46,17 +41,17 @@
     margin-bottom: 28px;
     padding-bottom: 18px;
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .kicker {
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   h1 {
     margin: 4px 0 6px;
-    font-size: 22px;
+    font-size: var(--font-size-display);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
@@ -77,8 +72,8 @@
     align-items: baseline;
     gap: 8px;
     margin: 0 0 6px;
-    font-size: 13px;
-    letter-spacing: 0.06em;
+    font-size: var(--font-size-control);
+    letter-spacing: var(--tracking-label);
   }
   article :global(.hash) {
     color: oklch(var(--primary));
@@ -87,7 +82,7 @@
   article :global(.dim) {
     margin: 0 0 10px;
     color: oklch(var(--muted-foreground));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
 
   article :global(.defs) {
@@ -105,8 +100,8 @@
     align-items: baseline;
     padding: 6px 10px;
     border-left: 2px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--foreground)) 3%, transparent);
+      oklch(var(--border));
+    background: oklch(var(--surface-hover));
     border-radius: 0 4px 4px 0;
   }
   article :global(.defs li.block) {
@@ -123,10 +118,10 @@
     word-break: break-word;
   }
   article :global(.defs .type) {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     padding: 1px 6px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 999px;
     color: oklch(var(--muted-foreground));
   }
@@ -140,11 +135,11 @@
     margin: 2px 6px 2px 0;
     padding: 2px 8px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 11px;
+      oklch(var(--border));
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-label);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
 
   article :global(.bullets) {
@@ -159,8 +154,8 @@
   }
   article :global(.example-title) {
     margin: 0 0 4px;
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -168,34 +163,12 @@
     margin: 0;
     padding: 12px 14px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+      oklch(var(--border));
+    border-radius: var(--radius-md);
+    background: oklch(var(--surface-sunken));
     overflow-x: auto;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.55;
   }
   article :global(pre code) { color: oklch(var(--foreground)); }
-
-  /* Light theme: pure white surfaces, black hairlines, no greys. */
-  :global(html:not(.dark)) .docs { background: oklch(var(--card)); }
-  :global(html:not(.dark)) .hero { border-bottom: 1px dashed oklch(var(--foreground)); }
-  :global(html:not(.dark)) article :global(.defs li) {
-    background: oklch(var(--card));
-    border-left: 2px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) article :global(.defs .type) {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) article :global(.tag) {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) article :global(pre) {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
 </style>

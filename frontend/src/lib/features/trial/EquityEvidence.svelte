@@ -72,7 +72,7 @@
 </figure>
 
 <style>
-  figure { margin: 0; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid oklch(var(--border)); background: oklch(var(--card)); border-radius: 4px; }
+  figure { margin: 0; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid oklch(var(--border)); background: oklch(var(--card)); border-radius: var(--radius-md); }
   figcaption { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; }
   h3 { margin: 0; color: oklch(var(--foreground)); font: 600 12px var(--font-mono); }
   .currency-label { color: oklch(var(--muted-foreground)); font-size: 0.75rem; }

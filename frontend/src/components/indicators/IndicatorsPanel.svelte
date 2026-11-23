@@ -174,7 +174,7 @@
       onClose={close}
     >
       {#snippet mark()}<Activity class="h-3.5 w-3.5" />{/snippet}
-      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost quiet" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
     </PanelTopbar>
 
     <div class="body" class:docs-mode={tab === 'docs'} class:library-collapsed={!libraryOpen}>
@@ -360,17 +360,9 @@
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
-    background:
-      radial-gradient(
-        1200px 600px at 20% -200px,
-        color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
-        transparent 60%
-      ),
-      color-mix(in oklab, oklch(var(--popover)) 96%, black 4%);
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
+    background: oklch(var(--card));
+    border-top: 1px solid oklch(var(--border-subtle));
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
     overflow: hidden;
@@ -381,7 +373,7 @@
     width: 18px;
     height: 18px;
     pointer-events: none;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .corner.tl { top: 12px; left: 12px; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
   .corner.tr { top: 12px; right: 12px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; }
@@ -403,8 +395,8 @@
     height: 8px;
     border-radius: 999px;
     background: oklch(var(--status-error));
-    box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-error)) 22%, transparent);
-    transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    box-shadow: 0 0 0 2px oklch(var(--status-error-wash));
+    transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
     align-self: center;
     justify-self: center;
     cursor: pointer;
@@ -433,8 +425,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 18px;
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    border-bottom: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
   .name-wrap {
     display: flex;
@@ -445,7 +437,7 @@
   }
   .name-prefix {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .name-input {
     flex: 1 1 auto;
@@ -455,24 +447,23 @@
     border-bottom: 1px solid transparent;
     padding: 4px 0;
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .name-input:hover {
     border-bottom-color:
       color-mix(in oklab, oklch(var(--foreground)) 18%, transparent);
   }
   .name-input:focus {
-    border-bottom-color:
-      color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+    border-bottom-color: oklch(var(--ring));
   }
   .dirty {
-    color: oklch(var(--primary));
-    font-size: 12px;
+    color: oklch(var(--status-warn));
+    font-size: var(--font-size-chrome);
     line-height: 1;
   }
 
@@ -487,20 +478,21 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-radius: var(--radius-md);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+  .btn.ghost { border-color: transparent; color: oklch(var(--muted-foreground)); }
   .btn.ghost:hover:not(:disabled) {
-    border-color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    color: oklch(var(--foreground));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -508,10 +500,9 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
     transform: translateY(-1px);
   }
   .btn.primary:active:not(:disabled) { transform: translateY(0); }
@@ -519,9 +510,6 @@
     background: oklch(var(--destructive));
     border-color: oklch(var(--destructive));
     color: oklch(var(--destructive-foreground));
-  }
-  .btn.primary.stop:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--destructive)) 60%, transparent);
   }
 
   .split {
@@ -534,14 +522,14 @@
   .splitter {
     position: relative;
     cursor: ns-resize;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 8%);
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    background: oklch(var(--background));
+    border-top: 1px solid oklch(var(--border-subtle));
+    border-bottom: 1px solid oklch(var(--border-subtle));
     user-select: none;
     touch-action: none;
   }
   .splitter:hover, .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .grip {
     position: absolute;
@@ -582,48 +570,8 @@
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Light theme: pure white chrome, no greys, no top vignette.       */
-  /* The default styles above target dark mode; this block strips the */
-  /* radial-gradient halo, the heavy upward box-shadow, and every     */
-  /* color-mix(...black...) grey wash from the panel surfaces.        */
-  /* ---------------------------------------------------------------- */
-  :global(html:not(.dark)) .panel {
-    background: oklch(var(--card));
-    box-shadow:
-      0 -1px 0 0 oklch(var(--foreground)) inset,
-      0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid oklch(var(--foreground));
-  }
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
-    box-shadow: 0 0 0 2px
-      color-mix(in oklab, oklch(var(--primary)) 22%, transparent);
-  }
-  :global(html:not(.dark)) .work-head {
-    background: oklch(var(--card));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: oklch(var(--foreground));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .splitter {
-    background: oklch(var(--card));
-    border-top: 1px solid oklch(var(--foreground));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .splitter:hover,
-  :global(html:not(.dark)) .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 14%, oklch(var(--card)));
-  }
-  :global(html:not(.dark)) .grip i {
-    background: oklch(var(--foreground));
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 22%);
   }
 </style>

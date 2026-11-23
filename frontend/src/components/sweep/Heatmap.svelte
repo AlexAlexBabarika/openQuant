@@ -88,19 +88,19 @@
 </div>
 
 <style>
-  .wrap { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; width: fit-content; max-width: 100%; overflow-x: auto; font-size: 11px; }
+  .wrap { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; width: fit-content; max-width: 100%; overflow-x: auto; font-size: var(--font-size-label); }
   .grid { display: grid; gap: 2px; }
   .measure { font-weight: 600; }
   .axis, .cell, .legend { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  .axis { font-size: 10px; color: oklch(var(--muted-foreground)); display: flex; align-items: center; justify-content: center; padding: 0 4px; }
-  .cell { min-height: 28px; padding: 4px 6px; border: 1px solid transparent; border-radius: 2px; color: oklch(0.141 0.005 285.823); font-size: 10px; white-space: nowrap; cursor: pointer; }
+  .axis { font-size: var(--font-size-annotation); color: oklch(var(--muted-foreground)); display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+  .cell { min-height: var(--control-height-compact); padding: 4px 6px; border: 1px solid transparent; border-radius: var(--radius-sm); color: oklch(0.141 0.005 285.823); font-size: var(--font-size-annotation); white-space: nowrap; cursor: pointer; }
   .cell:disabled { cursor: default; }
   .cell.missing { border: 1px dashed oklch(var(--muted-foreground)); color: oklch(var(--foreground)); }
   .cell:hover { outline: 1px solid oklch(var(--foreground)); }
   .wrap:focus-visible, .cell:focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
-  .legend { display: flex; gap: 8px; font-size: 10px; }
+  .legend { display: flex; gap: 8px; font-size: var(--font-size-annotation); }
   .legend-stop { display: flex; flex: 1; flex-direction: column; gap: 2px; }
-  .swatch { height: 8px; border-radius: 2px; }
+  .swatch { height: 8px; border-radius: var(--radius-sm); }
   .coordinates, .note { color: oklch(var(--muted-foreground)); }
   @media (forced-colors: active) { .cell { border-color: ButtonText; color: ButtonText; } }
 </style>

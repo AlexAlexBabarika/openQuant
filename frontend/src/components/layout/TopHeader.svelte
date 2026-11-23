@@ -117,7 +117,7 @@
       {#if isLoading}<LoaderCircle class="h-3 w-3 animate-spin" />{/if}
       <span>{isLoading ? 'Loading…' : source === 'csv' ? 'Upload CSV' : 'Load history'}</span>
     </button>
-  <button type="button" class="ot-workbench-ghost stream-control" onclick={onstream} disabled={(!streamActive && (!streamable || !symbol.trim())) || isLoading} aria-pressed={streamActive} title={!streamable ? `Live streaming is not available for ${source}.` : streamActive ? 'Stop the live stream' : 'Start a live stream; matching history is loaded if needed'}>
+  <button type="button" class="ot-workbench-ghost quiet stream-control" onclick={onstream} disabled={(!streamActive && (!streamable || !symbol.trim())) || isLoading} aria-pressed={streamActive} title={!streamable ? `Live streaming is not available for ${source}.` : streamActive ? 'Stop the live stream' : 'Start a live stream; matching history is loaded if needed'}>
     <span>{streamActive ? 'Stop stream' : 'Stream'}</span>
     {#if connectionStatus === 'connecting'}<span class="ot-stream-dot idle"></span>
     {:else if connectionStatus === 'connected'}<span class="ot-stream-dot" aria-label="Connected"></span>
@@ -148,7 +148,7 @@
     {#if currentUser}
       <Popover.Root bind:open={accountOpen}>
         <Popover.Trigger class="ot-workbench-ghost" aria-label="Account menu"><UserRound class="h-4 w-4" /></Popover.Trigger>
-        <Popover.Portal><Popover.Content align="end" sideOffset={8} class="z-[60] w-64 max-w-[calc(100vw-2rem)] rounded border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+        <Popover.Portal><Popover.Content align="end" sideOffset={8} class="z-(--z-popover) w-64 max-w-[calc(100vw-2rem)] rounded border border-border bg-popover p-3 text-popover-foreground shadow-popover">
           <p class="mb-3 break-all text-sm">{currentUser.email}</p>
           <div class="flex flex-col gap-2">
             <button type="button" class="ot-workbench-ghost" onclick={async () => { accountOpen = false; await tick(); apiKeysModalOpen = true; }}>API keys</button>
@@ -166,7 +166,7 @@
   <div class="context-group" aria-label="Bar interval"><span class="context-label">Interval</span><IntervalPicker bind:value={interval} {compact} /></div>
   {#if compact}<Popover.Root bind:open={dataSettingsOpen}>
     <Popover.Trigger class="ot-workbench-ghost min-h-11 flex-col gap-0.5" aria-label="Data settings"><span>Data settings</span><span class="request-status" role="status">{statusText}</span></Popover.Trigger>
-    <Popover.Portal><Popover.Content sideOffset={6} align="end" collisionPadding={8} class="z-[60] w-[320px] max-w-[calc(100vw-16px)] rounded border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+    <Popover.Portal><Popover.Content sideOffset={6} align="end" collisionPadding={8} class="z-(--z-popover) w-[320px] max-w-[calc(100vw-16px)] rounded border border-border bg-popover p-3 text-popover-foreground shadow-popover">
       <div class="data-controls">{@render dataControls()}</div>
     </Popover.Content></Popover.Portal>
   </Popover.Root>
@@ -178,20 +178,24 @@
 <ApiKeysModal bind:open={apiKeysModalOpen} />
 
 <style>
-  .workbench-header { background: oklch(var(--background)); border-bottom: 1px solid oklch(var(--border)); position: relative; z-index: 40; flex-shrink: 0; }
+  .workbench-header { background: oklch(var(--background)); border-bottom: 1px solid oklch(var(--border-subtle)); position: relative; z-index: var(--z-header); flex-shrink: 0; }
   .global-row, .context-row, .data-controls { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .global-row { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); }
+  .global-row { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); }
   .context-row { padding: 6px 12px; flex-wrap: wrap; }
   .account-zone { margin-left: auto; flex-shrink: 0; }
   .task-navigation { display: flex; align-items: center; align-self: stretch; gap: 4px; }
-  .task-link { background: transparent; border: 0; border-bottom: 2px solid transparent; color: oklch(var(--muted-foreground)); padding: 6px 10px; font: 600 13px var(--font-sans); cursor: pointer; }
+  .task-link { background: transparent; border: 0; border-bottom: 2px solid transparent; color: oklch(var(--muted-foreground)); padding: 6px 10px; font: 600 var(--font-size-control) var(--font-sans); cursor: pointer; }
   .task-link:hover { color: oklch(var(--foreground)); background: oklch(var(--accent)); }
-  .task-link[aria-current] { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--primary)); }
+  .task-link[aria-current] { color: oklch(var(--foreground)); border-bottom-color: oklch(var(--foreground)); }
   .task-link:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
+  @media (forced-colors: active) {
+    .task-link { border-bottom-color: Canvas; }
+    .task-link[aria-current] { border-bottom-color: Highlight; }
+  }
   .context-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .context-label { font: 12px var(--font-sans); color: oklch(var(--muted-foreground)); }
-  .stream-control[aria-pressed="true"] { border-color: oklch(var(--primary)); }
-  .request-status { font: 11px var(--font-mono); color: oklch(var(--muted-foreground)); }
+  .context-label { font: var(--font-size-chrome) var(--font-sans); color: oklch(var(--muted-foreground)); }
+  .stream-control[aria-pressed="true"] { border-color: oklch(var(--status-ok)); }
+  .request-status { font: var(--font-size-label) var(--font-mono); color: oklch(var(--muted-foreground)); }
   @media (max-width: 760px) {
     .global-row { flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
     .task-navigation { order: 3; flex-basis: 100%; }

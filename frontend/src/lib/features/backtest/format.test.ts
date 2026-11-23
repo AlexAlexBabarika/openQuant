@@ -4,6 +4,7 @@ import {
   formatCurrency,
   formatInt,
   formatIsoDate,
+  formatIsoMinute,
   formatPct,
   formatRatio,
   formatSignedCurrency,
@@ -65,6 +66,17 @@ describe('dates and months', () => {
     expect(formatIsoDate('2014-03-11T00:00:00+00:00')).toBe('2014-03-11');
     expect(formatUnixDate(null)).toBe('—');
     expect(formatIsoDate(null)).toBe('—');
+  });
+
+  it('formats an iso timestamp to the minute in UTC', () => {
+    expect(formatIsoMinute('2026-10-19T19:32:04.510417+00:00')).toBe(
+      '2026-10-19 19:32 UTC',
+    );
+    expect(formatIsoMinute('2026-10-19T21:32:04+02:00')).toBe(
+      '2026-10-19 19:32 UTC',
+    );
+    expect(formatIsoMinute(null)).toBe('—');
+    expect(formatIsoMinute('not a date')).toBe('—');
   });
 
   it('names months from a 0-based index', () => {

@@ -61,25 +61,25 @@
     min-height: 0;
     overflow: auto;
     border-top: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
   }
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th {
     position: sticky;
     top: 0;
     text-align: left;
     padding: 7px 12px;
-    font-size: 10px;
-    letter-spacing: 0.12em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 6%);
+    background: oklch(var(--background));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   td {
     padding: 6px 12px;

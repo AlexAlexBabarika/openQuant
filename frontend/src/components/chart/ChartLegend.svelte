@@ -31,7 +31,7 @@
 <style>
   .chart-legend { max-width: calc(100% - 90px); overflow-wrap: anywhere; }
   @media (max-width: 760px) {
-    .chart-legend { left: 10px; top: 10px; font-size: 11px; line-height: 16px; }
+    .chart-legend { left: 10px; top: 10px; font-size: var(--font-size-label); line-height: 16px; }
     .chart-legend > div:first-child { font-size: 15px; }
     .chart-legend > div:nth-child(2) { font-size: 18px; }
   }

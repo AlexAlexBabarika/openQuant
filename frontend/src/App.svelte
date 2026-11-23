@@ -786,7 +786,7 @@
 <svelte:window onkeydown={handleCommandKey} />
 
 <div class="flex flex-col h-dvh bg-background">
-  <a href="#workbench-main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[90] focus:rounded focus:bg-card focus:px-3 focus:py-2 focus:text-sm">Skip to workspace</a>
+  <a href="#workbench-main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-(--z-top) focus:rounded focus:bg-card focus:px-3 focus:py-2 focus:text-sm">Skip to workspace</a>
   <DrawablesPersistence userId={$authState.user?.id ?? null} ready={sessionReady} />
   <TopHeader
     bind:symbol={chart.symbol}
@@ -823,7 +823,7 @@
     {#if narrow}
       <Popover.Root bind:open={drawingToolsOpen}>
         <Popover.Trigger class="ot-workbench-ghost" aria-label="Drawing tools" aria-pressed={activeTool !== CURSOR}>Draw</Popover.Trigger>
-        <Popover.Portal><Popover.Content side="right" sideOffset={8} class="z-[60] rounded border border-border bg-popover p-2">
+        <Popover.Portal><Popover.Content side="right" sideOffset={8} class="z-(--z-popover) rounded border border-border bg-popover p-2">
           <LeftToolbar nested chartSymbol={chart.symbol} bind:crosshairMode {activeTool} onToolSettings={openToolSettings} drawableCommands={drawableToolbarCommands} onActivate={tool => { activeTool = tool; drawingToolsOpen = false; }} />
         </Popover.Content></Popover.Portal>
       </Popover.Root>
@@ -845,7 +845,7 @@
     />
   <div class="flex-1 min-w-0 min-h-0 flex flex-col">
       {#if chart.candles.length && chart.loadedContext && !chart.dataContextCurrent}
-        <p class="px-3 py-2 text-xs text-muted-foreground border-b border-border" role="status">Showing last loaded data: {chart.loadedContext.symbol} · {chart.loadedContext.source} · {chart.loadedContext.period} / {chart.loadedContext.interval}. {chart.isLoading ? 'New request loading…' : 'Load the current context to update.'}</p>
+        <p class="px-3 py-2 text-xs text-muted-foreground border-b border-border-subtle" role="status">Showing last loaded data: {chart.loadedContext.symbol} · {chart.loadedContext.source} · {chart.loadedContext.period} / {chart.loadedContext.interval}. {chart.isLoading ? 'New request loading…' : 'Load the current context to update.'}</p>
       {/if}
       <Chart
         candles={chart.candles}
@@ -915,7 +915,7 @@
     {#if narrow}
       <Dialog.Root bind:open={watchlistOpen}>
         <Dialog.Content class="left-auto right-0 top-0 h-dvh w-[min(360px,100vw)] max-w-none translate-x-0 translate-y-0 rounded-none p-0 flex flex-col gap-0" >
-          <Dialog.Title class="px-3 py-3 pr-12 font-mono text-sm border-b border-border">Watchlist</Dialog.Title>
+          <Dialog.Title class="px-3 py-3 pr-12 font-mono text-sm border-b border-border-subtle">Watchlist</Dialog.Title>
           <Dialog.Description class="sr-only">Symbols, groups and notes for the current research workspace.</Dialog.Description>
           {@render watchlistContent()}
         </Dialog.Content>

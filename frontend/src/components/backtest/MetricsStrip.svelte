@@ -27,9 +27,9 @@
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 1px;
-    background: color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+    background: oklch(var(--border));
     border-bottom: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
   }
   .cell {
     display: flex;
@@ -39,7 +39,7 @@
     background: oklch(var(--card));
   }
   .label {
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: normal;
     text-transform: none;
     color: oklch(var(--muted-foreground));
@@ -68,7 +68,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
-  @container (max-width: 800px) { .strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } .cell { padding: 10px; } .value { font-size: 16px; } }
+  @container (max-width: 800px) { .strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } .cell { padding: 10px; } .value { font-size: var(--font-size-title); } }
   @container (max-width: 440px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 </style>

@@ -26,7 +26,7 @@
     gap: 10px;
   }
   .value {
-    font-size: 22px;
+    font-size: var(--font-size-display);
     font-weight: 600;
     letter-spacing: -0.01em;
     color: oklch(var(--foreground));
@@ -36,8 +36,8 @@
     color: oklch(var(--down-color));
   }
   .n {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
+    color: oklch(var(--foreground-tertiary));
   }
 </style>

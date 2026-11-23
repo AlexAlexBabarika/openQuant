@@ -25,6 +25,7 @@
   import SweepPanel from '../sweep/SweepPanel.svelte';
   import PortfolioPanel from './PortfolioPanel.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
+  import { formatIsoMinute } from '$lib/features/backtest/format';
   import DataQualityEvidence from '../backtest/DataQualityEvidence.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
   import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
@@ -235,7 +236,7 @@
       onClose={close}
     >
       {#snippet mark()}∿{/snippet}
-      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost quiet" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
     </PanelTopbar>
 
     <div
@@ -302,6 +303,17 @@
               {/if}
             </div>
 
+            <div class="editor-views" aria-label="Editor and results views">
+              <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
+              <div class="view-switch" role="group" aria-label="Visible panes">
+                <button type="button" aria-pressed={!splitEnabled && editorView === 'editor'} onclick={() => { splitEnabled = false; editorView = 'editor'; }}>Editor</button>
+                <button type="button" aria-pressed={!splitEnabled && editorView === 'results'} onclick={() => { splitEnabled = false; editorView = 'results'; }}>Results</button>
+                <button type="button" class="split-view" aria-pressed={splitEnabled} onclick={() => (splitEnabled = true)}>Split view</button>
+              </div>
+              {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost quiet" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
+              <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
+            </div>
+
             <div class="actions">
               <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
               {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>Robustness</button>{/if}
@@ -328,7 +340,7 @@
               </button>
               <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
                 <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
-                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-[60] flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-lg">
+                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-(--z-popover) flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-popover">
                   <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => void newDraft())}>New strategy</button>
                   {#if onRobustness}<button type="button" class="btn ghost min-h-11" disabled={strat.isRunning || !symbol} onclick={() => void selectAction(onRobustness)}>Robustness</button>{/if}
                 </Popover.Content></Popover.Portal>
@@ -345,14 +357,6 @@
             </div>
           {/if}
 
-          <div class="editor-views" class:single={!splitEnabled} aria-label="Editor and results views">
-            <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
-            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'editor'} onclick={() => (editorView = 'editor')}>Editor</button>
-            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'results'} onclick={() => (editorView = 'results')}>Results</button>
-            <button type="button" class="split-view ot-workbench-ghost" aria-pressed={splitEnabled} onclick={() => (splitEnabled = !splitEnabled)}>Split view</button>
-            {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
-            <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
-          </div>
           <div class="editing-panes" class:single={!splitEnabled} class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
           <div class="editor-pane" class:inactive={editorView !== 'editor'}>
             <ScriptEditor
@@ -367,12 +371,12 @@
           <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
           <div class="results-pane" class:inactive={editorView !== 'results'}>
             {#if completedResult === strat.backtest && strat.backtest?.result && completedMarket}
-              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval}<br />Completed {strat.backtest.result.meta.finished_at} · simulated</p>
+              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval} · completed <time datetime={strat.backtest.result.meta.finished_at} title={strat.backtest.result.meta.finished_at}>{formatIsoMinute(strat.backtest.result.meta.finished_at)}</time> · simulated</p>
             {/if}
             {#if strat.backtest}
               <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />
             {:else}
-              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p></div>
+              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p><button type="button" class="ot-workbench-ghost mt-3" onclick={runNow} disabled={strat.isRunning || !symbol}>Run backtest</button></div>
             {/if}
           </div>
           </div>
@@ -424,13 +428,11 @@
     flex-direction: column;
     color: oklch(var(--foreground));
     background: oklch(var(--card));
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
+    border-top: 1px solid oklch(var(--border-subtle));
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--font-size-body);
     line-height: 20px;
     overflow: hidden;
   }
@@ -450,11 +452,12 @@
   .embedded .body.options-mode { flex-shrink: 1; min-height: 0; }
   .options-host { min-width: 0; min-height: 0; }
   .options-host[hidden] { display: none; }
-  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
-  .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
-  .compact-view { display: none; }
-  .single .compact-view { display: inline-flex; }
-  .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
+  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .editor-views span { color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
+  .view-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: oklch(var(--surface-sunken)); }
+  .view-switch button { border: 0; border-radius: var(--radius-sm); padding: 4px 12px; background: transparent; color: oklch(var(--muted-foreground)); font: var(--font-size-chrome) var(--font-sans); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
+  .view-switch button:hover { color: oklch(var(--foreground)); }
+  .view-switch button[aria-pressed="true"] { background: oklch(var(--accent)); color: oklch(var(--accent-foreground)); font-weight: 600; }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
   .editing-panes.resizing { user-select: none; }
   .embedded .editing-panes { min-height: 240px; flex-shrink: 0; }
@@ -464,13 +467,12 @@
   .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
   .editor-splitter:hover, .editor-splitter:focus-visible { background: oklch(var(--accent)); outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .results-pane { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); font-size: 11px; overflow-wrap: anywhere; }
-  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: 12px; }
+  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); overflow-wrap: anywhere; }
+  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); }
   .results-empty h2 { color: oklch(var(--foreground)); margin-bottom: 12px; }
   @media (max-width: 1100px) {
     .editing-panes { grid-template-columns: minmax(0, 1fr); }
     .editing-panes .inactive, .editor-splitter { display: none; }
-    .compact-view { display: inline-flex; }
     .split-view { display: none; }
   }
   .body.sweep-mode {
@@ -491,21 +493,22 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 18px;
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 18px;
+    border-bottom: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
   .name-wrap {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    flex: 1 1 auto;
+    flex: 1 1 12rem;
     min-width: 0;
   }
   .name-prefix {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .name-input {
     flex: 1 1 auto;
@@ -515,24 +518,23 @@
     border-bottom: 1px solid transparent;
     padding: 4px 0;
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .name-input:hover {
     border-bottom-color:
       color-mix(in oklab, oklch(var(--foreground)) 18%, transparent);
   }
   .name-input:focus {
-    border-bottom-color:
-      color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+    border-bottom-color: oklch(var(--ring));
   }
   .dirty {
-    color: oklch(var(--primary));
-    font-size: 12px;
+    color: oklch(var(--status-warn));
+    font-size: var(--font-size-chrome);
     line-height: 1;
   }
 
@@ -557,20 +559,21 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-radius: var(--radius-md);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+  .btn.ghost { border-color: transparent; color: oklch(var(--muted-foreground)); }
   .btn.ghost:hover:not(:disabled) {
-    border-color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    color: oklch(var(--foreground));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -578,7 +581,7 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
     background: color-mix(in oklab, oklch(var(--primary)) 94%, oklch(var(--primary-foreground)));
@@ -604,16 +607,14 @@
   @media (max-width: 760px) {
     .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 12px; }
     .actions { flex-wrap: nowrap; gap: 6px; }
-    .actions .btn { min-height: 44px; font-size: 13px; }
+    .actions .btn { min-height: 44px; font-size: var(--font-size-control); }
     .wide-action { display: none; }
     .mobile-actions { display: flex; }
-    .editor-views { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
-    .editor-views .ot-workbench-ghost { min-height: 44px; }
-    .editor-views .compact-view { grid-row: 1 / span 2; }
-    .editor-views .compact-view:first-of-type { grid-column: 1; }
-    .editor-views .compact-view:nth-of-type(2) { grid-column: 2; }
-    .editor-views button:not(.compact-view) { grid-column: 1 / -1; }
-    .editor-views > span { grid-column: 3; font-size: 11px; line-height: 14px; }
+    .editor-views { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; }
+    .editor-views .ot-workbench-ghost, .view-switch button { min-height: 44px; }
+    .view-switch { grid-column: 1; grid-row: 1 / span 2; }
+    .editor-views > button { grid-column: 1 / -1; }
+    .editor-views > span { grid-column: 2; font-size: var(--font-size-label); line-height: 14px; }
     .editor-views > span:first-child { grid-row: 1; align-self: end; }
     .editor-views > span[role="status"] { grid-row: 2; align-self: start; }
   }
@@ -625,9 +626,6 @@
   }
   @media (forced-colors: active) {
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
+    .view-switch button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   }
-
-  /* ---------------------------------------------------------------- */
-  /* Light theme: pure white chrome, mirroring IndicatorsPanel.        */
-  /* ---------------------------------------------------------------- */
 </style>

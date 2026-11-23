@@ -29,6 +29,38 @@ do not replace them with a promotional dashboard or invent trading capabilities.
   USD-by-dashboard-convention, counts, and bars. Use those meanings rather than
   inferring units or P&L from a color or a drawable.
 
+## Design tokens
+
+`styles.css` names the values components share. Use a token instead of a raw
+value; if none fits, pick the nearest step before adding a new one. Colour
+tokens are OKLCH triplets and are wrapped at the point of use:
+`oklch(var(--border-subtle))`.
+
+| Need | Token |
+| --- | --- |
+| Surfaces, lowest to highest | `--surface-sunken` (wells), `--background` (app), `--card` (panels), `--surface-raised` via `--popover` (menus, popovers, dialogs) |
+| Hover and selected fills | `--surface-hover`, `--surface-selected` |
+| Text levels | `--foreground`, `--muted-foreground`, `--foreground-tertiary` |
+| Borders | `--border-subtle` for single-side divider lines, `--border` for control and card outlines, `--border-strong` for hover and emphasis, `--input` for form fields |
+| Error fills and outlines | `--status-error-wash`, `--status-error-border` |
+| Font size | `--font-size-annotation` (10), `-label` (11), `-chrome` (12), `-control` (13), `-body` (14), `-title` (16), `-display` (20) |
+| Letter-spacing | `--tracking-label`, `--tracking-wide` |
+| Radius | `--radius-sm` (2px), `--radius-md` (4px, controls), `--radius-lg` (6px) |
+| Control height | `--control-height-compact` (28px), `--control-height` (32px), `--control-touch-height` (44px) |
+| Transitions | `--motion-fast`, `--motion-base`, used inside the shorthand: `transition: color var(--motion-fast)` |
+| Disabled | `--opacity-disabled` |
+| Shadows | `shadow-popover`, `shadow-dialog` (Tailwind), or `--elevation-popover`, `--elevation-dialog` in scoped CSS |
+| App layers | `--z-header`, `--z-popover`, `--z-dialog`, `--z-dialog-popover`, `--z-top`; in markup, `z-(--z-popover)` |
+
+- The primary green is for the run action and the brand mark. Selected and
+  active states (tabs, segments, list rows, pressed options) use `--accent` or
+  `--surface-selected`, with a foreground keyline or underline. Status uses the
+  `--status-*` tokens.
+- In a bar, outline at most the one key action. Other actions use the quiet
+  ghost (`.ot-workbench-ghost.quiet`), borderless until hovered.
+- Small local `z-index` values that order elements inside one component are
+  not app layers and stay as numbers.
+
 ## Additions: color and readable data
 
 - Green action fills keep their existing hue; their foreground is dark.

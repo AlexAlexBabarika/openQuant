@@ -109,10 +109,10 @@
 </script>
 
 <aside
-  class="{sheet ? 'w-full min-w-0 flex-1 min-h-0' : 'w-[17%] min-w-[200px]'} border-l border-border bg-background flex flex-col shrink-0 overflow-visible"
+  class="{sheet ? 'w-full min-w-0 flex-1 min-h-0' : 'w-[17%] min-w-[200px]'} border-l border-border-subtle bg-background flex flex-col shrink-0 overflow-visible"
   aria-label="Sidebar"
 >
-  <div class="flex items-center justify-between px-2 py-2 border-b border-border h-10">
+  <div class="flex items-center justify-between px-2 py-2 border-b border-border-subtle h-10">
     <GroupSelector
       {groups}
       selectedName={selectedGroupName}
@@ -148,7 +148,8 @@
         {:else if selectedPriority}
           No tickers with this priority.
         {:else}
-          No symbols yet. Click + to add one.
+          <p>No symbols yet.</p>
+          <button type="button" class="ot-workbench-ghost mt-2" onclick={onaddticker}>Add a symbol</button>
         {/if}
       </div>
     {:else}
@@ -161,7 +162,7 @@
               <button
                 type="button"
                 class="ot-keyline-host ot-keyline-flush relative flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition-colors {isLoaded
-                  ? 'ot-keyline-active bg-primary/[0.08]'
+                  ? 'ot-keyline-active bg-accent'
                   : ''}"
                 aria-current={isLoaded ? 'true' : undefined}
                 onclick={() => onselectticker(ticker.symbol)}
@@ -198,7 +199,7 @@
             </ContextMenu.Trigger>
             <ContextMenu.Portal>
               <ContextMenu.Content
-                class="z-[80] w-44 rounded-md border border-border bg-popover text-popover-foreground shadow-md py-1 outline-none"
+                class="z-(--z-dialog-popover) w-44 rounded-md border border-border bg-popover text-popover-foreground shadow-popover py-1 outline-none"
               >
                 <ContextMenu.Item
                   onSelect={() => onaddnote(ticker.symbol)}
@@ -274,7 +275,7 @@
     {/if}
   </div>
 
-  <div class="border-t border-border px-3 py-2">
+  <div class="border-t border-border-subtle px-3 py-2">
     <div class="text-[10px] font-medium tracking-wider uppercase text-muted-foreground">
       Current Symbol
     </div>

@@ -67,12 +67,12 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 2px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     font-variant-numeric: tabular-nums;
   }
   th {
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     font-weight: 600;
@@ -85,12 +85,12 @@
   }
   .year-cell {
     color: oklch(var(--foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
   }
   td {
     text-align: center;
     padding: 6px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     color: oklch(var(--foreground));
     min-width: 44px;
   }

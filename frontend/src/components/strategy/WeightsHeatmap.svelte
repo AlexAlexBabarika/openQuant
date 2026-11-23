@@ -80,9 +80,9 @@
   .label {
     height: 16px;
     line-height: 16px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     text-align: right;
     color: oklch(var(--muted-foreground));
   }
@@ -90,15 +90,15 @@
     width: 100%;
     display: block;
     border: 1px solid color-mix(in oklab, oklch(var(--border)) 60%, transparent);
-    border-radius: 3px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    border-radius: var(--radius-sm);
+    background: oklch(var(--surface-sunken));
   }
   .axis {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 10px;
-    letter-spacing: 0.06em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--muted-foreground));
   }
   .legend {
@@ -110,14 +110,10 @@
     display: inline-block;
     width: 9px;
     height: 9px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
   .swatch.long { background: rgba(34, 197, 94, 0.85); }
   .swatch.short { background: rgba(239, 68, 68, 0.85); }
   .swatch.short { margin-left: 8px; }
 
-  :global(html:not(.dark)) svg {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
 </style>

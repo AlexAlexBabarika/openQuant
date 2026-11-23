@@ -296,7 +296,7 @@ describe('compiled global selectors', () => {
         readFileSync(
           `${base}lib/components/ui/dialog/${name}.svelte`,
           'utf8',
-        ).match(/z-\[\d+\]/)![0],
+        ).match(/z-\(--[\w-]+\)/)![0],
     );
     const compiled = await compileCss(source, { base, onDependency() {} });
     const layerCss = postcss.parse(
@@ -305,9 +305,9 @@ describe('compiled global selectors', () => {
     );
     const layer = (className: string) =>
       Number(
-        declarations(`.${className.replace(/[\[\]]/g, '\\$&')}`, layerCss)[
+        declarations(`.${className.replace(/[()]/g, '\\$&')}`, layerCss)[
           'z-index'
-        ],
+        ].replace(/var\((--[\w-]+)\)/, (_, key) => declarations(':root')[key]),
       );
     for (const modal of modalLayers)
       expect(layer(popupLayer)).toBeGreaterThan(layer(modal));
@@ -409,8 +409,8 @@ describe('compiled global selectors', () => {
       'oklch(var(--foreground))',
     );
     expect(declarations('.tab.active', bar)).toMatchObject({
-      color: 'oklch(var(--primary-foreground))',
-      background: 'oklch(var(--primary))',
+      color: 'oklch(var(--accent-foreground))',
+      background: 'oklch(var(--accent))',
     });
     // Neither theme nor tone overrides the tab colours themselves.
     for (const selector of [
@@ -445,19 +445,17 @@ describe('compiled global selectors', () => {
     expect(declarations('.ri-time', rail).color).toBe(
       'oklch(var(--muted-foreground))',
     );
-    // Overlay panels: status red in dark, destructive and inverted in light.
+    // Overlay panels: status red in both themes, from the themed token.
+    expect(declarations('.rail-hint.err', rail).color).toBe(
+      'oklch(var(--status-error))',
+    );
+    expect(declarations('.ri-del:hover', rail).color).toBe(
+      'oklch(var(--status-error))',
+    );
     const light = 'html:not(.dark) .rail:not(.page)';
-    expect(declarations(`${light} .rail-hint.err`, rail).color).toBe(
-      'oklch(var(--destructive))',
-    );
-    expect(declarations(`${light} .ri-del`, rail).color).toBe(
-      'oklch(var(--foreground))',
-    );
-    expect(declarations(`${light} .ri-del:hover`, rail)).toMatchObject({
-      background: 'oklch(var(--foreground))',
-      color: 'oklch(var(--card))',
-    });
-    // Workspace pages: loss red in both themes, no light inversion.
+    for (const selector of ['.rail-hint.err', '.ri-del', '.ri-del:hover'])
+      expect(declarations(`${light} ${selector}`, rail)).toEqual({});
+    // Workspace pages: loss red in both themes.
     expect(declarations('.page .rail-hint.err', rail).color).toBe(
       'oklch(var(--down-color))',
     );
@@ -516,9 +514,7 @@ describe('compiled global selectors', () => {
       background: 'oklch(var(--card))',
     });
     expect(ghost).toMatchObject({ color: 'oklch(var(--foreground))' });
-    expect(hover.background).toBe(
-      'color-mix(in oklab, oklch(var(--foreground)) 6%, transparent)',
-    );
+    expect(hover.background).toBe('oklch(var(--surface-hover))');
     expect(declarations('.ot-ctx-pill').color).toBe(
       'oklch(var(--muted-foreground))',
     );

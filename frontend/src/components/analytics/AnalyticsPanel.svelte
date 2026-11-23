@@ -253,19 +253,10 @@
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
-    background:
-      radial-gradient(
-        1200px 600px at 20% -200px,
-        color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
-        transparent 60%
-      ),
-      color-mix(in oklab, oklch(var(--popover)) 96%, black 4%);
+    background: oklch(var(--card));
     border-top: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent)
-        inset;
+      oklch(var(--border));
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
     overflow: hidden;
@@ -303,12 +294,8 @@
     flex-direction: column;
     min-height: 0;
     border-right: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-      color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
-    );
+      oklch(var(--border));
+    background: oklch(var(--card));
   }
 
   .search {
@@ -317,7 +304,7 @@
     gap: 8px;
     padding: 12px 14px;
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
     color: oklch(var(--muted-foreground));
   }
   .search input {
@@ -327,11 +314,11 @@
     border: 0;
     outline: none;
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--foreground));
   }
   .search input::placeholder {
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 
   .rail-list {
@@ -346,8 +333,8 @@
   }
   .group-head {
     padding: 8px 10px 4px;
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -362,21 +349,21 @@
     padding: 8px 10px;
     margin: 0 0 2px;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--foreground));
     text-align: left;
     cursor: pointer;
     font-family: inherit;
     transition:
-      background 120ms ease,
-      border-color 120ms ease;
+      background var(--motion-fast),
+      border-color var(--motion-fast);
   }
   .row:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .row.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
+    background: oklch(var(--surface-selected));
     border-color: transparent;
   }
   .row.active::before {
@@ -387,7 +374,7 @@
     transform: translateY(-50%);
     width: 2px;
     height: 60%;
-    background: oklch(var(--primary));
+    background: oklch(var(--foreground));
     border-radius: 0 2px 2px 0;
     pointer-events: none;
   }
@@ -399,13 +386,12 @@
     border-radius: 999px;
     background: color-mix(in oklab, oklch(var(--foreground)) 22%, transparent);
     transition:
-      background 120ms ease,
-      box-shadow 120ms ease;
+      background var(--motion-fast),
+      box-shadow var(--motion-fast);
   }
   .dot.on {
-    background: oklch(var(--primary));
-    box-shadow: 0 0 0 2px
-      color-mix(in oklab, oklch(var(--primary)) 28%, transparent);
+    background: oklch(var(--status-ok));
+    box-shadow: 0 0 0 2px oklch(var(--status-ok) / 28%);
   }
 
   .row-text {
@@ -414,20 +400,20 @@
     min-width: 0;
   }
   .row-name {
-    font-size: 13px;
+    font-size: var(--font-size-control);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .row-desc {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.4;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
 
   .hint {
     margin: 14px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--muted-foreground));
   }
 
@@ -437,9 +423,9 @@
     gap: 12px;
     padding: 10px 14px;
     border-top: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
-    letter-spacing: 0.06em;
+      oklch(var(--border));
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--muted-foreground));
   }
   .legend {
@@ -450,11 +436,11 @@
   .kbd {
     padding: 1px 5px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 10px;
+      oklch(var(--border));
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
 
   .work {
@@ -467,8 +453,8 @@
     margin: auto;
     padding: 24px;
     color: oklch(var(--muted-foreground));
-    font-size: 13px;
-    letter-spacing: 0.04em;
+    font-size: var(--font-size-control);
+    letter-spacing: var(--tracking-label);
   }
   .grid {
     display: grid;
@@ -483,7 +469,7 @@
       grid-template-rows: minmax(110px, 35%) minmax(0, 1fr);
     }
     .rail {
-      border-bottom: 1px solid oklch(var(--border));
+      border-bottom: 1px solid oklch(var(--border-subtle));
     }
     .rail-foot { display: none; }
     .grid { grid-template-columns: minmax(0, 1fr); }
@@ -495,30 +481,8 @@
   }
   @media (forced-colors: active) {
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
+    .row.active { border-color: Highlight; }
+    .row.active::before { forced-color-adjust: none; background: Highlight; }
   }
 
-  :global(html:not(.dark)) .panel {
-    background: oklch(var(--card));
-    box-shadow:
-      0 -1px 0 0 oklch(var(--foreground)) inset,
-      0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail {
-    background: oklch(var(--card));
-    border-right: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .search {
-    border-bottom: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-foot {
-    border-top: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
 </style>

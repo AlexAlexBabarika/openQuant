@@ -43,7 +43,6 @@
   class="topbar"
   class:page={tone === 'page'}
   class:embedded
-  class:with-tabs={!!tabs}
 >
   {#if !embedded}<div class="brand">
       <span class="brand-mark">{@render mark()}</span>
@@ -99,16 +98,14 @@
 
 <style>
   .topbar {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    display: flex;
     align-items: center;
     gap: 16px;
     padding: 14px 22px;
-    border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    border-bottom: 1px dashed oklch(var(--border));
+    background: oklch(var(--card));
   }
-  .topbar.with-tabs { grid-template-columns: auto auto 1fr auto; }
-  .topbar.page { display: flex; flex-wrap: wrap; }
+  .topbar.page { flex-wrap: wrap; }
   .topbar.embedded { flex-shrink: 0; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
   .embedded > :global(.ot-workbench-ghost) { flex: none; }
 
@@ -116,40 +113,40 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    font-size: 13px;
-    letter-spacing: 0.04em;
+    font-size: var(--font-size-control);
+    letter-spacing: var(--tracking-label);
   }
   .brand-mark {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
     transform: translateY(1px);
   }
   .brand-title { font-weight: 600; }
   .brand-sub {
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
   .ctx {
-    justify-self: center;
+    margin-inline: auto;
     display: inline-flex;
     align-items: baseline;
     gap: 10px;
     padding: 4px 10px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+    border: 1px dashed oklch(var(--border));
     border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
   }
-  .page .ctx { margin-left: auto; background: oklch(var(--background)); }
+  .page .ctx { margin-right: 0; background: oklch(var(--background)); }
   .ctx-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
+    color: oklch(var(--foreground-tertiary));
   }
   .ctx-pair {
     display: inline-flex;
@@ -160,32 +157,32 @@
     color: oklch(var(--foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
   }
   .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
+  .ctx-prov, .ctx-iv, .ctx-pd { font-size: var(--font-size-label); }
 
   .iconbtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn:hover {
     color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-selected));
   }
   .iconbtn.close:hover {
-    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    border-color: oklch(var(--status-error-border));
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
+    background: oklch(var(--status-error-wash));
   }
   .page .iconbtn.close:hover {
     border-color: oklch(var(--down-color));
@@ -198,9 +195,9 @@
     align-items: center;
     gap: 2px;
     padding: 2px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-md);
+    background: oklch(var(--surface-sunken));
   }
   .page .tabs { background: oklch(var(--background)); }
   .embedded .tabs { min-width: 0; overflow-x: auto; }
@@ -211,22 +208,22 @@
     background: transparent;
     color: oklch(var(--muted-foreground));
     font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     padding: 4px 12px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .tab:hover { color: oklch(var(--foreground)); }
   .tab.active {
-    background: oklch(var(--primary));
-    color: oklch(var(--primary-foreground));
+    background: oklch(var(--accent));
+    color: oklch(var(--accent-foreground));
     font-weight: 600;
   }
 
   @media (max-width: 900px) {
-    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+    .topbar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
     .topbar .close { margin-left: auto; }
     .ctx { flex-wrap: wrap; }
     .topbar:not(.page) .ctx-pair { flex-wrap: wrap; }
@@ -243,34 +240,6 @@
   }
   @media (forced-colors: active) {
     button:focus-visible { outline-color: Highlight; }
-  }
-
-  /* Light theme on an overlay panel: pure white surfaces, dark hairlines. */
-  :global(html:not(.dark)) .topbar:not(.page) {
-    background: oklch(var(--card));
-    border-bottom: 1px dashed oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .ctx {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .ctx-label,
-  :global(html:not(.dark)) .topbar:not(.page) .ctx-sep {
-    color: oklch(var(--foreground));
-    opacity: 0.55;
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .tabs {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar:not(.page) .iconbtn:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-    border-color: oklch(var(--foreground));
+    .tabs .tab.active { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   }
 </style>

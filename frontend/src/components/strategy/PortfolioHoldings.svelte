@@ -58,17 +58,17 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th {
     padding: 4px 10px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   td {
     padding: 5px 10px;
@@ -77,7 +77,7 @@
   }
   .left { text-align: left; }
   .right { text-align: right; font-variant-numeric: tabular-nums; }
-  .sym { font-weight: 600; letter-spacing: 0.06em; }
+  .sym { font-weight: 600; letter-spacing: var(--tracking-label); }
   tr.closed .sym { color: oklch(var(--muted-foreground)); }
   .dim { color: oklch(var(--muted-foreground)); }
   .pos { color: oklch(var(--up-color)); }
@@ -87,17 +87,16 @@
   .bar-track {
     display: block;
     height: 8px;
-    border-radius: 2px;
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    border-radius: var(--radius-sm);
+    background: oklch(var(--surface-hover));
     overflow: hidden;
   }
   .bar {
     display: block;
     height: 100%;
     background: oklch(var(--up-color));
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
   .bar.short { background: oklch(var(--down-color)); }
 
-  :global(html:not(.dark)) th { border-bottom-color: oklch(var(--foreground)); }
 </style>

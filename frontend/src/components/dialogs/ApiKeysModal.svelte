@@ -236,7 +236,7 @@
     {/if}
 
     {#if existingKeys.length > 0}
-      <div class="border-t border-border pt-3">
+      <div class="border-t border-border-subtle pt-3">
         <p class="text-xs text-muted-foreground mb-2 font-medium">
           Configured keys
         </p>
