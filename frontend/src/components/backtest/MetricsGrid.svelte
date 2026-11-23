@@ -37,20 +37,20 @@
     padding: 16px;
   }
   .group {
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 6px;
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-lg);
     background: oklch(var(--card));
     overflow: hidden;
   }
   .group-title {
     margin: 0;
     padding: 8px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     letter-spacing: normal;
     text-transform: none;
     color: oklch(var(--muted-foreground));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .rows {
     margin: 0;
@@ -62,7 +62,7 @@
     align-items: baseline;
     gap: 12px;
     padding: 5px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   dt {
     color: oklch(var(--muted-foreground));

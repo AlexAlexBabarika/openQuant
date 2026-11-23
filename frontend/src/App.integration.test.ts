@@ -61,7 +61,7 @@ function mountActions() {
     `<script lang="ts">
     import { isCommandShortcut } from 'test:commands';
     import { authState } from 'test:auth';
-    const groups = [], runsHistory = { entries: [] }, listTools = () => [];
+    const watchlist = { groups: [] }, runsHistory = { entries: [] }, listTools = () => [];
     const openResearchWorkspaces = () => {};
     ${componentDeclarations(app, ['commandsOpen', 'guidedExampleOpen', 'guidedExampleReturnFocus', 'commandsReturnFocus', 'focusedElement', 'openGuidedExample', 'openResearchCommands', 'handleCommandKey', 'researchCommands'])}
     export function key(event) { handleCommandKey(event); }

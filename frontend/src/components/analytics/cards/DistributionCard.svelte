@@ -100,14 +100,14 @@
     gap: 10px;
   }
   .lbl {
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .bins {
-    font-size: 10px;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    font-size: var(--font-size-annotation);
+    color: oklch(var(--foreground-tertiary));
   }
   .chart {
     flex: 1 1 auto;

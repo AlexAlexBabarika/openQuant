@@ -49,7 +49,7 @@
     display: flex;
     gap: 18px;
     padding: 8px 14px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--muted-foreground));
   }
   .key {
@@ -60,7 +60,7 @@
   .swatch {
     width: 12px;
     height: 3px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
   .benchmark {
     background: none;
@@ -74,8 +74,8 @@
   }
   .sub-label {
     padding: 4px 14px 0;
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }

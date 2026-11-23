@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_DAYS, MAX_PRICE } from '$lib/features/options/optionsBounds';
   import { clearCommonDates, commonDateHorizon, optionsEditorErrors, setCommonDate, type OptionsEditorProps } from '$lib/features/options/optionsLegEditor';
   import { addDays, fractionInput, localIsoDate, percentFieldError, percentInput } from '$lib/features/options/optionsInputs';
   import { formatPrice } from '$lib/features/options/optionsFormat';
@@ -42,7 +43,7 @@
   {@render error('strategy')}
   <div class="inputs-grid">
     <div class="field">
-      {@render numeric('Spot · USD', 'spot', draft.spot, 0, 1000000, v => onSpot ? onSpot(v) : onEdit(d => { d.spot = v; }))}
+      {@render numeric('Spot · USD', 'spot', draft.spot, 0, MAX_PRICE, v => onSpot ? onSpot(v) : onEdit(d => { d.spot = v; }))}
       {#if workspace?.spot != null && workspace.symbol}
         {#if spotLinked}<small class="hint">From the {workspace.symbol} chart{#if drift} · <button type="button" class="link" onclick={() => onLink?.()}>Update to {formatPrice(workspace.spot)}</button>{/if}</small>
         {:else}<button type="button" class="link" onclick={() => onLink?.()}>Use {workspace.symbol} {formatPrice(workspace.spot)}</button>{/if}
@@ -58,7 +59,7 @@
       </div>
     {:else}
       <div class="field">
-        {@render numeric('Expiry · days', 'strategy.days_to_expiry', draft.strategy.days_to_expiry, 0, 3650, v => onEdit(d => { d.strategy.days_to_expiry = v; }))}
+        {@render numeric('Expiry · days', 'strategy.days_to_expiry', draft.strategy.days_to_expiry, 0, MAX_DAYS, v => onEdit(d => { d.strategy.days_to_expiry = v; }))}
         <button type="button" class="link" disabled={!Number.isInteger(draft.strategy.days_to_expiry)} onclick={useDates}>Use dates</button>
       </div>
     {/if}
@@ -87,22 +88,22 @@
 </section>
 
 <style>
-  .assumptions { container-type: inline-size; display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; }
-  h3 { margin: 0; font-size: 12px; }
+  .assumptions { container-type: inline-size; display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: var(--font-size-chrome); }
+  h3 { margin: 0; font-size: var(--font-size-chrome); }
   .hint { margin: 0; color: oklch(var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; line-height: 1.4; }
   .inputs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
-  input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 32px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
+  input { box-sizing: border-box; width: 100%; min-width: 0; min-height: var(--control-height); border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); padding: 5px 7px; font: inherit; }
   input[type="number"] { font-variant-numeric: tabular-nums; }
   input:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: oklch(var(--destructive)); }
-  .field-error { color: oklch(var(--down-color)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-  button { justify-self: start; white-space: normal; height: auto; min-height: 28px; overflow-wrap: anywhere; }
+  .field-error { color: oklch(var(--down-color)); font-size: var(--font-size-chrome); line-height: 1.5; overflow-wrap: anywhere; }
+  button { justify-self: start; white-space: normal; height: auto; min-height: var(--control-height-compact); overflow-wrap: anywhere; }
   .link { align-self: start; min-height: 24px; padding: 0; border: 0; background: none; color: oklch(var(--ring)); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .link:disabled { color: oklch(var(--muted-foreground)); cursor: not-allowed; text-decoration: none; }
-  .pricing { border-top: 1px solid oklch(var(--border)); padding-top: 4px; }
+  .pricing { border-top: 1px solid oklch(var(--border-subtle)); padding-top: 4px; }
   .pricing > :not(summary) { margin-top: 8px; }
-  summary { cursor: pointer; min-height: 28px; line-height: 28px; font-weight: 600; }
+  summary { cursor: pointer; min-height: var(--control-height-compact); line-height: var(--control-height-compact); font-weight: 600; }
   @container (max-width: 340px) { .inputs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @container (max-width: 220px) { .inputs-grid { grid-template-columns: minmax(0, 1fr); } }
   @media (pointer: coarse) { button, input, summary { min-height: var(--control-touch-height); } }

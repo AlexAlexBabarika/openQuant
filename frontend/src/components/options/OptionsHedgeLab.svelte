@@ -1,39 +1,39 @@
 <script lang="ts">
+  import { MAX_DAYS } from '$lib/features/options/optionsBounds';
   import { formatUsd } from '$lib/features/options/optionsFormat';
-  import { onDestroy, untrack } from 'svelte';
+  import { untrack } from 'svelte';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import OptionsLifecycle from './OptionsLifecycle.svelte';
   import type { HedgeRequest, HedgeResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { simulateHedge } from '$lib/features/options/optionsResearchApi';
   import { hedgeControls, hedgeRequest, validHedge, type HedgeControls } from '$lib/features/options/optionsHedge';
-  import { emptyResearchState, inputKey, observationIndex, pathChart, pathControls, ResearchJob, researchValue as value, type PathControls, type ResearchState } from '$lib/features/options/optionsLifecycle';
+  import { inputKey, observationIndex, pathChart, pathControls, researchValue as value, type PathControls } from '$lib/features/options/optionsLifecycle';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const uid = $props.id();
   let path = $state<PathControls>(untrack(() => pathControls(draft)));
   let settings = $state<HedgeControls>(hedgeControls());
-  let runState = $state.raw<ResearchState<HedgeResponse>>(emptyResearchState(untrack(() => documentKey)));
-  const job = new ResearchJob<HedgeRequest, HedgeResponse>(untrack(() => documentKey), () => documentKey, next => { runState = next; }, () => key);
   const prepared = $derived(hedgeRequest(draft, path, settings));
   const key = $derived(inputKey(draft, [path, settings]));
-  const visible = $derived(runState.documentKey === documentKey ? runState : null);
-  const result = $derived(visible?.result ?? null);
-  const stale = $derived(!!result && key !== visible?.submittedKey);
   let index = $state(0);
   let playing = $state(false);
+  const run = useResearchRun<HedgeRequest, HedgeResponse>({
+    documentKey: () => documentKey, inputKey: () => key, readOnly: () => readOnly,
+    onDocumentChange: () => { path = pathControls(draft); settings = hedgeControls(); index = 0; playing = false; },
+  });
+  const result = $derived(run.result);
+  const stale = $derived(run.stale);
   const active = $derived(result?.ledger[Math.min(index, result.ledger.length - 1)]);
   const chart = $derived(pathChart(result?.ledger.map(row => ({ day: row.day, values: [row.unhedged_pnl, row.hedged_pnl] })) ?? []));
-  $effect.pre(() => { const document = documentKey; untrack(() => { job.reset(document); path = pathControls(draft); settings = hedgeControls(); index = 0; playing = false; }); });
   $effect(() => {
     if (!playing || !result) return;
     const timer = setInterval(() => { if (index >= result.ledger.length - 1) playing = false; else index++; }, 500);
     return () => clearInterval(timer);
   });
-  onDestroy(() => job.reset('unmounted'));
-  $effect(() => { key; readOnly; untrack(() => { if (runState.pending) job.cancel(); }); });
   async function submit() {
-    if (readOnly || !prepared.request || visible?.pending) return;
+    if (readOnly || !prepared.request || run.pending) return;
     playing = false; index = 0;
-    await job.submit(structuredClone($state.snapshot(prepared.request)), key, simulateHedge, validHedge);
+    await run.submit($state.snapshot(prepared.request), simulateHedge, validHedge);
   }
   function move(key: string) {
     const next = observationIndex(index, result?.ledger.length ?? 0, key);
@@ -49,7 +49,7 @@
     <legend>Rebalancing and execution-cost assumptions</legend>
     <div class="fields">
       <label>Hedge policy<select name="hedge-mode" bind:value={settings.mode}><option value="none">None · no hedge</option><option value="daily">Daily · observation-constrained</option><option value="interval">Calendar-day interval</option><option value="delta_threshold">Residual delta threshold</option></select></label>
-      {#each ([['interval', 'Interval · calendar days (>0–3650)', 0, 3650], ['threshold', 'Residual delta threshold · equivalent shares (>0–1m)', 0, 1000000], ['maxShares', 'Maximum absolute hedge · shares (>0–10m)', 0, 10000000], ['perShare', 'Cost · USD per share (0–1000)', 0, 1000], ['fixed', 'Fixed cost · USD per nonzero trade (0–10k)', 0, 10000], ['slippage', 'Slippage · basis points (0–1000)', 0, 1000]] as const) as [field, label, min, max]}
+      {#each ([['interval', `Interval · calendar days (>0–${MAX_DAYS})`, 0, MAX_DAYS], ['threshold', 'Residual delta threshold · equivalent shares (>0–1m)', 0, 1000000], ['maxShares', 'Maximum absolute hedge · shares (>0–10m)', 0, 10000000], ['perShare', 'Cost · USD per share (0–1000)', 0, 1000], ['fixed', 'Fixed cost · USD per nonzero trade (0–10k)', 0, 10000], ['slippage', 'Slippage · basis points (0–1000)', 0, 1000]] as const) as [field, label, min, max]}
         {#if (field !== 'interval' || settings.mode === 'interval') && (field !== 'threshold' || settings.mode === 'delta_threshold')}
           <label>{label}<input type="number" name={`hedge-${field}`} autocomplete="off" {min} {max} step="any" value={settings[field]} aria-invalid={!!prepared.errors[field]} aria-describedby={`${uid}-${field}-error`} oninput={e => { settings[field] = e.currentTarget.value; }} />{#if prepared.errors[field]}<small id={`${uid}-${field}-error`} class="error">{prepared.errors[field]}</small>{/if}</label>
         {/if}
@@ -60,18 +60,18 @@
   <p class="note">Trades use current observed delta only, with no lookahead or hidden reinvestment. No interest on cash or market impact. Slippage is only the explicit basis-point assumption above; zero excludes it. Dividend yield may affect canonical option marks, not dividend cash income.</p>
   {#if Object.keys(prepared.errors).length}<details><summary>Input errors · {Object.keys(prepared.errors).length}</summary><ul>{#each Object.entries(prepared.errors) as [field, message]}<li><strong>{field}</strong>: {message}</li>{/each}</ul></details>{/if}
   <div class="actions">
-    <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || !!visible?.pending} onclick={submit}>{visible?.pending ? (result ? 'Refreshing hedge path…' : 'Simulating hedge path…') : 'Simulate hedge path'}</button>
-    <button type="button" class="ot-workbench-ghost" disabled={!visible?.pending} onclick={() => { playing = false; job.cancel(); }}>Cancel request</button>
+    <button type="button" class="ot-workbench-primary" disabled={readOnly || !prepared.request || run.pending} onclick={submit}>{run.pending ? (result ? 'Refreshing hedge path…' : 'Simulating hedge path…') : 'Simulate hedge path'}</button>
+    <button type="button" class="ot-workbench-ghost" disabled={!run.pending} onclick={() => { playing = false; run.cancel(); }}>Cancel request</button>
   </div>
   <div class="feedback" aria-live="polite" aria-atomic="true">
-    {#if visible?.pending}<p>{result ? 'Refreshing; previous submitted evidence is retained below.' : 'Simulating the submitted path; no result yet.'}</p>{/if}
-    {#if visible?.error}<p role="alert" class="error">{visible.error}</p>{/if}
-    {#if visible?.notice}<p>{visible.notice}</p>{/if}
+    {#if run.pending}<p>{result ? 'Refreshing; previous submitted evidence is retained below.' : 'Simulating the submitted path; no result yet.'}</p>{/if}
+    {#if run.error}<p role="alert" class="error">{run.error}</p>{/if}
+    {#if run.notice}<p>{run.notice}</p>{/if}
     {#if stale}<p class="notice">STALE INPUTS · Draft, path or hedge settings changed. Simulate explicitly to refresh; old ledger values are unchanged.</p>{/if}
   </div>
-  {#if !result && !visible?.pending}<p class="note">No hedge evidence. Submit explicitly. Known returned observations may then be played or scrubbed; playback never generates or reprices a path.</p>{/if}
+  {#if !result && !run.pending}<p class="note">No hedge evidence. Submit explicitly. Known returned observations may then be played or scrubbed; playback never generates or reprices a path.</p>{/if}
   {#if result}
-    <h4>{visible?.pending ? 'REFRESHING' : stale ? 'STALE INPUTS' : 'SUBMITTED EVIDENCE'} · {result.request.analysis.strategy.name}</h4>
+    <h4>{run.pending ? 'REFRESHING' : stale ? 'STALE INPUTS' : 'SUBMITTED EVIDENCE'} · {result.request.analysis.strategy.name}</h4>
     <p class="note">Submitted policy: {result.request.policy?.mode ?? 'daily'} · source: {result.request.path.source === 'synthetic' ? `seeded synthetic · seed ${result.request.path.seed ?? 1} · ${result.request.path.generator ?? 'gbm_seeded_v1'}` : 'user-supplied assumptions · not verified history'}. {result.provenance.model} v{result.provenance.version} · {result.provenance.day_basis}. These results are session-local, not saved account research.</p>
     <p class="readout">Final unhedged P&amp;L: {value(result.unhedged_final_pnl)} USD · final hedged P&amp;L: {value(result.hedged_final_pnl)} USD. Fixed strategy entry cost: {value(result.lifecycle.net_entry_cost)} USD.</p>
     {#each result.warnings as warning}<p class="notice">{warning}</p>{/each}
@@ -114,16 +114,16 @@
 </section>
 
 <style>
-  .hedge-lab { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; color: oklch(var(--foreground)); font: 12px var(--font-sans); }
-  header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } header { justify-content: space-between; } h3, h4, p { margin: 0; } h3 { font-size: 14px; } h4 { font-size: 12px; }
-  .note, small { color: oklch(var(--muted-foreground)); line-height: 1.6; overflow-wrap: anywhere; } .error { color: oklch(var(--foreground)); border-left: 3px solid oklch(var(--destructive)); padding-left: 6px; } .notice, .readout { border: 1px dashed oklch(var(--border)); padding: 8px; border-radius: 4px; overflow-wrap: anywhere; line-height: 1.6; }
-  fieldset { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; } legend, summary { font-weight: 600; } summary { cursor: pointer; padding: 4px 0; }
+  .hedge-lab { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; color: oklch(var(--foreground)); font: var(--font-size-chrome) var(--font-sans); }
+  header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } header { justify-content: space-between; } h3, h4, p { margin: 0; } h3 { font-size: var(--font-size-body); } h4 { font-size: var(--font-size-chrome); }
+  .note, small { color: oklch(var(--muted-foreground)); line-height: 1.6; overflow-wrap: anywhere; } .error { color: oklch(var(--foreground)); border-left: 3px solid oklch(var(--destructive)); padding-left: 6px; } .notice, .readout { border: 1px dashed oklch(var(--border)); padding: 8px; border-radius: var(--radius-md); overflow-wrap: anywhere; line-height: 1.6; }
+  fieldset { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); } legend, summary { font-weight: 600; } summary { cursor: pointer; padding: 4px 0; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 8px; } label { min-width: 0; display: flex; flex-direction: column; gap: 4px; margin: 4px 0; }
-  input, select { width: 100%; min-width: 0; min-height: 28px; color: oklch(var(--foreground)); background: oklch(var(--card)); border: 1px solid oklch(var(--input)); border-radius: 4px; padding: 4px 6px; font: inherit; } input[type='range'] { padding: 0; accent-color: oklch(var(--ring)); } button { white-space: normal; height: auto; min-height: 28px; }
+  input, select { width: 100%; min-width: 0; min-height: var(--control-height-compact); color: oklch(var(--foreground)); background: oklch(var(--card)); border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); padding: 4px 6px; font: inherit; } input[type='range'] { padding: 0; accent-color: oklch(var(--ring)); } button { white-space: normal; height: auto; min-height: var(--control-height-compact); }
   .readout, table { font-variant-numeric: tabular-nums; } pre { font-family: var(--font-mono); max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .table-scroll, .chart-scroll { max-width: 100%; overflow: auto; border: 1px solid oklch(var(--border)); } .table-scroll { max-height: min(320px, 55vh); } svg { display: block; min-width: 520px; width: 100%; max-height: 260px; } svg text { fill: currentColor; font: 10px var(--font-sans); font-variant-numeric: tabular-nums; }
+  .table-scroll, .chart-scroll { max-width: 100%; overflow: auto; border: 1px solid oklch(var(--border)); } .table-scroll { max-height: min(320px, 55vh); } svg { display: block; min-width: 520px; width: 100%; max-height: 260px; } svg text { fill: currentColor; font: var(--font-size-annotation) var(--font-sans); font-variant-numeric: tabular-nums; }
   .axis { stroke: currentColor; opacity: .35; } .series { stroke: currentColor; fill: none; stroke-width: 2; } .series-1 { stroke-dasharray: 7 4; } .cursor { stroke: currentColor; stroke-dasharray: 3 3; }
-  table { border-collapse: collapse; width: 100%; font-size: 11px; } th, td { text-align: right; white-space: nowrap; padding: 6px; border-bottom: 1px solid oklch(var(--border)); } caption { text-align: left; white-space: normal; padding: 8px; font-family: var(--font-sans); } thead th { position: sticky; top: 0; background: oklch(var(--card)); } [aria-current='true'] { outline: 1px dashed currentColor; outline-offset: -1px; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--font-size-label); } th, td { text-align: right; white-space: nowrap; padding: 6px; border-bottom: 1px solid oklch(var(--border-subtle)); } caption { text-align: left; white-space: normal; padding: 8px; font-family: var(--font-sans); } thead th { position: sticky; top: 0; background: oklch(var(--card)); } [aria-current='true'] { outline: 1px dashed currentColor; outline-offset: -1px; }
   :is(button, input, select, summary, [tabindex]):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; } [aria-invalid='true'] { border-color: oklch(var(--destructive)); }
   @media (forced-colors: active) { :is(button, input, select, summary, [tabindex]):focus-visible { outline-color: Highlight; } input, select, .notice, .readout, .table-scroll, .chart-scroll { border-color: CanvasText; } }
   @media (pointer: coarse) { button, input, select { min-height: var(--control-touch-height); } }

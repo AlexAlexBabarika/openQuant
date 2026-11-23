@@ -1,11 +1,11 @@
 <script lang="ts">
   import { formatPercent, formatUsd } from '$lib/features/options/optionsFormat';
-  import { onDestroy, untrack } from 'svelte';
-  import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
+  import type { DistributionRequest, DistributionResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { analyzeDistribution } from '$lib/features/options/optionsResearchApi';
   import { axisValue, exactValue } from '$lib/features/options/optionsChart';
   import {
-    ProbabilityRunner, emptyProbabilityState, probabilityBars, probabilityBinLabel, tallestProbability,
+    probabilityBars, probabilityDataError, probabilityBinLabel, tallestProbability,
     probabilityErrors, probabilityKey, probabilityPercent, probabilityRequest,
     probabilitySettings, terminalProbabilityPlot,
   } from '$lib/features/options/optionsProbability';
@@ -15,34 +15,31 @@
   } = $props();
   const id = $props.id();
   let settings = $state(probabilitySettings());
-  let settingsDocument = $state(untrack(() => documentKey));
   let chartWidth = $state(300);
-  let flight = $state.raw(emptyProbabilityState());
-  const runner = new ProbabilityRunner(analyzeDistribution, next => { flight = next; });
   const errors = $derived(probabilityErrors(draft, settings));
   const inputKey = $derived(`${readOnly}:${probabilityKey(draft, settings)}`);
-  const visible = $derived(flight.documentKey === documentKey ? flight : emptyProbabilityState());
-  const result = $derived(visible.result);
-  const stale = $derived(result !== null && visible.resultKey !== inputKey);
+  const run = useResearchRun<DistributionRequest, DistributionResponse>({
+    documentKey: () => documentKey, inputKey: () => inputKey,
+    copy: {
+      cancelled: 'Request cancelled or inputs replaced. Late responses are ignored. Compute explicitly to retry.',
+      timedOut: 'Distribution request timed out after 15 seconds. Retry explicitly; client abort does not guarantee server cancellation.',
+      failed: () => 'Distribution computation failed. Check the strategy and model assumptions, then retry explicitly. The server may be busy, unavailable, or have rejected the request. No failed result was published.',
+      submitted: () => '',
+    },
+    onDocumentChange: () => { settings = probabilitySettings(); },
+  });
+  const result = $derived(run.result);
+  const stale = $derived(run.stale);
   const width = $derived(Math.max(180, chartWidth));
   const bars = $derived(result ? probabilityBars(result.bins, width) : []);
   const terminal = $derived(result ? terminalProbabilityPlot(result, width) : null);
 
-  $effect(() => {
-    const key = documentKey;
-    if (key !== untrack(() => settingsDocument)) {
-      settingsDocument = key;
-      settings = probabilitySettings();
-    }
-  });
-  $effect(() => { runner.context(documentKey, inputKey); });
-  onDestroy(() => runner.dispose());
 
   function compute(event: SubmitEvent) {
     event.preventDefault();
-    if (visible.pending) return;
+    if (run.pending) return;
     const request = probabilityRequest($state.snapshot(draft), $state.snapshot(settings));
-    if (request) void runner.run(documentKey, inputKey, request);
+    if (request) void run.submit(request, analyzeDistribution, probabilityDataError);
   }
 </script>
 
@@ -91,20 +88,20 @@
     {#if errors.horizon}<p class="notice">{errors.horizon}</p>{/if}
     {#if errors.measure}<p class="notice">{errors.measure}</p>{/if}
     <div class="actions">
-      <button type="submit" class="ot-workbench-primary" disabled={visible.pending || Object.keys(errors).length > 0}>{visible.pending ? 'Computing…' : 'Compute distribution'}</button>
-      {#if visible.pending}<button type="button" class="ot-workbench-ghost" onclick={() => runner.cancel()}>Cancel request</button>{/if}
+      <button type="submit" class="ot-workbench-primary" disabled={run.pending || Object.keys(errors).length > 0}>{run.pending ? 'Computing…' : 'Compute distribution'}</button>
+      {#if run.pending}<button type="button" class="ot-workbench-ghost" onclick={() => run.cancel()}>Cancel request</button>{/if}
     </div>
   </form>
   <div class="feedback" aria-live="polite" aria-atomic="true">
-    {#if visible.pending}<p>{result ? 'Computing submitted inputs; previous completed evidence remains below.' : 'Computing submitted inputs; no completed evidence yet.'} Client cancellation cannot guarantee server process cancellation.</p>{/if}
-    {#if visible.cancelled}<p class="notice">Request cancelled or inputs replaced. Late responses are ignored. Compute explicitly to retry.</p>{/if}
-    {#if visible.error}<p role="alert" class="notice">{visible.error}</p>{/if}
+    {#if run.pending}<p>{result ? 'Computing submitted inputs; previous completed evidence remains below.' : 'Computing submitted inputs; no completed evidence yet.'} Client cancellation cannot guarantee server process cancellation.</p>{/if}
+    {#if run.notice}<p class="notice">{run.notice}</p>{/if}
+    {#if run.error}<p role="alert" class="notice">{run.error}</p>{/if}
     {#if stale}<p class="notice">Stale evidence: draft or probability assumptions changed. All values below still describe the previous submitted snapshot. Compute explicitly to refresh.</p>{/if}
-    {#if !result && !visible.pending && !visible.error}<p class="note">No completed distribution. Changing inputs never submits research automatically.</p>{/if}
+    {#if !result && !run.pending && !run.error}<p class="note">No completed distribution. Changing inputs never submits research automatically.</p>{/if}
   </div>
 
   {#if result}
-    <section class="results" aria-labelledby={`${id}-result-title`} aria-busy={visible.pending}>
+    <section class="results" aria-labelledby={`${id}-result-title`} aria-busy={run.pending}>
       <h4 id={`${id}-result-title`}>Submitted distribution · {result.request.analysis.strategy.name}{stale ? ' · stale' : ''}</h4>
       <p class="note">{result.request.measure === 'risk_neutral' ? 'Risk-neutral model' : 'Hypothetical user-drift model'} · {exactValue(result.horizon_days)} calendar days (ACT/365) · USD total strategy P&amp;L · {result.provenance.exercise_style}, {result.provenance.settlement}-settled.</p>
       {#if result.deterministic}<p class="notice">Deterministic point mass: zero volatility and/or zero time removes model randomness. One exact outcome is not a calibrated forecast or a claim that a real position has zero risk.</p>{/if}
@@ -226,33 +223,33 @@
 </section>
 
 <style>
-  .probability-lab { min-width: 0; display: grid; gap: 8px; font-size: 12px; color: oklch(var(--foreground)); }
+  .probability-lab { min-width: 0; display: grid; gap: 8px; font-size: var(--font-size-chrome); color: oklch(var(--foreground)); }
   header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   header { justify-content: space-between; }
   h3, h4, p, figure, dl { margin: 0; }
-  h3 { font-size: 13px; } h4 { font-size: 12px; }
+  h3 { font-size: var(--font-size-control); } h4 { font-size: var(--font-size-chrome); }
   form, .results, details, .feedback { display: grid; gap: 8px; min-width: 0; }
   .controls, .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 8px; min-width: 0; }
   label { display: grid; align-content: start; gap: 4px; min-width: 0; }
-  input, select { width: 100%; min-width: 0; min-height: 28px; border: 1px solid oklch(var(--border)); border-radius: 4px; background: oklch(var(--background)); color: inherit; padding: 4px 6px; font: inherit; }
-  .actions button { min-height: 28px; height: auto; white-space: normal; }
-  .note, label span { font-size: 11px; color: oklch(var(--muted-foreground)); line-height: 1.5; }
+  input, select { width: 100%; min-width: 0; min-height: var(--control-height-compact); border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: oklch(var(--background)); color: inherit; padding: 4px 6px; font: inherit; }
+  .actions button { min-height: var(--control-height-compact); height: auto; white-space: normal; }
+  .note, label span { font-size: var(--font-size-label); color: oklch(var(--muted-foreground)); line-height: 1.5; }
   .notice { border-left: 2px solid oklch(var(--foreground)); padding-left: 8px; line-height: 1.5; }
-  .metrics > div { min-width: 0; padding: 6px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
-  dt { font-size: 11px; color: oklch(var(--muted-foreground)); } dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+  .metrics > div { min-width: 0; padding: 6px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
+  dt { font-size: var(--font-size-label); color: oklch(var(--muted-foreground)); } dd { margin: 4px 0 0; overflow-wrap: anywhere; }
   dd, td { font-variant-numeric: tabular-nums; }
-  figure { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  figure { min-width: 0; padding: 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   figcaption { margin-bottom: 8px; } svg { display: block; width: 100%; min-height: 120px; overflow: visible; }
-  svg text { fill: currentColor; font-variant-numeric: tabular-nums; font-size: 11px; }
+  svg text { fill: currentColor; font-variant-numeric: tabular-nums; font-size: var(--font-size-label); }
   .axis { stroke: currentColor; } .mass { fill: oklch(var(--chart-2)); stroke: oklch(var(--foreground)); stroke-width: 0.6; }
   .atom { stroke: oklch(var(--chart-2)); stroke-width: 3; }
   .payoff { fill: none; stroke: oklch(var(--foreground)); stroke-width: 2; stroke-dasharray: 6 3; }
   .vertex { fill: oklch(var(--foreground)); } .zero { stroke: currentColor; stroke-dasharray: 2 4; stroke-width: 0.6; }
   .plot-container { min-width: 0; }
-  summary { cursor: pointer; min-height: 28px; padding: 4px 0; }
-  .table-scroll { overflow: auto; max-height: 300px; max-width: 100%; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; }
-  table { border-collapse: collapse; min-width: 100%; font-size: 11px; } caption { text-align: left; padding: 8px; }
-  th, td { padding: 6px 8px; border-bottom: 1px solid oklch(var(--border)); text-align: right; white-space: nowrap; }
+  summary { cursor: pointer; min-height: var(--control-height-compact); padding: 4px 0; }
+  .table-scroll { overflow: auto; max-height: 300px; max-width: 100%; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
+  table { border-collapse: collapse; min-width: 100%; font-size: var(--font-size-label); } caption { text-align: left; padding: 8px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid oklch(var(--border-subtle)); text-align: right; white-space: nowrap; }
   th:first-child { text-align: left; } thead { background: oklch(var(--card)); }
   :is(input, select, button, summary, .table-scroll):focus-visible { outline: 2px solid oklch(var(--foreground)); outline-offset: 2px; }
   [aria-invalid="true"] { border-style: dashed; }

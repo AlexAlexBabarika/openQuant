@@ -1,8 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { RequestFlight } from '$lib/features/options/optionsRequest';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
-  import type { OptionsAnalysis } from '$lib/features/options/optionsTypes';
+  import type { OptionsAnalysis, OptionsDraft } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { compareSkew, editSkewPoint, skewComparisonRequests, skewPoints, skewSeries, transformSkew } from '$lib/features/options/optionsSkew';
   import { GREEK_KEYS, researchDifference } from '$lib/features/options/optionsStress';
@@ -16,24 +16,20 @@
   let edits = $state<Record<number, string>>({});
   let pointErrors = $state<Record<number, string>>({});
   let editError = $state('');
-  let notice = $state('');
-  let error = $state('');
-  let pending = $state(false);
-  let submittedKey = $state('');
-  let result = $state<{ flat: OptionsAnalysis; skew: OptionsAnalysis } | null>(null);
-  const stale = $derived(!!result && submittedKey !== draftKey);
-  const flight = new RequestFlight();
-
-  function stop() { flight.cancel(); pending = false; }
-  function cancel() { stop(); notice = 'Comparison cancelled. Previous submitted evidence is unchanged.'; }
-  $effect(() => {
-    documentKey;
-    untrack(() => { stop(); result = null; submittedKey = ''; error = ''; notice = ''; editError = ''; edits = {}; pointErrors = {}; parallel = '0'; twist = '0'; curvature = '0'; });
-    return stop;
+  const run = useResearchRun<OptionsDraft, { flat: OptionsAnalysis; skew: OptionsAnalysis }>({
+    documentKey: () => documentKey, inputKey: () => draftKey, readOnly: () => readOnly,
+    copy: {
+      cancelled: 'Comparison cancelled. Previous submitted evidence is unchanged.',
+      inputsChanged: 'Comparison cancelled because inputs changed. Compare explicitly to refresh.',
+      timedOut: 'Comparison timed out. Retry explicitly.',
+      failed: () => 'Canonical comparison failed. Check draft inputs and retry; no inputs were changed.',
+      submitted: () => '',
+    },
+    onDocumentChange: () => { editError = ''; edits = {}; pointErrors = {}; parallel = '0'; twist = '0'; curvature = '0'; },
   });
+  const result = $derived(run.result), stale = $derived(run.stale), pending = $derived(run.pending), error = $derived(run.error), notice = $derived(run.notice);
+  const cancel = () => run.cancel();
   $effect(() => { draftKey; untrack(() => { edits = {}; pointErrors = {}; }); });
-  $effect(() => { if (readOnly) untrack(stop); });
-  $effect(() => { draftKey; untrack(() => { if (pending) { stop(); notice = 'Comparison cancelled because inputs changed. Compare explicitly to refresh.'; } }); });
 
   const numeric = (value: string) => value.trim() === '' ? NaN : Number(value);
   const display = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? exactValue(value, true) : 'Unavailable';
@@ -51,7 +47,7 @@
       const copy = structuredClone($state.snapshot(draft));
       editSkewPoint(copy, index, iv);
       onEdit(d => editSkewPoint(d, index, iv));
-      pointErrors[index] = ''; notice = 'IV edit applied to draft only. Compare explicitly for canonical marks.';
+      pointErrors[index] = ''; run.notice = 'IV edit applied to draft only. Compare explicitly for canonical marks.';
     } catch (e) { pointErrors[index] = e instanceof Error ? e.message : 'IV edit failed.'; }
   }
   function applyTransform(event: SubmitEvent) {
@@ -59,29 +55,18 @@
     try {
       const next = transformSkew($state.snapshot(draft), { parallelPP: numeric(parallel), twistPP: numeric(twist), curvaturePP: numeric(curvature) });
       onEdit(d => { d.volatility = next.volatility; next.strategy.legs.forEach((leg, index) => { if (leg.enabled && leg.kind !== 'underlying') d.strategy.legs[index].implied_volatility = leg.implied_volatility; }); });
-      editError = ''; notice = 'Transform applied atomically to draft IVs. Premiums and source provenance are unchanged.';
+      editError = ''; run.notice = 'Transform applied atomically to draft IVs. Premiums and source provenance are unchanged.';
     } catch (e) { editError = e instanceof Error ? e.message : 'Transform failed. Nothing applied.'; }
   }
   function reset(index?: number) {
     if (readOnly) return;
     onEdit(d => { d.strategy.legs.forEach((leg, i) => { if (leg.enabled && leg.kind !== 'underlying' && (index == null || i === index)) leg.implied_volatility = null; }); });
-    notice = 'Enabled option overrides reset to declared base IV. Disabled legs, premiums and provenance are unchanged.';
+    run.notice = 'Enabled option overrides reset to declared base IV. Disabled legs, premiums and provenance are unchanged.';
   }
   async function compare() {
     if (readOnly || pending) return;
-    try { skewComparisonRequests($state.snapshot(draft)); } catch (e) { error = e instanceof Error ? e.message : 'Correct draft inputs before comparing.'; return; }
-    const key = draftKey, snapshot = structuredClone($state.snapshot(draft));
-    const run = flight.start(() => `${documentKey}:${draftKey}`, () => { pending = false; error = 'Comparison timed out. Retry explicitly.'; });
-    pending = true; error = ''; notice = '';
-    try {
-      const response = await compareSkew(snapshot, run.signal);
-      if (run.current()) { result = response; submittedKey = key; }
-    } catch {
-      if (run.current()) error = 'Canonical comparison failed. Check draft inputs and retry; no inputs were changed.';
-    } finally {
-      if (run.current()) pending = false;
-      run.finish();
-    }
+    try { skewComparisonRequests($state.snapshot(draft)); } catch (e) { run.error = e instanceof Error ? e.message : 'Correct draft inputs before comparing.'; return; }
+    await run.submit($state.snapshot(draft), compareSkew);
   }
 </script>
 
@@ -163,20 +148,20 @@
 </section>
 
 <style>
-  .skew-tool { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: 12px; container-type: inline-size; }
+  .skew-tool { display: grid; gap: 8px; min-width: 0; color: oklch(var(--foreground)); font-family: var(--font-sans); font-size: var(--font-size-chrome); container-type: inline-size; }
   header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
-  h3, h4, p { margin: 0; } h3, h4 { font-size: 12px; } p { overflow-wrap: anywhere; line-height: 1.5; }
+  h3, h4, p { margin: 0; } h3, h4 { font-size: var(--font-size-chrome); } p { overflow-wrap: anywhere; line-height: 1.5; }
   .note { color: oklch(var(--muted-foreground)); } .notice { border-left: 2px solid currentColor; padding-left: 8px; }
-  fieldset { min-width: 0; display: grid; gap: 8px; border: 1px solid oklch(var(--border)); border-radius: 4px; padding: 8px; }
+  fieldset { min-width: 0; display: grid; gap: 8px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); padding: 8px; }
   legend { padding: 0 4px; } .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; }
   label { display: grid; gap: 4px; min-width: 0; line-height: 1.5; } .point-row { display: grid; gap: 6px; }
-  input { min-width: 0; width: 100%; box-sizing: border-box; min-height: 28px; padding: 4px 6px; color: inherit; background: oklch(var(--background)); border: 1px solid oklch(var(--input)); border-radius: 4px; font: inherit; }
+  input { min-width: 0; width: 100%; box-sizing: border-box; min-height: var(--control-height-compact); padding: 4px 6px; color: inherit; background: oklch(var(--background)); border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); font: inherit; }
   input, td { font-variant-numeric: tabular-nums; }
-  button { min-height: 28px; height: auto; white-space: normal; overflow-wrap: anywhere; } button:disabled { cursor: not-allowed; }
+  button { min-height: var(--control-height-compact); height: auto; white-space: normal; overflow-wrap: anywhere; } button:disabled { cursor: not-allowed; }
   :is(input, button, summary, [tabindex]):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
-  .plot, .results { overflow: auto; max-height: 320px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
-  svg { display: block; width: 100%; min-width: 280px; max-height: 240px; } svg text { fill: currentColor; font: 10px var(--font-sans); font-variant-numeric: tabular-nums; } circle, .axis { stroke: currentColor; } .axis { fill: none; }
-  table { width: 100%; border-collapse: collapse; } td, th { padding: 6px; border-bottom: 1px solid oklch(var(--border)); text-align: right; } th:first-child { text-align: left; } td { white-space: nowrap; }
+  .plot, .results { overflow: auto; max-height: 320px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
+  svg { display: block; width: 100%; min-width: 280px; max-height: 240px; } svg text { fill: currentColor; font: var(--font-size-annotation) var(--font-sans); font-variant-numeric: tabular-nums; } circle, .axis { stroke: currentColor; } .axis { fill: none; }
+  table { width: 100%; border-collapse: collapse; } td, th { padding: 6px; border-bottom: 1px solid oklch(var(--border-subtle)); text-align: right; } th:first-child { text-align: left; } td { white-space: nowrap; }
   @media (forced-colors: active) { fieldset, input, .plot, .results { border-color: CanvasText; } :is(input, button, summary, [tabindex]):focus-visible { outline-color: Highlight; } }
   @media (pointer: coarse) { button, input { min-height: var(--control-touch-height); } }
 </style>

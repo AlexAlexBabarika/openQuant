@@ -5,6 +5,7 @@ import {
   componentDeclarations,
 } from '../chart/reactiveTestSupport';
 import type { ResearchLayout } from './researchShelf.svelte';
+import { WorkbenchLayout } from './workbenchLayout.svelte';
 import { selectEntry, trialSearch } from '../../../entry';
 
 const app = new URL('../../../App.svelte', import.meta.url);
@@ -37,21 +38,21 @@ describe('workspace capture through research commands', () => {
           'test:shelf': { saveWorkspace },
           'test:tick': { tick: () => Promise.resolve() },
           'test:entry': { selectEntry, trialSearch },
+          'test:layout': { WorkbenchLayout },
         },
         `<script lang="ts">
         import { saveWorkspace } from 'test:shelf';
         import { tick } from 'test:tick';
         import { selectEntry, trialSearch } from 'test:entry';
+        import { WorkbenchLayout } from 'test:layout';
         const window = { location: { href: 'http://localhost/' }, history: { pushState: () => {} } };
         const researchShelf = { saveWorkspace };
         const chart = { symbol: 'SPY', source: 'yfinance', interval: '1d', period: '1y' };
         const strategy = { draftName: 'Strategy draft', draftCode: 'strategy code', scripts: [] };
         const indicators = { draftName: 'Indicator draft', draftCode: 'indicator code', scripts: [] };
-        const smaConfig = { enabled: true, period: 13, lineWidth: 2 };
-        const emaConfig = { enabled: false, period: 19, lineWidth: 2 };
-        const bbandsConfig = { enabled: true, period: 17, stdDev: 3, lineWidth: 1 };
-        const chartType = 'line', showArea = true, showVolume = false, desktopSidebarVisible = false;
-        const groups = [], listTools = () => [], CURSOR = 'cursor';
+        const workbench = new WorkbenchLayout({ chartType: 'line', showArea: true, showVolume: false, smaEnabled: true, emaEnabled: false, bbandsEnabled: true });
+        workbench.sidebar = false;
+        const watchlist = { groups: [] }, listTools = () => [], CURSOR = 'cursor';
         const runsHistory = { entries: [] };
         const authState = { subscribe: fn => { fn({ user: null }); return () => {}; } };
         const selectChartSymbol = () => {}, openStoredRun = () => {};
@@ -69,10 +70,6 @@ describe('workspace capture through research commands', () => {
           'researchWorkspacesOpen',
           'dataInspectorOpen',
           'portfolioRunId',
-          'strategyEditorShare',
-          'indicatorSplitPct',
-          'strategyTab',
-          'indicatorTab',
           'workspaceLayout',
           'currentResearchLayout',
           'closeResearchPanels',
@@ -83,7 +80,7 @@ describe('workspace capture through research commands', () => {
         ])}
         export function open(panel) {
           strategyOpen = panel === 'strategy'; indicatorsOpen = panel === 'indicator';
-          strategyTab = 'docs'; indicatorTab = 'docs'; strategyEditorShare = 60; indicatorSplitPct = 56;
+          workbench.strategyTab = 'docs'; workbench.indicatorTab = 'docs'; workbench.strategyEditorShare = 60; workbench.indicatorSplitPct = 56;
         }
         export function command() { researchCommands.find(c => c.id === 'workspaces').action(); }
         export function close() { researchWorkspacesOpen = false; }

@@ -296,7 +296,7 @@ describe('compiled global selectors', () => {
         readFileSync(
           `${base}lib/components/ui/dialog/${name}.svelte`,
           'utf8',
-        ).match(/z-\[\d+\]/)![0],
+        ).match(/z-\(--[\w-]+\)/)![0],
     );
     const compiled = await compileCss(source, { base, onDependency() {} });
     const layerCss = postcss.parse(
@@ -305,9 +305,9 @@ describe('compiled global selectors', () => {
     );
     const layer = (className: string) =>
       Number(
-        declarations(`.${className.replace(/[\[\]]/g, '\\$&')}`, layerCss)[
+        declarations(`.${className.replace(/[()]/g, '\\$&')}`, layerCss)[
           'z-index'
-        ],
+        ].replace(/var\((--[\w-]+)\)/, (_, key) => declarations(':root')[key]),
       );
     for (const modal of modalLayers)
       expect(layer(popupLayer)).toBeGreaterThan(layer(modal));
@@ -383,62 +383,85 @@ describe('compiled global selectors', () => {
     }
   });
 
-  it.each([
-    'components/strategy/StrategyPanel.svelte',
-    'components/indicators/IndicatorsPanel.svelte',
-  ])('keeps %s tabs on semantic readable colors in both themes', filename => {
-    const path = `${base}${filename}`;
-    const panel = postcss.parse(
+  function compiledRules(file: string) {
+    const path = `${base}${file}`;
+    const root = postcss.parse(
       compileSvelte(readFileSync(path, 'utf8'), {
         filename: path,
         generate: 'server',
       }).css!.code,
     );
-    panel.walkRules(rule => {
+    root.walkRules(rule => {
       rule.selectors = rule.selectors.map(selector =>
         selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
       );
     });
+    return root;
+  }
 
-    expect(declarations('.tab', panel)).toMatchObject({
+  it('keeps panel tabs on semantic readable colors in both themes and tones', () => {
+    const bar = compiledRules('components/layout/PanelTopbar.svelte');
+    expect(declarations('.tab', bar)).toMatchObject({
       color: 'oklch(var(--muted-foreground))',
       background: 'transparent',
     });
-    expect(declarations('.tab:hover', panel).color).toBe(
+    expect(declarations('.tab:hover', bar).color).toBe(
       'oklch(var(--foreground))',
     );
-    expect(declarations('.tab.active', panel)).toMatchObject({
-      color: 'oklch(var(--primary-foreground))',
-      background: 'oklch(var(--primary))',
+    expect(declarations('.tab.active', bar)).toMatchObject({
+      color: 'oklch(var(--accent-foreground))',
+      background: 'oklch(var(--accent))',
     });
-    expect(declarations('html:not(.dark) .tab', panel)).toEqual({});
-    expect(declarations('.ri-time', panel).color).toBe(
+    // Neither theme nor tone overrides the tab colours themselves.
+    for (const selector of [
+      'html:not(.dark) .tab',
+      'html:not(.dark) .topbar:not(.page) .tab',
+      '.page .tab',
+      '.page .tab.active',
+    ])
+      expect(declarations(selector, bar)).toEqual({});
+  });
+
+  it('keeps the running indicator dot on the primary color in light theme', () => {
+    const panel = compiledRules('components/indicators/IndicatorsPanel.svelte');
+    expect(
+      declarations('html:not(.dark) .ri-status.running', panel).background,
+    ).toBe('oklch(var(--primary))');
+  });
+
+  it('keeps the script rail readable on overlay panels and workspace pages', () => {
+    const path = `${base}lib/features/scripts/ScriptRail.svelte`;
+    const rail = postcss.parse(
+      compileSvelte(readFileSync(path, 'utf8'), {
+        filename: path,
+        generate: 'server',
+      }).css!.code,
+    );
+    rail.walkRules(rule => {
+      rule.selectors = rule.selectors.map(selector =>
+        selector.replace(/:where\(\.svelte-[\w-]+\)|\.svelte-[\w-]+/g, ''),
+      );
+    });
+    expect(declarations('.ri-time', rail).color).toBe(
       'oklch(var(--muted-foreground))',
     );
-    if (filename.includes('IndicatorsPanel')) {
-      expect(declarations('html:not(.dark) .rail-hint.err', panel).color).toBe(
-        'oklch(var(--destructive))',
-      );
-      expect(declarations('html:not(.dark) .ri-del', panel).color).toBe(
-        'oklch(var(--foreground))',
-      );
-      expect(
-        declarations('html:not(.dark) .ri-del:hover', panel),
-      ).toMatchObject({
-        background: 'oklch(var(--foreground))',
-        color: 'oklch(var(--card))',
-      });
-      expect(
-        declarations('html:not(.dark) .ri-status.running', panel).background,
-      ).toBe('oklch(var(--primary))');
-    } else {
-      expect(declarations('.rail-hint.err', panel).color).toBe(
-        'oklch(var(--down-color))',
-      );
-      expect(declarations('.ri-del', panel).color).toBe(
-        'oklch(var(--muted-foreground))',
-      );
-    }
+    // Overlay panels: status red in both themes, from the themed token.
+    expect(declarations('.rail-hint.err', rail).color).toBe(
+      'oklch(var(--status-error))',
+    );
+    expect(declarations('.ri-del:hover', rail).color).toBe(
+      'oklch(var(--status-error))',
+    );
+    const light = 'html:not(.dark) .rail:not(.page)';
+    for (const selector of ['.rail-hint.err', '.ri-del', '.ri-del:hover'])
+      expect(declarations(`${light} ${selector}`, rail)).toEqual({});
+    // Workspace pages: loss red in both themes.
+    expect(declarations('.page .rail-hint.err', rail).color).toBe(
+      'oklch(var(--down-color))',
+    );
+    expect(declarations('.page .ri-del', rail).color).toBe(
+      'oklch(var(--muted-foreground))',
+    );
   });
 
   it('uses the approved dark brand palette independently of return colors', () => {
@@ -491,9 +514,7 @@ describe('compiled global selectors', () => {
       background: 'oklch(var(--card))',
     });
     expect(ghost).toMatchObject({ color: 'oklch(var(--foreground))' });
-    expect(hover.background).toBe(
-      'color-mix(in oklab, oklch(var(--foreground)) 6%, transparent)',
-    );
+    expect(hover.background).toBe('oklch(var(--surface-hover))');
     expect(declarations('.ot-ctx-pill').color).toBe(
       'oklch(var(--muted-foreground))',
     );

@@ -8,8 +8,8 @@
   import Play from '@lucide/svelte/icons/play';
   import Square from '@lucide/svelte/icons/square';
   import Save from '@lucide/svelte/icons/save';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
-  import X from '@lucide/svelte/icons/x';
+  import PanelTopbar from '../layout/PanelTopbar.svelte';
+  import ScriptRail from '$lib/features/scripts/ScriptRail.svelte';
   import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Activity from '@lucide/svelte/icons/activity';
   import ScriptEditor from './ScriptEditor.svelte';
@@ -55,7 +55,7 @@
       savedUserId = userId;
       ind.clearSaved();
     });
-    if (open && userId) untrack(() => { void ind.refresh(); });
+    if (open && userId) untrack(() => { void ind.load(); });
   });
 
 
@@ -126,7 +126,7 @@
       : '';
     if (!(await confirmAction({ title: `Delete "${name}"?`, description: `This cannot be undone.${unsaved}`, confirmLabel: 'Delete', destructive: true }))) return;
     try {
-      await ind.delete(id);
+      await ind.remove(id);
     } catch (err) {
       void confirmAction({ title: `Could not delete "${name}"`, description: err instanceof Error ? err.message : 'Delete failed', acknowledge: true });
     }
@@ -138,20 +138,7 @@
 
   async function openScript(id: string) {
     if (id === ind.activeId) return;
-    if (await confirmDiscard(ind.dirty, 'indicator')) ind.openScript(id, () => true);
-  }
-
-  function fmtRelative(iso: string): string {
-    const t = Date.parse(iso);
-    if (Number.isNaN(t)) return '';
-    const ms = Date.now() - t;
-    const m = Math.round(ms / 60_000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m ago`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.round(h / 24);
-    return `${d}d ago`;
+    if (await confirmDiscard(ind.dirty, 'indicator')) ind.select(id, () => true);
   }
 </script>
 
@@ -178,120 +165,54 @@
     <!-- <span class="corner tl" aria-hidden="true"></span>
     <span class="corner tr" aria-hidden="true"></span> -->
 
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark"><Activity class="h-3.5 w-3.5" /></span>
-        <span class="brand-title">indicators</span>
-        <span class="brand-sub">/ workbench</span>
-      </div>
-
-      <nav class="tabs" aria-label="Workbench tabs">
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'editor'}
-          onclick={() => (tab = 'editor')}
-        >editor</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'docs'}
-          onclick={() => (tab = 'docs')}
-        >docs</button>
-      </nav>
-      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
-
-      <div class="ctx" aria-label="Active market context">
-        <span class="ctx-label">CTX</span>
-        <span class="ctx-pair">
-          <span class="ctx-sym">{symbol || '—'}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-prov">{provider}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-iv">{interval}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-pd">{period}</span>
-        </span>
-      </div>
-
-      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
-        <X class="h-3.5 w-3.5" />
-      </button>
-    </header>
+    <PanelTopbar
+      title="Indicators"
+      tabs={[{ id: 'editor', label: 'Editor' }, { id: 'docs', label: 'Docs' }]}
+      activeTab={tab}
+      onTab={id => (tab = id)}
+      context={{ symbol, provider, interval, period }}
+      onClose={close}
+    >
+      {#snippet mark()}<Activity class="h-3.5 w-3.5" />{/snippet}
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost quiet" aria-expanded={libraryOpen} aria-controls="indicator-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({ind.scripts.length})</button>{/if}
+    </PanelTopbar>
 
     <div class="body" class:docs-mode={tab === 'docs'} class:library-collapsed={!libraryOpen}>
       {#if tab === 'docs'}
         <ScriptDocs />
       {:else}
-      {#if libraryOpen}<aside class="rail" id="indicator-library" aria-label="Saved scripts">
-        <div class="rail-head">
-          <span class="rail-title">scripts</span>
-          <span class="rail-count">{ind.scripts.length}</span>
+      {#if libraryOpen}<ScriptRail
+        id="indicator-library"
+        library={ind}
+        signedIn={!!$authState.user}
+        copy={{
+          label: 'Saved scripts',
+          title: 'scripts',
+          newLabel: 'New indicator',
+          signInHint: 'Sign in to load and save indicators. You can run an unsaved draft without an account.',
+          empty: 'No saved scripts yet.',
+          emptyDetail: 'Draft something on the right and save it.',
+          deleteNoun: 'script',
+          runLabel: 'run',
+        }}
+        onNew={() => void newDraft()}
+        onSelect={id => void openScript(id)}
+        onDelete={(id, name) => void confirmDelete(id, name)}
+      >
+        {#snippet signIn()}
+          <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
+        {/snippet}
+        {#snippet status(s)}
           <button
             type="button"
-            class="iconbtn"
-            onclick={() => void newDraft()}
-            title="New indicator (clears editor)"
-            aria-label="New indicator"
-          >
-            <Plus class="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div class="rail-list">
-          {#if !$authState.user}
-            <p class="rail-hint">Sign in to load and save indicators. You can run an unsaved draft without an account.</p>
-            <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
-          {:else if ind.loading && ind.scripts.length === 0}
-            <p class="rail-hint">loading…</p>
-          {:else if ind.loadError}
-            <p class="rail-hint err">{ind.loadError}</p>
-          {:else if ind.scripts.length === 0}
-            <p class="rail-hint">
-              no saved scripts yet.<br />
-              <span class="dim">draft something on the right and hit save.</span>
-            </p>
-          {/if}
-
-          {#each ($authState.user ? ind.scripts : []) as s (s.id)}
-            <div
-              class="rail-item"
-              class:active={ind.activeId === s.id}
-            >
-              <button
-                type="button"
-                class="ri-status"
-                class:running={ind.isRunningOk(s.id)}
-                aria-label={`${ind.runners[s.id] ? 'Stop' : 'Start'} script ${s.name}`}
-                title={ind.runners[s.id] ? 'stop script' : 'start script'}
-                onclick={() => void toggleScriptRun(s.id)}
-              ></button>
-              <button
-                type="button"
-                class="ri-select"
-                aria-pressed={ind.activeId === s.id}
-                onclick={() => void openScript(s.id)}
-              >
-                <span class="ri-name">{s.name}</span>
-                <span class="ri-time">{fmtRelative(s.updated_at)}</span>
-              </button>
-              <button
-                type="button"
-                class="ri-del"
-                aria-label="Delete script {s.name}"
-                onclick={() => void confirmDelete(s.id, s.name)}
-              >
-                <Trash2 class="h-3 w-3" />
-              </button>
-            </div>
-          {/each}
-        </div>
-
-        <footer class="rail-foot">
-          <span class="legend"><span class="kbd">⌘↵</span> run</span>
-          <span class="legend"><span class="kbd">⌘S</span> save</span>
-        </footer>
-      </aside>{/if}
+            class="ri-status"
+            class:running={ind.isRunningOk(s.id)}
+            aria-label={`${ind.runners[s.id] ? 'Stop' : 'Start'} script ${s.name}`}
+            title={ind.runners[s.id] ? 'stop script' : 'start script'}
+            onclick={() => void toggleScriptRun(s.id)}
+          ></button>
+        {/snippet}
+      </ScriptRail>{/if}
 
       <main class="work">
         <div class="work-head">
@@ -312,7 +233,7 @@
           </div>
 
           <div class="actions">
-            <button type="button" class="btn ghost" onclick={() => void newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
+            <button type="button" class="btn ghost" onclick={() => void newDraft()} aria-label="New indicator"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
             {#if ind.saveError}
               <ErrorBanner message={ind.saveError} />
             {/if}
@@ -325,7 +246,7 @@
               title="Save (⌘S)"
             >
               <Save class="h-3.5 w-3.5" />
-              <span>{ind.isSaving ? 'saving…' : 'save'}</span>
+              <span>{ind.isSaving ? 'Saving…' : 'Save'}</span>
             </button>
 
             <button
@@ -335,7 +256,7 @@
               disabled={ind.isSaving || ind.isRunning || !ind.draftName.trim()}
               title="Save & run"
             >
-              <span>save &amp; run</span>
+              <span>Save &amp; run</span>
             </button>
 
             {#if ind.runningId && ind.runningId === ind.activeId}
@@ -346,7 +267,7 @@
                 title="Stop"
               >
                 <Square class="h-3.5 w-3.5" />
-                <span>stop</span>
+                <span>Stop</span>
               </button>
             {:else}
               <button
@@ -357,7 +278,7 @@
                 title="Run (⌘↵)"
               >
                 <Play class="h-3.5 w-3.5" />
-                <span>{ind.isRunning ? 'running…' : 'run'}</span>
+                <span>{ind.isRunning ? 'Running…' : 'Run'}</span>
               </button>
             {/if}
           </div>
@@ -439,17 +360,9 @@
     display: flex;
     flex-direction: column;
     color: oklch(var(--foreground));
-    background:
-      radial-gradient(
-        1200px 600px at 20% -200px,
-        color-mix(in oklab, oklch(var(--primary)) 18%, transparent),
-        transparent 60%
-      ),
-      color-mix(in oklab, oklch(var(--popover)) 96%, black 4%);
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
+    background: oklch(var(--card));
+    border-top: 1px solid oklch(var(--border-subtle));
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-mono);
     overflow: hidden;
@@ -460,125 +373,10 @@
     width: 18px;
     height: 18px;
     pointer-events: none;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .corner.tl { top: 12px; left: 12px; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
   .corner.tr { top: 12px; right: 12px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; }
-
-  .topbar {
-    display: grid;
-    grid-template-columns: auto auto 1fr auto;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 22px;
-    border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
-  }
-
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-  }
-  .brand-mark {
-    color: oklch(var(--primary));
-    font-size: 14px;
-    transform: translateY(1px);
-  }
-  .brand-title { font-weight: 600; }
-  .brand-sub {
-    color: oklch(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .ctx {
-    justify-self: center;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 4px 10px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
-  }
-  .ctx-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
-  }
-  .ctx-pair {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-  .ctx-sym {
-    color: oklch(var(--foreground));
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
-
-  .iconbtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--muted-foreground));
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .iconbtn:hover {
-    color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
-  }
-  .iconbtn.close:hover {
-    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
-    color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
-  }
-
-  .tabs {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
-  }
-  .tab {
-    appearance: none;
-    border: 0;
-    padding: 4px 12px;
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: lowercase;
-    color: oklch(var(--muted-foreground));
-    background: transparent;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .tab:hover { color: oklch(var(--foreground)); }
-  .tab.active {
-    color: oklch(var(--primary-foreground));
-    background: oklch(var(--primary));
-    font-weight: 600;
-  }
 
   .body {
     flex: 1 1 auto;
@@ -590,94 +388,6 @@
     grid-template-columns: 1fr;
   }
   .body.library-collapsed { grid-template-columns: minmax(0, 1fr); }
-
-  .rail {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-right: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 4%),
-        color-mix(in oklab, oklch(var(--popover)) 100%, black 10%)
-      );
-  }
-  .rail-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 16px 10px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: oklch(var(--muted-foreground));
-    border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-  }
-  .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
-  .rail-count {
-    margin-left: 2px;
-    padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 999px;
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-head .iconbtn { margin-left: auto; }
-
-  .rail-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 8px 8px;
-  }
-  .rail-hint {
-    margin: 12px 12px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-hint .dim { color: oklch(var(--muted-foreground)); }
-  .rail-hint.err { color: oklch(var(--status-error)); }
-
-  .rail-item {
-    position: relative;
-    display: grid;
-    grid-template-columns: 14px minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
-    margin: 0 0 2px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--foreground));
-    text-align: left;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  .rail-item:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
-  }
-  .rail-item.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
-    border-color: transparent;
-  }
-  .rail-item.active::before {
-    content: '';
-    position: absolute;
-    left: -1px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 60%;
-    background: oklch(var(--primary));
-    border-radius: 0 2px 2px 0;
-    pointer-events: none;
-  }
   .ri-status {
     border: 0;
     padding: 0;
@@ -685,8 +395,8 @@
     height: 8px;
     border-radius: 999px;
     background: oklch(var(--status-error));
-    box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-error)) 22%, transparent);
-    transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    box-shadow: 0 0 0 2px oklch(var(--status-error-wash));
+    transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
     align-self: center;
     justify-self: center;
     cursor: pointer;
@@ -703,53 +413,6 @@
     0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, oklch(var(--status-ok)) 22%, transparent); }
     50% { box-shadow: 0 0 0 4px color-mix(in oklab, oklch(var(--status-ok)) 32%, transparent); }
   }
-  .ri-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-  }
-  .ri-time {
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-    letter-spacing: 0.04em;
-  }
-  .ri-del {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; height: 22px;
-    margin-left: 4px;
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    border-radius: 3px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 120ms, color 120ms, background 120ms;
-  }
-  .rail-item:hover .ri-del { opacity: 1; }
-  .ri-del:hover {
-    color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
-  }
-
-  .rail-foot {
-    display: flex;
-    gap: 12px;
-    padding: 10px 16px;
-    border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    color: oklch(var(--muted-foreground));
-  }
-  .legend { display: inline-flex; align-items: center; gap: 6px; }
-  .kbd {
-    padding: 1px 5px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 10px;
-    color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-  }
 
   .work {
     display: flex;
@@ -762,8 +425,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 18px;
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    border-bottom: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
   .name-wrap {
     display: flex;
@@ -774,7 +437,7 @@
   }
   .name-prefix {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .name-input {
     flex: 1 1 auto;
@@ -784,24 +447,23 @@
     border-bottom: 1px solid transparent;
     padding: 4px 0;
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .name-input:hover {
     border-bottom-color:
       color-mix(in oklab, oklch(var(--foreground)) 18%, transparent);
   }
   .name-input:focus {
-    border-bottom-color:
-      color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+    border-bottom-color: oklch(var(--ring));
   }
   .dirty {
-    color: oklch(var(--primary));
-    font-size: 12px;
+    color: oklch(var(--status-warn));
+    font-size: var(--font-size-chrome);
     line-height: 1;
   }
 
@@ -811,27 +473,26 @@
     gap: 8px;
   }
 
-
   .btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-radius: var(--radius-md);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+  .btn.ghost { border-color: transparent; color: oklch(var(--muted-foreground)); }
   .btn.ghost:hover:not(:disabled) {
-    border-color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    color: oklch(var(--foreground));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -839,10 +500,9 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
     transform: translateY(-1px);
   }
   .btn.primary:active:not(:disabled) { transform: translateY(0); }
@@ -850,9 +510,6 @@
     background: oklch(var(--destructive));
     border-color: oklch(var(--destructive));
     color: oklch(var(--destructive-foreground));
-  }
-  .btn.primary.stop:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--destructive)) 60%, transparent);
   }
 
   .split {
@@ -865,14 +522,14 @@
   .splitter {
     position: relative;
     cursor: ns-resize;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 8%);
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    background: oklch(var(--background));
+    border-top: 1px solid oklch(var(--border-subtle));
+    border-bottom: 1px solid oklch(var(--border-subtle));
     user-select: none;
     touch-action: none;
   }
   .splitter:hover, .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .grip {
     position: absolute;
@@ -897,35 +554,14 @@
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
     .body:not(.library-collapsed):not(.docs-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
-    .rail { border-bottom: 1px solid oklch(var(--border)); }
-    .rail-head { padding: 8px 12px; }
-    .rail-foot { display: none; }
   }
 
   @media (max-width: 900px) {
-    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
-    .topbar .close { margin-left: auto; }
-    .ctx, .ctx-pair { flex-wrap: wrap; }
     .work-head { flex-wrap: wrap; padding: 8px 12px; }
     .actions { flex-wrap: wrap; }
   }
 
   .work { min-width: 0; }
-  .ri-select {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    min-width: 0;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .ri-del { border: 0; padding: 0; background: transparent; opacity: 1; }
   button:focus-visible, input:focus-visible {
     outline: 2px solid oklch(var(--foreground));
     outline-offset: 2px;
@@ -934,106 +570,8 @@
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Light theme: pure white chrome, no greys, no top vignette.       */
-  /* The default styles above target dark mode; this block strips the */
-  /* radial-gradient halo, the heavy upward box-shadow, and every     */
-  /* color-mix(...black...) grey wash from the panel surfaces.        */
-  /* ---------------------------------------------------------------- */
-  :global(html:not(.dark)) .panel {
-    background: oklch(var(--card));
-    box-shadow:
-      0 -1px 0 0 oklch(var(--foreground)) inset,
-      0 -8px 24px -16px rgba(0, 0, 0, 0.18);
-    border-top: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .topbar {
-    background: oklch(var(--card));
-    border-bottom: 1px dashed oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .ctx {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .ctx-label,
-  :global(html:not(.dark)) .ctx-sep {
-    color: oklch(var(--foreground));
-    opacity: 0.55;
-  }
-  :global(html:not(.dark)) .tabs {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .iconbtn:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail {
-    background: oklch(var(--card));
-    border-right: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-head {
-    border-bottom: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-hint.err {
-    color: oklch(var(--destructive));
-  }
   :global(html:not(.dark)) .ri-status.running {
     background: oklch(var(--primary));
-    box-shadow: 0 0 0 2px
-      color-mix(in oklab, oklch(var(--primary)) 22%, transparent);
-  }
-  :global(html:not(.dark)) .ri-del {
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .ri-del:hover {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .rail-count {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .rail-foot {
-    border-top: 1px dashed oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .work-head {
-    background: oklch(var(--card));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: oklch(var(--foreground));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .splitter {
-    background: oklch(var(--card));
-    border-top: 1px solid oklch(var(--foreground));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .splitter:hover,
-  :global(html:not(.dark)) .splitter.dragging {
-    background: color-mix(in oklab, oklch(var(--primary)) 14%, oklch(var(--card)));
-  }
-  :global(html:not(.dark)) .grip i {
-    background: oklch(var(--foreground));
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 22%);
   }
 </style>

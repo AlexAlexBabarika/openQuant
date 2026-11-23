@@ -53,7 +53,7 @@
       type="button"
       title={findLongLabel(fav)}
       class="px-2 h-7 rounded-sm font-mono text-[11px] lowercase tracking-[0.04em] transition-colors {value === fav
-        ? 'bg-accent text-accent-foreground'
+        ? 'bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
         : 'text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground'}"
       onclick={() => selectValue(fav)}
     >
@@ -73,7 +73,7 @@
       <DropdownMenu.Content
         align="end"
         sideOffset={6}
-        class="z-50 w-64 max-h-[28rem] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1 outline-none"
+        class="z-50 w-64 max-h-[28rem] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-popover py-1 outline-none"
       >
         {#each GROUPED_INTERVALS as group, gi (group.category)}
           {#if gi > 0}

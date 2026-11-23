@@ -1,3 +1,10 @@
+import {
+  MAX_DAYS,
+  MAX_OPTION_CONTRACTS,
+  MAX_PATH_POINTS,
+  MAX_PRICE,
+  grouped,
+} from './optionsBounds';
 import type { OptionLeg, OptionsDraft } from './optionsTypes';
 import type {
   LifecycleRequest,
@@ -7,10 +14,9 @@ import type {
   ResearchProvenance,
 } from './optionsResearchTypes';
 import { editLegContract } from './optionsLegEditor';
-import { RequestFlight } from './optionsRequest';
 import { optionsErrors, resolvedLegDays } from './optionsValidation';
 
-export const MAX_PATH_POINTS = 366;
+export { MAX_PATH_POINTS };
 export const MAX_PATH_TEXT = 24000;
 export interface PathControls {
   source: 'supplied' | 'synthetic';
@@ -75,17 +81,17 @@ export function parsePathCsv(text: string): {
   if (!lines.length || lines.length > MAX_PATH_POINTS)
     return {
       points: [],
-      error: 'Supply 1–366 day,spot rows with an optional day,spot header.',
+      error: `Supply 1–${MAX_PATH_POINTS} day,spot rows with an optional day,spot header.`,
     };
   const points: PathPoint[] = [];
   for (let i = 0; i < lines.length; i++) {
     const cells = lines[i].split(',');
-    const day = boundedNumber(cells[0] ?? '', 0, 3650);
-    const spot = boundedNumber(cells[1] ?? '', 0, 1000000);
+    const day = boundedNumber(cells[0] ?? '', 0, MAX_DAYS);
+    const spot = boundedNumber(cells[1] ?? '', 0, MAX_PRICE);
     if (cells.length !== 2 || day === null || spot === null)
       return {
         points: [],
-        error: `Row ${i + 1}: enter day 0–3650 and spot 0–1,000,000 USD, separated by one comma. Blank is not zero.`,
+        error: `Row ${i + 1}: enter day 0–${MAX_DAYS} and spot 0–${grouped(MAX_PRICE)} USD, separated by one comma. Blank is not zero.`,
       };
     if ((i === 0 && day !== 0) || (i > 0 && day <= points[i - 1].day))
       return {
@@ -118,7 +124,7 @@ export function pathRequest(
   }
   const fields = [
     ['seed', 0, 4294967295, true],
-    ['horizon', Number.MIN_VALUE, 3650, false],
+    ['horizon', Number.MIN_VALUE, MAX_DAYS, false],
     ['steps', 1, 365, true],
     ['drift', -1, 1, false],
     ['volatility', 0, 5, false],
@@ -214,13 +220,13 @@ export function calendarProposal(controls: CalendarControls): {
   const errors: FieldErrors = {};
   const values: Record<string, number> = {};
   for (const [key, min, max, integer] of [
-    ['nearDays', 0, 3650, false],
-    ['farDays', 0, 3650, false],
-    ['nearStrike', Number.MIN_VALUE, 1000000, false],
-    ['farStrike', Number.MIN_VALUE, 1000000, false],
-    ['nearPremium', 0, 1000000, false],
-    ['farPremium', 0, 1000000, false],
-    ['contracts', 1, 10000, true],
+    ['nearDays', 0, MAX_DAYS, false],
+    ['farDays', 0, MAX_DAYS, false],
+    ['nearStrike', Number.MIN_VALUE, MAX_PRICE, false],
+    ['farStrike', Number.MIN_VALUE, MAX_PRICE, false],
+    ['nearPremium', 0, MAX_PRICE, false],
+    ['farPremium', 0, MAX_PRICE, false],
+    ['contracts', 1, MAX_OPTION_CONTRACTS, true],
     ['multiplier', 1, 1000, true],
   ] as const) {
     if (key === 'farStrike' && controls.template === 'calendar') continue;
@@ -282,107 +288,6 @@ export function applyCalendar(
   return true;
 }
 
-export interface ResearchState<R> {
-  documentKey: string;
-  result: R | null;
-  submittedKey: string;
-  pending: boolean;
-  error: string;
-  notice: string;
-}
-export const emptyResearchState = <R>(
-  documentKey: string,
-): ResearchState<R> => ({
-  documentKey,
-  result: null,
-  submittedKey: '',
-  pending: false,
-  error: '',
-  notice: '',
-});
-export function researchError(error: unknown): string {
-  const message = error instanceof Error ? error.message.toLowerCase() : '';
-  if (/timeout|timed out/.test(message))
-    return 'Research timed out. Reduce path steps or retry explicitly.';
-  if (/too large|oversize|size limit/.test(message))
-    return 'Research exceeds the request/output limit. Reduce path steps.';
-  if (/rate limit|too many|saturat/.test(message))
-    return 'Research is busy or rate limited. Retry explicitly later.';
-  return 'Research request failed. Inputs are retained. Check the draft/path and retry; the research endpoint may be unavailable.';
-}
-
-/** No result may cross a document/account boundary, even if abort is ignored. */
-export class ResearchJob<Q, R> {
-  state: ResearchState<R>;
-  #flight = new RequestFlight();
-  constructor(
-    documentKey: string,
-    private currentDocument: () => string,
-    private publish: (state: ResearchState<R>) => void,
-    private currentInput?: () => string,
-  ) {
-    this.state = emptyResearchState(documentKey);
-  }
-  #update(patch: Partial<ResearchState<R>>): void {
-    this.state = { ...this.state, ...patch };
-    this.publish(this.state);
-  }
-  reset(documentKey: string): void {
-    this.#flight.cancel();
-    this.state = emptyResearchState(documentKey);
-    this.publish(this.state);
-  }
-  cancel(): void {
-    this.#flight.cancel();
-    this.#update({
-      pending: false,
-      error: '',
-      notice:
-        'Cancelled. Previous submitted evidence, if any, is unchanged. Browser abort does not guarantee server computation stopped.',
-    });
-  }
-  async submit(
-    request: Q,
-    key: string,
-    call: (request: Q, signal: AbortSignal) => Promise<R>,
-    validate: (result: R) => boolean,
-  ): Promise<void> {
-    const flight = this.#flight.start(
-      () => this.currentDocument(),
-      () => {
-        this.cancel();
-        this.#update({
-          error:
-            'Research timed out after 15 seconds. Reduce path steps and retry explicitly.',
-        });
-      },
-    );
-    const documentKey = this.currentDocument();
-    if (this.state.documentKey !== documentKey) {
-      this.state = emptyResearchState(documentKey);
-    }
-    const snapshot = structuredClone(request);
-    this.#update({ pending: true, error: '', notice: '', documentKey });
-    const current = () =>
-      flight.current() && (!this.currentInput || key === this.currentInput());
-    try {
-      const result = await call(snapshot, flight.signal);
-      if (!current()) return;
-      if (!validate(result)) throw new Error('Invalid research response');
-      this.#update({
-        result,
-        submittedKey: key,
-        notice:
-          'Submitted evidence · session only. Values below use the returned request, not live inputs.',
-      });
-    } catch (error) {
-      if (current()) this.#update({ error: researchError(error) });
-    } finally {
-      flight.finish();
-      if (current()) this.#update({ pending: false });
-    }
-  }
-}
 export function validResearchContext(result: {
   provenance: ResearchProvenance;
   warnings: string[];

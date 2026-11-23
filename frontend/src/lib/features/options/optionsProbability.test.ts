@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
-import { clearAccessToken, setAccessToken } from '$lib/core/api';
 import OptionsProbabilityLab from '../../../components/options/OptionsProbabilityLab.svelte';
 import { createOptionsDraft } from './optionsTemplates';
 import type {
@@ -8,8 +7,6 @@ import type {
   DistributionResponse,
 } from './optionsResearchTypes';
 import {
-  ProbabilityRunner,
-  emptyProbabilityState,
   probabilityBars,
   tallestProbability,
   probabilityBinLabel,
@@ -63,15 +60,6 @@ const response = (input = request()): DistributionResponse => ({
   numerical_error_estimate: null,
   warnings: [],
 });
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((yes, no) => {
-    resolve = yes;
-    reject = no;
-  });
-  return { promise, resolve, reject };
-}
 
 describe('probability assumptions and snapshots', () => {
   it('uses bounded frozen defaults and omits drift in risk-neutral mode', () => {
@@ -355,195 +343,6 @@ describe('probability presentation, not financial computation', () => {
     expect(terminalProbabilityError(result)).toBeNull();
     result.terminal_payoff_curve = curve(36);
     expect(terminalProbabilityError(result)).toMatch(/missing/);
-  });
-});
-
-describe('explicit request lifecycle and privacy fencing', () => {
-  it('does not compute when constructed or contexts change', () => {
-    const compute = vi.fn();
-    const runner = new ProbabilityRunner(compute, vi.fn());
-    runner.context('guest:1', 'draft');
-    runner.context('account:2', 'draft');
-    expect(compute).not.toHaveBeenCalled();
-  });
-  it('isolates submitted inputs and keeps previous evidence during a refresh', async () => {
-    let state = emptyProbabilityState();
-    const refresh = deferred<DistributionResponse>();
-    const compute = vi
-      .fn()
-      .mockResolvedValueOnce(response())
-      .mockReturnValueOnce(refresh.promise);
-    const runner = new ProbabilityRunner(compute, next => {
-      state = next;
-    });
-    const input = request();
-    await runner.run('doc', 'one', input);
-    const task = runner.run('doc', 'two', input);
-    input.analysis.spot = 50;
-    expect(state.result).not.toBeNull();
-    expect(state.pending).toBe(true);
-    expect(compute.mock.calls[1][0].analysis.spot).toBe(100);
-    refresh.resolve(response());
-    await task;
-    expect(state.submitted?.analysis.spot).toBe(100);
-    expect(Object.isFrozen(state.submitted?.analysis.strategy.legs[0])).toBe(
-      true,
-    );
-    expect(state.resultKey).toBe('two');
-  });
-  it('clears private evidence on document/account transition and ignores late success', async () => {
-    let state = emptyProbabilityState();
-    const late = deferred<DistributionResponse>();
-    let signal!: AbortSignal;
-    const runner = new ProbabilityRunner(
-      (_, s) => {
-        signal = s;
-        return late.promise;
-      },
-      next => {
-        state = next;
-      },
-    );
-    const task = runner.run('guest:1', 'key', request());
-    runner.context('account:2', 'key');
-    expect(signal.aborted).toBe(true);
-    late.resolve(response());
-    await task;
-    expect(state).toEqual({
-      ...emptyProbabilityState(),
-      documentKey: 'account:2',
-    });
-  });
-  it.each(['cancel', 'draft', 'dispose', 'replace'])(
-    'fences late success/error/finally after %s',
-    async action => {
-      let state = emptyProbabilityState();
-      const first = deferred<DistributionResponse>(),
-        second = deferred<DistributionResponse>();
-      const signals: AbortSignal[] = [];
-      const runner = new ProbabilityRunner(
-        (_, signal) => {
-          signals.push(signal);
-          return signals.length === 1 ? first.promise : second.promise;
-        },
-        next => {
-          state = next;
-        },
-      );
-      const task = runner.run('doc', 'one', request());
-      let replacement: Promise<void> | undefined;
-      if (action === 'cancel') runner.cancel();
-      if (action === 'draft') runner.context('doc', 'two');
-      if (action === 'dispose') runner.dispose();
-      if (action === 'replace')
-        replacement = runner.run('doc', 'two', request());
-      const before = state;
-      first.reject(new Error('secret raw server content'));
-      await task;
-      expect(signals[0].aborted).toBe(true);
-      expect(state).toBe(before);
-      expect(state.error).toBeNull();
-      if (replacement) {
-        second.resolve(response());
-        await replacement;
-        expect(state.resultKey).toBe('two');
-      }
-    },
-  );
-  it('shows a retryable error without exposing raw server content', async () => {
-    let state = emptyProbabilityState();
-    const runner = new ProbabilityRunner(
-      async () => {
-        throw new Error('raw secret');
-      },
-      next => {
-        state = next;
-      },
-    );
-    await runner.run('doc', 'one', request());
-    expect(state.pending).toBe(false);
-    expect(state.error).toMatch(/retry explicitly/);
-    expect(state.error).not.toMatch(/raw secret/);
-  });
-  it('bounds client pending time and rejects a non-cooperative timed-out success', async () => {
-    vi.useFakeTimers();
-    try {
-      let state = emptyProbabilityState();
-      const delayed = deferred<DistributionResponse>();
-      let signal!: AbortSignal;
-      const runner = new ProbabilityRunner(
-        (_, s) => {
-          signal = s;
-          return delayed.promise;
-        },
-        next => {
-          state = next;
-        },
-      );
-      const task = runner.run('doc', 'one', request());
-      await vi.advanceTimersByTimeAsync(15000);
-      expect(state.pending).toBe(false);
-      expect(signal.aborted).toBe(true);
-      expect(state.error).toMatch(/timed out/);
-      const before = state;
-      delayed.resolve(response());
-      await task;
-      expect(state).toBe(before);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-  it('preserves previous successful evidence when refresh returns empty bins', async () => {
-    let state = emptyProbabilityState();
-    let next = response();
-    const runner = new ProbabilityRunner(
-      async () => next,
-      value => {
-        state = value;
-      },
-    );
-    await runner.run('doc', 'one', request());
-    const previous = state.result;
-    next = { ...response(), bins: [] };
-    await runner.run('doc', 'two', request());
-    expect(state.result).toBe(previous);
-    expect(state.resultKey).toBe('one');
-    expect(state.error).toMatch(/empty evidence/);
-  });
-  it('discards a late successful reply after same-document draft edits', async () => {
-    let state = emptyProbabilityState();
-    const delayed = deferred<DistributionResponse>();
-    const runner = new ProbabilityRunner(
-      () => delayed.promise,
-      next => {
-        state = next;
-      },
-    );
-    const task = runner.run('doc', 'one', request());
-    runner.context('doc', 'two');
-    delayed.resolve(response());
-    await task;
-    expect(state.result).toBeNull();
-    expect(state.cancelled).toBe(true);
-  });
-  it('discards a reply that lands after the account session changes', async () => {
-    let state = emptyProbabilityState();
-    const late = deferred<DistributionResponse>();
-    const runner = new ProbabilityRunner(
-      () => late.promise,
-      next => {
-        state = next;
-      },
-    );
-    const task = runner.run('doc', 'key', request());
-    try {
-      setAccessToken('test-only');
-      late.resolve(response());
-      await task;
-    } finally {
-      clearAccessToken();
-    }
-    expect(state.result).toBeNull();
   });
 });
 

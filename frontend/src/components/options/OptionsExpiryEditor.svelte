@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_DAYS, MAX_OPTION_CONTRACTS, MAX_PRICE } from '$lib/features/options/optionsBounds';
   import { untrack } from 'svelte';
   import type { OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import { applyCalendar, calendarControls, calendarProposal, researchValue, setLegExpiry, type CalendarControls } from '$lib/features/options/optionsLifecycle';
@@ -35,7 +36,7 @@
         <div class="leg">
           <h4>Leg {i + 1} · {leg.kind} · {leg.quantity} signed contracts{!leg.enabled ? ' · disabled (still validated)' : ''}</h4>
           <div class="fields">
-            <label>Override · calendar days (0–3650)<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
+            <label>Override · calendar days (0–{MAX_DAYS})<input type="number" name={`legs.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} placeholder="Common default" aria-invalid={!!errors[`legs.${i}.days_to_expiry`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'days_to_expiry', e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber)} /></label>
             <label>Override · expiry date (UTC)<input type="date" name={`legs.${i}.expiry_date`} value={leg.expiry_date ?? ''} aria-invalid={!!errors[`legs.${i}.expiry_date`]} aria-describedby={`${uid}-leg-${i}`} oninput={e => expiry(i, 'expiry_date', e.currentTarget.value || null)} /></label>
           </div>
           <p id={`${uid}-leg-${i}`}>{errors[`legs.${i}.days_to_expiry`] ?? errors[`legs.${i}.expiry_date`] ?? `Resolved horizon: ${researchValue(resolvedLegDays(draft.strategy, leg))} calendar days.`}</p>
@@ -52,7 +53,7 @@
       <div class="fields">
         <label>Construction<select name="construction-template" bind:value={construction.template}><option value="calendar">Calendar · equal strikes</option><option value="diagonal">Diagonal · different strikes</option></select></label>
         <label>Option kind<select name="construction-kind" bind:value={construction.kind}><option value="call">Call</option><option value="put">Put</option></select></label>
-        {#each ([['nearDays', 'Near expiry · calendar days', 0, 3650], ['farDays', 'Far expiry · calendar days', 0, 3650], ['nearStrike', 'Near strike · USD', 0, 1000000], ['farStrike', 'Far strike · USD', 0, 1000000], ['nearPremium', 'Near entry premium · USD/unit', 0, 1000000], ['farPremium', 'Far entry premium · USD/unit', 0, 1000000], ['contracts', 'Size · contracts per leg', 1, 10000], ['multiplier', 'Multiplier · units/contract', 1, 1000]] as const) as [key, label, min, max]}
+        {#each ([['nearDays', 'Near expiry · calendar days', 0, MAX_DAYS], ['farDays', 'Far expiry · calendar days', 0, MAX_DAYS], ['nearStrike', 'Near strike · USD', 0, MAX_PRICE], ['farStrike', 'Far strike · USD', 0, MAX_PRICE], ['nearPremium', 'Near entry premium · USD/unit', 0, MAX_PRICE], ['farPremium', 'Far entry premium · USD/unit', 0, MAX_PRICE], ['contracts', 'Size · contracts per leg', 1, MAX_OPTION_CONTRACTS], ['multiplier', 'Multiplier · units/contract', 1, 1000]] as const) as [key, label, min, max]}
           {#if key !== 'farStrike' || construction.template === 'diagonal'}
             <label>{label}<input type="number" name={`construction-${key}`} autocomplete="off" {min} {max} step={key === 'contracts' || key === 'multiplier' ? '1' : 'any'} value={construction[key]} aria-invalid={!!proposal.errors[key]} aria-describedby={`${uid}-${key}`} oninput={e => { construction[key] = e.currentTarget.value; }} /><small id={`${uid}-${key}`}>{proposal.errors[key] ?? (key.includes('Premium') ? 'Required; explicit zero is allowed.' : '')}</small></label>
           {/if}
@@ -65,14 +66,14 @@
 </section>
 
 <style>
-  .expiry-editor { min-width: 0; display: grid; gap: 8px; padding: 10px; color: oklch(var(--foreground)); font-family: var(--font-sans); border: 1px solid oklch(var(--border)); border-radius: 4px; }
-  h3, h4, p { margin: 0; } h3 { font-size: 13px; } h4 { font-size: 12px; }
-  p, small { color: oklch(var(--muted-foreground)); font-size: 12px; overflow-wrap: anywhere; }
-  fieldset { min-width: 0; border: 0; padding: 0; display: grid; gap: 8px; } legend { font-size: 12px; padding: 4px 0; }
+  .expiry-editor { min-width: 0; display: grid; gap: 8px; padding: 10px; color: oklch(var(--foreground)); font-family: var(--font-sans); border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
+  h3, h4, p { margin: 0; } h3 { font-size: var(--font-size-control); } h4 { font-size: var(--font-size-chrome); }
+  p, small { color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); overflow-wrap: anywhere; }
+  fieldset { min-width: 0; border: 0; padding: 0; display: grid; gap: 8px; } legend { font-size: var(--font-size-chrome); padding: 4px 0; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 8px; }
-  label { display: grid; gap: 4px; min-width: 0; font-size: 12px; } input, select { width: 100%; min-width: 0; min-height: 28px; padding: 4px 6px; border: 1px solid oklch(var(--border)); border-radius: 4px; color: oklch(var(--foreground)); background: oklch(var(--background)); }
-  .leg { display: grid; gap: 6px; border-top: 1px solid oklch(var(--border)); padding-top: 8px; } button { white-space: normal; height: auto; min-height: 28px; justify-self: start; }
-  summary { cursor: pointer; font-size: 12px; padding: 6px 0; } :is(input, select, button, summary):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
+  label { display: grid; gap: 4px; min-width: 0; font-size: var(--font-size-chrome); } input, select { width: 100%; min-width: 0; min-height: var(--control-height-compact); padding: 4px 6px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); color: oklch(var(--foreground)); background: oklch(var(--background)); }
+  .leg { display: grid; gap: 6px; border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; } button { white-space: normal; height: auto; min-height: var(--control-height-compact); justify-self: start; }
+  summary { cursor: pointer; font-size: var(--font-size-chrome); padding: 6px 0; } :is(input, select, button, summary):focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   [aria-invalid="true"] { border-color: oklch(var(--destructive)); } @media (forced-colors: active) { :is(input, select, button, summary):focus-visible { outline-color: Highlight; } [aria-invalid="true"] { outline: 1px solid CanvasText; } }
   @media (pointer: coarse) { input, select, button { min-height: var(--control-touch-height); } }
 </style>

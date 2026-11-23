@@ -1,3 +1,9 @@
+import {
+  MAX_CHAIN_QUOTES,
+  MAX_DAYS,
+  MAX_OPTION_CONTRACTS,
+  MAX_PRICE,
+} from './optionsBounds';
 import type {
   OptionLeg,
   OptionsDraft,
@@ -37,7 +43,7 @@ export interface ChainFilters {
 }
 export const CHAIN_PAGE_SIZE = 50;
 const price = (n: number | null): n is number =>
-  n !== null && Number.isFinite(n) && n >= 0 && n <= 1e6;
+  n !== null && Number.isFinite(n) && n >= 0 && n <= MAX_PRICE;
 
 export function chainSpread(quote: ChainQuote): number | null {
   return price(quote.bid) && price(quote.ask) ? quote.ask - quote.bid : null;
@@ -90,7 +96,8 @@ export function chainFilterErrors(
   const errors: Record<string, string> = {};
   for (const field of ['minStrike', 'maxStrike'] as const) {
     if (filters[field] !== null && !price(filters[field]))
-      errors[field] = 'Use a strike from 0 to 1000000 USD, or leave blank.';
+      errors[field] =
+        `Use a strike from 0 to ${MAX_PRICE} USD, or leave blank.`;
   }
   if (
     filters.minStrike !== null &&
@@ -102,7 +109,7 @@ export function chainFilterErrors(
 }
 
 export function chainRows(response: ChainResponse, filters: ChainFilters) {
-  if (response.quotes.length > 2000)
+  if (response.quotes.length > MAX_CHAIN_QUOTES)
     throw new Error('Chain quote bound exceeded.');
   const rows = response.quotes.filter(
     q =>
@@ -176,8 +183,7 @@ export function proposeChainImport(
     settings.customPremium,
   );
   if (premium === null)
-    errors.premiumChoice =
-      'Explicitly choose a usable timestamped bid/ask/mid, or enter a custom premium from 0 to 1000000 USD/unit. Mid requires non-crossed paired quotes and both side timestamps.';
+    errors.premiumChoice = `Explicitly choose a usable timestamped bid/ask/mid, or enter a custom premium from 0 to ${MAX_PRICE} USD/unit. Mid requires non-crossed paired quotes and both side timestamps.`;
   if (
     settings.premiumChoice !== '' &&
     settings.premiumChoice !== 'custom' &&
@@ -188,9 +194,9 @@ export function proposeChainImport(
   if (
     !Number.isInteger(settings.size) ||
     settings.size < 1 ||
-    settings.size > 10000
+    settings.size > MAX_OPTION_CONTRACTS
   )
-    errors.size = 'Use 1–10000 contracts; Buy/Sell controls the sign.';
+    errors.size = `Use 1–${MAX_OPTION_CONTRACTS} contracts; Buy/Sell controls the sign.`;
   if (!['buy', 'sell'].includes(settings.side))
     errors.side = 'Choose Buy or Sell.';
   if (
@@ -218,10 +224,9 @@ export function proposeChainImport(
     valuation !== null &&
     (expiry === null ||
       expiry < valuation ||
-      (expiry - valuation) / 86400000 > 3650)
+      (expiry - valuation) / 86400000 > MAX_DAYS)
   )
-    errors.expiration =
-      'Expiry must be a valid UTC date 0–3650 days after the explicit valuation.';
+    errors.expiration = `Expiry must be a valid UTC date 0–${MAX_DAYS} days after the explicit valuation.`;
   if (!['draft', 'quote', 'custom'].includes(settings.ivChoice))
     errors.ivChoice =
       'Explicitly choose inherited draft IV, observed IV, or a custom annual fraction.';

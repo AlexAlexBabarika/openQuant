@@ -4,7 +4,7 @@
   import Crosshair from '@lucide/svelte/icons/crosshair';
   import Check from '@lucide/svelte/icons/check';
   import Settings from '@lucide/svelte/icons/settings';
-  import X from '@lucide/svelte/icons/x';
+  import Trash2 from '@lucide/svelte/icons/trash-2';
   import {
     CROSSHAIR_MODES,
     type CrosshairModeName,
@@ -97,7 +97,7 @@
 </script>
 
 <div
-  class="flex flex-col items-center gap-1 py-1 border-r border-border bg-background w-10 shrink-0 h-full min-h-0"
+  class="flex flex-col items-center gap-1 py-1 border-r border-border-subtle bg-background w-10 shrink-0 h-full min-h-0"
 >
   <Popover.Root bind:open={crosshairOpen}>
     <Popover.Trigger
@@ -111,7 +111,7 @@
         side="right"
         align="start"
         sideOffset={10}
-        class="z-[60] min-w-[180px] rounded-lg border border-border bg-popover p-1 shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
+        class="z-(--z-popover) min-w-[180px] rounded-lg border border-border bg-popover p-1 shadow-popover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
       >
         {#each CROSSHAIR_MODES as mode (mode.value)}
           {@const Icon = mode.icon}
@@ -147,7 +147,7 @@
         side="right"
         align="start"
         sideOffset={10}
-        class="z-[60] min-w-[200px] rounded-lg border border-border bg-popover p-1 shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
+        class="z-(--z-popover) min-w-[200px] rounded-lg border border-border bg-popover p-1 shadow-popover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
       >
         {#each POSITION_TOOLBAR_MODES as mode (mode.type)}
           {@const Icon = mode.icon}
@@ -165,7 +165,7 @@
             </button>
           </div>
         {/each}
-        <div class="mt-1 flex justify-end border-t border-border pt-1">
+        <div class="mt-1 flex justify-end border-t border-border-subtle pt-1">
           <button
             type="button"
             class="flex items-center justify-center w-8 h-8 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
@@ -201,7 +201,7 @@
           side="right"
           align="start"
           sideOffset={10}
-          class="z-[60] min-w-[200px] rounded-lg border border-border bg-popover p-1 shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
+          class="z-(--z-popover) min-w-[200px] rounded-lg border border-border bg-popover p-1 shadow-popover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight]"
         >
           <div class="flex items-center gap-1">
             <button
@@ -233,15 +233,12 @@
   <div class="mt-auto flex flex-col items-center pt-2">
     <button
       type="button"
-      class="flex items-center justify-center w-8 h-8 rounded-sm bg-destructive hover:bg-destructive/90 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight] shrink-0"
+      class="flex items-center justify-center w-8 h-8 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground forced-colors:focus-visible:outline-[Highlight] shrink-0"
       aria-label="Clear all drawables on chart"
       title="Clear all drawables"
       onclick={clearDrawablesForChart}
     >
-      <X
-        class="h-4 w-4 text-white dark:text-zinc-950"
-        strokeWidth={2.5}
-      />
+      <Trash2 class="h-4 w-4" />
     </button>
   </div>
 </div>

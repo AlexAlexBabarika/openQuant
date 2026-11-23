@@ -1,12 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import colourSwatchSource from './ColourSwatch.svelte?raw';
 import colourPickerSource from './ColourPicker.svelte?raw';
 import dialogContentSource from '$lib/components/ui/dialog/dialog-content.svelte?raw';
 
+const styles = readFileSync(
+  new URL('../../styles.css', import.meta.url),
+  'utf8',
+);
+
 function zIndex(source: string): number {
-  const match = source.match(/z-\[(\d+)\]/);
-  if (!match) throw new Error('Expected an explicit z-index class');
-  return Number(match[1]);
+  const layer = source.match(/z-\((--z-[\w-]+)\)/)?.[1];
+  const value = layer && styles.match(new RegExp(`${layer}: (\\d+);`))?.[1];
+  if (!value) throw new Error('Expected a z-index layer token');
+  return Number(value);
 }
 
 describe('ColourSwatch', () => {

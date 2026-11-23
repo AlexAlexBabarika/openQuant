@@ -1,25 +1,20 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { MAX_DAYS, MAX_FINDER_EVALUATIONS, MAX_PRICE, short } from '$lib/features/options/optionsBounds';
+  import { useResearchRun } from '$lib/features/options/optionsResearchRun.svelte';
   import { findStrategies } from '$lib/features/options/optionsResearchApi';
   import type { FinderRequest, FinderResponse, OptionsResearchToolProps } from '$lib/features/options/optionsResearchTypes';
   import type { OptionLeg } from '$lib/features/options/optionsTypes';
   import { exactValue } from '$lib/features/options/optionsChart';
   import { formatTime } from '$lib/features/options/optionsFormat';
   import { applyFinderCandidate, editFinderContract, finderErrors, manualFinderContract, parseFinderSpots, seedFinderUniverse } from '$lib/features/options/optionsFinder';
-  import { RequestFlight } from '$lib/features/options/optionsRequest';
 
   let { draft, onEdit, documentKey, readOnly = false }: OptionsResearchToolProps = $props();
   const id = $props.id();
-  const flight = new RequestFlight();
   let universe = $state<OptionLeg[]>([]);
   let thesis = $state<FinderRequest['thesis']>('neutral');
   let maxDebit = $state(1000), maxLoss = $state(1000), maxContracts = $state(4), maxLegs = $state(4);
-  let limit = $state(10), maxEvaluations = $state(2000), scenarioText = $state('');
-  let result = $state<FinderResponse | null>(null);
-  let submitted = $state<FinderRequest | null>(null);
-  let submittedKey = $state('');
-  let pending = $state(false), attempted = $state(false);
-  let failure = $state(''), notice = $state('');
+  let limit = $state(10), maxEvaluations = $state(MAX_FINDER_EVALUATIONS), scenarioText = $state('');
+  let attempted = $state(false);
   const request: FinderRequest = $derived({
     analysis: draft, universe, thesis,
     constraints: { max_entry_debit: maxDebit, max_loss: maxLoss, max_total_contracts: maxContracts, max_legs: maxLegs },
@@ -27,25 +22,24 @@
   });
   const requestKey = $derived(JSON.stringify(request));
   const errors = $derived(finderErrors(request));
-  const stale = $derived(result !== null && requestKey !== submittedKey);
-  const key = () => `${documentKey}:${readOnly}:${requestKey}`;
+  const run = useResearchRun<FinderRequest, FinderResponse>({
+    documentKey: () => documentKey, inputKey: () => requestKey, readOnly: () => readOnly,
+    copy: {
+      cancelled: 'Search cancelled. Any previous submitted evidence remains below.',
+      inputsChanged: 'Search cancelled because its inputs changed. Submit explicitly to search again.',
+      timedOut: 'Search timed out. Inputs are unchanged; retry explicitly with a smaller search limit.',
+      failed: () => 'Strategy search failed. Check the field constraints and retry explicitly; no candidate was applied.',
+      submitted: response => response.candidates.length ? 'Search complete. Review the submitted evidence before applying a candidate.' : 'Search complete: no candidates satisfy these constraints in the submitted universe.',
+    },
+    onDocumentChange: () => {
+      universe = []; scenarioText = ''; thesis = 'neutral'; maxDebit = 1000; maxLoss = 1000; maxContracts = 4; maxLegs = 4; limit = 10; maxEvaluations = MAX_FINDER_EVALUATIONS;
+      attempted = false;
+    },
+  });
+  const result = $derived(run.result), submitted = $derived(run.submitted), stale = $derived(run.stale);
+  const pending = $derived(run.pending), failure = $derived(run.error), notice = $derived(run.notice);
   const errorId = (field: string) => `${id}-${field.replace(/\./g, '-')}-error`;
 
-  $effect(() => {
-    documentKey;
-    untrack(() => {
-      flight.cancel(); pending = false; result = null; submitted = null; submittedKey = '';
-      universe = []; scenarioText = ''; thesis = 'neutral'; maxDebit = 1000; maxLoss = 1000; maxContracts = 4; maxLegs = 4; limit = 10; maxEvaluations = 2000;
-      attempted = false; failure = ''; notice = '';
-    });
-  });
-  $effect(() => {
-    requestKey; readOnly;
-    untrack(() => {
-      if (pending) { flight.cancel(); pending = false; notice = 'Search cancelled because its inputs changed. Submit explicitly to search again.'; }
-    });
-  });
-  onDestroy(() => flight.cancel());
 
   function edit(index: number, update: Partial<OptionLeg>) {
     if (!readOnly) universe[index] = editFinderContract($state.snapshot(universe[index]), update);
@@ -53,33 +47,17 @@
   async function search(event: SubmitEvent) {
     event.preventDefault();
     if (readOnly || pending) return;
-    attempted = true; failure = ''; notice = '';
+    attempted = true; run.error = ''; run.notice = '';
     if (Object.keys(errors).length) return;
-    const snapshot = structuredClone($state.snapshot(request));
-    const inputKey = requestKey;
-    const run = flight.start(key, () => { pending = false; failure = 'Search timed out. Inputs are unchanged; retry explicitly with a smaller search limit.'; });
-    pending = true;
-    try {
-      const response = await findStrategies(snapshot, run.signal);
-      if (!run.current()) return;
-      result = response; submitted = snapshot; submittedKey = inputKey;
-      notice = response.candidates.length ? 'Search complete. Review the submitted evidence before applying a candidate.' : 'Search complete: no candidates satisfy these constraints in the submitted universe.';
-    } catch {
-      if (run.current()) failure = 'Strategy search failed. Check the field constraints and retry explicitly; no candidate was applied.';
-    } finally {
-      if (run.current()) pending = false;
-      run.finish();
-    }
+    await run.submit($state.snapshot(request), findStrategies);
   }
-  function cancel() {
-    flight.cancel(); pending = false; notice = 'Search cancelled. Any previous submitted evidence remains below.';
-  }
+  const cancel = () => run.cancel();
   function apply(index: number) {
     if (readOnly || pending || stale || !result || !submitted) return;
     const candidate = structuredClone($state.snapshot(result.candidates[index]));
     const snapshot = structuredClone($state.snapshot(submitted));
     onEdit(current => {
-      if (applyFinderCandidate(current, snapshot, candidate)) notice = `Candidate ${candidate.rank} applied to the draft. Analyze explicitly for updated workbench evidence.`;
+      if (applyFinderCandidate(current, snapshot, candidate)) run.notice = `Candidate ${candidate.rank} applied to the draft. Analyze explicitly for updated workbench evidence.`;
     });
   }
 </script>
@@ -110,10 +88,10 @@
           {#if leg.source}<p>{leg.source.contract_symbol} · {leg.source.underlying} · {leg.source.provider}/{leg.source.environment}. Model approximation remains European/cash. Fetched {formatTime(leg.source.fetched_at)}.</p>{:else}<p>Manual/synthetic contract · not provider verified</p>{/if}
           <div class="grid">
             <label><span>Kind</span><select name={`universe.${i}.kind`} value={leg.kind} onchange={e => edit(i, { kind: e.currentTarget.value as 'call' | 'put' })}><option value="call">Call</option><option value="put">Put</option></select></label>
-            {@render numberField('Strike · USD (>0–1m)', `universe.${i}.strike`, leg.strike ?? NaN, 0, 1e6, n => edit(i, { strike: n }))}
-            {@render numberField('Entry premium · USD/unit (0–1m)', `universe.${i}.entry_premium`, leg.entry_premium, 0, 1e6, n => edit(i, { entry_premium: n }))}
+            {@render numberField(`Strike · USD (>0–${short(MAX_PRICE)})`, `universe.${i}.strike`, leg.strike ?? NaN, 0, MAX_PRICE, n => edit(i, { strike: n }))}
+            {@render numberField(`Entry premium · USD/unit (0–${short(MAX_PRICE)})`, `universe.${i}.entry_premium`, leg.entry_premium, 0, MAX_PRICE, n => edit(i, { entry_premium: n }))}
             {@render numberField('Multiplier · units/contract (1–1000)', `universe.${i}.multiplier`, leg.multiplier, 1, 1000, n => edit(i, { multiplier: n }), '1')}
-            <label><span>Days override · blank inherits, 0–3650</span><input type="number" name={`universe.${i}.days_to_expiry`} autocomplete="off" min="0" max="3650" step="any" value={leg.days_to_expiry ?? ''} oninput={e => edit(i, { days_to_expiry: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.days_to_expiry`)}</label>
+            <label><span>Days override · blank inherits, 0–{MAX_DAYS}</span><input type="number" name={`universe.${i}.days_to_expiry`} autocomplete="off" min="0" max={MAX_DAYS} step="any" value={leg.days_to_expiry ?? ''} oninput={e => edit(i, { days_to_expiry: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.days_to_expiry`)}</label>
             <label><span>Expiry date · optional UTC, uses draft valuation</span><input type="date" name={`universe.${i}.expiry_date`} min="0001-01-01" max="9999-12-31" value={leg.expiry_date ?? ''} oninput={e => edit(i, { expiry_date: e.currentTarget.value || null })} />{@render error(`universe.${i}.expiry_date`)}</label>
             <label><span>Annual IV fraction · blank inherits, 0–5</span><input type="number" name={`universe.${i}.implied_volatility`} autocomplete="off" min="0" max="5" step="any" value={leg.implied_volatility ?? ''} oninput={e => edit(i, { implied_volatility: e.currentTarget.value === '' ? null : e.currentTarget.valueAsNumber })} />{@render error(`universe.${i}.implied_volatility`)}</label>
           </div>
@@ -132,7 +110,7 @@
         {@render numberField('Maximum absolute contracts · 1–100', 'constraints.max_total_contracts', maxContracts, 1, 100, n => maxContracts = n, '1')}
         {@render numberField('Maximum legs · 1–4', 'constraints.max_legs', maxLegs, 1, 4, n => maxLegs = n, '1')}
         {@render numberField('Returned candidates · 1–20', 'limit', limit, 1, 20, n => limit = n, '1')}
-        {@render numberField('Evaluation budget · 1–2000', 'max_evaluations', maxEvaluations, 1, 2000, n => maxEvaluations = n, '1')}
+        {@render numberField(`Evaluation budget · 1–${MAX_FINDER_EVALUATIONS}`, 'max_evaluations', maxEvaluations, 1, MAX_FINDER_EVALUATIONS, n => maxEvaluations = n, '1')}
       </div>
       <p>Ranking = arithmetic mean of submitted common-expiry scenario P&amp;L (USD), not probability-weighted expected return. Neutral is not delta-neutral. Unknown, mixed-expiry or unbounded loss candidates are excluded.</p>
     </fieldset>
@@ -153,7 +131,7 @@
     <section aria-label="Submitted strategy finder evidence">
       <h4>Submitted: {result.request.analysis.strategy.name} · spot {exactValue(result.request.analysis.spot)} USD · {result.request.thesis}</h4>
       <p>{result.provenance.model} v{result.provenance.version} · {result.provenance.exercise_style}/{result.provenance.settlement} · {result.provenance.currency} · {result.provenance.day_basis}. Scoring: {result.scoring}. Base annual IV {exactValue(result.request.analysis.volatility)}, rate {exactValue(result.request.analysis.rate)}, dividend yield {exactValue(result.request.analysis.dividend_yield)}. Entry fee {exactValue(result.request.analysis.strategy.entry_fee_per_contract)} USD/contract.</p>
-      <p>Evaluated {result.searched_count}/{result.request.max_evaluations ?? 2000}; eligible {result.eligible_count}; shown {result.candidates.length}/{result.request.limit ?? 10}. {result.search_truncated ? 'Search truncated at the declared budget; not exhaustive.' : 'Bounded enumeration complete; not an exhaustive market search.'} Submitted scenarios: {result.request.scenario_spots.map(v => exactValue(v)).join(', ')} USD.</p>
+      <p>Evaluated {result.searched_count}/{result.request.max_evaluations ?? MAX_FINDER_EVALUATIONS}; eligible {result.eligible_count}; shown {result.candidates.length}/{result.request.limit ?? 10}. {result.search_truncated ? 'Search truncated at the declared budget; not exhaustive.' : 'Bounded enumeration complete; not an exhaustive market search.'} Submitted scenarios: {result.request.scenario_spots.map(v => exactValue(v)).join(', ')} USD.</p>
       <p>Limits: debit {exactValue(result.request.constraints.max_entry_debit)} USD; loss {exactValue(result.request.constraints.max_loss)} USD; {result.request.constraints.max_total_contracts ?? 10} absolute contracts, {result.request.constraints.max_legs ?? 4} legs.</p>
       {#each result.warnings as warning}<p class="notice">{warning}</p>{/each}
       {#if result.candidates.length === 0}<p>No matches. Change explicit limits or universe and submit again; no draft changes were made.</p>{/if}
@@ -175,19 +153,19 @@
 </section>
 
 <style>
-  .finder { container-type: inline-size; min-width: 0; display: grid; gap: 8px; font: 12px var(--font-sans); color: oklch(var(--foreground)); }
-  h3, h4, p { margin: 0; } h3, h4 { font-size: 12px; } p, li { line-height: 1.5; overflow-wrap: anywhere; }
+  .finder { container-type: inline-size; min-width: 0; display: grid; gap: 8px; font: var(--font-size-chrome) var(--font-sans); color: oklch(var(--foreground)); }
+  h3, h4, p { margin: 0; } h3, h4 { font-size: var(--font-size-chrome); } p, li { line-height: 1.5; overflow-wrap: anywhere; }
   p { color: oklch(var(--muted-foreground)); } form, section, article { display: grid; gap: 8px; min-width: 0; }
-  fieldset { margin: 0; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: 4px; padding: 8px; display: grid; gap: 8px; }
-  legend { padding: 0 4px; font-weight: 600; } .contract, article { border-top: 1px solid oklch(var(--border)); padding-top: 8px; }
+  fieldset { margin: 0; min-width: 0; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); padding: 8px; display: grid; gap: 8px; }
+  legend { padding: 0 4px; font-weight: 600; } .contract, article { border-top: 1px solid oklch(var(--border-subtle)); padding-top: 8px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; min-width: 0; }
   label { display: grid; gap: 4px; min-width: 0; line-height: 1.5; }
-  input, select { box-sizing: border-box; min-width: 0; width: 100%; min-height: 32px; padding: 5px 7px; border: 1px solid oklch(var(--input)); border-radius: 4px; background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
+  input, select { box-sizing: border-box; min-width: 0; width: 100%; min-height: var(--control-height); padding: 5px 7px; border: 1px solid oklch(var(--input)); border-radius: var(--radius-md); background: oklch(var(--background)); color: oklch(var(--foreground)); font: inherit; }
   input[type="number"], td { font-variant-numeric: tabular-nums; }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; } button { height: auto; min-height: 28px; white-space: normal; overflow-wrap: anywhere; justify-self: start; }
-  .notice { padding: 8px; border: 1px solid oklch(var(--border)); color: oklch(var(--foreground)); } .error { font-size: 12px; color: oklch(var(--foreground)); } [aria-invalid="true"] { border-color: oklch(var(--destructive)); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; } button { height: auto; min-height: var(--control-height-compact); white-space: normal; overflow-wrap: anywhere; justify-self: start; }
+  .notice { padding: 8px; border: 1px solid oklch(var(--border)); color: oklch(var(--foreground)); } .error { font-size: var(--font-size-chrome); color: oklch(var(--foreground)); } [aria-invalid="true"] { border-color: oklch(var(--destructive)); }
   .table-scroll { max-width: 100%; overflow: auto; max-height: 260px; border: 1px solid oklch(var(--border)); }
-  table { border-collapse: collapse; width: 100%; } caption { padding: 6px; text-align: left; } th, td { text-align: right; padding: 6px; border-bottom: 1px solid oklch(var(--border)); white-space: nowrap; } th { background: oklch(var(--card)); }
+  table { border-collapse: collapse; width: 100%; } caption { padding: 6px; text-align: left; } th, td { text-align: right; padding: 6px; border-bottom: 1px solid oklch(var(--border-subtle)); white-space: nowrap; } th { background: oklch(var(--card)); }
   button:focus-visible, input:focus-visible, select:focus-visible, .table-scroll:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
   @media (pointer: coarse) { button, input, select { min-height: var(--control-touch-height); } }
   @media (forced-colors: active) { fieldset, input, select, .notice, .table-scroll { border-color: CanvasText; } button:focus-visible, input:focus-visible, select:focus-visible, .table-scroll:focus-visible { outline-color: Highlight; } }

@@ -118,15 +118,15 @@
     gap: 10px;
   }
   .lbl {
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .self {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground));
   }
 
@@ -141,13 +141,13 @@
     gap: 4px;
     padding: 2px 4px 2px 7px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+      oklch(var(--border));
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
+    background: oklch(var(--surface-hover));
     font-family: inherit;
   }
   .chip-name {
@@ -165,12 +165,12 @@
     color: color-mix(in oklab, oklch(var(--foreground)) 55%, transparent);
     cursor: pointer;
     transition:
-      color 120ms ease,
-      background 120ms ease;
+      color var(--motion-fast),
+      background var(--motion-fast);
   }
   .chip-x:hover {
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 18%, transparent);
+    background: oklch(var(--status-error-wash));
   }
   .chip.add {
     padding: 2px 8px 2px 6px;
@@ -179,18 +179,18 @@
     background: transparent;
     cursor: pointer;
     transition:
-      color 120ms ease,
-      border-color 120ms ease,
-      background 120ms ease;
+      color var(--motion-fast),
+      border-color var(--motion-fast),
+      background var(--motion-fast);
   }
   .chip.add:hover {
     color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-selected));
   }
   .add-lbl {
-    font-size: 10px;
-    letter-spacing: 0.12em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
   }
 
@@ -207,22 +207,22 @@
     gap: 2px;
     padding: 10px 6px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
+      oklch(var(--border));
+    border-radius: var(--radius-md);
     font-variant-numeric: tabular-nums;
   }
   .cell.pending {
     border-style: dashed;
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
   .bench {
-    font-size: 10px;
-    letter-spacing: 0.12em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: color-mix(in oklab, oklch(var(--foreground)) 60%, transparent);
   }
   .val {
-    font-size: 14px;
+    font-size: var(--font-size-body);
     font-weight: 600;
     color: oklch(var(--foreground));
   }
@@ -230,18 +230,12 @@
     color: oklch(var(--down-color));
   }
   .pending-val {
-    color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .empty {
     margin: 4px 0 0;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     color: oklch(var(--muted-foreground));
   }
 
-  :global(html:not(.dark)) .cell {
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .chip {
-    border-color: oklch(var(--foreground));
-  }
 </style>

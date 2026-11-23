@@ -1,3 +1,4 @@
+import { MAX_PRICE } from './optionsBounds';
 import type { OptionsDraft } from './optionsTypes';
 import { fittedSpotGrid, spotGrid } from './optionsGrid';
 import { addDays, localIsoDate } from './optionsInputs';
@@ -30,14 +31,14 @@ export function templateStrategy(
   volatility = 0.2,
   days = 30,
 ): OptionsDraft['strategy'] {
-  const s = Math.min(1000000 / 1.2, Math.max(1, spot));
+  const s = Math.min(MAX_PRICE / 1.2, Math.max(1, spot));
   // Spreads, strangles and wings sit one and two expected moves (spot × IV × √years) from
   // spot, so premiums and risk scale with the market. Unusable inputs use 20% IV over 30
   // days; the move stays within 1–40% of spot and keeps the outer wing under the strike cap.
   const expected = s * volatility * Math.sqrt(days / 365);
   const move = Math.min(
     s * 0.4,
-    (1000000 - s) / 2.5,
+    (MAX_PRICE - s) / 2.5,
     Math.max(
       s * 0.01,
       Number.isFinite(expected) ? expected : s * 0.2 * Math.sqrt(30 / 365),
@@ -185,7 +186,7 @@ export function applyOptionsTemplate(
   id: OptionsTemplate,
 ): void {
   const spot =
-    Number.isFinite(draft.spot) && draft.spot > 0 && draft.spot <= 1000000
+    Number.isFinite(draft.spot) && draft.spot > 0 && draft.spot <= MAX_PRICE
       ? draft.spot
       : 100;
   const { name, template, legs } = templateStrategy(

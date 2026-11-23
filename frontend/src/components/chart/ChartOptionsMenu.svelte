@@ -180,7 +180,7 @@
               type="button"
               class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {theme ===
               'dark'
-                ? 'border-primary bg-primary/10 text-primary'
+                ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                 : 'border-border text-muted-foreground hover:text-foreground'}"
               onclick={() => onthemechange('dark')}
             >
@@ -191,7 +191,7 @@
               type="button"
               class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {theme ===
               'light'
-                ? 'border-primary bg-primary/10 text-primary'
+                ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                 : 'border-border text-muted-foreground hover:text-foreground'}"
               onclick={() => onthemechange('light')}
             >
@@ -212,7 +212,7 @@
                 type="button"
                 class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {chartType ===
                 'candlestick'
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                   : 'border-border text-muted-foreground hover:text-foreground'}"
                 onclick={() => (chartType = 'candlestick')}
               >
@@ -223,7 +223,7 @@
                 type="button"
                 class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {chartType ===
                 'line'
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                   : 'border-border text-muted-foreground hover:text-foreground'}"
                 onclick={() => (chartType = 'line')}
               >
@@ -241,7 +241,7 @@
               <button
                 type="button"
                 class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {showArea
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                   : 'border-border text-muted-foreground hover:text-foreground'}"
                 onclick={() => (showArea = !showArea)}
               >
@@ -251,7 +251,7 @@
               <button
                 type="button"
                 class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {showVolume
-                  ? 'border-primary bg-primary/10 text-primary'
+                  ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                   : 'border-border text-muted-foreground hover:text-foreground'}"
                 onclick={() => (showVolume = !showVolume)}
               >
@@ -321,7 +321,7 @@
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {smaConfig.enabled
-                    ? 'border-primary bg-primary/10 text-primary'
+                    ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                     : 'border-border text-muted-foreground hover:text-foreground'}"
                   onclick={() =>
                     (smaConfig = {
@@ -381,7 +381,7 @@
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {bbandsConfig.enabled
-                    ? 'border-primary bg-primary/10 text-primary'
+                    ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                     : 'border-border text-muted-foreground hover:text-foreground'}"
                   onclick={() =>
                     (bbandsConfig = {
@@ -461,7 +461,7 @@
                 <button
                   type="button"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors {emaConfig.enabled
-                    ? 'border-primary bg-primary/10 text-primary'
+                    ? 'border-input bg-accent text-accent-foreground forced-color-adjust-none forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]'
                     : 'border-border text-muted-foreground hover:text-foreground'}"
                   onclick={() =>
                     (emaConfig = {
@@ -531,7 +531,7 @@
                 <Select.Trigger class="min-w-[160px]">
                   {selectedTemplateName || 'Select template'}
                 </Select.Trigger>
-                <Select.Content class="z-[90]">
+                <Select.Content class="z-(--z-top)">
                   {#each templates as tpl (tpl.name)}
                     <Select.Item value={tpl.name}>{tpl.name}</Select.Item>
                   {/each}

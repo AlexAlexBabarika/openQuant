@@ -104,7 +104,7 @@
       <p class="guide-scope">Nothing is automatically saved to your notebook or account. Closing discards only this guide’s example session; reopening requires a new execution choice. Your existing research state stays in the workbench.</p>
     </div>
 
-    <Dialog.Footer class="flex-wrap gap-2 border-t border-border pt-3">
+    <Dialog.Footer class="flex-wrap gap-2 border-t border-border-subtle pt-3">
       <button type="button" class="ot-workbench-ghost" onclick={() => moveStep(-1)} disabled={step === 0}>Previous</button>
       <button type="button" class="ot-workbench-ghost" onclick={() => moveStep(1)} disabled={step === steps.length - 1}>Next</button>
       <button type="button" class="ot-workbench-ghost" onclick={closeGuide}>Return to workbench</button>
@@ -114,11 +114,11 @@
 
 <style>
   .guide-body { min-height: 0; min-width: 0; overflow: auto; display: grid; gap: 12px; }
-  .guide-step, .example-choice { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid oklch(var(--border)); border-radius: 4px; }
+  .guide-step, .example-choice { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); }
   .guide-step h3 { font-weight: 600; }
   .guide-step h3:focus-visible { outline: 2px solid oklch(var(--ring)); outline-offset: 2px; }
-  .step-progress { font: 11px var(--font-mono); color: oklch(var(--muted-foreground)); }
-  .example-choice button { justify-self: start; height: auto; min-height: 28px; white-space: normal; }
+  .step-progress { font: var(--font-size-label) var(--font-mono); color: oklch(var(--muted-foreground)); }
+  .example-choice button { justify-self: start; height: auto; min-height: var(--control-height-compact); white-space: normal; }
   .example-surface { min-width: 0; }
-  .guide-scope { color: oklch(var(--muted-foreground)); font-size: 12px; }
+  .guide-scope { color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); }
 </style>

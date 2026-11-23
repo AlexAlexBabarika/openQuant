@@ -124,17 +124,17 @@
         class="btn ghost"
         onclick={addTickers}
         disabled={!tickerInput.trim()}
-      >add</button>
+      >Add</button>
     </div>
 
     {#if portfolio.symbols.length === 0}
       <p class="hint">
-        list or paste tickers above — the strategy's <code>ctx.universe</code>
+        List or paste tickers above — the strategy's <code>ctx.universe</code>
         will contain exactly these symbols.
       </p>
     {:else}
       <p class="hint">
-        portfolio strategies are per-symbol:
+        Portfolio strategies are per-symbol:
         <code>ctx.position(symbol)</code>, <code>ctx.buy(symbol, qty)</code>,
         <code>ctx.target_weight(symbol, w)</code> + <code>ctx.rebalance()</code>
         — single-symbol code like <code>ctx.position.quantity</code> won't run
@@ -178,7 +178,7 @@
         title="Fetch & store market data for the universe so backtests find bars"
       >
         <Database class="h-3.5 w-3.5" />
-        <span>{portfolio.isIngesting ? 'ingesting…' : 'ingest data'}</span>
+        <span>{portfolio.isIngesting ? 'Ingesting…' : 'Ingest data'}</span>
       </button>
       <button
         type="button"
@@ -187,13 +187,13 @@
         disabled={portfolio.isRunning || portfolio.symbols.length === 0}
       >
         <Play class="h-3.5 w-3.5" />
-        <span>{portfolio.isRunning ? 'running…' : 'run portfolio backtest'}</span>
+        <span>{portfolio.isRunning ? 'Running…' : 'Run portfolio backtest'}</span>
       </button>
     </footer>
 
     {#if portfolio.ingestReport && portfolio.ingestReport.gap_warnings.length > 0}
       <p class="hint">
-        data gaps detected — {portfolio.ingestReport.gap_warnings[0]}
+        Data gaps detected — {portfolio.ingestReport.gap_warnings[0]}
         {#if portfolio.ingestReport.gap_warnings.length > 1}
           (+{portfolio.ingestReport.gap_warnings.length - 1} more)
         {/if}
@@ -279,9 +279,9 @@
   }
 
   .card {
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 8px;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 3%);
+    background: oklch(var(--background));
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
@@ -292,17 +292,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   .card-title { font-weight: 600; color: oklch(var(--foreground)); }
   .count {
     padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 999px;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
   }
   .linkbtn {
     margin-left: auto;
@@ -310,8 +310,8 @@
     background: transparent;
     color: oklch(var(--muted-foreground));
     font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
   }
   .linkbtn:hover { color: oklch(var(--foreground)); text-decoration: underline; }
@@ -324,31 +324,31 @@
     flex: 1 1 auto;
     min-width: 0;
     padding: 7px 10px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-md);
+    background: oklch(var(--surface-sunken));
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .universe-input input:focus {
-    border-color: color-mix(in oklab, oklch(var(--primary)) 70%, transparent);
+    border-color: oklch(var(--ring));
   }
 
   .hint {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.5;
     color: oklch(var(--muted-foreground));
   }
   .hint code {
-    font-size: 11px;
+    font-size: var(--font-size-label);
     padding: 1px 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-sm);
   }
 
   .chips {
@@ -361,13 +361,13 @@
     align-items: center;
     gap: 5px;
     padding: 3px 6px 3px 9px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border: 1px solid oklch(var(--border));
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .chip-x {
     display: inline-flex;
@@ -378,12 +378,12 @@
     border: 0;
     border-radius: 999px;
     background: transparent;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    color: oklch(var(--foreground-tertiary));
     cursor: pointer;
   }
   .chip-x:hover {
     color: oklch(var(--status-error));
-    background: color-mix(in oklab, oklch(var(--status-error)) 14%, transparent);
+    background: oklch(var(--status-error-wash));
   }
 
   .card-foot {
@@ -399,12 +399,12 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 4px 10px;
-    border-radius: 3px;
-    font-size: 11px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-label);
   }
   .banner.ok {
-    border: 1px solid color-mix(in oklab, oklch(var(--primary)) 45%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    border: 1px solid oklch(var(--status-ok) / 60%);
+    background: oklch(var(--status-ok) / 12%);
     color: oklch(var(--foreground));
   }
 
@@ -413,21 +413,20 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-radius: var(--radius-md);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
   .btn.ghost:hover:not(:disabled) {
-    border-color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    border-color: oklch(var(--border-strong));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -435,10 +434,9 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
-    box-shadow: 0 6px 18px -6px color-mix(in oklab, oklch(var(--primary)) 60%, transparent);
     transform: translateY(-1px);
   }
 
@@ -452,17 +450,17 @@
     flex-direction: column;
     gap: 4px;
     padding: 10px 12px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 6px;
+    border: 1px dashed oklch(var(--border));
+    border-radius: var(--radius-lg);
   }
   .stat-label {
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
   .stat-value {
-    font-size: 15px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
   }
@@ -473,8 +471,8 @@
     gap: 8px;
   }
   .sharpes-title {
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
   }
@@ -487,36 +485,9 @@
   .bindings-list {
     margin: 0;
     padding-left: 18px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.6;
     color: oklch(var(--muted-foreground));
   }
-  .dim { color: color-mix(in oklab, oklch(var(--foreground)) 35%, transparent); }
-
-  /* Light theme, mirroring StrategyPanel chrome. */
-  :global(html:not(.dark)) .card {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .universe-input input {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .btn.ghost:hover:not(:disabled) {
-    background: oklch(var(--foreground));
-    color: oklch(var(--card));
-  }
-  :global(html:not(.dark)) .btn.primary {
-    background: oklch(var(--primary));
-    color: oklch(var(--primary-foreground));
-  }
-  :global(html:not(.dark)) .chip { border-color: oklch(var(--foreground)); color: oklch(var(--foreground)); }
-  :global(html:not(.dark)) .count { border-color: oklch(var(--foreground)); color: oklch(var(--foreground)); }
-  :global(html:not(.dark)) .stat { border-color: oklch(var(--foreground)); }
+  .dim { color: oklch(var(--foreground-tertiary)); }
 </style>

@@ -75,14 +75,14 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 6px;
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 4%);
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-lg);
+    background: oklch(var(--background));
     overflow: hidden;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .card.err {
-    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    border-color: oklch(var(--status-error-border));
   }
 
   .card-head {
@@ -91,7 +91,7 @@
     gap: 8px;
     padding: 8px 10px;
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
   }
   .title-wrap {
     display: flex;
@@ -100,14 +100,14 @@
     flex: 1 1 auto;
   }
   .cat {
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--foreground)) 45%, transparent);
+    color: oklch(var(--foreground-tertiary));
   }
   .title {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     font-weight: 600;
     color: oklch(var(--foreground));
     overflow: hidden;
@@ -122,46 +122,46 @@
     width: 22px;
     height: 22px;
     border: 1px solid
-      color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
+      oklch(var(--border));
+    border-radius: var(--radius-md);
     background: transparent;
     color: oklch(var(--muted-foreground));
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
   .iconbtn:hover {
     color: oklch(var(--status-error));
-    border-color: color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
-    background: color-mix(in oklab, oklch(var(--status-error)) 12%, transparent);
+    border-color: oklch(var(--status-error-border));
+    background: oklch(var(--status-error-wash));
   }
 
   .body {
     flex: 1 1 auto;
     min-height: 96px;
     padding: 10px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     color: oklch(var(--foreground));
   }
   .empty {
     margin: 0;
     color: oklch(var(--muted-foreground));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   .err-msg {
     margin: 0;
     color: oklch(var(--status-error));
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.45;
   }
   .err-msg.inline {
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px dashed
-      color-mix(in oklab, oklch(var(--status-error)) 35%, transparent);
+      oklch(var(--status-error-border));
   }
   .placeholder {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1.45;
     color: color-mix(in oklab, oklch(var(--foreground)) 75%, transparent);
     overflow: auto;
@@ -176,12 +176,12 @@
   .sk-bar {
     height: 10px;
     width: 70%;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     background: linear-gradient(
       90deg,
-      color-mix(in oklab, oklch(var(--foreground)) 6%, transparent) 0%,
+      oklch(var(--surface-hover)) 0%,
       color-mix(in oklab, oklch(var(--foreground)) 14%, transparent) 50%,
-      color-mix(in oklab, oklch(var(--foreground)) 6%, transparent) 100%
+      oklch(var(--surface-hover)) 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.4s linear infinite;
@@ -198,15 +198,4 @@
     }
   }
 
-  :global(html:not(.dark)) .card {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .card-head {
-    border-bottom-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .iconbtn {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
 </style>

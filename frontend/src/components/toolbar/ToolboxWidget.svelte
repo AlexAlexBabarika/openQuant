@@ -79,7 +79,7 @@
     transform: translateY(-2px);
   }
   .hover-lift:focus-visible {
-    outline: 2px solid color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+    outline: 2px solid oklch(var(--ring));
     outline-offset: 3px;
   }
 </style>

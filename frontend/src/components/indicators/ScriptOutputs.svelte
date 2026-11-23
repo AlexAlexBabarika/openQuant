@@ -191,14 +191,10 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    background: color-mix(in oklab, oklch(var(--background)) 86%, black 14%);
-    border-top: 1px solid oklch(var(--border));
+    background: oklch(var(--surface-sunken));
+    border-top: 1px solid oklch(var(--border-subtle));
     font-family: var(--font-mono);
     color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .console {
-    background: oklch(var(--card));
-    border-top: 1px solid oklch(var(--foreground));
   }
 
   .status {
@@ -206,55 +202,11 @@
     align-items: center;
     gap: 12px;
     padding: 10px 16px;
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     border-bottom: 1px dashed
       color-mix(in oklab, oklch(var(--border)) 80%, transparent);
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
-  }
-  :global(html:not(.dark)) .status {
-    background: oklch(var(--card));
-    border-bottom: 1px dashed oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .meta { color: oklch(var(--foreground)); opacity: 0.7; }
-  :global(html:not(.dark)) .tone-ok { color: oklch(var(--primary)); }
-  :global(html:not(.dark)) .tone-err,
-  :global(html:not(.dark)) .text-line.tone-error,
-  :global(html:not(.dark)) .text-line.tone-error .prefix {
-    color: oklch(var(--destructive));
-  }
-  :global(html:not(.dark)) .meta kbd {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .empty-line .ink {
-    background: oklch(var(--card));
-    color: oklch(var(--foreground));
-    border: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .block-title { color: oklch(var(--foreground)); opacity: 1; }
-  :global(html:not(.dark)) .trace {
-    background: oklch(var(--card));
-    border-left: 2px solid oklch(var(--foreground));
-    color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) .table-block .table-scroll {
-    background: oklch(var(--card));
-    border-color: oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) th {
-    background: oklch(var(--card));
-    color: oklch(var(--foreground));
-    border-bottom: 1px solid oklch(var(--foreground));
-  }
-  :global(html:not(.dark)) tbody tr:nth-child(odd) td { background: oklch(var(--card)); }
-  :global(html:not(.dark)) tbody tr:hover td {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, oklch(var(--card)));
-  }
-  :global(html:not(.dark)) .deferred .deferred-list {
-    border-color: oklch(var(--foreground));
-    color: oklch(var(--foreground));
+    background: oklch(var(--surface-sunken));
   }
   .dot {
     width: 8px;
@@ -275,7 +227,7 @@
   .dot-err  { background: oklch(var(--status-error)); }
   .dot-idle {
     background: transparent;
-    border: 1px dashed color-mix(in oklab, oklch(var(--foreground)) 35%, transparent);
+    border: 1px dashed oklch(var(--border-strong));
   }
 
   .label { font-weight: 600; }
@@ -286,9 +238,9 @@
 
   .meta {
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
+    font-size: var(--font-size-label);
     text-transform: lowercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .meta .num {
     color: oklch(var(--foreground));
@@ -298,12 +250,12 @@
     display: inline-block;
     padding: 0 5px;
     margin: 0 1px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-sm);
     font-family: inherit;
-    font-size: 10px;
+    font-size: var(--font-size-annotation);
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
+    background: oklch(var(--surface-hover));
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
@@ -327,7 +279,7 @@
     min-height: 0;
     overflow-y: auto;
     padding: 12px 16px 32px;
-    font-size: 13px;
+    font-size: var(--font-size-control);
     line-height: 1.55;
   }
 
@@ -342,9 +294,9 @@
   .empty-line .ink {
     font-style: normal;
     color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    background: oklch(var(--surface-hover));
     padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 
   .block {
@@ -356,8 +308,8 @@
     gap: 8px;
     margin-bottom: 4px;
     color: oklch(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
   .prefix {
@@ -385,33 +337,33 @@
   .trace {
     margin: 0;
     padding: 10px 12px;
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-    border-left: 2px solid color-mix(in oklab, oklch(var(--status-error)) 60%, transparent);
+    background: oklch(var(--surface-hover));
+    border-left: 2px solid oklch(var(--status-error-border));
     border-radius: 0 4px 4px 0;
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
     line-height: 1.55;
     white-space: pre-wrap;
     word-break: break-word;
     color: color-mix(in oklab, oklch(var(--foreground)) 92%, transparent);
   }
   .stdout .trace {
-    border-left-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
+    border-left-color: oklch(var(--border-strong));
   }
 
   .table-block .table-scroll {
     max-height: 360px;
     overflow: auto;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: color-mix(in oklab, oklch(var(--background)) 80%, black 20%);
+    border: 1px solid oklch(var(--border));
+    border-radius: var(--radius-md);
+    background: oklch(var(--surface-sunken));
   }
   table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-variant-numeric: tabular-nums;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th, td {
     padding: 6px 12px;
@@ -421,32 +373,32 @@
   th {
     position: sticky;
     top: 0;
-    background: color-mix(in oklab, oklch(var(--background)) 70%, black 30%);
+    background: oklch(var(--surface-sunken));
     color: oklch(var(--muted-foreground));
     font-weight: 600;
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
-    border-bottom: 1px solid oklch(var(--border));
+    border-bottom: 1px solid oklch(var(--border-subtle));
   }
   tbody tr:nth-child(odd) td {
     background: color-mix(in oklab, oklch(var(--foreground)) 2.5%, transparent);
   }
   tbody tr:hover td {
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
+    background: oklch(var(--surface-selected));
   }
 
   .deferred .deferred-list {
     margin: 0;
     padding: 8px 14px;
     list-style: none;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 4px;
+    border: 1px dashed oklch(var(--border));
+    border-radius: var(--radius-md);
     color: oklch(var(--muted-foreground));
   }
   .deferred .deferred-list li {
     padding: 2px 0;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   .deferred .deferred-list li::before {
     content: '· ';

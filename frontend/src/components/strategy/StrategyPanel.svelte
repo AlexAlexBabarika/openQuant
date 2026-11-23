@@ -17,14 +17,15 @@
   import { confirmAction, confirmDiscard } from '$lib/features/confirm/confirm.svelte';
   import Play from '@lucide/svelte/icons/play';
   import Save from '@lucide/svelte/icons/save';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
-  import X from '@lucide/svelte/icons/x';
+  import PanelTopbar from '../layout/PanelTopbar.svelte';
+  import ScriptRail from '$lib/features/scripts/ScriptRail.svelte';
   import ScriptEditor from '../indicators/ScriptEditor.svelte';
   import StrategyDocs from './StrategyDocs.svelte';
   import OptionsPanel from '../options/OptionsPanel.svelte';
   import SweepPanel from '../sweep/SweepPanel.svelte';
   import PortfolioPanel from './PortfolioPanel.svelte';
   import BacktestPanel from '../backtest/BacktestPanel.svelte';
+  import { formatIsoMinute } from '$lib/features/backtest/format';
   import DataQualityEvidence from '../backtest/DataQualityEvidence.svelte';
   import ErrorBanner from '../ErrorBanner.svelte';
   import { StrategyState } from '$lib/features/strategy/strategyState.svelte';
@@ -206,19 +207,6 @@
     if (id === strat.activeId) return;
     if (await confirmDiscard(strat.dirty, 'strategy')) strat.select(id, () => true);
   }
-
-  function fmtRelative(iso: string): string {
-    const t = Date.parse(iso);
-    if (Number.isNaN(t)) return '';
-    const ms = Date.now() - t;
-    const m = Math.round(ms / 60_000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m ago`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.round(h / 24);
-    return `${d}d ago`;
-  }
 </script>
 
 {#snippet panelContent(props: Record<string, unknown> = {})}
@@ -236,65 +224,20 @@
       else if (event.key.toLowerCase() === 's') { event.preventDefault(); void saveNow(); }
     }}
   >
-    <header class="topbar">
-      {#if !embedded}<div class="brand">
-        <span class="brand-mark">∿</span>
-        <span class="brand-title">strategy</span>
-        <span class="brand-sub">/ workbench</span>
-      </div>{/if}
-
-      <nav class="tabs" aria-label="Strategy views">
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'editor'}
-          onclick={() => (tab = 'editor')}
-        >editor</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'options'}
-          onclick={() => (tab = 'options')}
-        >options</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'sweep'}
-          onclick={() => (tab = 'sweep')}
-        >sweep</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'portfolio'}
-          onclick={openPortfolioTab}
-        >portfolio</button>
-        <button
-          type="button"
-          class="tab"
-          class:active={tab === 'docs'}
-          onclick={() => (tab = 'docs')}
-        >docs</button>
-      </nav>
-      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
-
-      {#if !embedded}<div class="ctx" aria-label="Active market context">
-        <span class="ctx-label">CTX</span>
-        <span class="ctx-pair">
-          <span class="ctx-sym">{symbol || '—'}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-prov">{provider}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-iv">{interval}</span>
-          <span class="ctx-sep">·</span>
-          <span class="ctx-pd">{period}</span>
-        </span>
-      </div>
-
-      <button type="button" class="iconbtn close" onclick={close} aria-label="Close">
-        <X class="h-3.5 w-3.5" />
-      </button>
-      {/if}
-    </header>
+    <PanelTopbar
+      title="Strategy"
+      tone="page"
+      {embedded}
+      tabsLabel="Strategy views"
+      tabs={[{ id: 'editor', label: 'Editor' }, { id: 'options', label: 'Options' }, { id: 'sweep', label: 'Sweep' }, { id: 'portfolio', label: 'Portfolio' }, { id: 'docs', label: 'Docs' }]}
+      activeTab={tab}
+      onTab={id => { if (id === 'portfolio') openPortfolioTab(); else tab = id; }}
+      context={{ symbol, provider, interval, period }}
+      onClose={close}
+    >
+      {#snippet mark()}∿{/snippet}
+      {#if tab === 'editor'}<button type="button" class="ot-workbench-ghost quiet" aria-expanded={libraryOpen} aria-controls="strategy-library" onclick={() => (libraryOpen = !libraryOpen)}>Library ({strat.scripts.length})</button>{/if}
+    </PanelTopbar>
 
     <div
       class="body"
@@ -318,67 +261,29 @@
       {:else if tab === 'sweep'}
         <SweepPanel code={strat.draftCode} {symbol} {provider} {sweep} />
       {:else if tab !== 'options'}
-        {#if libraryOpen}<aside class="rail" id="strategy-library" aria-label="Saved strategies">
-          <div class="rail-head">
-            <span class="rail-title">strategies</span>
-            <span class="rail-count">{strat.scripts.length}</span>
-            <button
-              type="button"
-              class="iconbtn"
-              onclick={() => void newDraft()}
-              title="New strategy (clears editor)"
-              aria-label="New strategy"
-            >
-              <Plus class="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          <div class="rail-list">
-            {#if !$authState.user}
-              <p class="rail-hint">Sign in to load and save strategies. You can backtest an unsaved draft without an account.</p>
-              <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
-            {:else if strat.loading && strat.scripts.length === 0}
-              <p class="rail-hint">loading…</p>
-            {:else if strat.loadError}
-              <p class="rail-hint err">{strat.loadError}</p>
-            {:else if strat.scripts.length === 0}
-              <p class="rail-hint">
-                no saved strategies yet.<br />
-                <span class="dim">draft one on the right and hit save.</span>
-              </p>
-            {/if}
-
-            {#each ($authState.user ? strat.scripts : []) as s (s.id)}
-              <div
-                class="rail-item"
-                class:active={strat.activeId === s.id}
-              >
-                <button
-                  type="button"
-                  class="ri-select"
-                  aria-pressed={strat.activeId === s.id}
-                  onclick={() => void selectScript(s.id)}
-                >
-                  <span class="ri-name">{s.name}</span>
-                  <span class="ri-time">{fmtRelative(s.updated_at)}</span>
-                </button>
-                <button
-                  type="button"
-                  class="ri-del"
-                  aria-label="Delete strategy {s.name}"
-                  onclick={() => void confirmDelete(s.id, s.name)}
-                >
-                  <Trash2 class="h-3 w-3" />
-                </button>
-              </div>
-            {/each}
-          </div>
-
-          <footer class="rail-foot">
-            <span class="legend"><span class="kbd">⌘↵</span> backtest</span>
-            <span class="legend"><span class="kbd">⌘S</span> save</span>
-          </footer>
-        </aside>{/if}
+        {#if libraryOpen}<ScriptRail
+          id="strategy-library"
+          tone="page"
+          library={strat}
+          signedIn={!!$authState.user}
+          copy={{
+            label: 'Saved strategies',
+            title: 'strategies',
+            newLabel: 'New strategy',
+            signInHint: 'Sign in to load and save strategies. You can backtest an unsaved draft without an account.',
+            empty: 'No saved strategies yet.',
+            emptyDetail: 'Draft one on the right and save it.',
+            deleteNoun: 'strategy',
+            runLabel: 'backtest',
+          }}
+          onNew={() => void newDraft()}
+          onSelect={id => void selectScript(id)}
+          onDelete={(id, name) => void confirmDelete(id, name)}
+        >
+          {#snippet signIn()}
+            <button type="button" class="btn ghost" onclick={() => (authDialogOpen = true)}>Sign in</button>
+          {/snippet}
+        </ScriptRail>{/if}
 
         <main class="work">
           <div class="work-head">
@@ -398,9 +303,20 @@
               {/if}
             </div>
 
+            <div class="editor-views" aria-label="Editor and results views">
+              <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
+              <div class="view-switch" role="group" aria-label="Visible panes">
+                <button type="button" aria-pressed={!splitEnabled && editorView === 'editor'} onclick={() => { splitEnabled = false; editorView = 'editor'; }}>Editor</button>
+                <button type="button" aria-pressed={!splitEnabled && editorView === 'results'} onclick={() => { splitEnabled = false; editorView = 'results'; }}>Results</button>
+                <button type="button" class="split-view" aria-pressed={splitEnabled} onclick={() => (splitEnabled = true)}>Split view</button>
+              </div>
+              {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost quiet" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
+              <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
+            </div>
+
             <div class="actions">
-              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>new</span></button>
-              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>robustness</button>{/if}
+              <button type="button" class="btn ghost wide-action" onclick={() => void newDraft()} aria-label="New strategy"><Plus class="h-3.5 w-3.5" /><span>New</span></button>
+              {#if onRobustness}<button type="button" class="btn ghost wide-action" onclick={onRobustness} disabled={strat.isRunning || !symbol}>Robustness</button>{/if}
               <button
                 type="button"
                 class="btn ghost"
@@ -409,7 +325,7 @@
                 title="Save (⌘S)"
               >
                 <Save class="h-3.5 w-3.5" />
-                <span>{strat.isSaving ? 'saving…' : 'save'}</span>
+                <span>{strat.isSaving ? 'Saving…' : 'Save'}</span>
               </button>
 
               <button
@@ -420,11 +336,11 @@
                 title="Run backtest (⌘↵)"
               >
                 <Play class="h-3.5 w-3.5" />
-                <span>{strat.isRunning ? 'running…' : 'backtest'}</span>
+                <span>{strat.isRunning ? 'Running…' : 'Backtest'}</span>
               </button>
               <div class="mobile-actions"><Popover.Root bind:open={actionsOpen}>
                 <Popover.Trigger class="ot-workbench-ghost min-h-11" aria-label="More strategy actions">More</Popover.Trigger>
-                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-[60] flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-lg">
+                <Popover.Portal><Popover.Content align="end" sideOffset={6} collisionPadding={8} class="z-(--z-popover) flex max-w-[calc(100vw-16px)] flex-col gap-2 rounded border border-border bg-popover p-2 text-popover-foreground shadow-popover">
                   <button type="button" class="btn ghost min-h-11" onclick={() => void selectAction(() => void newDraft())}>New strategy</button>
                   {#if onRobustness}<button type="button" class="btn ghost min-h-11" disabled={strat.isRunning || !symbol} onclick={() => void selectAction(onRobustness)}>Robustness</button>{/if}
                 </Popover.Content></Popover.Portal>
@@ -441,14 +357,6 @@
             </div>
           {/if}
 
-          <div class="editor-views" class:single={!splitEnabled} aria-label="Editor and results views">
-            <span title={recoverySavedAt ? `Saved locally ${new Date(recoverySavedAt).toLocaleString()}` : undefined}>{strat.dirty ? recoverySavedAt ? 'Local recovery saved · not saved to account' : 'Unsaved draft · local recovery not confirmed' : strat.activeId ? 'Saved to account' : 'Local starter draft'}</span>
-            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'editor'} onclick={() => (editorView = 'editor')}>Editor</button>
-            <button type="button" class="compact-view ot-workbench-ghost" aria-pressed={editorView === 'results'} onclick={() => (editorView = 'results')}>Results</button>
-            <button type="button" class="split-view ot-workbench-ghost" aria-pressed={splitEnabled} onclick={() => (splitEnabled = !splitEnabled)}>Split view</button>
-            {#if strat.backtest?.result}<button type="button" class="ot-workbench-ghost" onclick={() => (backtestOpen = true)}>Expand results</button>{/if}
-            <span role="status">{strat.isRunning ? 'Running backtest…' : strat.runError ? 'Backtest failed' : resultChanged ? 'Source or context changed · rerun to update' : strat.backtest?.result ? 'Last completed backtest · simulated' : 'No result yet'}</span>
-          </div>
           <div class="editing-panes" class:single={!splitEnabled} class:resizing bind:this={panesEl} style:--editor-share="{editorShare}%">
           <div class="editor-pane" class:inactive={editorView !== 'editor'}>
             <ScriptEditor
@@ -463,12 +371,12 @@
           <div class="editor-splitter" role="separator" aria-label="Resize editor and results" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow={Math.round(editorShare)} tabindex="0" onpointerdown={event => { if (event.button !== 0) return; resizing = true; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event); }} onpointermove={resizeEditor} onpointerup={() => (resizing = false)} onpointercancel={() => (resizing = false)} onlostpointercapture={() => (resizing = false)} onkeydown={event => { const next = editorShareForKey(event, editorShare); if (next !== null) editorShare = next; }}></div>
           <div class="results-pane" class:inactive={editorView !== 'results'}>
             {#if completedResult === strat.backtest && strat.backtest?.result && completedMarket}
-              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval}<br />Completed {strat.backtest.result.meta.finished_at} · simulated</p>
+              <p class="completed-context" aria-label="Completed backtest context"><strong>{completedName}</strong> · {completedMarket.symbol} · {completedMarket.provider} · {completedMarket.period} / {completedMarket.interval} · completed <time datetime={strat.backtest.result.meta.finished_at} title={strat.backtest.result.meta.finished_at}>{formatIsoMinute(strat.backtest.result.meta.finished_at)}</time> · simulated</p>
             {/if}
             {#if strat.backtest}
               <BacktestPanel embedded open={true} backtest={strat.backtest} {onOpenRuns} {onCompare} />
             {:else}
-              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p></div>
+              <div class="results-empty"><h2>No backtest results yet</h2><p>Run the current editor draft on the selected market context. Results are simulated; no live orders.</p><button type="button" class="ot-workbench-ghost mt-3" onclick={runNow} disabled={strat.isRunning || !symbol}>Run backtest</button></div>
             {/if}
           </div>
           </div>
@@ -520,139 +428,17 @@
     flex-direction: column;
     color: oklch(var(--foreground));
     background: oklch(var(--card));
-    border-top: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    box-shadow:
-      0 -30px 60px -20px rgba(0, 0, 0, 0.5),
-      0 -1px 0 0 color-mix(in oklab, oklch(var(--foreground)) 8%, transparent) inset;
+    border-top: 1px solid oklch(var(--border-subtle));
+    box-shadow: var(--elevation-dialog);
     border-radius: 16px 16px 0 0;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--font-size-body);
     line-height: 20px;
     overflow: hidden;
   }
 
   .panel.embedded { position: relative; height: 100%; z-index: auto; border-radius: 0; border: 0; box-shadow: none; animation: none; background: oklch(var(--background)); overflow-y: auto; }
-  .embedded .topbar { flex-shrink: 0; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
-  .embedded .tabs { min-width: 0; overflow-x: auto; }
-  .embedded .tabs .tab { flex: none; }
-  .embedded .topbar > .ot-workbench-ghost { flex: none; }
   .embedded .body { flex-shrink: 0; min-height: min(600px, 75dvh); }
-
-  .topbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 22px;
-    border-bottom: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
-  }
-
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-  }
-  .brand-mark {
-    color: oklch(var(--primary));
-    font-size: 14px;
-    transform: translateY(1px);
-  }
-  .brand-title { font-weight: 600; }
-  .brand-sub {
-    color: oklch(var(--muted-foreground));
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .ctx {
-    margin-left: auto;
-    justify-self: center;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 4px 10px;
-    border: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    color: oklch(var(--muted-foreground));
-    background: oklch(var(--background));
-  }
-  .ctx-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: color-mix(in oklab, oklch(var(--foreground)) 50%, transparent);
-  }
-  .ctx-pair {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-  .ctx-sym {
-    color: oklch(var(--foreground));
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .ctx-sep { color: color-mix(in oklab, oklch(var(--foreground)) 25%, transparent); }
-  .ctx-prov, .ctx-iv, .ctx-pd { font-size: 11px; }
-
-  .iconbtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px; height: 26px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--muted-foreground));
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .iconbtn:hover {
-    color: oklch(var(--foreground));
-    border-color: color-mix(in oklab, oklch(var(--primary)) 50%, transparent);
-    background: color-mix(in oklab, oklch(var(--primary)) 10%, transparent);
-  }
-  .iconbtn.close:hover {
-    border-color: oklch(var(--down-color));
-    color: oklch(var(--down-color));
-    background: oklch(var(--down-color) / 0.1);
-  }
-
-  .tabs {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 4px;
-    background: oklch(var(--background));
-  }
-  .tab {
-    appearance: none;
-    border: 0;
-    padding: 4px 12px;
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: lowercase;
-    color: oklch(var(--muted-foreground));
-    background: transparent;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 120ms ease;
-  }
-  .tab:hover { color: oklch(var(--foreground)); }
-  .tab.active {
-    color: oklch(var(--primary-foreground));
-    background: oklch(var(--primary));
-    font-weight: 600;
-  }
 
   .body {
     flex: 1 1 auto;
@@ -666,11 +452,12 @@
   .embedded .body.options-mode { flex-shrink: 1; min-height: 0; }
   .options-host { min-width: 0; min-height: 0; }
   .options-host[hidden] { display: none; }
-  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid oklch(var(--border)); }
-  .editor-views span { color: oklch(var(--muted-foreground)); font-size: 11px; }
-  .compact-view { display: none; }
-  .single .compact-view { display: inline-flex; }
-  .split-view[aria-pressed="true"] { border-color: oklch(var(--primary)); color: oklch(var(--foreground)); }
+  .editor-views { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .editor-views span { color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); }
+  .view-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid oklch(var(--border)); border-radius: var(--radius-md); background: oklch(var(--surface-sunken)); }
+  .view-switch button { border: 0; border-radius: var(--radius-sm); padding: 4px 12px; background: transparent; color: oklch(var(--muted-foreground)); font: var(--font-size-chrome) var(--font-sans); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
+  .view-switch button:hover { color: oklch(var(--foreground)); }
+  .view-switch button[aria-pressed="true"] { background: oklch(var(--accent)); color: oklch(var(--accent-foreground)); font-weight: 600; }
   .editing-panes { display: grid; grid-template-columns: minmax(0, var(--editor-share)) 10px minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
   .editing-panes.resizing { user-select: none; }
   .embedded .editing-panes { min-height: 240px; flex-shrink: 0; }
@@ -680,13 +467,12 @@
   .editor-splitter { cursor: col-resize; touch-action: none; background: oklch(var(--muted)); border-inline: 1px solid oklch(var(--border)); }
   .editor-splitter:hover, .editor-splitter:focus-visible { background: oklch(var(--accent)); outline: 2px solid oklch(var(--ring)); outline-offset: -2px; }
   .results-pane { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border)); color: oklch(var(--muted-foreground)); font-size: 11px; overflow-wrap: anywhere; }
-  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: 12px; }
+  .completed-context { padding: 8px 12px; border-bottom: 1px solid oklch(var(--border-subtle)); color: oklch(var(--muted-foreground)); font-size: var(--font-size-label); overflow-wrap: anywhere; }
+  .results-empty { padding: 24px; color: oklch(var(--muted-foreground)); font-size: var(--font-size-chrome); }
   .results-empty h2 { color: oklch(var(--foreground)); margin-bottom: 12px; }
   @media (max-width: 1100px) {
     .editing-panes { grid-template-columns: minmax(0, 1fr); }
     .editing-panes .inactive, .editor-splitter { display: none; }
-    .compact-view { display: inline-flex; }
     .split-view { display: none; }
   }
   .body.sweep-mode {
@@ -698,136 +484,6 @@
     grid-template-columns: 1fr;
   }
 
-  .rail {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-right: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: oklch(var(--card));
-  }
-  .rail-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 16px 10px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: oklch(var(--muted-foreground));
-    border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-  }
-  .rail-title { font-weight: 600; color: oklch(var(--foreground)); }
-  .rail-count {
-    margin-left: 2px;
-    padding: 1px 6px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 999px;
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-head .iconbtn { margin-left: auto; }
-
-  .rail-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 8px 8px;
-  }
-  .rail-hint {
-    margin: 12px 12px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: oklch(var(--muted-foreground));
-  }
-  .rail-hint .dim { color: oklch(var(--muted-foreground)); }
-  .rail-hint.err { color: oklch(var(--down-color)); }
-
-  .rail-item {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
-    margin: 0 0 2px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: oklch(var(--foreground));
-    text-align: left;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  .rail-item:hover {
-    background: color-mix(in oklab, oklch(var(--foreground)) 5%, transparent);
-  }
-  .rail-item.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 8%, transparent);
-    border-color: transparent;
-  }
-  .rail-item.active::before {
-    content: '';
-    position: absolute;
-    left: -1px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 60%;
-    background: oklch(var(--primary));
-    border-radius: 0 2px 2px 0;
-    pointer-events: none;
-  }
-  .ri-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-  }
-  .ri-time {
-    font-size: 10px;
-    color: oklch(var(--muted-foreground));
-    letter-spacing: 0.04em;
-  }
-  .ri-del {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; height: 22px;
-    margin-left: 4px;
-    color: oklch(var(--muted-foreground));
-    border-radius: 3px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 120ms, color 120ms, background 120ms;
-  }
-  .rail-item:hover .ri-del { opacity: 1; }
-  .ri-del:hover {
-    color: oklch(var(--down-color));
-    background: oklch(var(--down-color) / 0.1);
-  }
-
-  .rail-foot {
-    display: flex;
-    gap: 12px;
-    padding: 10px 16px;
-    border-top: 1px dashed color-mix(in oklab, oklch(var(--border)) 90%, transparent);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    color: oklch(var(--muted-foreground));
-  }
-  .legend { display: inline-flex; align-items: center; gap: 6px; }
-  .kbd {
-    padding: 1px 5px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    border-radius: 3px;
-    font-size: 10px;
-    color: oklch(var(--foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 4%, transparent);
-  }
-
   .work {
     display: flex;
     flex-direction: column;
@@ -837,21 +493,22 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 18px;
-    border-bottom: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, transparent);
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 18px;
+    border-bottom: 1px solid oklch(var(--border-subtle));
+    background: oklch(var(--card));
   }
   .name-wrap {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    flex: 1 1 auto;
+    flex: 1 1 12rem;
     min-width: 0;
   }
   .name-prefix {
     color: oklch(var(--primary));
-    font-size: 14px;
+    font-size: var(--font-size-body);
   }
   .name-input {
     flex: 1 1 auto;
@@ -861,24 +518,23 @@
     border-bottom: 1px solid transparent;
     padding: 4px 0;
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--font-size-title);
     font-weight: 600;
     color: oklch(var(--foreground));
     letter-spacing: -0.005em;
     outline: none;
-    transition: border-color 120ms ease;
+    transition: border-color var(--motion-fast);
   }
   .name-input:hover {
     border-bottom-color:
       color-mix(in oklab, oklch(var(--foreground)) 18%, transparent);
   }
   .name-input:focus {
-    border-bottom-color:
-      color-mix(in oklab, oklch(var(--primary)) 80%, transparent);
+    border-bottom-color: oklch(var(--ring));
   }
   .dirty {
-    color: oklch(var(--primary));
-    font-size: 12px;
+    color: oklch(var(--status-warn));
+    font-size: var(--font-size-chrome);
     line-height: 1;
   }
 
@@ -903,21 +559,21 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid color-mix(in oklab, oklch(var(--border)) 100%, transparent);
+    border-radius: var(--radius-md);
+    border: 1px solid oklch(var(--border));
     background: transparent;
     color: oklch(var(--foreground));
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
+    font-size: var(--font-size-chrome);
+    letter-spacing: var(--tracking-label);
     cursor: pointer;
-    transition: all 120ms ease;
+    transition: all var(--motion-fast);
   }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+  .btn.ghost { border-color: transparent; color: oklch(var(--muted-foreground)); }
   .btn.ghost:hover:not(:disabled) {
-    border-color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--foreground)) 6%, transparent);
+    color: oklch(var(--foreground));
+    background: oklch(var(--surface-hover));
   }
   .btn.primary {
     background: oklch(var(--primary));
@@ -925,7 +581,7 @@
     color: oklch(var(--primary-foreground));
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-label);
   }
   .btn.primary:hover:not(:disabled) {
     background: color-mix(in oklab, oklch(var(--primary)) 94%, oklch(var(--primary-foreground)));
@@ -942,63 +598,34 @@
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
     .body:not(.library-collapsed):not(.sweep-mode):not(.docs-mode):not(.options-mode) { grid-template-rows: minmax(80px, 20%) minmax(0, 1fr); }
     .body.sweep-mode, .body.docs-mode { grid-template-rows: minmax(0, 1fr); }
-    .rail { border-bottom: 1px solid oklch(var(--border)); }
-    .rail-head { padding: 8px 12px; }
-    .rail-foot { display: none; }
   }
 
   @media (max-width: 900px) {
-    .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
-    .topbar .close { margin-left: auto; }
-    .ctx { flex-wrap: wrap; }
     .work-head { flex-wrap: wrap; padding: 8px 12px; }
     .actions { flex-wrap: wrap; }
   }
   @media (max-width: 760px) {
-    .embedded .topbar { flex-wrap: nowrap; padding: 0 8px; }
-    .embedded .tab { min-height: 36px; padding: 4px 9px; }
-    .embedded .topbar > .ot-workbench-ghost { min-height: 44px; }
     .work-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 12px; }
     .actions { flex-wrap: nowrap; gap: 6px; }
-    .actions .btn { min-height: 44px; font-size: 13px; }
+    .actions .btn { min-height: 44px; font-size: var(--font-size-control); }
     .wide-action { display: none; }
     .mobile-actions { display: flex; }
-    .editor-views { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 6px; padding: 4px 8px; }
-    .editor-views .ot-workbench-ghost { min-height: 44px; }
-    .editor-views .compact-view { grid-row: 1 / span 2; }
-    .editor-views .compact-view:first-of-type { grid-column: 1; }
-    .editor-views .compact-view:nth-of-type(2) { grid-column: 2; }
-    .editor-views button:not(.compact-view) { grid-column: 1 / -1; }
-    .editor-views > span { grid-column: 3; font-size: 11px; line-height: 14px; }
+    .editor-views { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; }
+    .editor-views .ot-workbench-ghost, .view-switch button { min-height: 44px; }
+    .view-switch { grid-column: 1; grid-row: 1 / span 2; }
+    .editor-views > button { grid-column: 1 / -1; }
+    .editor-views > span { grid-column: 2; font-size: var(--font-size-label); line-height: 14px; }
     .editor-views > span:first-child { grid-row: 1; align-self: end; }
     .editor-views > span[role="status"] { grid-row: 2; align-self: start; }
   }
 
   .work { min-width: 0; }
-  .ri-select {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    min-width: 0;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .ri-del { border: 0; padding: 0; background: transparent; opacity: 1; }
   button:focus-visible, input:focus-visible {
     outline: 2px solid oklch(var(--foreground));
     outline-offset: 2px;
   }
   @media (forced-colors: active) {
     button:focus-visible, input:focus-visible { outline-color: Highlight; }
+    .view-switch button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   }
-
-  /* ---------------------------------------------------------------- */
-  /* Light theme: pure white chrome, mirroring IndicatorsPanel.        */
-  /* ---------------------------------------------------------------- */
 </style>

@@ -142,20 +142,20 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--font-size-chrome);
   }
   th {
     position: sticky;
     top: 0;
     text-align: left;
     padding: 8px 12px;
-    font-size: 10px;
-    letter-spacing: 0.1em;
+    font-size: var(--font-size-annotation);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: oklch(var(--muted-foreground));
-    background: color-mix(in oklab, oklch(var(--popover)) 100%, black 6%);
+    background: oklch(var(--background));
     border-bottom: 1px dashed
-      color-mix(in oklab, oklch(var(--border)) 90%, transparent);
+      oklch(var(--border));
     user-select: none;
     white-space: nowrap;
   }
@@ -175,6 +175,7 @@
   }
   @media (forced-colors: active) {
     th button:focus-visible { outline-color: Highlight; }
+    tbody tr.active { outline: 2px solid Highlight; outline-offset: -2px; }
   }
   td {
     padding: 6px 12px;
@@ -189,15 +190,15 @@
   }
   tbody tr:hover,
   tbody tr.active {
-    background: color-mix(in oklab, oklch(var(--primary)) 12%, transparent);
+    background: oklch(var(--surface-selected));
   }
   .num {
     text-align: right;
   }
   .side {
     text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.06em;
+    font-size: var(--font-size-label);
+    letter-spacing: var(--tracking-label);
   }
   .side.buy {
     color: oklch(var(--up-color));
